@@ -95,6 +95,22 @@ export default function DashboardLayout() {
 
             {/* Right Controls */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Auto-Refresh */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded mr-1 ${autoRefresh ? "bg-bullish/15" : "bg-accent/50"}`}
+                    onClick={() => setAutoRefresh(!autoRefresh)}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${autoRefresh ? "text-bullish animate-spin" : "text-muted-foreground"}`} style={autoRefresh ? { animationDuration: "3s" } : {}} />
+                    <span className={`text-[10px] font-mono ${autoRefresh ? "text-bullish" : "text-muted-foreground"}`}>
+                      {autoRefresh ? `${refreshCountdown}s` : "OFF"}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Auto-refresh {autoRefresh ? "ON" : "OFF"} · Click to toggle</TooltipContent>
+              </Tooltip>
+
               {/* Time to Expiry */}
               <Tooltip>
                 <TooltipTrigger asChild>
