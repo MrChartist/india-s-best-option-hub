@@ -8,18 +8,32 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { AlertSystem } from "@/components/AlertSystem";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { indicesData, marketStats } from "@/lib/mockData";
-import { Search, Bell, Keyboard, Timer } from "lucide-react";
+import { Search, Bell, Keyboard, Timer, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function DashboardLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [timeToExpiry, setTimeToExpiry] = useState("");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshCountdown, setRefreshCountdown] = useState(30);
 
   useKeyboardShortcuts({
     onToggleSearch: () => setSearchOpen(true),
     onToggleAlerts: () => setAlertsOpen(true),
   });
+
+  // Auto-refresh countdown
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) return 30; // Reset countdown
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
 
   // Calculate time to nearest expiry
   useEffect(() => {
@@ -81,6 +95,22 @@ export default function DashboardLayout() {
 
             {/* Right Controls */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Auto-Refresh */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded mr-1 ${autoRefresh ? "bg-bullish/15" : "bg-accent/50"}`}
+                    onClick={() => setAutoRefresh(!autoRefresh)}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${autoRefresh ? "text-bullish animate-spin" : "text-muted-foreground"}`} style={autoRefresh ? { animationDuration: "3s" } : {}} />
+                    <span className={`text-[10px] font-mono ${autoRefresh ? "text-bullish" : "text-muted-foreground"}`}>
+                      {autoRefresh ? `${refreshCountdown}s` : "OFF"}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Auto-refresh {autoRefresh ? "ON" : "OFF"} · Click to toggle</TooltipContent>
+              </Tooltip>
+
               {/* Time to Expiry */}
               <Tooltip>
                 <TooltipTrigger asChild>

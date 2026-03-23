@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const riskColors = {
 };
 
 export default function StrategyBuilder() {
+  const [searchParams] = useSearchParams();
   const spotPrice = 24250.75;
   const lotSize = 25;
   const stepSize = 50;
@@ -32,6 +34,21 @@ export default function StrategyBuilder() {
   const [legs, setLegs] = useState<StrategyLeg[]>(presets[0].legs);
   const [selectedPreset, setSelectedPreset] = useState(presets[0].name);
   const selectedStrategy = presets.find(p => p.name === selectedPreset);
+
+  // Quick trade from option chain
+  useEffect(() => {
+    const strike = searchParams.get("strike");
+    const type = searchParams.get("type") as "CE" | "PE" | null;
+    const action = searchParams.get("action") as "BUY" | "SELL" | null;
+    if (strike && type && action) {
+      const s = Number(strike);
+      const atm = Math.round(spotPrice / stepSize) * stepSize;
+      const distFromATM = Math.abs(s - atm) / stepSize;
+      const premium = Math.max(5, 150 * Math.exp(-distFromATM * 0.2));
+      setLegs([{ type, action, strike: s, lots: 1, premium: Math.round(premium * 100) / 100 }]);
+      setSelectedPreset("");
+    }
+  }, [searchParams]);
 
   const handlePreset = (name: string) => {
     const p = presets.find(s => s.name === name);

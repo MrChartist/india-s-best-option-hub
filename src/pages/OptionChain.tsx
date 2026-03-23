@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Crosshair, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Crosshair, Wifi, WifiOff, RefreshCw, ShoppingCart } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fnoStocks } from "@/lib/mockData";
 import { useLiveOptionChain } from "@/hooks/useNSEData";
 
@@ -33,11 +34,17 @@ function OIBar({ value, max, side }: { value: number; max: number; side: "call" 
 
 export default function OptionChain() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [symbol, setSymbol] = useState(searchParams.get("symbol") || "NIFTY");
   const [selectedExpiry, setSelectedExpiry] = useState<string | undefined>(undefined);
   const [showGreeks, setShowGreeks] = useState(false);
   const [showBidAsk, setShowBidAsk] = useState(false);
   const atmRef = useRef<HTMLTableRowElement>(null);
+
+  const quickTrade = useCallback((strike: number, type: "CE" | "PE", action: "BUY" | "SELL") => {
+    const params = new URLSearchParams({ symbol, strike: String(strike), type, action });
+    navigate(`/strategy?${params.toString()}`);
+  }, [symbol, navigate]);
 
   const { data, isLoading, refetch } = useLiveOptionChain(symbol, selectedExpiry);
 
@@ -223,7 +230,17 @@ export default function OptionChain() {
                         </div>
                       </TableCell>
                       <TableCell className={`text-right py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{(row.ce.volume / 1000).toFixed(1)}K</TableCell>
-                      <TableCell className={`text-right py-1.5 font-medium ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.ltp.toFixed(2)}</TableCell>
+                      <TableCell className={`text-right py-1.5 font-medium ${isITMCall ? "bg-bullish/10" : ""}`}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bullish/20 text-bullish hover:bg-bullish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "BUY"); }}>B</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Buy CE {row.strikePrice}</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bearish/20 text-bearish hover:bg-bearish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "SELL"); }}>S</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Sell CE {row.strikePrice}</TooltipContent></Tooltip>
+                          <span>{row.ce.ltp.toFixed(2)}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center py-1.5 font-bold bg-accent">
                         <div className="flex items-center justify-center gap-1">
                           {row.strikePrice.toLocaleString("en-IN")}
@@ -232,7 +249,17 @@ export default function OptionChain() {
                         </div>
                         <p className="text-[8px] text-muted-foreground">{straddle.toFixed(1)}</p>
                       </TableCell>
-                      <TableCell className={`text-left py-1.5 font-medium ${isITMPut ? "bg-bearish/10" : ""}`}>{row.pe.ltp.toFixed(2)}</TableCell>
+                      <TableCell className={`text-left py-1.5 font-medium ${isITMPut ? "bg-bearish/10" : ""}`}>
+                        <div className="flex items-center gap-1">
+                          <span>{row.pe.ltp.toFixed(2)}</span>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bullish/20 text-bullish hover:bg-bullish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "PE", "BUY"); }}>B</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Buy PE {row.strikePrice}</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bearish/20 text-bearish hover:bg-bearish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "PE", "SELL"); }}>S</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Sell PE {row.strikePrice}</TooltipContent></Tooltip>
+                        </div>
+                      </TableCell>
                       <TableCell className={`text-left py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{(row.pe.volume / 1000).toFixed(1)}K</TableCell>
                       <TableCell className={`text-left py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>
                         <div className="flex items-center gap-1">

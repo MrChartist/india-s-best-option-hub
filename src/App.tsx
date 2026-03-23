@@ -12,6 +12,11 @@ import StrategyBuilder from "./pages/StrategyBuilder";
 import OptionsScanner from "./pages/OptionsScanner";
 import PositionTracker from "./pages/PositionTracker";
 import PriceCharts from "./pages/PriceCharts";
+import StraddleCharts from "./pages/StraddleCharts";
+import VolatilitySurface from "./pages/VolatilitySurface";
+import FIIDIIActivity from "./pages/FIIDIIActivity";
+import OISpurts from "./pages/OISpurts";
+import Watchlist from "./pages/Watchlist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +37,11 @@ const App = () => (
             <Route path="/scanner" element={<OptionsScanner />} />
             <Route path="/positions" element={<PositionTracker />} />
             <Route path="/charts" element={<PriceCharts />} />
+            <Route path="/straddle" element={<StraddleCharts />} />
+            <Route path="/volatility" element={<VolatilitySurface />} />
+            <Route path="/fii-dii" element={<FIIDIIActivity />} />
+            <Route path="/oi-spurts" element={<OISpurts />} />
+            <Route path="/watchlist" element={<Watchlist />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

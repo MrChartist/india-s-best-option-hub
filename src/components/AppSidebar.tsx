@@ -1,4 +1,4 @@
-import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, TrendingUp, ScanSearch, Briefcase, CandlestickChart } from "lucide-react";
+import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, TrendingUp, ScanSearch, Briefcase, CandlestickChart, Activity, Gauge, Users, Zap, Star, Eye } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,15 +17,20 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Watchlist", url: "/watchlist", icon: Star },
   { title: "Charts", url: "/charts", icon: CandlestickChart },
   { title: "Option Chain", url: "/option-chain", icon: TableProperties },
   { title: "OI Analysis", url: "/oi-analysis", icon: BarChart3 },
+  { title: "OI Spurts", url: "/oi-spurts", icon: Zap },
 ];
 
 const toolItems = [
+  { title: "Straddle Charts", url: "/straddle", icon: Activity },
+  { title: "IV Surface", url: "/volatility", icon: Gauge },
   { title: "Scanner", url: "/scanner", icon: ScanSearch },
   { title: "Greeks Calc", url: "/greeks", icon: Calculator },
   { title: "Strategy Builder", url: "/strategy", icon: Layers },
+  { title: "FII/DII", url: "/fii-dii", icon: Users },
   { title: "Positions", url: "/positions", icon: Briefcase },
 ];
 
@@ -73,7 +78,7 @@ export function AppSidebar() {
         <SidebarSeparator />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Analytics & Tools</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {toolItems.map((item) => (
