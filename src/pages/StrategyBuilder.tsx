@@ -209,9 +209,9 @@ export default function StrategyBuilder() {
                         <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" }}
                       formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "P&L"]}

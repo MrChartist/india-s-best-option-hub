@@ -85,10 +85,10 @@ export default function FIIDIIActivity() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={fiiDii}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <ReferenceLine yAxisId="flow" y={0} stroke="hsl(215 15% 40%)" />
                     <Bar yAxisId="flow" dataKey="fiiNet" name="FII Net" radius={[2, 2, 0, 0]}>
@@ -114,10 +114,10 @@ export default function FIIDIIActivity() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={fiiFuturesOI}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="oi" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="ratio" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={[0.8, 1.3]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="oi" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="ratio" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={[0.8, 1.3]} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Area yAxisId="oi" type="monotone" dataKey="longOI" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.1)" strokeWidth={1.5} name="Long OI" />
                     <Area yAxisId="oi" type="monotone" dataKey="shortOI" stroke="hsl(0 84% 60%)" fill="hsl(0 84% 60% / 0.1)" strokeWidth={1.5} name="Short OI" />
@@ -195,10 +195,10 @@ export default function FIIDIIActivity() {
                     });
                     return (
                       <ComposedChart data={cumData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
                         <ReferenceLine yAxisId="flow" y={0} stroke="hsl(215 15% 40%)" />
                         <Area yAxisId="flow" type="monotone" dataKey="cumFII" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.1)" strokeWidth={2} name="Cum. FII (₹Cr)" />

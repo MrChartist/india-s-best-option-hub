@@ -242,9 +242,9 @@ export default function OptionsScanner() {
                           <stop offset="100%" stopColor="hsl(210 100% 52%)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                      <YAxis tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                      <XAxis dataKey="date" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Area type="monotone" dataKey="iv" stroke="hsl(210 100% 52%)" fill="url(#ivGrad)" strokeWidth={1.5} name="IV" />
                       <Line type="monotone" dataKey="hv" stroke="hsl(38 92% 50%)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="HV" />

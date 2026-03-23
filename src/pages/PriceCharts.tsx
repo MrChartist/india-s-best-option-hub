@@ -166,9 +166,9 @@ export default function PriceCharts() {
         <div style={{ height }}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-              <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-              <YAxis domain={["auto", "auto"]} tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+              <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+              <YAxis domain={["auto", "auto"]} tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
               <Tooltip contentStyle={tooltipStyle} />
               <Line type="monotone" dataKey="close" stroke={isUp ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} strokeWidth={1.5} dot={false} />
               <ReferenceLine y={price} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" />
@@ -289,10 +289,10 @@ export default function PriceCharts() {
                   <div className="h-[350px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => {
                           if (name === "volume") return [(value / 1000).toFixed(0) + "K", "Volume"];
                           return [value.toFixed(2), name.charAt(0).toUpperCase() + name.slice(1)];
@@ -338,10 +338,10 @@ export default function PriceCharts() {
                   <div className="h-[250px] mb-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={candleOIData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
                         <Line yAxisId="price" type="monotone" dataKey="close" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={false} />
                         <Area yAxisId="oi" type="monotone" dataKey="oi" stroke="hsl(210 100% 52% / 0.5)" fill="hsl(210 100% 52% / 0.08)" strokeWidth={1} />
@@ -351,9 +351,9 @@ export default function PriceCharts() {
                   <div className="h-[120px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={candleOIData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                        <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                        <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
                         <Bar dataKey="volume" fill="hsl(215 15% 55% / 0.12)" radius={[1, 1, 0, 0]} />
                         <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
@@ -374,10 +374,10 @@ export default function PriceCharts() {
                   <div className="h-[350px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={optionOIData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                        <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                        <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                        <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
                         <Area yAxisId="oi" type="monotone" dataKey="oi" stroke="hsl(210 100% 52% / 0.5)" fill="hsl(210 100% 52% / 0.08)" strokeWidth={1} name="OI" />
                         <Line yAxisId="price" type="monotone" dataKey="optionPrice" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={false} name="Option Price" />
@@ -463,9 +463,9 @@ export default function PriceCharts() {
                 <div className="h-[150px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={ivRankData.ivHistory}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                      <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                      <YAxis tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                      <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Line type="monotone" dataKey="iv" stroke="hsl(38 92% 50%)" strokeWidth={1.5} dot={false} name="IV" />
                       <Line type="monotone" dataKey="hvol" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="HV" />

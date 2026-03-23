@@ -189,9 +189,9 @@ export default function GreeksCalculator() {
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={activeChart === "price" ? multiDTEData : sensitivityData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <ReferenceLine x={spot} stroke="hsl(210 100% 52%)" strokeDasharray="5 5" />
                     <ReferenceLine x={strike} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" />

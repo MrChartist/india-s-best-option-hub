@@ -482,9 +482,9 @@ export default function Index() {
               <div className="h-[180px] mb-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={futuresPremiumChart} layout="vertical" barSize={20}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: "hsl(215 15% 55%)" }} width={110} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={110} />
                     <Tooltip
                       contentStyle={tooltipStyle}
                       formatter={(value: number, name: string) => {
@@ -554,8 +554,8 @@ export default function Index() {
                       <stop offset="100%" stopColor="hsl(38 92% 50%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                  <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} />
+                  <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Area type="monotone" dataKey="vix" stroke="hsl(38 92% 50%)" fill="url(#vixGrad)" strokeWidth={1.5} dot={false} />
                 </AreaChart>
@@ -675,10 +675,10 @@ export default function Index() {
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={breadth.advDecLine}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                  <YAxis yAxisId="ad" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                  <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis yAxisId="ad" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Line yAxisId="ad" type="monotone" dataKey="adLine" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="A/D Line" />
                   <Line yAxisId="nifty" type="monotone" dataKey="nifty" stroke="hsl(38 92% 50%)" strokeWidth={1.5} dot={false} name="Nifty" />
@@ -697,9 +697,9 @@ export default function Index() {
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={breadth.highsLows} barGap={0}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                  <YAxis tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="newHighs" fill="hsl(142 71% 45% / 0.7)" name="New Highs" radius={[2, 2, 0, 0]} />
                   <Bar dataKey="newLows" fill="hsl(0 84% 60% / 0.7)" name="New Lows" radius={[2, 2, 0, 0]} />

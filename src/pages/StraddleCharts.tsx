@@ -106,11 +106,11 @@ export default function StraddleCharts() {
                         <stop offset="100%" stopColor="hsl(210 100% 52%)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine y={opening.straddlePremium} stroke="hsl(215 15% 40%)" strokeDasharray="5 5" label={{ value: "Open", fill: "hsl(215 15% 55%)", fontSize: 9 }} />
+                    <ReferenceLine y={opening.straddlePremium} stroke="hsl(215 15% 40%)" strokeDasharray="5 5" label={{ value: "Open", fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
                     <Area type="monotone" dataKey="straddlePremium" stroke="hsl(38 92% 50%)" fill="url(#straddleGrad)" strokeWidth={2} name="Straddle" />
                     <Area type="monotone" dataKey="stranglePremium" stroke="hsl(210 100% 52%)" fill="url(#strangleGrad)" strokeWidth={1.5} name="Strangle" />
                   </AreaChart>
@@ -129,9 +129,9 @@ export default function StraddleCharts() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={intraday}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Line type="monotone" dataKey="cePrice" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} name="CE Premium" />
                     <Line type="monotone" dataKey="pePrice" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="PE Premium" />
@@ -161,10 +161,10 @@ export default function StraddleCharts() {
                         <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="prem" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="decay" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="prem" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="decay" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Area yAxisId="prem" type="monotone" dataKey="premium" stroke="hsl(38 92% 50%)" fill="url(#straddleGrad)" strokeWidth={2} name="Premium" />
                     <Bar yAxisId="decay" dataKey="premiumDecay" fill="hsl(0 84% 60% / 0.4)" name="Decay (₹)" radius={[2, 2, 0, 0]} />
@@ -184,10 +184,10 @@ export default function StraddleCharts() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={intraday}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="premium" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="spot" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["dataMin - 50", "dataMax + 50"]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
+                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="premium" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis yAxisId="spot" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["dataMin - 50", "dataMax + 50"]} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Line yAxisId="premium" type="monotone" dataKey="straddlePremium" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={false} name="Straddle ₹" />
                     <Line yAxisId="spot" type="monotone" dataKey="spotPrice" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="Spot" />
