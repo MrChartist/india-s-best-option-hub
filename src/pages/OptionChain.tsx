@@ -230,7 +230,17 @@ export default function OptionChain() {
                         </div>
                       </TableCell>
                       <TableCell className={`text-right py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{(row.ce.volume / 1000).toFixed(1)}K</TableCell>
-                      <TableCell className={`text-right py-1.5 font-medium ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.ltp.toFixed(2)}</TableCell>
+                      <TableCell className={`text-right py-1.5 font-medium ${isITMCall ? "bg-bullish/10" : ""}`}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bullish/20 text-bullish hover:bg-bullish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "BUY"); }}>B</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Buy CE {row.strikePrice}</TooltipContent></Tooltip>
+                          <Tooltip><TooltipTrigger asChild>
+                            <button className="text-[8px] px-1 py-0.5 rounded bg-bearish/20 text-bearish hover:bg-bearish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "SELL"); }}>S</button>
+                          </TooltipTrigger><TooltipContent className="text-[10px]">Sell CE {row.strikePrice}</TooltipContent></Tooltip>
+                          <span>{row.ce.ltp.toFixed(2)}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center py-1.5 font-bold bg-accent">
                         <div className="flex items-center justify-center gap-1">
                           {row.strikePrice.toLocaleString("en-IN")}
