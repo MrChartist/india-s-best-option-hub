@@ -22,6 +22,7 @@ export default function Index() {
   const niftyIntraday = useMemo(() => generateIntradayData(indices[0]?.prevClose || 24125.45, 0.5), [indices]);
   const bankNiftyIntraday = useMemo(() => generateIntradayData(indices[1]?.prevClose || 52031, 0.6), [indices]);
   const vixHistory = useMemo(() => generateVIXHistory(), []);
+  const breadth = useMemo(() => getMarketBreadth(), []);
 
   // Futures premium/discount chart data
   const futuresPremiumChart = useMemo(() => {
