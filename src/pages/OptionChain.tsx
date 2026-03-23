@@ -34,11 +34,17 @@ function OIBar({ value, max, side }: { value: number; max: number; side: "call" 
 
 export default function OptionChain() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [symbol, setSymbol] = useState(searchParams.get("symbol") || "NIFTY");
   const [selectedExpiry, setSelectedExpiry] = useState<string | undefined>(undefined);
   const [showGreeks, setShowGreeks] = useState(false);
   const [showBidAsk, setShowBidAsk] = useState(false);
   const atmRef = useRef<HTMLTableRowElement>(null);
+
+  const quickTrade = useCallback((strike: number, type: "CE" | "PE", action: "BUY" | "SELL") => {
+    const params = new URLSearchParams({ symbol, strike: String(strike), type, action });
+    navigate(`/strategy?${params.toString()}`);
+  }, [symbol, navigate]);
 
   const { data, isLoading, refetch } = useLiveOptionChain(symbol, selectedExpiry);
 
