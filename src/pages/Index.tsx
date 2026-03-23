@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { marketStats, futuresData, mostActiveFnO, sectorData, generateIntradayData, generateVIXHistory, topGainers, topLosers } from "@/lib/mockData";
+import { marketStats, futuresData, mostActiveFnO, sectorData, generateIntradayData, generateVIXHistory, topGainers, topLosers, getMarketBreadth } from "@/lib/mockData";
 import { useLiveIndices, useMarketStatus } from "@/hooks/useNSEData";
 import { TrendingUp, TrendingDown, Activity, BarChart3, Users, Clock, Zap, Globe, Wifi, WifiOff, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
