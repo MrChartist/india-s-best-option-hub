@@ -3,13 +3,11 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { CommandPalette } from "@/components/CommandPalette";
 import { AlertSystem } from "@/components/AlertSystem";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useTheme } from "@/hooks/useTheme";
 import { indicesData, marketStats } from "@/lib/mockData";
-import { Search, Bell, Keyboard, Timer, RefreshCw, Sun, Moon } from "lucide-react";
+import { Search, Bell, Timer, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function DashboardLayout() {
@@ -18,26 +16,20 @@ export default function DashboardLayout() {
   const [timeToExpiry, setTimeToExpiry] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshCountdown, setRefreshCountdown] = useState(30);
-  const { theme, toggle: toggleTheme, isDark } = useTheme();
 
   useKeyboardShortcuts({
     onToggleSearch: () => setSearchOpen(true),
     onToggleAlerts: () => setAlertsOpen(true),
   });
 
-  // Auto-refresh countdown
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
-      setRefreshCountdown(prev => {
-        if (prev <= 1) return 30;
-        return prev - 1;
-      });
+      setRefreshCountdown(prev => (prev <= 1 ? 30 : prev - 1));
     }, 1000);
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  // Calculate time to nearest expiry
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
@@ -45,9 +37,7 @@ export default function DashboardLayout() {
       target.setHours(15, 30, 0, 0);
       const dayOfWeek = now.getDay();
       const daysUntilThursday = ((4 - dayOfWeek) + 7) % 7 || 7;
-      if (dayOfWeek === 4 && now < target) {
-        // Thursday before 15:30
-      } else {
+      if (!(dayOfWeek === 4 && now < target)) {
         target.setDate(target.getDate() + daysUntilThursday);
       }
       const diff = target.getTime() - now.getTime();
@@ -67,98 +57,78 @@ export default function DashboardLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top Bar */}
-          <header className="h-9 flex items-center border-b border-border px-3 shrink-0 bg-card">
-            <SidebarTrigger className="mr-2" />
+          {/* Compact top bar */}
+          <header className="h-8 flex items-center border-b border-border px-3 shrink-0 bg-card/80 backdrop-blur-sm">
+            <SidebarTrigger className="mr-2 h-6 w-6" />
 
-            {/* Mini Ticker */}
-            <div className="flex items-center gap-3 overflow-hidden flex-1">
+            {/* Ticker */}
+            <div className="flex items-center gap-4 overflow-hidden flex-1">
               {indicesData.slice(0, 3).map((idx) => {
                 const pos = idx.change >= 0;
                 return (
                   <div key={idx.symbol} className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{idx.symbol}</span>
-                    <span className="text-[11px] font-mono font-medium">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                    <span className={`text-[10px] font-mono ${pos ? "text-bullish" : "text-bearish"}`}>
+                    <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{idx.symbol}</span>
+                    <span className="text-[11px] font-mono font-semibold">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    <span className={`text-[9px] font-mono font-medium ${pos ? "text-bullish" : "text-bearish"}`}>
                       {pos ? "+" : ""}{idx.changePercent.toFixed(2)}%
                     </span>
                   </div>
                 );
               })}
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">VIX</span>
-                <span className="text-[11px] font-mono font-medium">{marketStats.indiaVix}</span>
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wider">VIX</span>
+                <span className="text-[11px] font-mono font-semibold">{marketStats.indiaVix}</span>
               </div>
             </div>
 
-            {/* Right Controls */}
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Auto-Refresh */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${autoRefresh ? "text-bullish" : "text-muted-foreground"}`}
-                    onClick={() => setAutoRefresh(!autoRefresh)}
-                  >
-                    <RefreshCw className={`h-3 w-3 ${autoRefresh ? "animate-spin" : ""}`} style={autoRefresh ? { animationDuration: "3s" } : {}} />
-                    {autoRefresh ? `${refreshCountdown}s` : "OFF"}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Auto-refresh {autoRefresh ? "ON" : "OFF"}</TooltipContent>
-              </Tooltip>
+            {/* Controls */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono transition-colors ${autoRefresh ? "text-bullish" : "text-muted-foreground"}`}
+                onClick={() => setAutoRefresh(!autoRefresh)}
+              >
+                <RefreshCw className={`h-2.5 w-2.5 ${autoRefresh ? "animate-spin" : ""}`} style={autoRefresh ? { animationDuration: "3s" } : {}} />
+                {autoRefresh ? `${refreshCountdown}s` : "OFF"}
+              </button>
 
-              <div className="w-px h-4 bg-border mx-0.5" />
+              <div className="w-px h-3.5 bg-border mx-1" />
 
-              {/* Time to Expiry */}
               <div className="flex items-center gap-1 px-1.5">
-                <Timer className="h-3 w-3 text-warning" />
-                <span className="text-[10px] font-mono text-warning">{timeToExpiry}</span>
+                <Timer className="h-2.5 w-2.5 text-warning" />
+                <span className="text-[9px] font-mono text-warning">{timeToExpiry}</span>
               </div>
 
-              <div className="w-px h-4 bg-border mx-0.5" />
+              <div className="w-px h-3.5 bg-border mx-1" />
 
-              {/* Theme Toggle */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={toggleTheme}>
-                    {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSearchOpen(true)}>
+                    <Search className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{isDark ? "Light mode" : "Dark mode"}</TooltipContent>
+                <TooltipContent side="bottom">Search <span className="font-mono text-muted-foreground">/</span></TooltipContent>
               </Tooltip>
 
-              {/* Search */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSearchOpen(true)}>
-                    <Search className="h-3.5 w-3.5" />
+                  <Button variant="ghost" size="icon" className="h-6 w-6 relative" onClick={() => setAlertsOpen(true)}>
+                    <Bell className="h-3 w-3" />
+                    <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Search <span className="font-mono text-muted-foreground ml-1">/</span></TooltipContent>
+                <TooltipContent side="bottom">Alerts</TooltipContent>
               </Tooltip>
 
-              {/* Alerts */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 relative" onClick={() => setAlertsOpen(true)}>
-                    <Bell className="h-3.5 w-3.5" />
-                    <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Alerts</TooltipContent>
-              </Tooltip>
+              <div className="w-px h-3.5 bg-border mx-1" />
 
-              <div className="w-px h-4 bg-border mx-0.5" />
-
-              {/* Market Status */}
               <div className="flex items-center gap-1.5">
                 <span className={`h-1.5 w-1.5 rounded-full ${isOpen ? "bg-bullish animate-pulse-glow" : "bg-muted-foreground"}`} />
-                <span className="text-[10px] text-muted-foreground font-mono">{isOpen ? "LIVE" : "CLOSED"}</span>
+                <span className="text-[9px] text-muted-foreground font-mono">{isOpen ? "MKT OPEN" : "CLOSED"}</span>
               </div>
-              <span className="text-[10px] text-muted-foreground font-mono ml-1">
+              <span className="text-[9px] text-muted-foreground font-mono ml-1.5">
                 {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
