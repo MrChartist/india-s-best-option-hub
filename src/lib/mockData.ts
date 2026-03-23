@@ -571,3 +571,202 @@ export function estimateProbOfProfit(legs: StrategyLeg[], lotSize: number, spotP
   }
   return Math.round((profitable / samples) * 100);
 }
+
+// ── IV Analytics ──
+
+export interface IVAnalytics {
+  symbol: string;
+  currentIV: number;
+  ivRank: number;
+  ivPercentile: number;
+  iv52High: number;
+  iv52Low: number;
+  hvMonth: number;
+  hvWeek: number;
+  expectedMove: number;
+  expectedMovePercent: number;
+}
+
+export function getIVAnalytics(symbol: string): IVAnalytics {
+  const spotMap: Record<string, number> = {
+    NIFTY: 24250.75, BANKNIFTY: 51850.40, FINNIFTY: 23180.55, MIDCPNIFTY: 12850.30,
+    RELIANCE: 2945.50, TCS: 3850.70, HDFCBANK: 1685.40, INFY: 1520.85,
+    ICICIBANK: 1245.60, SBIN: 825.75, TATAMOTORS: 985.30, BAJFINANCE: 7280.25,
+    ITC: 468.35, MARUTI: 12450.60,
+  };
+  const spot = spotMap[symbol] || 2500;
+  const rand = seededRandom(symbol.length * 137 + symbol.charCodeAt(0));
+  const currentIV = 12 + rand() * 18;
+  const iv52High = currentIV * (1.4 + rand() * 0.6);
+  const iv52Low = currentIV * (0.4 + rand() * 0.2);
+  const ivRange = iv52High - iv52Low;
+  const ivRank = Math.round(((currentIV - iv52Low) / ivRange) * 100);
+  const dte = 4;
+  const expectedMove = spot * (currentIV / 100) * Math.sqrt(dte / 365);
+
+  return {
+    symbol,
+    currentIV: Math.round(currentIV * 100) / 100,
+    ivRank: Math.max(0, Math.min(100, ivRank)),
+    ivPercentile: Math.max(0, Math.min(100, Math.round(ivRank * (0.9 + rand() * 0.2)))),
+    iv52High: Math.round(iv52High * 100) / 100,
+    iv52Low: Math.round(iv52Low * 100) / 100,
+    hvMonth: Math.round((currentIV * (0.85 + rand() * 0.3)) * 100) / 100,
+    hvWeek: Math.round((currentIV * (0.7 + rand() * 0.6)) * 100) / 100,
+    expectedMove: Math.round(expectedMove * 100) / 100,
+    expectedMovePercent: Math.round((expectedMove / spot) * 10000) / 100,
+  };
+}
+
+export function generateIVHistory(symbol: string): { date: string; iv: number; hv: number }[] {
+  const rand = seededRandom(symbol.charCodeAt(0) * 31);
+  let iv = 14 + rand() * 10;
+  let hv = iv * 0.9;
+  const points: { date: string; iv: number; hv: number }[] = [];
+  for (let d = 90; d >= 0; d--) {
+    iv += (rand() - 0.48) * 1.5;
+    hv += (rand() - 0.48) * 1.2;
+    iv = Math.max(8, Math.min(45, iv));
+    hv = Math.max(6, Math.min(40, hv));
+    const date = new Date();
+    date.setDate(date.getDate() - d);
+    points.push({ date: `${date.getDate()}/${date.getMonth() + 1}`, iv: Math.round(iv * 100) / 100, hv: Math.round(hv * 100) / 100 });
+  }
+  return points;
+}
+
+// ── Scanner Data ──
+
+export interface ScannerResult {
+  symbol: string;
+  ltp: number;
+  changePercent: number;
+  iv: number;
+  ivRank: number;
+  ivPercentile: number;
+  totalOI: number;
+  oiChange: number;
+  oiChangePercent: number;
+  volume: number;
+  volumeAvgRatio: number;
+  pcr: number;
+  expectedMove: number;
+  expectedMovePercent: number;
+  signals: string[];
+}
+
+export function getScannerResults(): ScannerResult[] {
+  const allSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", ...fnoStocks];
+  const rand = seededRandom(42);
+
+  return allSymbols.map(symbol => {
+    const ivData = getIVAnalytics(symbol);
+    const spotMap: Record<string, number> = {
+      NIFTY: 24250.75, BANKNIFTY: 51850.40, FINNIFTY: 23180.55,
+      RELIANCE: 2945.50, TCS: 3850.70, HDFCBANK: 1685.40, INFY: 1520.85,
+      ICICIBANK: 1245.60, SBIN: 825.75, TATAMOTORS: 985.30, BAJFINANCE: 7280.25,
+      ITC: 468.35, MARUTI: 12450.60, HINDUNILVR: 2650, BHARTIARTL: 1580,
+      KOTAKBANK: 1820, LT: 3450, AXISBANK: 1125, ASIANPAINT: 2890,
+      SUNPHARMA: 1680, TITAN: 3250, WIPRO: 485, ULTRACEMCO: 10850,
+      MIDCPNIFTY: 12850,
+    };
+    const ltp = spotMap[symbol] || (1000 + rand() * 5000);
+    const changePercent = (rand() - 0.45) * 5;
+    const totalOI = Math.round(5000000 + rand() * 50000000);
+    const oiChange = Math.round((rand() - 0.4) * totalOI * 0.08);
+    const volume = Math.round(2000000 + rand() * 15000000);
+    const volumeAvgRatio = 0.5 + rand() * 3;
+    const pcr = 0.5 + rand() * 1.5;
+
+    const signals: string[] = [];
+    if (ivData.ivRank > 75) signals.push("High IV Rank");
+    if (ivData.ivRank < 20) signals.push("Low IV Rank");
+    if (Math.abs(oiChange) / totalOI > 0.05) signals.push("OI Surge");
+    if (volumeAvgRatio > 2) signals.push("Volume Spike");
+    if (Math.abs(changePercent) > 3) signals.push("Price Breakout");
+    if (pcr > 1.5) signals.push("High PCR");
+    if (pcr < 0.5) signals.push("Low PCR");
+
+    return {
+      symbol, ltp, changePercent,
+      iv: ivData.currentIV, ivRank: ivData.ivRank, ivPercentile: ivData.ivPercentile,
+      totalOI, oiChange, oiChangePercent: Math.round((oiChange / totalOI) * 10000) / 100,
+      volume, volumeAvgRatio: Math.round(volumeAvgRatio * 100) / 100,
+      pcr: Math.round(pcr * 100) / 100,
+      expectedMove: ivData.expectedMove, expectedMovePercent: ivData.expectedMovePercent,
+      signals,
+    };
+  });
+}
+
+// ── Candlestick Data ──
+
+export interface CandleData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export function generateCandleData(basePrice: number, count: number = 60): CandleData[] {
+  const rand = seededRandom(Math.round(basePrice));
+  let price = basePrice * 0.95;
+  const candles: CandleData[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const open = price;
+    const change = (rand() - 0.48) * basePrice * 0.012;
+    const close = open + change;
+    const wick = Math.abs(change) * (0.5 + rand());
+    const high = Math.max(open, close) + wick * rand();
+    const low = Math.min(open, close) - wick * rand();
+    const volume = Math.round(500000 + rand() * 2000000);
+
+    const date = new Date();
+    date.setDate(date.getDate() - (count - i));
+    candles.push({
+      time: `${date.getDate()}/${date.getMonth() + 1}`,
+      open: Math.round(open * 100) / 100,
+      high: Math.round(high * 100) / 100,
+      low: Math.round(low * 100) / 100,
+      close: Math.round(close * 100) / 100,
+      volume,
+    });
+    price = close;
+  }
+  return candles;
+}
+
+// ── Position Tracker ──
+
+export interface Position {
+  id: string;
+  symbol: string;
+  type: "CE" | "PE";
+  action: "BUY" | "SELL";
+  strike: number;
+  lots: number;
+  entryPrice: number;
+  currentPrice: number;
+  lotSize: number;
+  entryDate: string;
+  expiry: string;
+  pnl: number;
+  pnlPercent: number;
+  delta: number;
+  theta: number;
+  iv: number;
+}
+
+export function getMockPositions(): Position[] {
+  return [
+    { id: "1", symbol: "NIFTY", type: "CE", action: "SELL", strike: 24500, lots: 2, entryPrice: 85.50, currentPrice: 62.30, lotSize: 25, entryDate: "20 Mar", expiry: "27 Mar", pnl: 1160, pnlPercent: 27.1, delta: -0.32, theta: 12.5, iv: 13.8 },
+    { id: "2", symbol: "NIFTY", type: "PE", action: "SELL", strike: 24000, lots: 2, entryPrice: 72.30, currentPrice: 48.15, lotSize: 25, entryDate: "20 Mar", expiry: "27 Mar", pnl: 1207.5, pnlPercent: 33.4, delta: 0.22, theta: 10.8, iv: 14.2 },
+    { id: "3", symbol: "BANKNIFTY", type: "CE", action: "BUY", strike: 52000, lots: 1, entryPrice: 320.00, currentPrice: 285.50, lotSize: 15, entryDate: "21 Mar", expiry: "27 Mar", pnl: -517.5, pnlPercent: -10.8, delta: 0.48, theta: -28.5, iv: 15.1 },
+    { id: "4", symbol: "NIFTY", type: "CE", action: "BUY", strike: 24300, lots: 1, entryPrice: 145.00, currentPrice: 168.25, lotSize: 25, entryDate: "19 Mar", expiry: "27 Mar", pnl: 581.25, pnlPercent: 16.0, delta: 0.55, theta: -18.2, iv: 13.2 },
+    { id: "5", symbol: "RELIANCE", type: "PE", action: "BUY", strike: 2900, lots: 1, entryPrice: 45.80, currentPrice: 32.10, lotSize: 250, entryDate: "18 Mar", expiry: "24 Apr", pnl: -3425, pnlPercent: -29.9, delta: -0.28, theta: -3.5, iv: 22.5 },
+    { id: "6", symbol: "HDFCBANK", type: "CE", action: "SELL", strike: 1700, lots: 1, entryPrice: 38.50, currentPrice: 28.90, lotSize: 550, entryDate: "21 Mar", expiry: "24 Apr", pnl: 5280, pnlPercent: 24.9, delta: -0.35, theta: 5.2, iv: 18.8 },
+  ];
+}

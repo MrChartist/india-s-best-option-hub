@@ -9,6 +9,9 @@ import OptionChain from "./pages/OptionChain";
 import OIAnalysis from "./pages/OIAnalysis";
 import GreeksCalculator from "./pages/GreeksCalculator";
 import StrategyBuilder from "./pages/StrategyBuilder";
+import OptionsScanner from "./pages/OptionsScanner";
+import PositionTracker from "./pages/PositionTracker";
+import PriceCharts from "./pages/PriceCharts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +29,9 @@ const App = () => (
             <Route path="/oi-analysis" element={<OIAnalysis />} />
             <Route path="/greeks" element={<GreeksCalculator />} />
             <Route path="/strategy" element={<StrategyBuilder />} />
+            <Route path="/scanner" element={<OptionsScanner />} />
+            <Route path="/positions" element={<PositionTracker />} />
+            <Route path="/charts" element={<PriceCharts />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
