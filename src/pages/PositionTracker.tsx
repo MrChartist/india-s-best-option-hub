@@ -211,6 +211,9 @@ export default function PositionTracker() {
         </TabsContent>
       </Tabs>
 
+      {/* What-If Scenario Simulator */}
+      <WhatIfSimulator positions={positions} />
+
       {/* Add Position Form */}
       {showAddForm && (
         <Card>
