@@ -2,11 +2,11 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { generateCandleData, generateIntradayData, indicesData, fnoStocks, type CandleData } from "@/lib/mockData";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { Star, StarOff, Plus, Trash2, TrendingUp, TrendingDown, Eye } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { generateCandleData, generateCandleOIData, generateOptionOITimeSeries, indicesData, fnoStocks, getOptionChain } from "@/lib/mockData";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart } from "recharts";
+import { Star, Plus, Trash2, TrendingUp, TrendingDown, Eye, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface WatchlistItem {
@@ -16,40 +16,13 @@ interface WatchlistItem {
   changePercent: number;
 }
 
-// Custom candlestick shape
-const CandlestickShape = (props: any) => {
-  const { x, y, width, height, payload } = props;
-  if (!payload) return null;
-  const { open, close, high, low } = payload;
-  const isUp = close >= open;
-  const color = isUp ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)";
-  
-  // Scale values - we need y-axis range
-  const yScale = props.yAxis;
-  if (!yScale) return null;
-  
-  const bodyTop = Math.min(open, close);
-  const bodyBottom = Math.max(open, close);
-  
-  return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={Math.max(height, 1)}
-        fill={color}
-        opacity={0.9}
-        rx={1}
-      />
-    </g>
-  );
-};
-
 export default function PriceCharts() {
   const navigate = useNavigate();
   const [selectedSymbol, setSelectedSymbol] = useState("NIFTY");
   const [timeframe, setTimeframe] = useState("daily");
+  const [chartMode, setChartMode] = useState<"price" | "candle-oi" | "option-oi">("price");
+  const [selectedStrike, setSelectedStrike] = useState<number | null>(null);
+  const [addSymbol, setAddSymbol] = useState("");
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([
     { symbol: "NIFTY", ltp: 24250.75, change: 125.30, changePercent: 0.52 },
     { symbol: "BANKNIFTY", ltp: 51850.40, change: -180.60, changePercent: -0.35 },
@@ -57,7 +30,6 @@ export default function PriceCharts() {
     { symbol: "HDFCBANK", ltp: 1685.40, change: 22.60, changePercent: 1.36 },
     { symbol: "TATAMOTORS", ltp: 985.30, change: -18.45, changePercent: -1.84 },
   ]);
-  const [addSymbol, setAddSymbol] = useState("");
 
   const spotMap: Record<string, number> = {
     NIFTY: 24250.75, BANKNIFTY: 51850.40, FINNIFTY: 23180.55, MIDCPNIFTY: 12850.30,
@@ -68,30 +40,46 @@ export default function PriceCharts() {
     SUNPHARMA: 1680, TITAN: 3250, WIPRO: 485, ULTRACEMCO: 10850,
   };
 
-  const candleData = useMemo(() => {
-    const basePrice = spotMap[selectedSymbol] || 2500;
-    return generateCandleData(basePrice, timeframe === "daily" ? 60 : 78);
-  }, [selectedSymbol, timeframe]);
-
-  // For the bar chart, we'll show OHLC as a line chart with volume bars
-  const chartData = useMemo(() => {
-    return candleData.map(c => ({
-      ...c,
-      color: c.close >= c.open ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)",
-      range: [c.low, c.high],
-      body: [Math.min(c.open, c.close), Math.max(c.open, c.close)],
-    }));
-  }, [candleData]);
-
   const currentPrice = spotMap[selectedSymbol] || 2500;
   const idx = indicesData.find(i => i.symbol === selectedSymbol);
+
+  // Get available strikes for this symbol
+  const availableStrikes = useMemo(() => {
+    const { data, spotPrice, stepSize } = getOptionChain(selectedSymbol);
+    const atm = Math.round(spotPrice / stepSize) * stepSize;
+    if (!selectedStrike) setSelectedStrike(atm);
+    return data.filter(o => Math.abs(o.strikePrice - spotPrice) < stepSize * 6).map(o => o.strikePrice);
+  }, [selectedSymbol]);
+
+  // Standard price chart data
+  const chartData = useMemo(() => {
+    const candles = generateCandleData(currentPrice, timeframe === "daily" ? 60 : 78);
+    return candles.map(c => ({
+      ...c,
+      color: c.close >= c.open ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)",
+    }));
+  }, [currentPrice, timeframe]);
+
+  // ── NEW: Candle-wise OI + Volume data ──
+  const candleOIData = useMemo(() => {
+    const baseOI = currentPrice > 10000 ? 15000000 : 5000000;
+    return generateCandleOIData(currentPrice, baseOI, 60);
+  }, [currentPrice]);
+
+  // ── NEW: Option Price vs OI time series ──
+  const optionOIData = useMemo(() => {
+    if (!selectedStrike) return [];
+    const { data } = getOptionChain(selectedSymbol);
+    const strikeData = data.find(o => o.strikePrice === selectedStrike);
+    if (!strikeData) return [];
+    return generateOptionOITimeSeries(strikeData.ce.ltp, strikeData.ce.oi);
+  }, [selectedSymbol, selectedStrike]);
 
   const addToWatchlist = (sym: string) => {
     if (watchlist.some(w => w.symbol === sym)) return;
     const price = spotMap[sym] || 1000;
     setWatchlist([...watchlist, {
-      symbol: sym,
-      ltp: price,
+      symbol: sym, ltp: price,
       change: price * 0.01 * (Math.random() - 0.4),
       changePercent: (Math.random() - 0.4) * 3,
     }]);
@@ -107,7 +95,7 @@ export default function PriceCharts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Charts & Watchlist</h1>
-          <p className="text-sm text-muted-foreground">Price action · Volume · Saved watchlist</p>
+          <p className="text-sm text-muted-foreground">Price action · Candle OI · Option Price vs OI · Volume</p>
         </div>
       </div>
 
@@ -115,7 +103,7 @@ export default function PriceCharts() {
         {/* Chart Panel */}
         <div className="lg:col-span-3 space-y-3">
           {/* Chart Controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={selectedSymbol} onValueChange={setSelectedSymbol}>
               <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -123,23 +111,43 @@ export default function PriceCharts() {
                 {fnoStocks.slice(0, 10).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            
+
             <div className="flex bg-accent/50 rounded-md p-0.5">
               {[
-                { value: "intraday", label: "1D" },
-                { value: "daily", label: "Daily" },
-              ].map(tf => (
+                { value: "price", label: "Price" },
+                { value: "candle-oi", label: "Candle OI" },
+                { value: "option-oi", label: "Price vs OI" },
+              ].map(m => (
                 <Button
-                  key={tf.value}
-                  variant={timeframe === tf.value ? "default" : "ghost"}
+                  key={m.value}
+                  variant={chartMode === m.value ? "default" : "ghost"}
                   size="sm"
                   className="h-6 text-[10px] px-2"
-                  onClick={() => setTimeframe(tf.value)}
+                  onClick={() => setChartMode(m.value as any)}
                 >
-                  {tf.label}
+                  {m.label}
                 </Button>
               ))}
             </div>
+
+            {chartMode === "price" && (
+              <div className="flex bg-accent/50 rounded-md p-0.5">
+                {[{ value: "intraday", label: "1D" }, { value: "daily", label: "Daily" }].map(tf => (
+                  <Button key={tf.value} variant={timeframe === tf.value ? "default" : "ghost"} size="sm" className="h-6 text-[10px] px-2" onClick={() => setTimeframe(tf.value)}>
+                    {tf.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {chartMode === "option-oi" && (
+              <Select value={String(selectedStrike || "")} onValueChange={v => setSelectedStrike(Number(v))}>
+                <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue placeholder="Strike" /></SelectTrigger>
+                <SelectContent>
+                  {availableStrikes.map(s => <SelectItem key={s} value={String(s)}>{s} CE</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
 
             <div className="flex-1" />
 
@@ -157,33 +165,139 @@ export default function PriceCharts() {
             </Button>
           </div>
 
-          {/* Price Chart */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value: number, name: string) => {
+          {/* ── Standard Price Chart ── */}
+          {chartMode === "price" && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => {
                         if (name === "volume") return [(value / 1000).toFixed(0) + "K", "Volume"];
                         return [value.toFixed(2), name.charAt(0).toUpperCase() + name.slice(1)];
-                      }}
-                    />
-                    <Bar yAxisId="vol" dataKey="volume" fill="hsl(215 15% 55% / 0.15)" radius={[1, 1, 0, 0]} />
-                    <Line yAxisId="price" type="monotone" dataKey="close" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="close" />
-                    <Line yAxisId="price" type="monotone" dataKey="high" stroke="hsl(142 71% 45% / 0.3)" strokeWidth={0.5} dot={false} name="high" />
-                    <Line yAxisId="price" type="monotone" dataKey="low" stroke="hsl(0 84% 60% / 0.3)" strokeWidth={0.5} dot={false} name="low" />
-                    <ReferenceLine yAxisId="price" y={currentPrice} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+                      }} />
+                      <Bar yAxisId="vol" dataKey="volume" fill="hsl(215 15% 55% / 0.15)" radius={[1, 1, 0, 0]} />
+                      <Line yAxisId="price" type="monotone" dataKey="close" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="close" />
+                      <Line yAxisId="price" type="monotone" dataKey="high" stroke="hsl(142 71% 45% / 0.3)" strokeWidth={0.5} dot={false} name="high" />
+                      <Line yAxisId="price" type="monotone" dataKey="low" stroke="hsl(0 84% 60% / 0.3)" strokeWidth={0.5} dot={false} name="low" />
+                      <ReferenceLine yAxisId="price" y={currentPrice} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── NEW: Candle-wise OI + Volume Chart ── */}
+          {chartMode === "candle-oi" && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" /> Price with Open Interest & Volume
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">Top: Price candles · Middle: OI (blue) & OI Change (green/red) · Bottom: Volume bars</p>
+              </CardHeader>
+              <CardContent>
+                {/* Price + OI chart */}
+                <div className="h-[250px] mb-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={candleOIData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => {
+                        if (name === "oi") return [(value / 100000).toFixed(1) + "L", "OI"];
+                        if (name === "oiChange") return [(value / 1000).toFixed(1) + "K", "OI Chg"];
+                        return [value.toFixed(2), name];
+                      }} />
+                      <Line yAxisId="price" type="monotone" dataKey="close" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={false} name="close" />
+                      <Line yAxisId="price" type="monotone" dataKey="high" stroke="hsl(142 71% 45% / 0.2)" strokeWidth={0.5} dot={false} name="high" />
+                      <Line yAxisId="price" type="monotone" dataKey="low" stroke="hsl(0 84% 60% / 0.2)" strokeWidth={0.5} dot={false} name="low" />
+                      <Area yAxisId="oi" type="monotone" dataKey="oi" stroke="hsl(210 100% 52% / 0.5)" fill="hsl(210 100% 52% / 0.08)" strokeWidth={1} name="oi" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* OI Change + Volume */}
+                <div className="h-[120px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={candleOIData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                      <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="chg" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar yAxisId="vol" dataKey="volume" fill="hsl(215 15% 55% / 0.12)" radius={[1, 1, 0, 0]} name="Volume" />
+                      <Bar yAxisId="chg" dataKey="oiChange" name="OI Change" radius={[2, 2, 0, 0]}>
+                        {candleOIData.map((entry, i) => (
+                          <Bar key={i} dataKey="oiChange" fill={entry.oiChange >= 0 ? "hsl(142 71% 45% / 0.6)" : "hsl(0 84% 60% / 0.6)"} />
+                        ))}
+                      </Bar>
+                      <ReferenceLine yAxisId="chg" y={0} stroke="hsl(215 15% 40%)" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── NEW: Option Price vs OI Time Series ── */}
+          {chartMode === "option-oi" && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">
+                  {selectedSymbol} {selectedStrike} CE — Option Price vs OI (Intraday)
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">Tracks how option premium and open interest move together. Divergence = key signal.</p>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={optionOIData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                      <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="price" domain={["auto", "auto"]} tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis yAxisId="oi" orientation="right" tick={{ fontSize: 8, fill: "hsl(215 15% 55%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(value: number, name: string) => {
+                        if (name === "OI") return [(value / 100000).toFixed(2) + "L", "OI"];
+                        if (name === "Option Price") return ["₹" + value.toFixed(2), "Premium"];
+                        if (name === "Volume") return [(value / 1000).toFixed(0) + "K", "Cum Vol"];
+                        return [value, name];
+                      }} />
+                      <Area yAxisId="oi" type="monotone" dataKey="oi" stroke="hsl(210 100% 52% / 0.5)" fill="hsl(210 100% 52% / 0.08)" strokeWidth={1} name="OI" />
+                      <Line yAxisId="price" type="monotone" dataKey="optionPrice" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={false} name="Option Price" />
+                      <Bar yAxisId="oi" dataKey="volume" fill="hsl(215 15% 55% / 0.1)" name="Volume" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Signal interpretation */}
+                {optionOIData.length > 2 && (() => {
+                  const first = optionOIData[0];
+                  const last = optionOIData[optionOIData.length - 1];
+                  const priceUp = last.optionPrice > first.optionPrice;
+                  const oiUp = last.oi > first.oi;
+                  let signal = "";
+                  let signalColor = "";
+                  if (priceUp && oiUp) { signal = "Long Buildup"; signalColor = "text-bullish"; }
+                  else if (!priceUp && oiUp) { signal = "Short Buildup"; signalColor = "text-bearish"; }
+                  else if (!priceUp && !oiUp) { signal = "Long Unwinding"; signalColor = "text-bearish"; }
+                  else { signal = "Short Covering"; signalColor = "text-bullish"; }
+                  return (
+                    <div className="flex items-center gap-4 mt-3 p-2 rounded bg-accent/30">
+                      <Badge variant="outline" className={`${signalColor} text-xs`}>{signal}</Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        Price: {priceUp ? "↑" : "↓"} {Math.abs(((last.optionPrice - first.optionPrice) / first.optionPrice) * 100).toFixed(1)}% · OI: {oiUp ? "↑" : "↓"} {Math.abs(((last.oi - first.oi) / first.oi) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
 
           {/* OHLCV Summary */}
           {idx && (
@@ -215,7 +329,6 @@ export default function PriceCharts() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
-              {/* Add to watchlist */}
               <div className="flex gap-1 mb-2">
                 <Select value={addSymbol} onValueChange={setAddSymbol}>
                   <SelectTrigger className="h-7 text-[10px] flex-1"><SelectValue placeholder="Add symbol..." /></SelectTrigger>
@@ -249,12 +362,7 @@ export default function PriceCharts() {
                           {" "}{pos ? "+" : ""}{w.changePercent.toFixed(2)}%
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
-                        onClick={(e) => { e.stopPropagation(); removeFromWatchlist(w.symbol); }}
-                      >
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); removeFromWatchlist(w.symbol); }}>
                         <Trash2 className="h-2.5 w-2.5" />
                       </Button>
                     </div>
@@ -264,11 +372,8 @@ export default function PriceCharts() {
             </CardContent>
           </Card>
 
-          {/* Quick actions */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Quick Actions</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Quick Actions</CardTitle></CardHeader>
             <CardContent className="space-y-1.5">
               <Button variant="outline" size="sm" className="w-full h-7 text-xs justify-start gap-2" onClick={() => navigate(`/option-chain?symbol=${selectedSymbol}`)}>
                 <Eye className="h-3 w-3" /> Option Chain

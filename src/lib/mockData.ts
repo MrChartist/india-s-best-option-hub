@@ -699,7 +699,246 @@ export function getScannerResults(): ScannerResult[] {
   });
 }
 
-// ── Candlestick Data ──
+// ── Delta OI (OI × Delta per strike) ──
+
+export interface DeltaOIData {
+  strike: number;
+  ceDeltaOI: number; // CE OI * CE Delta
+  peDeltaOI: number; // PE OI * PE Delta (negative)
+  netDeltaOI: number;
+}
+
+export function getDeltaOI(chain: OptionData[], spotPrice: number, stepSize: number): DeltaOIData[] {
+  return chain
+    .filter(o => o.ce.oi > 30000 || o.pe.oi > 30000)
+    .map(o => {
+      const ceDeltaOI = Math.round(o.ce.oi * o.ce.delta);
+      const peDeltaOI = Math.round(o.pe.oi * o.pe.delta); // delta is negative for puts
+      return {
+        strike: o.strikePrice,
+        ceDeltaOI: Math.round(ceDeltaOI / 1000),
+        peDeltaOI: Math.round(peDeltaOI / 1000),
+        netDeltaOI: Math.round((ceDeltaOI + peDeltaOI) / 1000),
+      };
+    });
+}
+
+// ── Strike-wise PCR ──
+
+export interface StrikePCRData {
+  strike: number;
+  pcr: number;
+  ceOI: number;
+  peOI: number;
+  distance: number;
+}
+
+export function getStrikePCR(chain: OptionData[], spotPrice: number): StrikePCRData[] {
+  return chain
+    .filter(o => o.ce.oi > 10000 && o.pe.oi > 10000)
+    .map(o => ({
+      strike: o.strikePrice,
+      pcr: Math.round((o.pe.oi / o.ce.oi) * 100) / 100,
+      ceOI: o.ce.oi,
+      peOI: o.pe.oi,
+      distance: Math.round(((o.strikePrice - spotPrice) / spotPrice) * 10000) / 100,
+    }));
+}
+
+// ── ATM Zone Analysis (nearest N strikes) ──
+
+export interface ATMZoneData {
+  strikes: number;
+  totalCEOI: number;
+  totalPEOI: number;
+  pcr: number;
+  totalCEOIChg: number;
+  totalPEOIChg: number;
+  ceOIChgPercent: number;
+  peOIChgPercent: number;
+  pcrChange: number;
+  strikeData: {
+    strike: number;
+    ceOI: number;
+    peOI: number;
+    pcr: number;
+    ceOIChg: number;
+    peOIChg: number;
+    ceOIChgPct: number;
+    peOIChgPct: number;
+  }[];
+}
+
+export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
+  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
+  const halfRange = Math.floor(numStrikes / 2);
+  const zoneStrikes = chain.filter(o => {
+    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
+    return strikeDist <= halfRange;
+  });
+
+  const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
+  const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
+  const totalCEOIChg = zoneStrikes.reduce((s, o) => s + o.ce.oiChange, 0);
+  const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
+
+  return {
+    strikes: numStrikes,
+    totalCEOI,
+    totalPEOI,
+    pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,
+    totalCEOIChg,
+    totalPEOIChg,
+    ceOIChgPercent: totalCEOI > 0 ? Math.round((totalCEOIChg / totalCEOI) * 10000) / 100 : 0,
+    peOIChgPercent: totalPEOI > 0 ? Math.round((totalPEOIChg / totalPEOI) * 10000) / 100 : 0,
+    pcrChange: totalCEOIChg !== 0 ? Math.round((totalPEOIChg / Math.abs(totalCEOIChg)) * 100) / 100 : 0,
+    strikeData: zoneStrikes.map(o => ({
+      strike: o.strikePrice,
+      ceOI: o.ce.oi,
+      peOI: o.pe.oi,
+      pcr: o.ce.oi > 0 ? Math.round((o.pe.oi / o.ce.oi) * 100) / 100 : 0,
+      ceOIChg: o.ce.oiChange,
+      peOIChg: o.pe.oiChange,
+      ceOIChgPct: o.ce.oi > 0 ? Math.round((o.ce.oiChange / o.ce.oi) * 10000) / 100 : 0,
+      peOIChgPct: o.pe.oi > 0 ? Math.round((o.pe.oiChange / o.pe.oi) * 10000) / 100 : 0,
+    })),
+  };
+}
+
+// ── Option Price + OI Time Series (mock intraday) ──
+
+export interface OptionOITimeSeriesPoint {
+  time: string;
+  optionPrice: number;
+  oi: number;
+  oiChange: number;
+  volume: number;
+}
+
+export function generateOptionOITimeSeries(basePrice: number, baseOI: number): OptionOITimeSeriesPoint[] {
+  const rand = seededRandom(Math.round(basePrice * 100 + baseOI));
+  const points: OptionOITimeSeriesPoint[] = [];
+  let price = basePrice;
+  let oi = baseOI;
+  let cumVolume = 0;
+
+  const times = [];
+  for (let h = 9; h <= 15; h++) {
+    for (let m = h === 9 ? 15 : 0; m < 60; m += 5) {
+      if (h === 15 && m > 30) break;
+      times.push(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`);
+    }
+  }
+
+  for (const time of times) {
+    price += (rand() - 0.48) * basePrice * 0.03;
+    price = Math.max(0.05, price);
+    const oiDelta = Math.round((rand() - 0.45) * baseOI * 0.005);
+    oi += oiDelta;
+    cumVolume += Math.round(rand() * 50000);
+    points.push({
+      time,
+      optionPrice: Math.round(price * 100) / 100,
+      oi,
+      oiChange: oiDelta,
+      volume: cumVolume,
+    });
+  }
+  return points;
+}
+
+// ── Candle-wise OI + Volume Data ──
+
+export interface CandleOIData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  oi: number;
+  oiChange: number;
+}
+
+export function generateCandleOIData(basePrice: number, baseOI: number, count: number = 60): CandleOIData[] {
+  const rand = seededRandom(Math.round(basePrice + baseOI * 0.001));
+  let price = basePrice * 0.95;
+  let oi = baseOI;
+  const candles: CandleOIData[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const open = price;
+    const change = (rand() - 0.48) * basePrice * 0.012;
+    const close = open + change;
+    const wick = Math.abs(change) * (0.5 + rand());
+    const high = Math.max(open, close) + wick * rand();
+    const low = Math.min(open, close) - wick * rand();
+    const volume = Math.round(500000 + rand() * 2000000);
+    const oiDelta = Math.round((rand() - 0.45) * baseOI * 0.008);
+    oi += oiDelta;
+
+    const date = new Date();
+    date.setDate(date.getDate() - (count - i));
+    candles.push({
+      time: `${date.getDate()}/${date.getMonth() + 1}`,
+      open: Math.round(open * 100) / 100,
+      high: Math.round(high * 100) / 100,
+      low: Math.round(low * 100) / 100,
+      close: Math.round(close * 100) / 100,
+      volume,
+      oi,
+      oiChange: oiDelta,
+    });
+    price = close;
+  }
+  return candles;
+}
+
+// ── OI-Weighted Greeks ──
+
+export interface OIWeightedGreeks {
+  netDelta: number;
+  netGamma: number;
+  netTheta: number;
+  netVega: number;
+  gammaExposure: number; // GEX
+  topDeltaStrikes: { strike: number; delta: number; oi: number; contribution: number; type: string }[];
+}
+
+export function getOIWeightedGreeks(chain: OptionData[], lotSize: number): OIWeightedGreeks {
+  let netDelta = 0, netGamma = 0, netTheta = 0, netVega = 0, gex = 0;
+  const deltaContributions: { strike: number; delta: number; oi: number; contribution: number; type: string }[] = [];
+
+  for (const o of chain) {
+    const ceDeltaContrib = o.ce.delta * o.ce.oi;
+    const peDeltaContrib = o.pe.delta * o.pe.oi;
+    netDelta += ceDeltaContrib + peDeltaContrib;
+    netGamma += o.ce.gamma * o.ce.oi + o.pe.gamma * o.pe.oi;
+    netTheta += o.ce.theta * o.ce.oi + o.pe.theta * o.pe.oi;
+    netVega += o.ce.vega * o.ce.oi + o.pe.vega * o.pe.oi;
+    gex += o.ce.gamma * o.ce.oi - o.pe.gamma * o.pe.oi; // GEX = call gamma OI - put gamma OI
+
+    if (Math.abs(ceDeltaContrib) > 50000) {
+      deltaContributions.push({ strike: o.strikePrice, delta: o.ce.delta, oi: o.ce.oi, contribution: Math.round(ceDeltaContrib), type: "CE" });
+    }
+    if (Math.abs(peDeltaContrib) > 50000) {
+      deltaContributions.push({ strike: o.strikePrice, delta: o.pe.delta, oi: o.pe.oi, contribution: Math.round(peDeltaContrib), type: "PE" });
+    }
+  }
+
+  return {
+    netDelta: Math.round(netDelta),
+    netGamma: Math.round(netGamma * 100) / 100,
+    netTheta: Math.round(netTheta),
+    netVega: Math.round(netVega),
+    gammaExposure: Math.round(gex),
+    topDeltaStrikes: deltaContributions
+      .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
+      .slice(0, 8),
+  };
+}
+
+// ── Candlestick Data (original, kept for backward compat) ──
 
 export interface CandleData {
   time: string;

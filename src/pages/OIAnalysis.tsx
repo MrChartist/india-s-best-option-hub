@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LineChart, Line, ComposedChart, Area } from "recharts";
-import { getMaxPain, generatePCRHistory } from "@/lib/mockData";
+import { getMaxPain, generatePCRHistory, getDeltaOI, getStrikePCR, getATMZoneAnalysis } from "@/lib/mockData";
 import { OIHeatmap } from "@/components/OIHeatmap";
 import { SupportResistance } from "@/components/SupportResistance";
 import { useLiveOptionChain } from "@/hooks/useNSEData";
@@ -13,9 +13,11 @@ import { Wifi, WifiOff } from "lucide-react";
 
 export default function OIAnalysis() {
   const [symbol, setSymbol] = useState("NIFTY");
+  const [atmZoneSize, setATMZoneSize] = useState<number>(5);
   const { data: liveData } = useLiveOptionChain(symbol);
   const chain = liveData?.chain || [];
   const spotPrice = liveData?.spotPrice || 0;
+  const stepSize = liveData?.stepSize || 50;
   const isLive = liveData?.isLive || false;
   const maxPain = useMemo(() => getMaxPain(chain), [chain]);
   const pcrHistory = useMemo(() => generatePCRHistory(), []);
@@ -49,9 +51,7 @@ export default function OIAnalysis() {
     }));
   }, [chain]);
 
-  // Multi-expiry OI comparison
   const multiExpiryData = useMemo(() => {
-    // Simulate different expiry OI distributions
     const baseChain = chain.filter(o => o.ce.oi > 50000 || o.pe.oi > 50000);
     return baseChain.map(o => ({
       strike: o.strikePrice,
@@ -60,6 +60,32 @@ export default function OIAnalysis() {
       ceOI_monthly: Math.round(o.ce.oi * 0.6 / 1000),
       peOI_monthly: Math.round(o.pe.oi * 0.7 / 1000),
     }));
+  }, [chain]);
+
+  // ── NEW: Delta OI ──
+  const deltaOIData = useMemo(() => getDeltaOI(chain, spotPrice, stepSize), [chain, spotPrice, stepSize]);
+
+  // ── NEW: Strike-wise PCR ──
+  const strikePCRData = useMemo(() => getStrikePCR(chain, spotPrice), [chain, spotPrice]);
+
+  // ── NEW: ATM Zone Analysis ──
+  const atmZone5 = useMemo(() => getATMZoneAnalysis(chain, spotPrice, stepSize, 5), [chain, spotPrice, stepSize]);
+  const atmZone10 = useMemo(() => getATMZoneAnalysis(chain, spotPrice, stepSize, 10), [chain, spotPrice, stepSize]);
+  const activeATMZone = atmZoneSize === 5 ? atmZone5 : atmZone10;
+
+  // ── NEW: OI Correlation (OI vs OI Change vs Volume) ──
+  const oiCorrelationData = useMemo(() => {
+    return chain
+      .filter(o => o.ce.oi > 50000 || o.pe.oi > 50000)
+      .map(o => ({
+        strike: o.strikePrice,
+        ceOI: Math.round(o.ce.oi / 1000),
+        peOI: Math.round(o.pe.oi / 1000),
+        ceOIChg: Math.round(o.ce.oiChange / 1000),
+        peOIChg: Math.round(o.pe.oiChange / 1000),
+        ceVol: Math.round(o.ce.volume / 1000),
+        peVol: Math.round(o.pe.volume / 1000),
+      }));
   }, [chain]);
 
   const oiInterpretation = useMemo(() => {
@@ -94,13 +120,13 @@ export default function OIAnalysis() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">OI Analysis</h1>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
-            {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isLive ? "LIVE" : "MOCK"}
-          </Badge>
-          <p className="text-sm text-muted-foreground">Open Interest · Heatmap · S/R Levels · Multi-Expiry · IV Smile</p>
-        </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
+              {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {isLive ? "LIVE" : "MOCK"}
+            </Badge>
+            <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Correlation · Heatmap</p>
+          </div>
         </div>
         <Select value={symbol} onValueChange={setSymbol}>
           <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -141,6 +167,89 @@ export default function OIAnalysis() {
         </CardContent></Card>
       </div>
 
+      {/* ── NEW: ATM Zone Dashboard ── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">ATM Zone Analysis ({activeATMZone.strikes} Strikes)</CardTitle>
+            <div className="flex bg-accent/50 rounded-md p-0.5">
+              {[5, 10].map(n => (
+                <button
+                  key={n}
+                  className={`px-3 py-1 text-[10px] rounded ${atmZoneSize === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setATMZoneSize(n)}
+                >
+                  {n} Strikes
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
+            <div className="p-2 rounded bg-accent/30 text-center">
+              <p className="text-[9px] text-muted-foreground">Zone PCR</p>
+              <p className={`text-lg font-bold font-mono ${activeATMZone.pcr > 1 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.pcr}</p>
+            </div>
+            <div className="p-2 rounded bg-accent/30 text-center">
+              <p className="text-[9px] text-muted-foreground">CE OI</p>
+              <p className="text-sm font-bold font-mono">{(activeATMZone.totalCEOI / 100000).toFixed(1)}L</p>
+            </div>
+            <div className="p-2 rounded bg-accent/30 text-center">
+              <p className="text-[9px] text-muted-foreground">PE OI</p>
+              <p className="text-sm font-bold font-mono">{(activeATMZone.totalPEOI / 100000).toFixed(1)}L</p>
+            </div>
+            <div className="p-2 rounded bg-accent/30 text-center">
+              <p className="text-[9px] text-muted-foreground">CE OI Chg%</p>
+              <p className={`text-sm font-bold font-mono ${activeATMZone.ceOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.ceOIChgPercent >= 0 ? "+" : ""}{activeATMZone.ceOIChgPercent}%</p>
+            </div>
+            <div className="p-2 rounded bg-accent/30 text-center">
+              <p className="text-[9px] text-muted-foreground">PE OI Chg%</p>
+              <p className={`text-sm font-bold font-mono ${activeATMZone.peOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.peOIChgPercent >= 0 ? "+" : ""}{activeATMZone.peOIChgPercent}%</p>
+            </div>
+            <div className="p-2 rounded bg-accent/30 text-center col-span-3">
+              <p className="text-[9px] text-muted-foreground">Strike-wise PCR in Zone</p>
+              <div className="flex gap-1 justify-center mt-1">
+                {activeATMZone.strikeData.map(s => (
+                  <div key={s.strike} className={`px-1.5 py-0.5 rounded text-[8px] font-mono ${s.pcr > 1 ? "bg-bullish/15 text-bullish" : "bg-bearish/15 text-bearish"}`}>
+                    {s.strike.toString().slice(-3)}: {s.pcr}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* ATM Zone Table */}
+          <Table>
+            <TableHeader>
+              <TableRow className="text-[10px]">
+                <TableHead>Strike</TableHead>
+                <TableHead className="text-right">CE OI</TableHead>
+                <TableHead className="text-right">PE OI</TableHead>
+                <TableHead className="text-right">PCR</TableHead>
+                <TableHead className="text-right">CE Chg</TableHead>
+                <TableHead className="text-right">CE Chg%</TableHead>
+                <TableHead className="text-right">PE Chg</TableHead>
+                <TableHead className="text-right">PE Chg%</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activeATMZone.strikeData.map(s => (
+                <TableRow key={s.strike} className="text-[11px] font-mono">
+                  <TableCell className="font-bold">{s.strike.toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="text-right">{(s.ceOI / 1000).toFixed(0)}K</TableCell>
+                  <TableCell className="text-right">{(s.peOI / 1000).toFixed(0)}K</TableCell>
+                  <TableCell className={`text-right font-medium ${s.pcr > 1 ? "text-bullish" : "text-bearish"}`}>{s.pcr}</TableCell>
+                  <TableCell className={`text-right ${s.ceOIChg >= 0 ? "text-bullish" : "text-bearish"}`}>{s.ceOIChg >= 0 ? "+" : ""}{(s.ceOIChg / 1000).toFixed(1)}K</TableCell>
+                  <TableCell className={`text-right ${s.ceOIChgPct >= 0 ? "text-bullish" : "text-bearish"}`}>{s.ceOIChgPct >= 0 ? "+" : ""}{s.ceOIChgPct}%</TableCell>
+                  <TableCell className={`text-right ${s.peOIChg >= 0 ? "text-bullish" : "text-bearish"}`}>{s.peOIChg >= 0 ? "+" : ""}{(s.peOIChg / 1000).toFixed(1)}K</TableCell>
+                  <TableCell className={`text-right ${s.peOIChgPct >= 0 ? "text-bullish" : "text-bearish"}`}>{s.peOIChgPct >= 0 ? "+" : ""}{s.peOIChgPct}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* Heatmap + S/R side panels */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
@@ -149,8 +258,11 @@ export default function OIAnalysis() {
         <SupportResistance chain={chain} spotPrice={spotPrice} />
       </div>
 
-      <Tabs defaultValue="oi-dist">
+      <Tabs defaultValue="delta-oi">
         <TabsList className="flex-wrap">
+          <TabsTrigger value="delta-oi">Delta OI</TabsTrigger>
+          <TabsTrigger value="strike-pcr">Strike PCR</TabsTrigger>
+          <TabsTrigger value="oi-correlation">OI Correlation</TabsTrigger>
           <TabsTrigger value="oi-dist">OI Distribution</TabsTrigger>
           <TabsTrigger value="oi-change">OI Change</TabsTrigger>
           <TabsTrigger value="multi-expiry">Multi-Expiry</TabsTrigger>
@@ -159,6 +271,94 @@ export default function OIAnalysis() {
           <TabsTrigger value="oi-interp">OI Interpretation</TabsTrigger>
           <TabsTrigger value="top-oi">Top Strikes</TabsTrigger>
         </TabsList>
+
+        {/* ── NEW: Delta OI Tab ── */}
+        <TabsContent value="delta-oi">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Delta OI (OI × Delta) by Strike</CardTitle>
+              <p className="text-[10px] text-muted-foreground">Shows directional exposure per strike. Net positive = bullish pressure, negative = bearish.</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={deltaOIData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                    <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}K`, ""]} />
+                    <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
+                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
+                    <Bar dataKey="ceDeltaOI" fill="hsl(142 71% 45%)" opacity={0.7} name="CE Delta×OI" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="peDeltaOI" fill="hsl(0 84% 60%)" opacity={0.7} name="PE Delta×OI" radius={[2, 2, 0, 0]} />
+                    <Line type="monotone" dataKey="netDeltaOI" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={false} name="Net Delta OI" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── NEW: Strike-wise PCR Tab ── */}
+        <TabsContent value="strike-pcr">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Individual Strike-wise PCR</CardTitle>
+              <p className="text-[10px] text-muted-foreground">PCR &gt; 1 = Put heavy (bullish support), PCR &lt; 1 = Call heavy (resistance).</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={strikePCRData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                    <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis yAxisId="pcr" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={[0, "auto"]} />
+                    <YAxis yAxisId="dist" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <ReferenceLine yAxisId="pcr" y={1} stroke="hsl(38 92% 50%)" strokeDasharray="5 5" label={{ value: "PCR=1", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
+                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
+                    <Bar yAxisId="pcr" dataKey="pcr" name="PCR" radius={[2, 2, 0, 0]}>
+                      {strikePCRData.map((entry, i) => (
+                        <Cell key={i} fill={entry.pcr >= 1 ? "hsl(142 71% 45% / 0.7)" : "hsl(0 84% 60% / 0.7)"} />
+                      ))}
+                    </Bar>
+                    <Line yAxisId="dist" type="monotone" dataKey="distance" stroke="hsl(215 15% 55%)" strokeWidth={1} strokeDasharray="3 3" dot={false} name="Distance %" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── NEW: OI Correlation Tab ── */}
+        <TabsContent value="oi-correlation">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">OI vs OI Change vs Volume Correlation</CardTitle>
+              <p className="text-[10px] text-muted-foreground">Bars = OI, Line = OI Change, Dots = Volume spikes. Identifies active vs passive strikes.</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={oiCorrelationData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                    <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis yAxisId="oi" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis yAxisId="chg" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
+                    <Bar yAxisId="oi" dataKey="ceOI" fill="hsl(142 71% 45% / 0.3)" name="CE OI" radius={[2, 2, 0, 0]} />
+                    <Bar yAxisId="oi" dataKey="peOI" fill="hsl(0 84% 60% / 0.3)" name="PE OI" radius={[2, 2, 0, 0]} />
+                    <Line yAxisId="chg" type="monotone" dataKey="ceOIChg" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} name="CE OI Chg" />
+                    <Line yAxisId="chg" type="monotone" dataKey="peOIChg" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="PE OI Chg" />
+                    <Bar yAxisId="chg" dataKey="ceVol" fill="hsl(210 100% 52% / 0.2)" name="CE Vol" />
+                    <Bar yAxisId="chg" dataKey="peVol" fill="hsl(280 80% 60% / 0.2)" name="PE Vol" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="oi-dist">
           <Card>
