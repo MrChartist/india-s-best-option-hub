@@ -127,6 +127,8 @@ serve(async (req) => {
               UnderlyingSeg: underlying.expirySegment,
             });
             setCache(expiryListKey, expiryList, 60000);
+            // Wait 3.5s to respect Dhan's rate limit before next call
+            await new Promise(r => setTimeout(r, 3500));
           }
           // Pick nearest expiry from the list
           if (expiryList?.data && Array.isArray(expiryList.data) && expiryList.data.length > 0) {
