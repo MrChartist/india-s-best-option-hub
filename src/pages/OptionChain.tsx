@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Crosshair, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Crosshair, Wifi, WifiOff, RefreshCw, ShoppingCart } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fnoStocks } from "@/lib/mockData";
 import { useLiveOptionChain } from "@/hooks/useNSEData";
 
