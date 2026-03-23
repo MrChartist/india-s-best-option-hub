@@ -8,7 +8,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { AlertSystem } from "@/components/AlertSystem";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { indicesData, marketStats } from "@/lib/mockData";
-import { Search, Bell, Keyboard, Timer } from "lucide-react";
+import { Search, Bell, Keyboard, Timer, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function DashboardLayout() {
