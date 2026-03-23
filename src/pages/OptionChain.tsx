@@ -78,7 +78,7 @@ export default function OptionChain() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
             <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
               {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isLive ? "LIVE" : "MOCK"}
+              {isLive ? (data?.source === "dhan" ? "DHAN LIVE" : "NSE LIVE") : "MOCK"}
             </Badge>
             <span>Spot: <span className="font-mono font-medium text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></span>
             <span>Lot: <span className="font-mono">{lotSize}</span></span>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchLiveOptionChain, fetchLiveIndices, fetchMarketStatus } from "@/lib/nseApi";
+import { fetchLiveOptionChain, fetchLiveIndices, fetchMarketStatus, fetchExpiryList } from "@/lib/nseApi";
 import { getOptionChain, indicesData, expiryDates, getMaxPain } from "@/lib/mockData";
 import type { OptionData, IndexData, ExpiryDate } from "@/lib/mockData";
 
@@ -12,19 +12,19 @@ export function useLiveIndices() {
         const data = await fetchLiveIndices();
         if (data && data.length > 0) return { data, isLive: true };
       } catch (e) {
-        console.warn("NSE indices fetch failed, using mock data:", e);
+        console.warn("Indices fetch failed, using mock data:", e);
       }
       return { data: indicesData, isLive: false };
     },
-    refetchInterval: 30000, // 30s
+    refetchInterval: 30000,
     staleTime: 15000,
   });
 }
 
-// Hook for live option chain with mock fallback
+// Hook for live option chain — Dhan primary, NSE fallback, mock last resort
 export function useLiveOptionChain(symbol: string, expiry?: string) {
   return useQuery({
-    queryKey: ["nse-option-chain", symbol, expiry],
+    queryKey: ["live-option-chain", symbol, expiry],
     queryFn: async () => {
       try {
         const result = await fetchLiveOptionChain(symbol, expiry);
@@ -42,11 +42,14 @@ export function useLiveOptionChain(symbol: string, expiry?: string) {
             lotSize: lotSizeMap[symbol] || 500,
             stepSize,
             maxPain: getMaxPain(result.chain),
+            totalCEOI: result.totalCEOI,
+            totalPEOI: result.totalPEOI,
             isLive: true,
+            source: result.source || "live",
           };
         }
       } catch (e) {
-        console.warn("NSE option chain fetch failed, using mock data:", e);
+        console.warn("Live option chain fetch failed, using mock data:", e);
       }
       // Fallback to mock
       const mock = getOptionChain(symbol);
@@ -57,11 +60,32 @@ export function useLiveOptionChain(symbol: string, expiry?: string) {
         lotSize: mock.lotSize,
         stepSize: mock.stepSize,
         maxPain: getMaxPain(mock.data),
+        totalCEOI: 0,
+        totalPEOI: 0,
         isLive: false,
+        source: "mock" as const,
       };
     },
-    refetchInterval: 30000,
-    staleTime: 15000,
+    refetchInterval: 5000, // 5s refresh for Dhan (rate limit is 3s per unique)
+    staleTime: 3000,
+  });
+}
+
+// Hook for expiry list from Dhan
+export function useExpiryList(symbol: string) {
+  return useQuery({
+    queryKey: ["expiry-list", symbol],
+    queryFn: async () => {
+      try {
+        const expiries = await fetchExpiryList(symbol);
+        if (expiries.length > 0) return { expiries, isLive: true };
+      } catch (e) {
+        console.warn("Expiry list fetch failed:", e);
+      }
+      return { expiries: expiryDates, isLive: false };
+    },
+    staleTime: 60000, // 1 min
+    refetchInterval: 120000, // 2 min
   });
 }
 
