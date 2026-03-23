@@ -90,78 +90,77 @@ export default function Index() {
 
   return (
     <ErrorBoundary fallbackMessage="Dashboard failed to load">
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Market Dashboard</h1>
-          <p className="text-sm text-muted-foreground">NSE F&O Market Overview · {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Market Dashboard</h1>
+          <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className={`gap-1.5 text-[10px] ${isLive ? "border-bullish text-bullish" : "border-muted-foreground text-muted-foreground"}`}>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={`gap-1.5 text-2xs ${isLive ? "border-bullish/40 text-bullish" : "border-muted-foreground/30 text-muted-foreground"}`}>
             {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isLive ? "LIVE" : "MOCK"}
           </Badge>
-          <Badge variant={isOpen ? "default" : "secondary"} className={`gap-1.5 ${isOpen ? "bg-bullish text-bullish-foreground" : ""}`}>
+          <Badge variant={isOpen ? "default" : "secondary"} className={`gap-1.5 text-2xs ${isOpen ? "bg-bullish text-bullish-foreground" : ""}`}>
             <Clock className="h-3 w-3" />
-            Market {marketStatus}
+            {marketStatus}
           </Badge>
-          <span className="text-xs text-muted-foreground font-mono">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST</span>
+          <span className="text-2xs text-muted-foreground font-mono tabular-nums">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST</span>
         </div>
       </div>
 
-      {/* Ticker Tape + GIFT Nifty */}
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      {/* Ticker Tape */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide stagger-children">
         {indices.map((idx) => {
           const pos = idx.change >= 0;
           return (
-            <div key={idx.symbol} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-card border border-border shrink-0">
-              <span className="text-xs font-medium text-muted-foreground">{idx.symbol}</span>
-              <span className="text-sm font-bold font-mono">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-              <span className={`text-xs font-mono ${pos ? "text-bullish" : "text-bearish"}`}>
+            <div key={idx.symbol} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border shrink-0 card-interactive cursor-pointer" onClick={() => navigate(`/option-chain?symbol=${idx.symbol}`)}>
+              <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">{idx.symbol}</span>
+              <span className="text-sm font-bold font-mono tabular-nums">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+              <span className={`text-2xs font-mono tabular-nums font-medium ${pos ? "text-bullish" : "text-bearish"}`}>
                 {pos ? "▲" : "▼"} {Math.abs(idx.changePercent).toFixed(2)}%
               </span>
             </div>
           );
         })}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-card border border-border shrink-0">
-          <span className="text-xs font-medium text-muted-foreground">VIX</span>
-          <span className="text-sm font-bold font-mono">{marketStats.indiaVix}</span>
-          <span className={`text-xs font-mono ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border shrink-0">
+          <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">VIX</span>
+          <span className="text-sm font-bold font-mono tabular-nums">{marketStats.indiaVix}</span>
+          <span className={`text-2xs font-mono tabular-nums font-medium ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
             {marketStats.vixChange < 0 ? "▼" : "▲"} {Math.abs(marketStats.vixChange).toFixed(2)}%
           </span>
         </div>
-        {/* GIFT Nifty in ticker */}
         {giftNifty && giftNifty.lastPrice > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/15 shrink-0">
             <Plane className="h-3 w-3 text-primary" />
-            <span className="text-xs font-medium text-primary">GIFT</span>
-            <span className="text-sm font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
-            <span className={`text-xs font-mono ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
+            <span className="text-2xs font-medium text-primary uppercase tracking-wider">GIFT</span>
+            <span className="text-sm font-bold font-mono tabular-nums">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+            <span className={`text-2xs font-mono tabular-nums font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
               {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
             </span>
           </div>
         )}
       </div>
 
-      {/* Index Cards with Sparklines */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Index Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
         {indices.map((index, idx) => {
           const isPositive = index.change >= 0;
           const intraday = idx === 0 ? niftyIntraday : idx === 1 ? bankNiftyIntraday : generateIntradayData(index.prevClose, 0.4);
           return (
             <Card
               key={index.symbol}
-              className="cursor-pointer hover:border-primary/50 transition-all hover:shadow-lg hover:shadow-primary/5"
+              className="card-interactive cursor-pointer group"
               onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)}
             >
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium">{index.name}</p>
-                    <p className="text-xl font-bold font-mono">{index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                    <p className="text-2xs text-muted-foreground font-medium uppercase tracking-wider">{index.name}</p>
+                    <p className="text-xl font-bold font-mono tabular-nums tracking-tight">{index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                   </div>
-                  <div className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
+                  <div className={`flex items-center gap-1 text-2xs font-mono px-2 py-0.5 rounded-md ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
                     {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     {isPositive ? "+" : ""}{index.changePercent.toFixed(2)}%
                   </div>
@@ -171,15 +170,15 @@ export default function Index() {
                     <AreaChart data={intraday}>
                       <defs>
                         <linearGradient id={`grad-${index.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isPositive ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} stopOpacity={0.3} />
-                          <stop offset="100%" stopColor={isPositive ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} stopOpacity={0} />
+                          <stop offset="0%" stopColor={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} stopOpacity={0.25} />
+                          <stop offset="100%" stopColor={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <Area type="monotone" dataKey="price" stroke={isPositive ? "hsl(142 71% 45%)" : "hsl(0 84% 60%)"} fill={`url(#grad-${index.symbol})`} strokeWidth={1.5} dot={false} />
+                      <Area type="monotone" dataKey="price" stroke={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} fill={`url(#grad-${index.symbol})`} strokeWidth={1.5} dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground font-mono mt-1">
+                <div className="flex justify-between text-2xs text-muted-foreground font-mono tabular-nums mt-1">
                   <span>O: {index.open.toLocaleString("en-IN")}</span>
                   <span>H: {index.high.toLocaleString("en-IN")}</span>
                   <span>L: {index.low.toLocaleString("en-IN")}</span>

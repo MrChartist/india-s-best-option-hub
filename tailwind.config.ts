@@ -14,8 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'monospace'],
+      },
+      fontSize: {
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -79,6 +82,12 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        'glow': '0 0 12px -3px hsl(var(--primary) / 0.2)',
+        'glow-sm': '0 0 6px -2px hsl(var(--primary) / 0.15)',
+        'card': '0 1px 3px 0 hsl(var(--foreground) / 0.04), 0 1px 2px -1px hsl(var(--foreground) / 0.04)',
+        'card-hover': '0 4px 16px -4px hsl(var(--primary) / 0.1), 0 0 0 1px hsl(var(--primary) / 0.08)',
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -93,11 +102,11 @@ export default {
           "50%": { opacity: "0.4" },
         },
         "fade-in": {
-          from: { opacity: "0", transform: "translateY(6px)" },
+          from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "slide-up": {
-          from: { opacity: "0", transform: "translateY(12px)" },
+          from: { opacity: "0", transform: "translateY(16px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
       },
@@ -105,8 +114,8 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-        "fade-in": "fade-in 0.25s ease-out both",
-        "slide-up": "slide-up 0.3s ease-out both",
+        "fade-in": "fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "slide-up": "slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },
