@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getMockPositions, type Position } from "@/lib/mockData";
-import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, PieChart, Shield, Clock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getMockPositions, simulatePnL, simulateGreeksDecay, type Position } from "@/lib/mockData";
+import { Plus, Trash2, TrendingUp, TrendingDown, DollarSign, PieChart, Shield, Clock, Activity, BarChart3 } from "lucide-react";
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Bar } from "recharts";
 
 export default function PositionTracker() {
   const [positions, setPositions] = useState<Position[]>(getMockPositions());
   const [showAddForm, setShowAddForm] = useState(false);
+  const [simSpotOverride, setSimSpotOverride] = useState<string>("");
 
   const stats = useMemo(() => {
     const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
@@ -23,16 +26,17 @@ export default function PositionTracker() {
       const mult = p.action === "BUY" ? 1 : -1;
       return s + p.theta * mult * p.lots * p.lotSize;
     }, 0);
+    const totalGamma = positions.reduce((s, p) => s + 0.001 * p.lots * p.lotSize, 0);
+    const totalVega = positions.reduce((s, p) => s + 8 * p.lots * p.lotSize * (p.action === "BUY" ? 1 : -1), 0);
     const totalInvestment = positions.reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize, 0);
-    const totalMargin = positions
-      .filter(p => p.action === "SELL")
-      .reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize * 3, 0);
+    const totalMargin = positions.filter(p => p.action === "SELL").reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize * 3, 0);
     const winners = positions.filter(p => p.pnl > 0).length;
     const losers = positions.filter(p => p.pnl < 0).length;
-
     return {
       totalPnl, totalDelta: Math.round(totalDelta),
       totalTheta: Math.round(totalTheta * 100) / 100,
+      totalGamma: Math.round(totalGamma * 100) / 100,
+      totalVega: Math.round(totalVega),
       totalInvestment: Math.round(totalInvestment),
       totalMargin: Math.round(totalMargin),
       pnlPercent: totalInvestment > 0 ? Math.round((totalPnl / totalInvestment) * 10000) / 100 : 0,
@@ -41,23 +45,34 @@ export default function PositionTracker() {
     };
   }, [positions]);
 
+  // P&L Simulator
+  const niftyPositions = positions.filter(p => p.symbol === "NIFTY");
+  const simSpot = Number(simSpotOverride) || 24250;
+  const pnlSimData = useMemo(() => {
+    if (niftyPositions.length === 0) return [];
+    const range: [number, number] = [simSpot * 0.95, simSpot * 1.05];
+    return simulatePnL(niftyPositions, range, 60);
+  }, [niftyPositions, simSpot]);
+
+  // Greeks Decay
+  const greeksDecay = useMemo(() => simulateGreeksDecay(positions, 7), [positions]);
+
   const removePosition = (id: string) => setPositions(positions.filter(p => p.id !== id));
 
-  // Group by symbol
   const grouped = useMemo(() => {
     const groups: Record<string, Position[]> = {};
-    for (const p of positions) {
-      (groups[p.symbol] ||= []).push(p);
-    }
+    for (const p of positions) (groups[p.symbol] ||= []).push(p);
     return groups;
   }, [positions]);
+
+  const tooltipStyle = { backgroundColor: "hsl(220 18% 10%)", border: "1px solid hsl(220 14% 16%)", borderRadius: "8px", fontSize: "11px" };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Position Tracker</h1>
-          <p className="text-sm text-muted-foreground">Track open positions · Live P&L · Portfolio Greeks</p>
+          <p className="text-sm text-muted-foreground">Live P&L · P&L Simulator · Greeks Decay · Portfolio Risk</p>
         </div>
         <Button size="sm" className="h-8 text-xs gap-1" onClick={() => setShowAddForm(!showAddForm)}>
           <Plus className="h-3 w-3" /> Add Position
@@ -72,37 +87,33 @@ export default function PositionTracker() {
             <p className={`text-xl font-bold font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
               {stats.totalPnl >= 0 ? "+" : ""}₹{stats.totalPnl.toLocaleString("en-IN")}
             </p>
-            <p className={`text-[10px] font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {stats.pnlPercent >= 0 ? "+" : ""}{stats.pnlPercent}%
-            </p>
+            <p className={`text-[10px] font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.pnlPercent >= 0 ? "+" : ""}{stats.pnlPercent}%</p>
           </CardContent>
         </Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Net Delta</p>
           <p className={`text-lg font-bold font-mono ${stats.totalDelta >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalDelta}</p>
-          <p className="text-[9px] text-muted-foreground">{stats.totalDelta >= 0 ? "Net Long" : "Net Short"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Net Theta</p>
-          <p className={`text-lg font-bold font-mono ${stats.totalTheta >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalTheta}</p>
-          <p className="text-[9px] text-muted-foreground">/day</p>
+          <p className={`text-lg font-bold font-mono ${stats.totalTheta >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalTheta}/d</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-3 pb-3 text-center">
+          <p className="text-[9px] text-muted-foreground">Net Vega</p>
+          <p className={`text-lg font-bold font-mono ${stats.totalVega >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalVega}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Investment</p>
           <p className="text-lg font-bold font-mono">₹{(stats.totalInvestment / 1000).toFixed(1)}K</p>
         </CardContent></Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[9px] text-muted-foreground">Margin Used</p>
+          <p className="text-[9px] text-muted-foreground">Margin</p>
           <p className="text-lg font-bold font-mono">₹{(stats.totalMargin / 1000).toFixed(0)}K</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-1"><PieChart className="h-3 w-3" /> Positions</p>
-          <p className="text-lg font-bold font-mono">{positions.length}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Win Rate</p>
           <p className={`text-lg font-bold font-mono ${stats.winRate >= 50 ? "text-bullish" : "text-bearish"}`}>{stats.winRate}%</p>
-          <p className="text-[9px] text-muted-foreground">{stats.winners}W / {stats.losers}L</p>
+          <p className="text-[9px] text-muted-foreground">{stats.winners}W/{stats.losers}L</p>
         </CardContent></Card>
         <Card><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> Risk</p>
@@ -111,6 +122,93 @@ export default function PositionTracker() {
           </p>
         </CardContent></Card>
       </div>
+
+      {/* P&L Simulator & Greeks Decay */}
+      <Tabs defaultValue="pnl-sim">
+        <TabsList>
+          <TabsTrigger value="pnl-sim">P&L Simulator</TabsTrigger>
+          <TabsTrigger value="greeks-decay">Greeks Decay</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pnl-sim">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4" /> P&L at Expiry — NIFTY Positions</CardTitle>
+                  <p className="text-[10px] text-muted-foreground">Shows combined P&L across all NIFTY legs as spot moves ±5%</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[9px]">Spot:</Label>
+                  <Input
+                    type="number"
+                    value={simSpotOverride || "24250"}
+                    onChange={e => setSimSpotOverride(e.target.value)}
+                    className="w-[100px] h-7 text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {pnlSimData.length > 0 ? (
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={pnlSimData}>
+                      <defs>
+                        <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.3} />
+                          <stop offset="50%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
+                          <stop offset="50%" stopColor="hsl(0 84% 60%)" stopOpacity={0} />
+                          <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0.3} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                      <XAxis dataKey="spotPrice" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "P&L"]} />
+                      <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
+                      <ReferenceLine x={simSpot} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
+                      <Area type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" fill="url(#pnlGrad)" strokeWidth={2} name="Total P&L" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No NIFTY positions to simulate. Add NIFTY positions above.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="greeks-decay">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Greeks Decay Over Time (T to T+7)</CardTitle>
+              <p className="text-[10px] text-muted-foreground">How your portfolio P&L and Greeks change as time passes (theta decay effect)</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={greeksDecay}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis yAxisId="pnl" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis yAxisId="delta" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => {
+                      if (name === "P&L") return [`₹${v.toLocaleString("en-IN")}`, "P&L"];
+                      if (name === "Cum Theta") return [`₹${v.toLocaleString("en-IN")}`, "Cum Theta"];
+                      return [v, name];
+                    }} />
+                    <ReferenceLine yAxisId="pnl" y={0} stroke="hsl(215 15% 40%)" />
+                    <Line yAxisId="pnl" type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={{ fill: "hsl(210 100% 52%)", r: 3 }} name="P&L" />
+                    <Line yAxisId="pnl" type="monotone" dataKey="totalTheta" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Cum Theta" />
+                    <Bar yAxisId="delta" dataKey="totalDelta" fill="hsl(142 71% 45% / 0.3)" radius={[2, 2, 0, 0]} name="Delta" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Add Position Form */}
       {showAddForm && (
@@ -206,9 +304,7 @@ export default function PositionTracker() {
                 <TableBody>
                   {symPositions.map(p => (
                     <TableRow key={p.id} className="text-[11px] font-mono">
-                      <TableCell>
-                        <Badge variant={p.action === "BUY" ? "default" : "destructive"} className="text-[9px] h-4 px-1.5">{p.action}</Badge>
-                      </TableCell>
+                      <TableCell><Badge variant={p.action === "BUY" ? "default" : "destructive"} className="text-[9px] h-4 px-1.5">{p.action}</Badge></TableCell>
                       <TableCell><Badge variant="outline" className="text-[9px] h-4 px-1.5">{p.type}</Badge></TableCell>
                       <TableCell className="text-right font-bold">{p.strike.toLocaleString("en-IN")}</TableCell>
                       <TableCell className="text-right">{p.lots}</TableCell>
