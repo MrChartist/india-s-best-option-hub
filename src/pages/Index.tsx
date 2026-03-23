@@ -811,5 +811,6 @@ export default function Index() {
         </Card>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
