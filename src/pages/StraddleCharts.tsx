@@ -110,7 +110,7 @@ export default function StraddleCharts() {
                     <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine y={opening.straddlePremium} stroke="hsl(215 15% 40%)" strokeDasharray="5 5" label={{ value: "Open", fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
+                    <ReferenceLine y={opening.straddlePremium} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" label={{ value: "Open", fill: "hsl(var(--muted-foreground))", fontSize: 9 }} />
                     <Area type="monotone" dataKey="straddlePremium" stroke="hsl(38 92% 50%)" fill="url(#straddleGrad)" strokeWidth={2} name="Straddle" />
                     <Area type="monotone" dataKey="stranglePremium" stroke="hsl(210 100% 52%)" fill="url(#strangleGrad)" strokeWidth={1.5} name="Strangle" />
                   </AreaChart>

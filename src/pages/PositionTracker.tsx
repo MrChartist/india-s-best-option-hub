@@ -166,7 +166,7 @@ export default function PositionTracker() {
                       <XAxis dataKey="spotPrice" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "P&L"]} />
-                      <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
                       <ReferenceLine x={simSpot} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
                       <Area type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" fill="url(#pnlGrad)" strokeWidth={2} name="Total P&L" />
                     </AreaChart>
@@ -198,7 +198,7 @@ export default function PositionTracker() {
                       if (name === "Cum Theta") return [`₹${v.toLocaleString("en-IN")}`, "Cum Theta"];
                       return [v, name];
                     }} />
-                    <ReferenceLine yAxisId="pnl" y={0} stroke="hsl(215 15% 40%)" />
+                    <ReferenceLine yAxisId="pnl" y={0} stroke="hsl(var(--muted-foreground))" />
                     <Line yAxisId="pnl" type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={{ fill: "hsl(210 100% 52%)", r: 3 }} name="P&L" />
                     <Line yAxisId="pnl" type="monotone" dataKey="totalTheta" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Cum Theta" />
                     <Bar yAxisId="delta" dataKey="totalDelta" fill="hsl(142 71% 45% / 0.3)" radius={[2, 2, 0, 0]} name="Delta" />

@@ -492,7 +492,7 @@ export default function Index() {
                         return [value.toFixed(2) + "%", "Premium %"];
                       }}
                     />
-                    <ReferenceLine x={0} stroke="hsl(215 15% 40%)" />
+                    <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" />
                     <Bar dataKey="premium" name="Premium" radius={[0, 4, 4, 0]}>
                       {futuresPremiumChart.map((entry, i) => (
                         <Cell key={i} fill={entry.premium >= 0 ? "hsl(142 71% 45% / 0.7)" : "hsl(0 84% 60% / 0.7)"} />

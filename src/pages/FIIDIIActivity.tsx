@@ -90,7 +90,7 @@ export default function FIIDIIActivity() {
                     <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine yAxisId="flow" y={0} stroke="hsl(215 15% 40%)" />
+                    <ReferenceLine yAxisId="flow" y={0} stroke="hsl(var(--muted-foreground))" />
                     <Bar yAxisId="flow" dataKey="fiiNet" name="FII Net" radius={[2, 2, 0, 0]}>
                       {fiiDii.map((d, i) => <Cell key={i} fill={d.fiiNet >= 0 ? "hsl(142 71% 45% / 0.7)" : "hsl(0 84% 60% / 0.7)"} />)}
                     </Bar>
@@ -122,7 +122,7 @@ export default function FIIDIIActivity() {
                     <Area yAxisId="oi" type="monotone" dataKey="longOI" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.1)" strokeWidth={1.5} name="Long OI" />
                     <Area yAxisId="oi" type="monotone" dataKey="shortOI" stroke="hsl(0 84% 60%)" fill="hsl(0 84% 60% / 0.1)" strokeWidth={1.5} name="Short OI" />
                     <Line yAxisId="ratio" type="monotone" dataKey="longShortRatio" stroke="hsl(38 92% 50%)" strokeWidth={2} dot={false} name="L/S Ratio" />
-                    <ReferenceLine yAxisId="ratio" y={1} stroke="hsl(215 15% 40%)" strokeDasharray="5 5" />
+                    <ReferenceLine yAxisId="ratio" y={1} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -200,7 +200,7 @@ export default function FIIDIIActivity() {
                         <YAxis yAxisId="flow" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                         <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
-                        <ReferenceLine yAxisId="flow" y={0} stroke="hsl(215 15% 40%)" />
+                        <ReferenceLine yAxisId="flow" y={0} stroke="hsl(var(--muted-foreground))" />
                         <Area yAxisId="flow" type="monotone" dataKey="cumFII" stroke="hsl(142 71% 45%)" fill="hsl(142 71% 45% / 0.1)" strokeWidth={2} name="Cum. FII (₹Cr)" />
                         <Area yAxisId="flow" type="monotone" dataKey="cumDII" stroke="hsl(210 100% 52%)" fill="hsl(210 100% 52% / 0.1)" strokeWidth={2} name="Cum. DII (₹Cr)" />
                         <Line yAxisId="nifty" type="monotone" dataKey="nifty" stroke="hsl(38 92% 50%)" strokeWidth={1.5} dot={false} name="Nifty" />

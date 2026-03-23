@@ -198,7 +198,7 @@ export default function VolatilitySurface() {
                       <XAxis dataKey="expiry" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)}%`, ""]} />
-                      <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
                       <Bar dataKey="putSkew" fill="hsl(0 84% 60% / 0.6)" name="Put Skew" radius={[2, 2, 0, 0]} />
                       <Bar dataKey="callSkew" fill="hsl(142 71% 45% / 0.6)" name="Call Skew" radius={[2, 2, 0, 0]} />
                     </BarChart>

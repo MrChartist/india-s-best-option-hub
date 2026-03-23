@@ -216,7 +216,7 @@ export default function StrategyBuilder() {
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" }}
                       formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "P&L"]}
                     />
-                    <ReferenceLine y={0} stroke="hsl(215 15% 40%)" strokeWidth={1} />
+                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeWidth={1} />
                     <ReferenceLine x={spotPrice} stroke="hsl(210 100% 52%)" strokeDasharray="5 5" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
                     {stats.breakevens.map((be, i) => (
                       <ReferenceLine key={i} x={be} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: `BE: ${be}`, fill: "hsl(38 92% 50%)", fontSize: 8 }} />

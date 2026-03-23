@@ -356,7 +356,7 @@ export default function PriceCharts() {
                         <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                         <Tooltip contentStyle={tooltipStyle} />
                         <Bar dataKey="volume" fill="hsl(215 15% 55% / 0.12)" radius={[1, 1, 0, 0]} />
-                        <ReferenceLine y={0} stroke="hsl(215 15% 40%)" />
+                        <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
