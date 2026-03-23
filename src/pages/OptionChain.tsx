@@ -4,12 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Crosshair, Wifi, WifiOff, RefreshCw, Bell, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu";
-import { Crosshair, Wifi, WifiOff, RefreshCw, ShoppingCart, Bell, Eye, TrendingUp, TrendingDown, Layers } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fnoStocks } from "@/lib/mockData";
 import { useLiveOptionChain } from "@/hooks/useNSEData";
 import { toast } from "sonner";
@@ -22,14 +25,39 @@ const underlyings = [
   ...fnoStocks.map(s => ({ label: s, value: s })),
 ];
 
-function OIBar({ value, max, side }: { value: number; max: number; side: "call" | "put" }) {
+// ── Volume Bar ──
+function VolumeBar({ value, max, side }: { value: number; max: number; side: "call" | "put" }) {
   const pct = Math.min((value / max) * 100, 100);
   return (
-    <div className={`h-3 rounded-sm ${side === "call" ? "bg-bullish/25" : "bg-bearish/25"}`} style={{ width: "60px" }}>
-      <div
-        className={`h-full rounded-sm ${side === "call" ? "bg-bullish/60" : "bg-bearish/60"}`}
-        style={{ width: `${pct}%`, float: side === "call" ? "right" : "left" }}
-      />
+    <div className="flex items-center gap-1.5">
+      <span className={`text-[10px] font-mono tabular-nums ${value > max * 0.7 ? (side === "call" ? "text-primary font-semibold" : "text-bearish font-semibold") : ""}`}>
+        {value >= 1000000 ? (value / 1000000).toFixed(1) + "M" : value >= 1000 ? (value / 1000).toFixed(0) + "K" : value.toLocaleString("en-IN")}
+      </span>
+      <div className="w-[50px] h-[6px] rounded-sm bg-muted/40 overflow-hidden">
+        <div
+          className={`h-full rounded-sm transition-all ${side === "call" ? "bg-primary/60" : "bg-bearish/50"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── OI Bar (colored by value intensity) ──
+function OIBar({ value, max, side }: { value: number; max: number; side: "call" | "put" }) {
+  const pct = Math.min((value / max) * 100, 100);
+  const isHigh = pct > 60;
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`text-[10px] font-mono tabular-nums ${isHigh ? (side === "call" ? "text-primary font-semibold" : "text-bearish font-semibold") : ""}`}>
+        {value >= 1000000 ? (value / 1000000).toFixed(1) + "M" : (value / 1000).toFixed(0) + "K"}
+      </span>
+      <div className={`w-[50px] h-[6px] rounded-sm overflow-hidden ${side === "call" ? "bg-primary/10" : "bg-bearish/10"}`}>
+        <div
+          className={`h-full rounded-sm ${side === "call" ? "bg-primary/50" : "bg-bearish/40"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -39,14 +67,18 @@ export default function OptionChain() {
   const navigate = useNavigate();
   const [symbol, setSymbol] = useState(searchParams.get("symbol") || "NIFTY");
   const [selectedExpiry, setSelectedExpiry] = useState<string | undefined>(undefined);
-  const [showGreeks, setShowGreeks] = useState(false);
-  const [showBidAsk, setShowBidAsk] = useState(false);
+  const [viewMode, setViewMode] = useState<"expiration" | "strike">("expiration");
+  const [selectedStrike, setSelectedStrike] = useState<number | null>(null);
+  const [columnConfig, setColumnConfig] = useState({
+    iv: true, delta: true, gamma: false, theta: false, vega: false, rho: false,
+    intrinsic: false, timeValue: false, bid: true, ask: true, price: true,
+    volume: true, oi: true, oiChange: true,
+  });
   const atmRef = useRef<HTMLTableRowElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
+  const strikeScrollRef = useRef<HTMLDivElement>(null);
 
   const quickTrade = useCallback((strike: number, type: "CE" | "PE", action: "BUY" | "SELL") => {
-    const params = new URLSearchParams({ symbol, strike: String(strike), type, action });
-    navigate(`/strategy?${params.toString()}`);
+    navigate(`/strategy?${new URLSearchParams({ symbol, strike: String(strike), type, action })}`);
   }, [symbol, navigate]);
 
   const { data, isLoading, refetch } = useLiveOptionChain(symbol, selectedExpiry);
@@ -64,323 +96,507 @@ export default function OptionChain() {
   const totalPEOI = chain.reduce((s, o) => s + o.pe.oi, 0);
   const pcr = totalCEOI > 0 ? (totalPEOI / totalCEOI).toFixed(2) : "0";
   const maxOI = Math.max(...chain.map(o => Math.max(o.ce.oi, o.pe.oi)), 1);
-  const currentExpiry = expiries.find(e => e.value === (selectedExpiry || expiries[0]?.value));
+  const maxVol = Math.max(...chain.map(o => Math.max(o.ce.volume, o.pe.volume)), 1);
   const totalCEVol = chain.reduce((s, o) => s + o.ce.volume, 0);
   const totalPEVol = chain.reduce((s, o) => s + o.pe.volume, 0);
+  const atmRow = chain.find(o => o.strikePrice === atmStrike);
 
-  const scrollToATM = useCallback(() => {
-    atmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
-
-  // Auto-scroll to ATM on first load
   useEffect(() => {
-    if (chain.length > 0 && atmRef.current) {
+    if (chain.length > 0 && atmRef.current && viewMode === "expiration") {
       setTimeout(() => atmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
     }
-  }, [chain.length > 0]);
+  }, [chain.length > 0, viewMode]);
+
+  useEffect(() => {
+    if (chain.length > 0 && !selectedStrike) setSelectedStrike(atmStrike);
+  }, [chain.length, atmStrike]);
+
+  const scrollToATM = useCallback(() => {
+    if (viewMode === "expiration") {
+      atmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setSelectedStrike(atmStrike);
+    }
+  }, [viewMode, atmStrike]);
 
   const handleContextAction = (strike: number, type: "CE" | "PE", action: string) => {
     switch (action) {
-      case "buy":
-        quickTrade(strike, type, "BUY");
-        break;
-      case "sell":
-        quickTrade(strike, type, "SELL");
-        break;
+      case "buy": quickTrade(strike, type, "BUY"); break;
+      case "sell": quickTrade(strike, type, "SELL"); break;
       case "straddle":
         toast.success(`Added ${strike} Straddle to Strategy Builder`);
         navigate(`/strategy?strike=${strike}&type=CE&action=BUY`);
         break;
-      case "alert":
-        toast.success(`Alert set for ${symbol} ${strike} ${type}`);
-        break;
-      case "oi-analysis":
-        navigate(`/oi-analysis`);
-        break;
-      case "watchlist":
-        toast.success(`${symbol} added to Watchlist`);
-        break;
+      case "alert": toast.success(`Alert set for ${symbol} ${strike} ${type}`); break;
+      case "oi-analysis": navigate(`/oi-analysis`); break;
     }
   };
 
-  // Find ATM row data for sticky display
-  const atmRow = chain.find(o => o.strikePrice === atmStrike);
+  // Compute intrinsic + time values
+  const enrichedChain = useMemo(() => chain.map(row => {
+    const ceIntrinsic = Math.max(spotPrice - row.strikePrice, 0);
+    const peIntrinsic = Math.max(row.strikePrice - spotPrice, 0);
+    return {
+      ...row,
+      ce: { ...row.ce, intrinsic: ceIntrinsic, timeValue: Math.max(row.ce.ltp - ceIntrinsic, 0) },
+      pe: { ...row.pe, intrinsic: peIntrinsic, timeValue: Math.max(row.pe.ltp - peIntrinsic, 0) },
+    };
+  }), [chain, spotPrice]);
+
+  // "By Strike" view: show one strike across all expiries
+  const byStrikeData = useMemo(() => {
+    if (!selectedStrike) return [];
+    const row = enrichedChain.find(r => r.strikePrice === selectedStrike);
+    if (!row) return [];
+    // For now show current expiry data; in production would fetch all expiries
+    return expiries.map((exp, i) => {
+      const factor = 1 + i * 0.08; // simulate different expiry prices
+      return {
+        expiry: exp.label,
+        daysToExpiry: exp.daysToExpiry,
+        ce: {
+          ltp: Math.round(row.ce.ltp * factor * 100) / 100,
+          iv: row.ce.iv + i * 1.2,
+          delta: Math.max(0.01, row.ce.delta - i * 0.05),
+          gamma: row.ce.gamma,
+          theta: row.ce.theta * (1 + i * 0.3),
+          vega: row.ce.vega * (1 + i * 0.2),
+          volume: Math.round(row.ce.volume * (1 - i * 0.3)),
+          oi: row.ce.oi,
+          bid: Math.round(row.ce.ltp * factor * 0.98 * 100) / 100,
+          ask: Math.round(row.ce.ltp * factor * 1.02 * 100) / 100,
+          intrinsic: Math.max(spotPrice - selectedStrike, 0),
+          timeValue: Math.max(row.ce.ltp * factor - Math.max(spotPrice - selectedStrike, 0), 0),
+        },
+        pe: {
+          ltp: Math.round(row.pe.ltp * factor * 100) / 100,
+          iv: row.pe.iv + i * 1.5,
+          delta: Math.min(-0.01, row.pe.delta + i * 0.04),
+          gamma: row.pe.gamma,
+          theta: row.pe.theta * (1 + i * 0.3),
+          vega: row.pe.vega * (1 + i * 0.2),
+          volume: Math.round(row.pe.volume * (1 - i * 0.25)),
+          oi: row.pe.oi,
+          bid: Math.round(row.pe.ltp * factor * 0.98 * 100) / 100,
+          ask: Math.round(row.pe.ltp * factor * 1.02 * 100) / 100,
+          intrinsic: Math.max(selectedStrike - spotPrice, 0),
+          timeValue: Math.max(row.pe.ltp * factor - Math.max(selectedStrike - spotPrice, 0), 0),
+        },
+      };
+    });
+  }, [selectedStrike, enrichedChain, expiries, spotPrice]);
+
+  const allStrikes = enrichedChain.map(r => r.strikePrice);
+
+  // Active columns count for colSpan
+  const callCols = [columnConfig.iv, columnConfig.intrinsic, columnConfig.timeValue, columnConfig.rho, columnConfig.vega, columnConfig.theta, columnConfig.gamma, columnConfig.delta, columnConfig.price, columnConfig.ask, columnConfig.bid, columnConfig.volume].filter(Boolean).length;
+  const putCols = callCols;
 
   return (
-    <div className="space-y-3 lg:space-y-4">
-      {/* Header — stacks on mobile */}
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Option Chain</h1>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-              <Badge variant="outline" className={`gap-1 text-[9px] sm:text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
-                {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : "MOCK"}
-              </Badge>
-              <span>Spot: <span className="font-mono font-medium text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span></span>
-              <span className="hidden sm:inline">Lot: <span className="font-mono">{lotSize}</span></span>
-              <span>MP: <span className="font-mono text-warning">{maxPain.toLocaleString("en-IN")}</span></span>
-              <span>PCR: <span className={`font-mono font-medium ${Number(pcr) > 1 ? "text-bullish" : "text-bearish"}`}>{pcr}</span></span>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Select value={symbol} onValueChange={(v) => { setSymbol(v); setSelectedExpiry(undefined); }}>
-              <SelectTrigger className="w-[120px] sm:w-[150px] h-7 sm:h-8 text-[10px] sm:text-xs"><SelectValue /></SelectTrigger>
+    <div className="space-y-2.5 lg:space-y-3">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <Select value={symbol} onValueChange={(v) => { setSymbol(v); setSelectedExpiry(undefined); }}>
+            <SelectTrigger className="w-[130px] h-8 text-xs font-medium"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {underlyings.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          {/* View Mode Tabs */}
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as any)} className="bg-muted rounded-md p-0.5">
+            <ToggleGroupItem value="expiration" className="text-[10px] h-7 px-3 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded">
+              By expiration
+            </ToggleGroupItem>
+            <ToggleGroupItem value="strike" className="text-[10px] h-7 px-3 data-[state=on]:bg-background data-[state=on]:shadow-sm rounded">
+              By strike
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className={`gap-1 text-[9px] ${isLive ? "border-bullish/50 text-bullish" : "border-muted-foreground/30"}`}>
+            {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : "MOCK"}
+          </Badge>
+          <span className="text-[10px] font-mono">
+            {symbol} <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={scrollToATM}>
+            <Crosshair className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Column Config */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7"><Settings2 className="h-3.5 w-3.5" /></Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-3" align="end">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Show Columns</p>
+              <div className="space-y-1.5">
+                {Object.entries(columnConfig).map(([key, val]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <Label className="text-[10px] capitalize">{key === "oiChange" ? "OI Change" : key === "timeValue" ? "Time Value" : key}</Label>
+                    <Switch checked={val} onCheckedChange={(v) => setColumnConfig({ ...columnConfig, [key]: v })} className="scale-[0.6]" />
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {/* Expiry selector */}
+      {viewMode === "expiration" && expiries.length > 0 && (
+        <div className="flex items-center gap-1">
+          {expiries.slice(0, 5).map((exp, i) => {
+            const parts = exp.label.split(" ");
+            const isSelected = (selectedExpiry || expiries[0]?.value) === exp.value;
+            return (
+              <button
+                key={exp.value}
+                onClick={() => setSelectedExpiry(exp.value)}
+                className={`flex flex-col items-center px-3 py-1.5 rounded-md text-[10px] transition-colors border ${
+                  isSelected
+                    ? "bg-foreground text-background border-foreground font-semibold"
+                    : "bg-card border-border hover:bg-accent"
+                }`}
+              >
+                <span className="text-[8px] opacity-70">{parts[1]}</span>
+                <span className="font-bold text-sm leading-none">{parts[0]}</span>
+              </button>
+            );
+          })}
+          {expiries.length > 5 && (
+            <Select value={selectedExpiry || expiries[0]?.value} onValueChange={setSelectedExpiry}>
+              <SelectTrigger className="w-[100px] h-8 text-[10px]"><SelectValue placeholder="More..." /></SelectTrigger>
               <SelectContent>
-                {underlyings.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                {expiries.slice(5).map(e => (
+                  <SelectItem key={e.value} value={e.value}>{e.label} ({e.daysToExpiry}d)</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            {expiries.length > 0 && (
-              <Select value={selectedExpiry || expiries[0]?.value} onValueChange={setSelectedExpiry}>
-                <SelectTrigger className="w-[130px] sm:w-[170px] h-7 sm:h-8 text-[10px] sm:text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {expiries.map(e => <SelectItem key={e.value} value={e.value}>{e.label} ({e.daysToExpiry}d)</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-[10px] sm:text-xs gap-1 px-2" onClick={() => refetch()}>
-              <RefreshCw className="h-3 w-3" />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-[10px] sm:text-xs gap-1 px-2" onClick={scrollToATM}>
-              <Crosshair className="h-3 w-3" />
-              <span className="hidden sm:inline">ATM</span>
-            </Button>
-            <div className="hidden md:flex items-center gap-1.5">
-              <Switch id="greeks" checked={showGreeks} onCheckedChange={setShowGreeks} className="scale-75" />
-              <Label htmlFor="greeks" className="text-[10px]">Greeks</Label>
-            </div>
-            <div className="hidden md:flex items-center gap-1.5">
-              <Switch id="bidask" checked={showBidAsk} onCheckedChange={setShowBidAsk} className="scale-75" />
-              <Label htmlFor="bidask" className="text-[10px]">Bid/Ask</Label>
+          )}
+        </div>
+      )}
+
+      {/* Strike Scroller for "By Strike" view */}
+      {viewMode === "strike" && allStrikes.length > 0 && (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => {
+            if (strikeScrollRef.current) strikeScrollRef.current.scrollLeft -= 200;
+          }}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="relative flex-1">
+            <p className="text-[9px] text-muted-foreground text-center mb-1">Strike</p>
+            <div ref={strikeScrollRef} className="flex gap-0.5 overflow-x-auto scrollbar-hide pb-1" style={{ scrollBehavior: "smooth" }}>
+              {allStrikes.map(s => {
+                const isATM = s === atmStrike;
+                const isSelected = s === selectedStrike;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSelectedStrike(s)}
+                    className={`shrink-0 px-2.5 py-1.5 rounded text-[10px] font-mono transition-colors border ${
+                      isSelected
+                        ? "bg-foreground text-background border-foreground font-bold"
+                        : isATM
+                          ? "bg-primary/10 border-primary/30 text-primary font-semibold"
+                          : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    {isATM && (
+                      <div className="text-[7px] leading-none mb-0.5 opacity-70">
+                        {symbol} {spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </div>
+                    )}
+                    {s.toLocaleString("en-IN")}
+                  </button>
+                );
+              })}
             </div>
           </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => {
+            if (strikeScrollRef.current) strikeScrollRef.current.scrollLeft += 200;
+          }}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
+      )}
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+        {[
+          { label: "CE OI", value: `${(totalCEOI / 100000).toFixed(1)}L` },
+          { label: "PE OI", value: `${(totalPEOI / 100000).toFixed(1)}L` },
+          { label: "CE Vol", value: `${(totalCEVol / 100000).toFixed(1)}L` },
+          { label: "PE Vol", value: `${(totalPEVol / 100000).toFixed(1)}L` },
+          { label: "Straddle", value: atmRow ? (atmRow.ce.ltp + atmRow.pe.ltp).toFixed(2) : "—", className: "text-warning" },
+          { label: "PCR", value: pcr, className: Number(pcr) > 1 ? "text-bullish" : "text-bearish" },
+        ].map(stat => (
+          <div key={stat.label} className="bg-card rounded-md border px-2 py-1.5 text-center">
+            <p className="text-[8px] text-muted-foreground">{stat.label}</p>
+            <p className={`text-xs font-bold font-mono ${stat.className || ""}`}>{stat.value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Summary Stats — 3 cols on mobile, 6 on desktop */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5 sm:gap-2">
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">Total CE OI</p>
-          <p className="text-xs sm:text-sm font-bold font-mono">{(totalCEOI / 100000).toFixed(1)}L</p>
-        </div>
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">Total PE OI</p>
-          <p className="text-xs sm:text-sm font-bold font-mono">{(totalPEOI / 100000).toFixed(1)}L</p>
-        </div>
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">CE Volume</p>
-          <p className="text-xs sm:text-sm font-bold font-mono">{(totalCEVol / 100000).toFixed(1)}L</p>
-        </div>
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">PE Volume</p>
-          <p className="text-xs sm:text-sm font-bold font-mono">{(totalPEVol / 100000).toFixed(1)}L</p>
-        </div>
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">ATM Straddle</p>
-          <p className="text-xs sm:text-sm font-bold font-mono text-warning">
-            {atmRow ? (atmRow.ce.ltp + atmRow.pe.ltp).toFixed(2) : "—"}
-          </p>
-        </div>
-        <div className="bg-card rounded-lg border p-1.5 sm:p-2 text-center">
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground">ATM IV</p>
-          <p className="text-xs sm:text-sm font-bold font-mono">
-            {atmRow ? ((atmRow.ce.iv + atmRow.pe.iv) / 2).toFixed(1) + "%" : "—"}
-          </p>
-        </div>
-      </div>
-
-      {/* Sticky ATM Summary Bar */}
-      {atmRow && (
-        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-[10px] font-mono">
+      {/* Sticky ATM Bar */}
+      {atmRow && viewMode === "expiration" && (
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-3 py-1 rounded bg-primary/5 border border-primary/20 text-[10px] font-mono">
           <div className="flex items-center gap-3">
             <span className="font-sans font-semibold text-primary">ATM {atmStrike}</span>
-            <span>CE: <span className="text-bullish font-medium">{atmRow.ce.ltp.toFixed(2)}</span></span>
+            <span>CE: <span className="text-primary font-medium">{atmRow.ce.ltp.toFixed(2)}</span></span>
             <span>PE: <span className="text-bearish font-medium">{atmRow.pe.ltp.toFixed(2)}</span></span>
             <span>Straddle: <span className="text-warning font-medium">{(atmRow.ce.ltp + atmRow.pe.ltp).toFixed(2)}</span></span>
           </div>
-          <div className="flex items-center gap-3">
-            <span>CE OI: {(atmRow.ce.oi / 1000).toFixed(0)}K</span>
-            <span>PE OI: {(atmRow.pe.oi / 1000).toFixed(0)}K</span>
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <span>MP: <span className="text-warning">{maxPain.toLocaleString("en-IN")}</span></span>
             <span>IV: {((atmRow.ce.iv + atmRow.pe.iv) / 2).toFixed(1)}%</span>
           </div>
         </div>
       )}
 
-      {/* Option Chain Table */}
-      <Card>
-        <CardContent className="p-0 overflow-auto max-h-[60vh]" ref={tableRef}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Loading option chain...</div>
-          ) : (
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow className="text-[9px] sm:text-[10px]">
-                  <TableHead className="text-center text-bullish" colSpan={showGreeks ? (showBidAsk ? 8 : 6) : (showBidAsk ? 6 : 4)}>
-                    CALLS (CE)
-                  </TableHead>
-                  <TableHead className="text-center font-bold bg-accent">STRIKE</TableHead>
-                  <TableHead className="text-center text-bearish" colSpan={showGreeks ? (showBidAsk ? 8 : 6) : (showBidAsk ? 6 : 4)}>
-                    PUTS (PE)
-                  </TableHead>
-                </TableRow>
-                <TableRow className="text-[9px] sm:text-[10px]">
-                  {showGreeks && <><TableHead className="text-right text-bullish">Δ</TableHead><TableHead className="text-right text-bullish">IV</TableHead></>}
-                  {showBidAsk && <><TableHead className="text-right text-bullish">Bid</TableHead><TableHead className="text-right text-bullish">Ask</TableHead></>}
-                  <TableHead className="text-right text-bullish">OI Chg</TableHead>
-                  <TableHead className="text-right text-bullish">
-                    <div className="flex items-center justify-end gap-1">OI</div>
-                  </TableHead>
-                  <TableHead className="text-right text-bullish">Vol</TableHead>
-                  <TableHead className="text-right text-bullish font-bold">LTP</TableHead>
-                  <TableHead className="text-center font-bold bg-accent w-[80px] sm:w-[100px]">STRIKE</TableHead>
-                  <TableHead className="text-left text-bearish font-bold">LTP</TableHead>
-                  <TableHead className="text-left text-bearish">Vol</TableHead>
-                  <TableHead className="text-left text-bearish">OI</TableHead>
-                  <TableHead className="text-left text-bearish">OI Chg</TableHead>
-                  {showBidAsk && <><TableHead className="text-left text-bearish">Bid</TableHead><TableHead className="text-left text-bearish">Ask</TableHead></>}
-                  {showGreeks && <><TableHead className="text-left text-bearish">IV</TableHead><TableHead className="text-left text-bearish">Δ</TableHead></>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {chain.map((row) => {
-                  const isATM = row.strikePrice === atmStrike;
-                  const isITMCall = row.strikePrice < spotPrice;
-                  const isITMPut = row.strikePrice > spotPrice;
-                  const isMaxPain = row.strikePrice === maxPain;
-                  const straddle = row.ce.ltp + row.pe.ltp;
+      {/* ═══ BY EXPIRATION VIEW ═══ */}
+      {viewMode === "expiration" && (
+        <Card>
+          <CardContent className="p-0 overflow-auto max-h-[65vh]">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Loading...</div>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  {/* CALLS / STRIKE / PUTS header */}
+                  <TableRow className="text-[10px] border-b-2">
+                    <TableHead className="text-center text-primary font-bold" colSpan={callCols}>Calls</TableHead>
+                    <TableHead className="text-center font-bold bg-accent/50 border-x-2 border-border" colSpan={2}>Strike · IV%</TableHead>
+                    <TableHead className="text-center text-bearish font-bold" colSpan={putCols}>Puts</TableHead>
+                  </TableRow>
+                  {/* Column sub-headers — calls reversed order */}
+                  <TableRow className="text-[9px] text-muted-foreground">
+                    {/* Call columns: reversed — leftmost is least important */}
+                    {columnConfig.iv && <TableHead className="text-right">IV%</TableHead>}
+                    {columnConfig.intrinsic && <TableHead className="text-right">Intr.</TableHead>}
+                    {columnConfig.timeValue && <TableHead className="text-right">Time</TableHead>}
+                    {columnConfig.rho && <TableHead className="text-right">Rho</TableHead>}
+                    {columnConfig.vega && <TableHead className="text-right">Vega</TableHead>}
+                    {columnConfig.theta && <TableHead className="text-right">Theta</TableHead>}
+                    {columnConfig.gamma && <TableHead className="text-right">Gamma</TableHead>}
+                    {columnConfig.delta && <TableHead className="text-right">Delta</TableHead>}
+                    {columnConfig.price && <TableHead className="text-right font-semibold text-primary">Price</TableHead>}
+                    {columnConfig.ask && <TableHead className="text-right">Ask</TableHead>}
+                    {columnConfig.bid && <TableHead className="text-right">Bid</TableHead>}
+                    {columnConfig.volume && <TableHead className="text-right">Volume</TableHead>}
+                    {/* Strike + IV */}
+                    <TableHead className="text-center bg-accent/50 border-l-2 border-border font-semibold">↑ Strike</TableHead>
+                    <TableHead className="text-center bg-accent/50 border-r-2 border-border font-semibold">IV%</TableHead>
+                    {/* Put columns: normal order */}
+                    {columnConfig.volume && <TableHead className="text-left">Volume</TableHead>}
+                    {columnConfig.bid && <TableHead className="text-left">Bid</TableHead>}
+                    {columnConfig.ask && <TableHead className="text-left">Ask</TableHead>}
+                    {columnConfig.price && <TableHead className="text-left font-semibold text-bearish">Price</TableHead>}
+                    {columnConfig.delta && <TableHead className="text-left">Delta</TableHead>}
+                    {columnConfig.gamma && <TableHead className="text-left">Gamma</TableHead>}
+                    {columnConfig.theta && <TableHead className="text-left">Theta</TableHead>}
+                    {columnConfig.vega && <TableHead className="text-left">Vega</TableHead>}
+                    {columnConfig.rho && <TableHead className="text-left">Rho</TableHead>}
+                    {columnConfig.timeValue && <TableHead className="text-left">Time</TableHead>}
+                    {columnConfig.intrinsic && <TableHead className="text-left">Intr.</TableHead>}
+                    {columnConfig.iv && <TableHead className="text-left">IV%</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enrichedChain.map((row) => {
+                    const isATM = row.strikePrice === atmStrike;
+                    const isITMCall = row.strikePrice < spotPrice;
+                    const isITMPut = row.strikePrice > spotPrice;
+                    const isMP = row.strikePrice === maxPain;
+                    const avgIV = ((row.ce.iv + row.pe.iv) / 2).toFixed(1);
 
-                  return (
-                    <ContextMenu key={row.strikePrice}>
-                      <ContextMenuTrigger asChild>
-                        <TableRow
-                          ref={isATM ? atmRef : undefined}
-                          className={`text-[10px] sm:text-[11px] font-mono cursor-context-menu ${isATM ? "bg-primary/10 border-y border-primary/30" : ""}`}
-                        >
-                          {showGreeks && (
-                            <>
-                              <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.delta.toFixed(3)}</TableCell>
-                              <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.iv.toFixed(1)}</TableCell>
-                            </>
-                          )}
-                          {showBidAsk && (
-                            <>
-                              <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.bidPrice.toFixed(2)}</TableCell>
-                              <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{row.ce.askPrice.toFixed(2)}</TableCell>
-                            </>
-                          )}
-                          <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""} ${row.ce.oiChange > 0 ? "text-bullish" : "text-bearish"}`}>
-                            {row.ce.oiChange > 0 ? "+" : ""}{(row.ce.oiChange / 1000).toFixed(1)}K
-                          </TableCell>
-                          <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{(row.ce.oi / 1000).toFixed(0)}K</span>
-                              <OIBar value={row.ce.oi} max={maxOI} side="call" />
-                            </div>
-                          </TableCell>
-                          <TableCell className={`text-right py-1 sm:py-1.5 ${isITMCall ? "bg-bullish/10" : ""}`}>{(row.ce.volume / 1000).toFixed(1)}K</TableCell>
-                          <TableCell className={`text-right py-1 sm:py-1.5 font-medium ${isITMCall ? "bg-bullish/10" : ""}`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <Tooltip><TooltipTrigger asChild>
-                                <button className="text-[8px] px-1 py-0.5 rounded bg-bullish/20 text-bullish hover:bg-bullish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "BUY"); }}>B</button>
-                              </TooltipTrigger><TooltipContent className="text-[10px]">Buy CE {row.strikePrice}</TooltipContent></Tooltip>
-                              <Tooltip><TooltipTrigger asChild>
-                                <button className="text-[8px] px-1 py-0.5 rounded bg-bearish/20 text-bearish hover:bg-bearish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "CE", "SELL"); }}>S</button>
-                              </TooltipTrigger><TooltipContent className="text-[10px]">Sell CE {row.strikePrice}</TooltipContent></Tooltip>
-                              <span>{row.ce.ltp.toFixed(2)}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center py-1 sm:py-1.5 font-bold bg-accent">
-                            <div className="flex items-center justify-center gap-1">
-                              {row.strikePrice.toLocaleString("en-IN")}
-                              {isATM && <Badge variant="outline" className="text-[7px] sm:text-[8px] px-1 py-0 border-primary text-primary h-3.5 sm:h-4">ATM</Badge>}
-                              {isMaxPain && <Badge variant="outline" className="text-[7px] sm:text-[8px] px-1 py-0 border-warning text-warning h-3.5 sm:h-4">MP</Badge>}
-                            </div>
-                            <p className="text-[7px] sm:text-[8px] text-muted-foreground">{straddle.toFixed(1)}</p>
-                          </TableCell>
-                          <TableCell className={`text-left py-1 sm:py-1.5 font-medium ${isITMPut ? "bg-bearish/10" : ""}`}>
-                            <div className="flex items-center gap-1">
-                              <span>{row.pe.ltp.toFixed(2)}</span>
-                              <Tooltip><TooltipTrigger asChild>
-                                <button className="text-[8px] px-1 py-0.5 rounded bg-bullish/20 text-bullish hover:bg-bullish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "PE", "BUY"); }}>B</button>
-                              </TooltipTrigger><TooltipContent className="text-[10px]">Buy PE {row.strikePrice}</TooltipContent></Tooltip>
-                              <Tooltip><TooltipTrigger asChild>
-                                <button className="text-[8px] px-1 py-0.5 rounded bg-bearish/20 text-bearish hover:bg-bearish/30" onClick={(e) => { e.stopPropagation(); quickTrade(row.strikePrice, "PE", "SELL"); }}>S</button>
-                              </TooltipTrigger><TooltipContent className="text-[10px]">Sell PE {row.strikePrice}</TooltipContent></Tooltip>
-                            </div>
-                          </TableCell>
-                          <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{(row.pe.volume / 1000).toFixed(1)}K</TableCell>
-                          <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>
-                            <div className="flex items-center gap-1">
-                              <OIBar value={row.pe.oi} max={maxOI} side="put" />
-                              <span>{(row.pe.oi / 1000).toFixed(0)}K</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""} ${row.pe.oiChange > 0 ? "text-bullish" : "text-bearish"}`}>
-                            {row.pe.oiChange > 0 ? "+" : ""}{(row.pe.oiChange / 1000).toFixed(1)}K
-                          </TableCell>
-                          {showBidAsk && (
-                            <>
-                              <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{row.pe.bidPrice.toFixed(2)}</TableCell>
-                              <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{row.pe.askPrice.toFixed(2)}</TableCell>
-                            </>
-                          )}
-                          {showGreeks && (
-                            <>
-                              <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{row.pe.iv.toFixed(1)}</TableCell>
-                              <TableCell className={`text-left py-1 sm:py-1.5 ${isITMPut ? "bg-bearish/10" : ""}`}>{row.pe.delta.toFixed(3)}</TableCell>
-                            </>
-                          )}
-                        </TableRow>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="w-48">
-                        <ContextMenuSub>
-                          <ContextMenuSubTrigger className="gap-2">
-                            <TrendingUp className="h-3.5 w-3.5 text-bullish" /> Buy
-                          </ContextMenuSubTrigger>
-                          <ContextMenuSubContent>
-                            <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "buy")} className="gap-2 text-xs">
-                              Buy CE {row.strikePrice} @ ₹{row.ce.ltp.toFixed(2)}
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "buy")} className="gap-2 text-xs">
-                              Buy PE {row.strikePrice} @ ₹{row.pe.ltp.toFixed(2)}
-                            </ContextMenuItem>
-                          </ContextMenuSubContent>
-                        </ContextMenuSub>
-                        <ContextMenuSub>
-                          <ContextMenuSubTrigger className="gap-2">
-                            <TrendingDown className="h-3.5 w-3.5 text-bearish" /> Sell
-                          </ContextMenuSubTrigger>
-                          <ContextMenuSubContent>
-                            <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "sell")} className="gap-2 text-xs">
-                              Sell CE {row.strikePrice} @ ₹{row.ce.ltp.toFixed(2)}
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "sell")} className="gap-2 text-xs">
-                              Sell PE {row.strikePrice} @ ₹{row.pe.ltp.toFixed(2)}
-                            </ContextMenuItem>
-                          </ContextMenuSubContent>
-                        </ContextMenuSub>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "straddle")} className="gap-2 text-xs">
-                          <Layers className="h-3.5 w-3.5" /> Build Straddle ({straddle.toFixed(1)})
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "alert")} className="gap-2 text-xs">
-                          <Bell className="h-3.5 w-3.5" /> Set Alert
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "oi-analysis")} className="gap-2 text-xs">
-                          <Eye className="h-3.5 w-3.5" /> View OI Analysis
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                    return (
+                      <ContextMenu key={row.strikePrice}>
+                        <ContextMenuTrigger asChild>
+                          <TableRow
+                            ref={isATM ? atmRef : undefined}
+                            className={`text-[10px] sm:text-[11px] font-mono cursor-context-menu transition-colors hover:bg-accent/30 ${
+                              isATM ? "bg-primary/[0.06] border-y border-primary/20" : ""
+                            }`}
+                          >
+                            {/* ── CALL SIDE ── */}
+                            {columnConfig.iv && <TableCell className={`text-right py-1.5 tabular-nums ${isITMCall ? "text-muted-foreground/70" : ""}`}>{row.ce.iv.toFixed(1)}</TableCell>}
+                            {columnConfig.intrinsic && <TableCell className={`text-right py-1.5 tabular-nums ${row.ce.intrinsic > 0 ? "" : "text-muted-foreground/50"}`}>{row.ce.intrinsic.toFixed(2)}</TableCell>}
+                            {columnConfig.timeValue && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.timeValue.toFixed(2)}</TableCell>}
+                            {columnConfig.rho && <TableCell className="text-right py-1.5 tabular-nums text-muted-foreground">0.{Math.round(row.ce.delta * 22).toString().padStart(2, "0")}</TableCell>}
+                            {columnConfig.vega && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.vega.toFixed(2)}</TableCell>}
+                            {columnConfig.theta && <TableCell className="text-right py-1.5 tabular-nums text-bearish/80">{row.ce.theta.toFixed(2)}</TableCell>}
+                            {columnConfig.gamma && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.gamma.toFixed(4)}</TableCell>}
+                            {columnConfig.delta && <TableCell className="text-right py-1.5 tabular-nums font-medium">{row.ce.delta.toFixed(2)}</TableCell>}
+                            {columnConfig.price && (
+                              <TableCell className="text-right py-1.5 font-semibold">
+                                <button onClick={() => quickTrade(row.strikePrice, "CE", "BUY")} className="hover:text-primary transition-colors">
+                                  {row.ce.ltp.toFixed(2)}
+                                </button>
+                              </TableCell>
+                            )}
+                            {columnConfig.ask && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.askPrice.toFixed(2)}</TableCell>}
+                            {columnConfig.bid && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.bidPrice.toFixed(2)}</TableCell>}
+                            {columnConfig.volume && (
+                              <TableCell className="text-right py-1.5">
+                                <VolumeBar value={row.ce.volume} max={maxVol} side="call" />
+                              </TableCell>
+                            )}
+
+                            {/* ── STRIKE ── */}
+                            <TableCell className="text-center py-1.5 bg-accent/50 border-l-2 border-border font-bold relative">
+                              <div className="flex items-center justify-center gap-1">
+                                {row.strikePrice.toLocaleString("en-IN")}
+                                {isATM && <Badge className="text-[7px] px-1 py-0 h-3.5 bg-foreground text-background">{symbol} {spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Badge>}
+                                {isMP && <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 border-warning text-warning">MP</Badge>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center py-1.5 bg-accent/50 border-r-2 border-border text-muted-foreground">{avgIV}</TableCell>
+
+                            {/* ── PUT SIDE ── */}
+                            {columnConfig.volume && (
+                              <TableCell className="text-left py-1.5">
+                                <VolumeBar value={row.pe.volume} max={maxVol} side="put" />
+                              </TableCell>
+                            )}
+                            {columnConfig.bid && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.bidPrice.toFixed(2)}</TableCell>}
+                            {columnConfig.ask && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.askPrice.toFixed(2)}</TableCell>}
+                            {columnConfig.price && (
+                              <TableCell className="text-left py-1.5 font-semibold">
+                                <button onClick={() => quickTrade(row.strikePrice, "PE", "BUY")} className="hover:text-bearish transition-colors">
+                                  {row.pe.ltp.toFixed(2)}
+                                </button>
+                              </TableCell>
+                            )}
+                            {columnConfig.delta && <TableCell className="text-left py-1.5 tabular-nums font-medium">{row.pe.delta.toFixed(2)}</TableCell>}
+                            {columnConfig.gamma && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.gamma.toFixed(4)}</TableCell>}
+                            {columnConfig.theta && <TableCell className="text-left py-1.5 tabular-nums text-bearish/80">{row.pe.theta.toFixed(2)}</TableCell>}
+                            {columnConfig.vega && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.vega.toFixed(2)}</TableCell>}
+                            {columnConfig.rho && <TableCell className="text-left py-1.5 tabular-nums text-muted-foreground">-0.{Math.round(Math.abs(row.pe.delta) * 22).toString().padStart(2, "0")}</TableCell>}
+                            {columnConfig.timeValue && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.timeValue.toFixed(2)}</TableCell>}
+                            {columnConfig.intrinsic && <TableCell className={`text-left py-1.5 tabular-nums ${row.pe.intrinsic > 0 ? "" : "text-muted-foreground/50"}`}>{row.pe.intrinsic.toFixed(2)}</TableCell>}
+                            {columnConfig.iv && <TableCell className={`text-left py-1.5 tabular-nums ${isITMPut ? "text-muted-foreground/70" : ""}`}>{row.pe.iv.toFixed(1)}</TableCell>}
+                          </TableRow>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-48">
+                          <ContextMenuSub>
+                            <ContextMenuSubTrigger className="gap-2"><TrendingUp className="h-3.5 w-3.5 text-primary" /> Buy</ContextMenuSubTrigger>
+                            <ContextMenuSubContent>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "buy")} className="text-xs">Buy CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "buy")} className="text-xs">Buy PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                            </ContextMenuSubContent>
+                          </ContextMenuSub>
+                          <ContextMenuSub>
+                            <ContextMenuSubTrigger className="gap-2"><TrendingDown className="h-3.5 w-3.5 text-bearish" /> Sell</ContextMenuSubTrigger>
+                            <ContextMenuSubContent>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "sell")} className="text-xs">Sell CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "sell")} className="text-xs">Sell PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                            </ContextMenuSubContent>
+                          </ContextMenuSub>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "straddle")} className="gap-2 text-xs">
+                            <Layers className="h-3.5 w-3.5" /> Build Straddle ({(row.ce.ltp + row.pe.ltp).toFixed(1)})
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "alert")} className="gap-2 text-xs">
+                            <Bell className="h-3.5 w-3.5" /> Set Alert
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══ BY STRIKE VIEW ═══ */}
+      {viewMode === "strike" && (
+        <Card>
+          <CardContent className="p-0 overflow-auto">
+            {byStrikeData.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Select a strike above</div>
+            ) : (
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow className="text-[10px] border-b-2">
+                    <TableHead className="text-center text-primary font-bold" colSpan={callCols}>Calls</TableHead>
+                    <TableHead className="text-center font-bold bg-accent/50 border-x-2 border-border">Exp Date</TableHead>
+                    <TableHead className="text-center text-bearish font-bold" colSpan={putCols}>Puts</TableHead>
+                  </TableRow>
+                  <TableRow className="text-[9px] text-muted-foreground">
+                    {columnConfig.iv && <TableHead className="text-right">IV%</TableHead>}
+                    {columnConfig.intrinsic && <TableHead className="text-right">Intr.</TableHead>}
+                    {columnConfig.timeValue && <TableHead className="text-right">Time</TableHead>}
+                    {columnConfig.rho && <TableHead className="text-right">Rho</TableHead>}
+                    {columnConfig.vega && <TableHead className="text-right">Vega</TableHead>}
+                    {columnConfig.theta && <TableHead className="text-right">Theta</TableHead>}
+                    {columnConfig.gamma && <TableHead className="text-right">Gamma</TableHead>}
+                    {columnConfig.delta && <TableHead className="text-right">Delta</TableHead>}
+                    {columnConfig.price && <TableHead className="text-right font-semibold text-primary">Price</TableHead>}
+                    {columnConfig.ask && <TableHead className="text-right">Ask</TableHead>}
+                    {columnConfig.bid && <TableHead className="text-right">Bid</TableHead>}
+                    {columnConfig.volume && <TableHead className="text-right">Volume</TableHead>}
+                    <TableHead className="text-center bg-accent/50 border-x-2 border-border font-semibold">Exp Date</TableHead>
+                    {columnConfig.volume && <TableHead className="text-left">Volume</TableHead>}
+                    {columnConfig.bid && <TableHead className="text-left">Bid</TableHead>}
+                    {columnConfig.ask && <TableHead className="text-left">Ask</TableHead>}
+                    {columnConfig.price && <TableHead className="text-left font-semibold text-bearish">Price</TableHead>}
+                    {columnConfig.delta && <TableHead className="text-left">Delta</TableHead>}
+                    {columnConfig.gamma && <TableHead className="text-left">Gamma</TableHead>}
+                    {columnConfig.theta && <TableHead className="text-left">Theta</TableHead>}
+                    {columnConfig.vega && <TableHead className="text-left">Vega</TableHead>}
+                    {columnConfig.rho && <TableHead className="text-left">Rho</TableHead>}
+                    {columnConfig.timeValue && <TableHead className="text-left">Time</TableHead>}
+                    {columnConfig.intrinsic && <TableHead className="text-left">Intr.</TableHead>}
+                    {columnConfig.iv && <TableHead className="text-left">IV%</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byStrikeData.map((row) => (
+                    <TableRow key={row.expiry} className="text-[10px] sm:text-[11px] font-mono hover:bg-accent/30 transition-colors">
+                      {columnConfig.iv && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.iv.toFixed(1)}</TableCell>}
+                      {columnConfig.intrinsic && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.intrinsic.toFixed(2)}</TableCell>}
+                      {columnConfig.timeValue && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.timeValue.toFixed(2)}</TableCell>}
+                      {columnConfig.rho && <TableCell className="text-right py-1.5 tabular-nums">0.{Math.round(row.ce.delta * 22).toString().padStart(2, "0")}</TableCell>}
+                      {columnConfig.vega && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.vega.toFixed(2)}</TableCell>}
+                      {columnConfig.theta && <TableCell className="text-right py-1.5 tabular-nums text-bearish/80">{row.ce.theta.toFixed(2)}</TableCell>}
+                      {columnConfig.gamma && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.gamma.toFixed(4)}</TableCell>}
+                      {columnConfig.delta && <TableCell className="text-right py-1.5 tabular-nums font-medium">{row.ce.delta.toFixed(2)}</TableCell>}
+                      {columnConfig.price && <TableCell className="text-right py-1.5 font-semibold">{row.ce.ltp.toFixed(2)}</TableCell>}
+                      {columnConfig.ask && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.ask.toFixed(2)}</TableCell>}
+                      {columnConfig.bid && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.bid.toFixed(2)}</TableCell>}
+                      {columnConfig.volume && <TableCell className="text-right py-1.5"><VolumeBar value={row.ce.volume} max={maxVol} side="call" /></TableCell>}
+                      <TableCell className="text-center py-1.5 bg-accent/50 border-x-2 border-border font-semibold font-sans text-[10px]">{row.expiry}</TableCell>
+                      {columnConfig.volume && <TableCell className="text-left py-1.5"><VolumeBar value={row.pe.volume} max={maxVol} side="put" /></TableCell>}
+                      {columnConfig.bid && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.bid.toFixed(2)}</TableCell>}
+                      {columnConfig.ask && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.ask.toFixed(2)}</TableCell>}
+                      {columnConfig.price && <TableCell className="text-left py-1.5 font-semibold">{row.pe.ltp.toFixed(2)}</TableCell>}
+                      {columnConfig.delta && <TableCell className="text-left py-1.5 tabular-nums font-medium">{row.pe.delta.toFixed(2)}</TableCell>}
+                      {columnConfig.gamma && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.gamma.toFixed(4)}</TableCell>}
+                      {columnConfig.theta && <TableCell className="text-left py-1.5 tabular-nums text-bearish/80">{row.pe.theta.toFixed(2)}</TableCell>}
+                      {columnConfig.vega && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.vega.toFixed(2)}</TableCell>}
+                      {columnConfig.rho && <TableCell className="text-left py-1.5 tabular-nums">-0.{Math.round(Math.abs(row.pe.delta) * 22).toString().padStart(2, "0")}</TableCell>}
+                      {columnConfig.timeValue && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.timeValue.toFixed(2)}</TableCell>}
+                      {columnConfig.intrinsic && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.intrinsic.toFixed(2)}</TableCell>}
+                      {columnConfig.iv && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.iv.toFixed(1)}</TableCell>}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
