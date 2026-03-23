@@ -1042,3 +1042,224 @@ export function getMockPositions(): Position[] {
     { id: "6", symbol: "HDFCBANK", type: "CE", action: "SELL", strike: 1700, lots: 1, entryPrice: 38.50, currentPrice: 28.90, lotSize: 550, entryDate: "21 Mar", expiry: "24 Apr", pnl: 5280, pnlPercent: 24.9, delta: -0.35, theta: 5.2, iv: 18.8 },
   ];
 }
+
+// ── Market Breadth Data ──
+
+export interface MarketBreadthData {
+  advDecLine: { time: string; adLine: number; nifty: number }[];
+  emaCoverage: { label: string; above20: number; above50: number; above200: number }[];
+  highsLows: { time: string; newHighs: number; newLows: number }[];
+  sectorRotation: { sector: string; momentum: number; trend: number; quadrant: string }[];
+}
+
+export function getMarketBreadth(): MarketBreadthData {
+  const rand = seededRandom(77);
+  const adLinePoints: MarketBreadthData["advDecLine"] = [];
+  let adLine = 0;
+  let nifty = 23800;
+  for (let i = 0; i < 30; i++) {
+    const adv = Math.round(700 + rand() * 800);
+    const dec = Math.round(500 + rand() * 700);
+    adLine += (adv - dec);
+    nifty += (rand() - 0.45) * 100;
+    const d = new Date(); d.setDate(d.getDate() - (30 - i));
+    adLinePoints.push({ time: `${d.getDate()}/${d.getMonth() + 1}`, adLine, nifty: Math.round(nifty) });
+  }
+
+  const emaCoverage = [
+    { label: "Nifty 50", above20: 62, above50: 54, above200: 72 },
+    { label: "Nifty 100", above20: 58, above50: 48, above200: 65 },
+    { label: "Nifty 200", above20: 55, above50: 45, above200: 60 },
+    { label: "Nifty 500", above20: 52, above50: 42, above200: 58 },
+  ];
+
+  const highsLowsData: MarketBreadthData["highsLows"] = [];
+  for (let i = 0; i < 20; i++) {
+    const d = new Date(); d.setDate(d.getDate() - (20 - i));
+    highsLowsData.push({
+      time: `${d.getDate()}/${d.getMonth() + 1}`,
+      newHighs: Math.round(15 + rand() * 40),
+      newLows: Math.round(5 + rand() * 25),
+    });
+  }
+
+  const sectorRotation = sectorData.map(s => ({
+    sector: s.name,
+    momentum: Math.round((rand() - 0.4) * 200) / 100,
+    trend: Math.round((rand() - 0.4) * 300) / 100,
+    quadrant: rand() > 0.5 ? (rand() > 0.5 ? "Leading" : "Weakening") : (rand() > 0.5 ? "Improving" : "Lagging"),
+  }));
+
+  return { advDecLine: adLinePoints, emaCoverage, highsLows: highsLowsData, sectorRotation };
+}
+
+// ── IV Rank & Expected Move ──
+
+export interface IVRankData {
+  ivRank: number;
+  ivPercentile: number;
+  currentIV: number;
+  ivHigh52w: number;
+  ivLow52w: number;
+  expectedMove: number;
+  expectedMovePercent: number;
+  expectedMoveUp: number;
+  expectedMoveDown: number;
+  ivHistory: { time: string; iv: number; hvol: number }[];
+}
+
+export function getIVRankData(symbol: string): IVRankData {
+  const spotMap: Record<string, number> = {
+    NIFTY: 24250.75, BANKNIFTY: 51850.40, FINNIFTY: 23180.55, MIDCPNIFTY: 12850.30,
+  };
+  const spot = spotMap[symbol] || 2000;
+  const rand = seededRandom(symbol.length * 100 + 42);
+  const currentIV = 12 + rand() * 10;
+  const ivHigh52w = currentIV * (1.4 + rand() * 0.5);
+  const ivLow52w = currentIV * (0.5 + rand() * 0.3);
+  const ivRank = Math.round(((currentIV - ivLow52w) / (ivHigh52w - ivLow52w)) * 100);
+  const daysToExpiry = 4;
+  const expectedMove = spot * (currentIV / 100) * Math.sqrt(daysToExpiry / 365);
+
+  const ivHistory: { time: string; iv: number; hvol: number }[] = [];
+  let iv = currentIV * 0.85;
+  let hvol = iv * 0.9;
+  for (let i = 0; i < 60; i++) {
+    iv += (rand() - 0.48) * 1.5;
+    iv = Math.max(8, Math.min(35, iv));
+    hvol += (rand() - 0.48) * 1.2;
+    hvol = Math.max(6, Math.min(30, hvol));
+    const d = new Date(); d.setDate(d.getDate() - (60 - i));
+    ivHistory.push({ time: `${d.getDate()}/${d.getMonth() + 1}`, iv: Math.round(iv * 100) / 100, hvol: Math.round(hvol * 100) / 100 });
+  }
+
+  return {
+    ivRank,
+    ivPercentile: Math.min(100, ivRank + Math.round(rand() * 10)),
+    currentIV: Math.round(currentIV * 100) / 100,
+    ivHigh52w: Math.round(ivHigh52w * 100) / 100,
+    ivLow52w: Math.round(ivLow52w * 100) / 100,
+    expectedMove: Math.round(expectedMove * 100) / 100,
+    expectedMovePercent: Math.round((expectedMove / spot) * 10000) / 100,
+    expectedMoveUp: Math.round((spot + expectedMove) * 100) / 100,
+    expectedMoveDown: Math.round((spot - expectedMove) * 100) / 100,
+    ivHistory,
+  };
+}
+
+// ── Intraday Timeframe Candle Generator ──
+
+export function generateIntradayCandles(basePrice: number, timeframe: string, baseOI?: number): CandleOIData[] {
+  const rand = seededRandom(Math.round(basePrice * 7 + (timeframe === "1m" ? 1 : timeframe === "5m" ? 5 : timeframe === "15m" ? 15 : 60)));
+  let price = basePrice * (1 - 0.003);
+  let oi = baseOI || (basePrice > 10000 ? 15000000 : 5000000);
+  const candles: CandleOIData[] = [];
+
+  const minuteStep = timeframe === "1m" ? 1 : timeframe === "5m" ? 5 : timeframe === "15m" ? 15 : 60;
+  const startH = 9, startM = 15, endH = 15, endM = 30;
+
+  for (let h = startH; h <= endH; h++) {
+    for (let m = (h === startH ? startM : 0); m < 60; m += minuteStep) {
+      if (h === endH && m > endM) break;
+      const open = price;
+      const change = (rand() - 0.48) * basePrice * 0.002 * Math.sqrt(minuteStep);
+      const close = open + change;
+      const wick = Math.abs(change) * (0.3 + rand() * 0.7);
+      const high = Math.max(open, close) + wick * rand();
+      const low = Math.min(open, close) - wick * rand();
+      const volume = Math.round((100000 + rand() * 500000) * (minuteStep / 5));
+      const oiDelta = Math.round((rand() - 0.45) * oi * 0.001);
+      oi += oiDelta;
+      candles.push({
+        time: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
+        open: Math.round(open * 100) / 100,
+        high: Math.round(high * 100) / 100,
+        low: Math.round(low * 100) / 100,
+        close: Math.round(close * 100) / 100,
+        volume,
+        oi,
+        oiChange: oiDelta,
+      });
+      price = close;
+    }
+  }
+  return candles;
+}
+
+// ── P&L Simulator ──
+
+export interface PnLSimPoint {
+  spotPrice: number;
+  totalPnl: number;
+  positions: { label: string; pnl: number }[];
+}
+
+export function simulatePnL(positions: Position[], spotRange: [number, number], steps: number = 50): PnLSimPoint[] {
+  const [minSpot, maxSpot] = spotRange;
+  const step = (maxSpot - minSpot) / steps;
+  const points: PnLSimPoint[] = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const spot = minSpot + step * i;
+    let totalPnl = 0;
+    const posPnls: { label: string; pnl: number }[] = [];
+
+    for (const p of positions) {
+      const mult = p.action === "BUY" ? 1 : -1;
+      let intrinsic: number;
+      if (p.type === "CE") {
+        intrinsic = Math.max(0, spot - p.strike);
+      } else {
+        intrinsic = Math.max(0, p.strike - spot);
+      }
+      const pnl = (intrinsic - p.entryPrice) * mult * p.lots * p.lotSize;
+      totalPnl += pnl;
+      posPnls.push({ label: `${p.action} ${p.strike}${p.type}`, pnl: Math.round(pnl) });
+    }
+
+    points.push({ spotPrice: Math.round(spot * 100) / 100, totalPnl: Math.round(totalPnl), positions: posPnls });
+  }
+  return points;
+}
+
+// ── Greeks Decay Simulation ──
+
+export interface GreeksDecayPoint {
+  day: number;
+  label: string;
+  totalPnl: number;
+  totalTheta: number;
+  totalDelta: number;
+}
+
+export function simulateGreeksDecay(positions: Position[], daysForward: number = 7): GreeksDecayPoint[] {
+  const rand = seededRandom(positions.length * 31);
+  const points: GreeksDecayPoint[] = [];
+  let cumulativeTheta = 0;
+
+  for (let d = 0; d <= daysForward; d++) {
+    let totalPnl = 0;
+    let totalTheta = 0;
+    let totalDelta = 0;
+
+    for (const p of positions) {
+      const mult = p.action === "BUY" ? 1 : -1;
+      const decayFactor = Math.max(0, 1 - d * 0.12 * (1 + d * 0.03));
+      const priceMove = p.currentPrice * decayFactor + (rand() - 0.5) * p.currentPrice * 0.05;
+      const pnl = (priceMove - p.entryPrice) * mult * p.lots * p.lotSize;
+      totalPnl += pnl;
+      totalTheta += p.theta * mult * p.lots * p.lotSize;
+      totalDelta += p.delta * mult * p.lots * p.lotSize;
+    }
+
+    cumulativeTheta += totalTheta;
+    points.push({
+      day: d,
+      label: d === 0 ? "Today" : `T+${d}`,
+      totalPnl: Math.round(totalPnl),
+      totalTheta: Math.round(cumulativeTheta),
+      totalDelta: Math.round(totalDelta),
+    });
+  }
+  return points;
+}
