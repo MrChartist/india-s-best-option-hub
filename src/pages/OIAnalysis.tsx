@@ -94,7 +94,13 @@ export default function OIAnalysis() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">OI Analysis</h1>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
+            {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {isLive ? "LIVE" : "MOCK"}
+          </Badge>
           <p className="text-sm text-muted-foreground">Open Interest · Heatmap · S/R Levels · Multi-Expiry · IV Smile</p>
+        </div>
         </div>
         <Select value={symbol} onValueChange={setSymbol}>
           <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
