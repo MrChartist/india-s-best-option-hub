@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LineChart, Line, ComposedChart, Area } from "recharts";
-import { getOptionChain, getMaxPain, generatePCRHistory } from "@/lib/mockData";
+import { getOptionChain, getMaxPain, generatePCRHistory, expiryDates } from "@/lib/mockData";
+import { OIHeatmap } from "@/components/OIHeatmap";
+import { SupportResistance } from "@/components/SupportResistance";
 
 export default function OIAnalysis() {
   const [symbol, setSymbol] = useState("NIFTY");
@@ -33,7 +35,6 @@ export default function OIAnalysis() {
       }));
   }, [chain]);
 
-  // IV Smile data
   const ivSmileData = useMemo(() => {
     return chain.map(o => ({
       strike: o.strikePrice,
@@ -43,7 +44,19 @@ export default function OIAnalysis() {
     }));
   }, [chain]);
 
-  // OI Interpretation
+  // Multi-expiry OI comparison
+  const multiExpiryData = useMemo(() => {
+    // Simulate different expiry OI distributions
+    const baseChain = chain.filter(o => o.ce.oi > 50000 || o.pe.oi > 50000);
+    return baseChain.map(o => ({
+      strike: o.strikePrice,
+      ceOI_weekly: Math.round(o.ce.oi / 1000),
+      peOI_weekly: Math.round(o.pe.oi / 1000),
+      ceOI_monthly: Math.round(o.ce.oi * 0.6 / 1000),
+      peOI_monthly: Math.round(o.pe.oi * 0.7 / 1000),
+    }));
+  }, [chain]);
+
   const oiInterpretation = useMemo(() => {
     return chain
       .filter(o => o.ce.oi > 100000 || o.pe.oi > 100000)
@@ -76,7 +89,7 @@ export default function OIAnalysis() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">OI Analysis</h1>
-          <p className="text-sm text-muted-foreground">Open Interest · IV Smile · PCR Trend · OI Interpretation</p>
+          <p className="text-sm text-muted-foreground">Open Interest · Heatmap · S/R Levels · Multi-Expiry · IV Smile</p>
         </div>
         <Select value={symbol} onValueChange={setSymbol}>
           <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -117,10 +130,19 @@ export default function OIAnalysis() {
         </CardContent></Card>
       </div>
 
+      {/* Heatmap + S/R side panels */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <OIHeatmap chain={chain} spotPrice={spotPrice} />
+        </div>
+        <SupportResistance chain={chain} spotPrice={spotPrice} />
+      </div>
+
       <Tabs defaultValue="oi-dist">
         <TabsList className="flex-wrap">
           <TabsTrigger value="oi-dist">OI Distribution</TabsTrigger>
           <TabsTrigger value="oi-change">OI Change</TabsTrigger>
+          <TabsTrigger value="multi-expiry">Multi-Expiry</TabsTrigger>
           <TabsTrigger value="iv-smile">IV Smile</TabsTrigger>
           <TabsTrigger value="pcr-trend">PCR Trend</TabsTrigger>
           <TabsTrigger value="oi-interp">OI Interpretation</TabsTrigger>
@@ -178,6 +200,29 @@ export default function OIAnalysis() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="multi-expiry">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Multi-Expiry OI Comparison (Weekly vs Monthly)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={multiExpiryData} barGap={0} barCategoryGap="15%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
+                    <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <YAxis tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <ReferenceLine x={Math.round(spotPrice / 50) * 50} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
+                    <Bar dataKey="ceOI_weekly" fill="hsl(142 71% 45%)" opacity={0.9} name="CE Weekly" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="ceOI_monthly" fill="hsl(142 71% 45% / 0.4)" name="CE Monthly" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="peOI_weekly" fill="hsl(0 84% 60%)" opacity={0.9} name="PE Weekly" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="peOI_monthly" fill="hsl(0 84% 60% / 0.4)" name="PE Monthly" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="iv-smile">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">IV Smile / Skew Curve</CardTitle></CardHeader>
@@ -209,8 +254,8 @@ export default function OIAnalysis() {
                   <ComposedChart data={pcrHistory}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 14% 14%)" />
                     <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} />
-                    <YAxis yAxisId="pcr" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} label={{ value: "PCR", angle: -90, position: "insideLeft", fill: "hsl(215 15% 55%)", fontSize: 10 }} />
-                    <YAxis yAxisId="spot" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} label={{ value: "Spot", angle: 90, position: "insideRight", fill: "hsl(215 15% 55%)", fontSize: 10 }} />
+                    <YAxis yAxisId="pcr" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} />
+                    <YAxis yAxisId="spot" orientation="right" tick={{ fontSize: 9, fill: "hsl(215 15% 55%)" }} domain={["auto", "auto"]} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <ReferenceLine yAxisId="pcr" y={1} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: "PCR=1", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
                     <Area yAxisId="pcr" type="monotone" dataKey="pcr" stroke="hsl(210 100% 52%)" fill="hsl(210 100% 52% / 0.1)" strokeWidth={2} name="PCR" />
