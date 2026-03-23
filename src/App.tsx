@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/oi-analysis" element={<OIAnalysis />} />
             <Route path="/greeks" element={<GreeksCalculator />} />
             <Route path="/strategy" element={<StrategyBuilder />} />
+            <Route path="/strategy-finder" element={<StrategyFinder />} />
             <Route path="/scanner" element={<OptionsScanner />} />
             <Route path="/positions" element={<PositionTracker />} />
             <Route path="/charts" element={<PriceCharts />} />
