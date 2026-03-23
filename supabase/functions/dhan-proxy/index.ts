@@ -115,16 +115,35 @@ serve(async (req) => {
           );
         }
 
+        let expiryDate = expiry;
+
+        // If no expiry provided, fetch expiry list first and use nearest
+        if (!expiryDate) {
+          const expiryListKey = `expiry-list:${symbol}:`;
+          let expiryList = getCached(expiryListKey);
+          if (!expiryList) {
+            expiryList = await dhanFetch("/optionchain/expirylist", {
+              UnderlyingScrip: underlying.underlyingScrip,
+              UnderlyingSeg: underlying.expirySegment,
+            });
+            setCache(expiryListKey, expiryList, 60000);
+          }
+          // Pick nearest expiry from the list
+          if (expiryList?.data && Array.isArray(expiryList.data) && expiryList.data.length > 0) {
+            expiryDate = expiryList.data[0]; // First expiry = nearest
+          }
+        }
+
         const body: any = {
           UnderlyingScrip: underlying.underlyingScrip,
           UnderlyingSeg: underlying.expirySegment,
         };
-        if (expiry) {
-          body.ExpiryDate = expiry;
+        if (expiryDate) {
+          body.ExpiryDate = expiryDate;
         }
 
         result = await dhanFetch("/optionchain", body);
-        setCache(cacheKey, result, 3500); // 3.5s cache (Dhan rate limit = 3s)
+        setCache(cacheKey, result, 3500);
         break;
       }
 
