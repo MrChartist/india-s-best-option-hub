@@ -109,8 +109,8 @@ export default function Index() {
         </div>
       </div>
 
-      {/* Ticker Tape */}
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+      {/* Ticker Tape + GIFT Nifty */}
+      <div className="flex gap-3 overflow-x-auto pb-1">
         {indices.map((idx) => {
           const pos = idx.change >= 0;
           return (
@@ -128,6 +128,19 @@ export default function Index() {
           <span className="text-sm font-bold font-mono">{marketStats.indiaVix}</span>
           <span className={`text-xs font-mono ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
             {marketStats.vixChange < 0 ? "▼" : "▲"} {Math.abs(marketStats.vixChange).toFixed(2)}%
+          </span>
+        </div>
+        {/* GIFT Nifty in ticker */}
+        {giftNifty && giftNifty.lastPrice > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 shrink-0">
+            <Plane className="h-3 w-3 text-primary" />
+            <span className="text-xs font-medium text-primary">GIFT</span>
+            <span className="text-sm font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+            <span className={`text-xs font-mono ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
+              {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
+            </span>
+          </div>
+        )}
           </span>
         </div>
       </div>
