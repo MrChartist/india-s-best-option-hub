@@ -3,28 +3,56 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { marketStats, futuresData, mostActiveFnO, sectorData, generateIntradayData, generateVIXHistory, topGainers, topLosers, getMarketBreadth } from "@/lib/mockData";
-import { useLiveIndices, useMarketStatus } from "@/hooks/useNSEData";
-import { TrendingUp, TrendingDown, Activity, BarChart3, Users, Clock, Zap, Globe, Wifi, WifiOff, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useNSEData";
+import { DashboardSkeleton } from "@/components/LoadingSkeletons";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { TrendingUp, TrendingDown, Activity, BarChart3, Users, Clock, Zap, Globe, Wifi, WifiOff, ArrowUpRight, ArrowDownRight, CalendarClock, Plane } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, AreaChart, Area, BarChart, Bar, CartesianGrid, Cell, ReferenceLine, ComposedChart } from "recharts";
+
+// Nearest expiry contract data (NSE + MCX)
+const EXPIRY_CONTRACTS = [
+  { symbol: "NIFTY", exchange: "NSE", lotSize: 25, type: "Weekly" },
+  { symbol: "BANKNIFTY", exchange: "NSE", lotSize: 15, type: "Weekly" },
+  { symbol: "FINNIFTY", exchange: "NSE", lotSize: 25, type: "Monthly" },
+  { symbol: "MIDCPNIFTY", exchange: "NSE", lotSize: 50, type: "Monthly" },
+  { symbol: "CRUDEOIL", exchange: "MCX", lotSize: 100, type: "Monthly" },
+  { symbol: "GOLD", exchange: "MCX", lotSize: 100, type: "Monthly" },
+  { symbol: "SILVER", exchange: "MCX", lotSize: 30, type: "Monthly" },
+  { symbol: "NATURALGAS", exchange: "MCX", lotSize: 1250, type: "Monthly" },
+];
+
+function getTimeToExpiry(expiryDate: string): string {
+  const expiry = new Date(expiryDate + "T15:30:00+05:30");
+  const now = new Date();
+  const diff = expiry.getTime() - now.getTime();
+  if (diff <= 0) return "Expired";
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  if (days === 0) return `${hours}h left`;
+  return `${days}d ${hours}h`;
+}
 
 export default function Index() {
   const navigate = useNavigate();
   const { data: indicesResult, isLoading: indicesLoading } = useLiveIndices();
   const { data: marketStatusResult } = useMarketStatus();
+  const { data: niftyExpiry } = useExpiryList("NIFTY");
+  const { data: bnfExpiry } = useExpiryList("BANKNIFTY");
 
   const indices = indicesResult?.data || [];
   const isLive = indicesResult?.isLive || false;
   const isOpen = marketStatusResult?.isOpen ?? false;
   const marketStatus = marketStatusResult?.status || "Closed";
+  const giftNifty = marketStatusResult?.giftNifty;
+  const indicativeNifty = marketStatusResult?.indicativeNifty;
 
   const niftyIntraday = useMemo(() => generateIntradayData(indices[0]?.prevClose || 24125.45, 0.5), [indices]);
   const bankNiftyIntraday = useMemo(() => generateIntradayData(indices[1]?.prevClose || 52031, 0.6), [indices]);
   const vixHistory = useMemo(() => generateVIXHistory(), []);
   const breadth = useMemo(() => getMarketBreadth(), []);
 
-  // Futures premium/discount chart data
   const futuresPremiumChart = useMemo(() => {
     return futuresData.map(f => ({
       label: `${f.symbol} ${f.expiry}`,
@@ -35,10 +63,33 @@ export default function Index() {
     }));
   }, []);
 
+  // Build expiry timeline
+  const nearestExpiries = useMemo(() => {
+    const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
+    const bnExpiry = bnfExpiry?.expiries?.[0]?.value || "";
+    return EXPIRY_CONTRACTS.map(c => {
+      let expDate = "";
+      if (c.symbol === "NIFTY") expDate = nExpiry;
+      else if (c.symbol === "BANKNIFTY") expDate = bnExpiry;
+      else if (c.symbol === "FINNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
+      else if (c.symbol === "MIDCPNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
+      // MCX contracts use approximate dates
+      else {
+        const now = new Date();
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        expDate = lastDay.toISOString().split("T")[0];
+      }
+      return { ...c, expiry: expDate, timeLeft: expDate ? getTimeToExpiry(expDate) : "N/A" };
+    });
+  }, [niftyExpiry, bnfExpiry]);
+
+  if (indicesLoading) return <DashboardSkeleton />;
+
   const now = new Date();
-  const tooltipStyle = { backgroundColor: "hsl(220 18% 10%)", border: "1px solid hsl(220 14% 16%)", borderRadius: "8px", fontSize: "11px" };
+  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
 
   return (
+    <ErrorBoundary fallbackMessage="Dashboard failed to load">
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -59,8 +110,8 @@ export default function Index() {
         </div>
       </div>
 
-      {/* Ticker Tape */}
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+      {/* Ticker Tape + GIFT Nifty */}
+      <div className="flex gap-3 overflow-x-auto pb-1">
         {indices.map((idx) => {
           const pos = idx.change >= 0;
           return (
@@ -80,6 +131,17 @@ export default function Index() {
             {marketStats.vixChange < 0 ? "▼" : "▲"} {Math.abs(marketStats.vixChange).toFixed(2)}%
           </span>
         </div>
+        {/* GIFT Nifty in ticker */}
+        {giftNifty && giftNifty.lastPrice > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 shrink-0">
+            <Plane className="h-3 w-3 text-primary" />
+            <span className="text-xs font-medium text-primary">GIFT</span>
+            <span className="text-sm font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+            <span className={`text-xs font-mono ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
+              {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Index Cards with Sparklines */}
@@ -126,6 +188,128 @@ export default function Index() {
             </Card>
           );
         })}
+      </div>
+
+      {/* ── GIFT Nifty + Nearest Expiry Contracts ── */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* GIFT Nifty Card */}
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Plane className="h-4 w-4 text-primary" /> GIFT Nifty (SGX)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {giftNifty && giftNifty.lastPrice > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-2xl font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+                  <span className={`text-sm font-mono font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
+                    {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  <div className="p-2 rounded bg-accent/50">
+                    <p className="text-muted-foreground">Contracts</p>
+                    <p className="font-mono font-bold">{giftNifty.contractsTraded?.toLocaleString("en-IN") || "—"}</p>
+                  </div>
+                  <div className="p-2 rounded bg-accent/50">
+                    <p className="text-muted-foreground">Expiry</p>
+                    <p className="font-mono font-bold">{giftNifty.expiry || "—"}</p>
+                  </div>
+                </div>
+                {indicativeNifty && (
+                  <div className="p-2 rounded bg-accent/30 text-[10px]">
+                    <span className="text-muted-foreground">Nifty Close: </span>
+                    <span className="font-mono font-bold">{indicativeNifty.value.toLocaleString("en-IN")}</span>
+                    <span className="text-muted-foreground ml-2">Gap: </span>
+                    <span className={`font-mono font-bold ${(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "text-bullish" : "text-bearish"}`}>
+                      {(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "+" : ""}{(giftNifty.lastPrice - indicativeNifty.value).toFixed(0)} pts
+                    </span>
+                  </div>
+                )}
+                <p className="text-[9px] text-muted-foreground font-mono">{giftNifty.timestamp}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">GIFT Nifty data unavailable</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Nearest Expiry Contracts - NSE */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-warning" /> NSE F&O Expiry
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="text-[10px]">
+                  <TableHead>Contract</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Lot</TableHead>
+                  <TableHead className="text-right">Expiry</TableHead>
+                  <TableHead className="text-right">Time Left</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nearestExpiries.filter(c => c.exchange === "NSE").map(c => {
+                  const isUrgent = c.timeLeft.startsWith("0d") || c.timeLeft.includes("h left");
+                  return (
+                    <TableRow key={c.symbol} className="text-[11px] font-mono cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/option-chain?symbol=${c.symbol}`)}>
+                      <TableCell className="font-sans font-medium">{c.symbol}</TableCell>
+                      <TableCell className="text-muted-foreground">{c.type}</TableCell>
+                      <TableCell>{c.lotSize}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] ${isUrgent ? "bg-bearish/15 text-bearish font-bold" : "bg-warning/10 text-warning"}`}>
+                          {c.timeLeft}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* MCX Contracts */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-warning" /> MCX Commodity Expiry
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="text-[10px]">
+                  <TableHead>Contract</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Lot</TableHead>
+                  <TableHead className="text-right">Expiry</TableHead>
+                  <TableHead className="text-right">Time Left</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {nearestExpiries.filter(c => c.exchange === "MCX").map(c => (
+                  <TableRow key={c.symbol} className="text-[11px] font-mono">
+                    <TableCell className="font-sans font-medium">{c.symbol}</TableCell>
+                    <TableCell className="text-muted-foreground">{c.type}</TableCell>
+                    <TableCell>{c.lotSize}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-accent text-muted-foreground">{c.timeLeft}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Market Stats Row */}
@@ -627,5 +811,6 @@ export default function Index() {
         </Card>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
