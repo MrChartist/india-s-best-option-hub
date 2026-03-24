@@ -20,6 +20,7 @@ import OISpurts from "./pages/OISpurts";
 import GammaExposure from "./pages/GammaExposure";
 import SkewDashboard from "./pages/SkewDashboard";
 import Watchlist from "./pages/Watchlist";
+import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
