@@ -1,4 +1,4 @@
-import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, TrendingUp, ScanSearch, Briefcase, CandlestickChart, Activity, Gauge, Users, Zap, Star, Crosshair } from "lucide-react";
+import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, TrendingUp, ScanSearch, Briefcase, CandlestickChart, Activity, Gauge, Users, Zap, Star, Crosshair, Atom } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
