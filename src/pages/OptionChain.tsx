@@ -489,13 +489,17 @@ export default function OptionChain() {
                             {columnConfig.bid && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.bidPrice.toFixed(2)}</TableCell>}
                             {columnConfig.volume && (
                               <TableCell className="text-right py-1.5">
-                                <VolumeBar value={row.ce.volume} max={maxVol} side="call" />
+                                <div className="flex items-center justify-end gap-0.5">
+                                  {uaFlag?.ce && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
+                                  <VolumeBar value={row.ce.volume} max={maxVol} side="call" />
+                                </div>
                               </TableCell>
                             )}
 
                             {/* ── STRIKE ── */}
                             <TableCell className="text-center py-1.5 bg-accent/50 border-l-2 border-border font-bold relative">
                               <div className="flex items-center justify-center gap-1">
+                                {hasUA && <Flame className="h-3 w-3 text-orange-500 animate-pulse shrink-0" />}
                                 {row.strikePrice.toLocaleString("en-IN")}
                                 {isATM && <Badge className="text-[7px] px-1 py-0 h-3.5 bg-foreground text-background">{symbol} {spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Badge>}
                                 {isMP && <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 border-warning text-warning">MP</Badge>}
