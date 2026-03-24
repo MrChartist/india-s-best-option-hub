@@ -1,19 +1,27 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { marketStats, futuresData, mostActiveFnO, sectorData, generateIntradayData, generateVIXHistory, topGainers, topLosers, getMarketBreadth } from "@/lib/mockData";
+import { useMemo } from "react";
 import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useNSEData";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { TrendingUp, TrendingDown, Activity, BarChart3, Users, Clock, Zap, Globe, Wifi, WifiOff, ArrowUpRight, ArrowDownRight, CalendarClock, Plane } from "lucide-react";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
 import { IVRankCard, IVRankDashboard } from "@/components/IVRankWidget";
-import { useNavigate } from "react-router-dom";
-import { useMemo } from "react";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, AreaChart, Area, BarChart, Bar, CartesianGrid, Cell, ReferenceLine, ComposedChart } from "recharts";
+import { marketStats } from "@/lib/mockData";
+import { Target, BarChart3, Zap, TrendingUp, Activity } from "lucide-react";
 
-// Nearest expiry contract data (NSE + MCX)
+// Dashboard section components
+import { MarketHeader } from "@/components/dashboard/MarketHeader";
+import { TickerTape } from "@/components/dashboard/TickerTape";
+import { IndexCards } from "@/components/dashboard/IndexCards";
+import { QuickTradeActions } from "@/components/dashboard/QuickTradeActions";
+import { KeyMetrics } from "@/components/dashboard/KeyMetrics";
+import { GiftNiftyExpiry } from "@/components/dashboard/GiftNiftyExpiry";
+import { TopMovers } from "@/components/dashboard/TopMovers";
+import { FuturesVIX } from "@/components/dashboard/FuturesVIX";
+import { SectorHeatmap } from "@/components/dashboard/SectorHeatmap";
+import { MostActiveFnO } from "@/components/dashboard/MostActiveFnO";
+import { MarketBreadth } from "@/components/dashboard/MarketBreadth";
+import { SectionHeader } from "@/components/dashboard/SectionHeader";
+
+// Nearest expiry contract config
 const EXPIRY_CONTRACTS = [
   { symbol: "NIFTY", exchange: "NSE", lotSize: 25, type: "Weekly" },
   { symbol: "BANKNIFTY", exchange: "NSE", lotSize: 15, type: "Weekly" },
@@ -37,7 +45,6 @@ function getTimeToExpiry(expiryDate: string): string {
 }
 
 export default function Index() {
-  const navigate = useNavigate();
   const { data: indicesResult, isLoading: indicesLoading } = useLiveIndices();
   const { data: marketStatusResult } = useMarketStatus();
   const { data: niftyExpiry } = useExpiryList("NIFTY");
@@ -50,32 +57,16 @@ export default function Index() {
   const giftNifty = marketStatusResult?.giftNifty;
   const indicativeNifty = marketStatusResult?.indicativeNifty;
 
-  const niftyIntraday = useMemo(() => generateIntradayData(indices[0]?.prevClose || 24125.45, 0.5), [indices]);
-  const bankNiftyIntraday = useMemo(() => generateIntradayData(indices[1]?.prevClose || 52031, 0.6), [indices]);
-  const vixHistory = useMemo(() => generateVIXHistory(), []);
-  const breadth = useMemo(() => getMarketBreadth(), []);
-
-  const futuresPremiumChart = useMemo(() => {
-    return futuresData.map(f => ({
-      label: `${f.symbol} ${f.expiry}`,
-      premium: f.premium,
-      premiumPct: f.premiumPercent,
-      spot: f.spotPrice,
-      futures: f.futuresPrice,
-    }));
-  }, []);
-
   // Build expiry timeline
   const nearestExpiries = useMemo(() => {
     const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
     const bnExpiry = bnfExpiry?.expiries?.[0]?.value || "";
-    return EXPIRY_CONTRACTS.map(c => {
+    return EXPIRY_CONTRACTS.map((c) => {
       let expDate = "";
       if (c.symbol === "NIFTY") expDate = nExpiry;
       else if (c.symbol === "BANKNIFTY") expDate = bnExpiry;
       else if (c.symbol === "FINNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
       else if (c.symbol === "MIDCPNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
-      // MCX contracts use approximate dates
       else {
         const now = new Date();
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -85,755 +76,79 @@ export default function Index() {
     });
   }, [niftyExpiry, bnfExpiry]);
 
-  if (indicesLoading) return <DashboardSkeleton />;
+  const getDTE = (sym: string) => {
+    const match = nearestExpiries.find((c) => c.symbol === sym)?.timeLeft?.match(/(\d+)d/);
+    return match ? parseInt(match[1]) : 4;
+  };
 
-  const now = new Date();
-  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
+  if (indicesLoading) return <DashboardSkeleton />;
 
   return (
     <ErrorBoundary fallbackMessage="Dashboard failed to load">
-    <div className="space-y-4 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Market Dashboard</h1>
-          <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className={`gap-1.5 text-2xs ${isLive ? "border-bullish/40 text-bullish" : "border-muted-foreground/30 text-muted-foreground"}`}>
-            {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isLive ? "LIVE" : "MOCK"}
-          </Badge>
-          <Badge variant={isOpen ? "default" : "secondary"} className={`gap-1.5 text-2xs ${isOpen ? "bg-bullish text-bullish-foreground" : ""}`}>
-            <Clock className="h-3 w-3" />
-            {marketStatus}
-          </Badge>
-          <span className="text-2xs text-muted-foreground font-mono tabular-nums">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST</span>
-        </div>
-      </div>
+      <div className="space-y-4 animate-fade-in">
+        {/* ═══ HEADER ═══ */}
+        <MarketHeader isLive={isLive} isOpen={isOpen} marketStatus={marketStatus} />
 
-      {/* Ticker Tape */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide stagger-children">
-        {indices.map((idx) => {
-          const pos = idx.change >= 0;
-          return (
-            <div key={idx.symbol} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border shrink-0 card-interactive cursor-pointer" onClick={() => navigate(`/option-chain?symbol=${idx.symbol}`)}>
-              <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">{idx.symbol}</span>
-              <span className="text-sm font-bold font-mono tabular-nums">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-              <span className={`text-2xs font-mono tabular-nums font-medium ${pos ? "text-bullish" : "text-bearish"}`}>
-                {pos ? "▲" : "▼"} {Math.abs(idx.changePercent).toFixed(2)}%
-              </span>
-            </div>
-          );
-        })}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card border border-border shrink-0">
-          <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">VIX</span>
-          <span className="text-sm font-bold font-mono tabular-nums">{marketStats.indiaVix}</span>
-          <span className={`text-2xs font-mono tabular-nums font-medium ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
-            {marketStats.vixChange < 0 ? "▼" : "▲"} {Math.abs(marketStats.vixChange).toFixed(2)}%
-          </span>
-        </div>
-        {giftNifty && giftNifty.lastPrice > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/15 shrink-0">
-            <Plane className="h-3 w-3 text-primary" />
-            <span className="text-2xs font-medium text-primary uppercase tracking-wider">GIFT</span>
-            <span className="text-sm font-bold font-mono tabular-nums">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
-            <span className={`text-2xs font-mono tabular-nums font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
-            </span>
+        {/* ═══ TICKER TAPE ═══ */}
+        <TickerTape indices={indices} giftNifty={giftNifty} />
+
+        {/* ═══ QUICK TRADE ACTIONS ═══ */}
+        <QuickTradeActions />
+
+        {/* ═══ INDEX CARDS ═══ */}
+        <IndexCards indices={indices} />
+
+        {/* ═══ KEY METRICS ═══ */}
+        <KeyMetrics />
+
+        {/* ═══ EXPECTED MOVE + IV RANK ═══ */}
+        <SectionHeader title="Volatility & Expected Move" subtitle="IV-based range estimates and rank" icon={<Target className="h-4 w-4" />} />
+        <div className="grid lg:grid-cols-3 gap-3">
+          <ExpectedMoveWidget
+            symbol="NIFTY"
+            spotPrice={indices[0]?.ltp || 24250.75}
+            daysToExpiry={getDTE("NIFTY")}
+          />
+          <ExpectedMoveWidget
+            symbol="BANKNIFTY"
+            spotPrice={indices[1]?.ltp || 51850.40}
+            iv={15.2}
+            daysToExpiry={getDTE("BANKNIFTY")}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <IVRankCard symbol="NIFTY" currentIV={marketStats.indiaVix} />
+            <IVRankCard symbol="BANKNIFTY" currentIV={15.2} />
+            <IVRankCard symbol="FINNIFTY" currentIV={12.8} />
+            <IVRankCard symbol="MIDCPNIFTY" currentIV={15.1} />
           </div>
-        )}
-      </div>
-
-      {/* Index Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
-        {indices.map((index, idx) => {
-          const isPositive = index.change >= 0;
-          const intraday = idx === 0 ? niftyIntraday : idx === 1 ? bankNiftyIntraday : generateIntradayData(index.prevClose, 0.4);
-          return (
-            <Card
-              key={index.symbol}
-              className="card-interactive cursor-pointer group"
-              onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)}
-            >
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="text-2xs text-muted-foreground font-medium uppercase tracking-wider">{index.name}</p>
-                    <p className="text-xl font-bold font-mono tabular-nums tracking-tight">{index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  <div className={`flex items-center gap-1 text-2xs font-mono px-2 py-0.5 rounded-md ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
-                    {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {isPositive ? "+" : ""}{index.changePercent.toFixed(2)}%
-                  </div>
-                </div>
-                <div className="h-[50px] -mx-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={intraday}>
-                      <defs>
-                        <linearGradient id={`grad-${index.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} stopOpacity={0.25} />
-                          <stop offset="100%" stopColor={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area type="monotone" dataKey="price" stroke={isPositive ? "hsl(152 60% 44%)" : "hsl(0 68% 52%)"} fill={`url(#grad-${index.symbol})`} strokeWidth={1.5} dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex justify-between text-2xs text-muted-foreground font-mono tabular-nums mt-1">
-                  <span>O: {index.open.toLocaleString("en-IN")}</span>
-                  <span>H: {index.high.toLocaleString("en-IN")}</span>
-                  <span>L: {index.low.toLocaleString("en-IN")}</span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* ── GIFT Nifty + Nearest Expiry Contracts ── */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        {/* GIFT Nifty Card */}
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Plane className="h-4 w-4 text-primary" /> GIFT Nifty (SGX)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {giftNifty && giftNifty.lastPrice > 0 ? (
-              <div className="space-y-3">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-2xl font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
-                  <span className={`text-sm font-mono font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
-                    {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[10px]">
-                  <div className="p-2 rounded bg-accent/50">
-                    <p className="text-muted-foreground">Contracts</p>
-                    <p className="font-mono font-bold">{giftNifty.contractsTraded?.toLocaleString("en-IN") || "—"}</p>
-                  </div>
-                  <div className="p-2 rounded bg-accent/50">
-                    <p className="text-muted-foreground">Expiry</p>
-                    <p className="font-mono font-bold">{giftNifty.expiry || "—"}</p>
-                  </div>
-                </div>
-                {indicativeNifty && (
-                  <div className="p-2 rounded bg-accent/30 text-[10px]">
-                    <span className="text-muted-foreground">Nifty Close: </span>
-                    <span className="font-mono font-bold">{indicativeNifty.value.toLocaleString("en-IN")}</span>
-                    <span className="text-muted-foreground ml-2">Gap: </span>
-                    <span className={`font-mono font-bold ${(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "text-bullish" : "text-bearish"}`}>
-                      {(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "+" : ""}{(giftNifty.lastPrice - indicativeNifty.value).toFixed(0)} pts
-                    </span>
-                  </div>
-                )}
-                <p className="text-[9px] text-muted-foreground font-mono">{giftNifty.timestamp}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">GIFT Nifty data unavailable</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Nearest Expiry Contracts - NSE */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-warning" /> NSE F&O Expiry
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="text-[10px]">
-                  <TableHead>Contract</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Lot</TableHead>
-                  <TableHead className="text-right">Expiry</TableHead>
-                  <TableHead className="text-right">Time Left</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {nearestExpiries.filter(c => c.exchange === "NSE").map(c => {
-                  const isUrgent = c.timeLeft.startsWith("0d") || c.timeLeft.includes("h left");
-                  return (
-                    <TableRow key={c.symbol} className="text-[11px] font-mono cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/option-chain?symbol=${c.symbol}`)}>
-                      <TableCell className="font-sans font-medium">{c.symbol}</TableCell>
-                      <TableCell className="text-muted-foreground">{c.type}</TableCell>
-                      <TableCell>{c.lotSize}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] ${isUrgent ? "bg-bearish/15 text-bearish font-bold" : "bg-warning/10 text-warning"}`}>
-                          {c.timeLeft}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* MCX Contracts */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-warning" /> MCX Commodity Expiry
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="text-[10px]">
-                  <TableHead>Contract</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Lot</TableHead>
-                  <TableHead className="text-right">Expiry</TableHead>
-                  <TableHead className="text-right">Time Left</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {nearestExpiries.filter(c => c.exchange === "MCX").map(c => (
-                  <TableRow key={c.symbol} className="text-[11px] font-mono">
-                    <TableCell className="font-sans font-medium">{c.symbol}</TableCell>
-                    <TableCell className="text-muted-foreground">{c.type}</TableCell>
-                    <TableCell>{c.lotSize}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-accent text-muted-foreground">{c.timeLeft}</span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Expected Move + IV Rank + Market Stats Row */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <ExpectedMoveWidget
-          symbol="NIFTY"
-          spotPrice={indices[0]?.ltp || 24250.75}
-          daysToExpiry={nearestExpiries.find(c => c.symbol === "NIFTY")?.timeLeft?.match(/(\d+)d/)?.[1] ? parseInt(nearestExpiries.find(c => c.symbol === "NIFTY")!.timeLeft.match(/(\d+)d/)![1]) : 4}
-        />
-        <ExpectedMoveWidget
-          symbol="BANKNIFTY"
-          spotPrice={indices[1]?.ltp || 51850.40}
-          iv={15.2}
-          daysToExpiry={nearestExpiries.find(c => c.symbol === "BANKNIFTY")?.timeLeft?.match(/(\d+)d/)?.[1] ? parseInt(nearestExpiries.find(c => c.symbol === "BANKNIFTY")!.timeLeft.match(/(\d+)d/)![1]) : 4}
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <IVRankCard symbol="NIFTY" currentIV={marketStats.indiaVix} />
-          <IVRankCard symbol="BANKNIFTY" currentIV={15.2} />
-          <Card>
-            <CardContent className="pt-3 pb-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] text-muted-foreground">Nifty PCR</p>
-              </div>
-              <p className={`text-lg font-bold font-mono ${marketStats.niftyPCR > 1 ? "text-bullish" : "text-bearish"}`}>{marketStats.niftyPCR}</p>
-              <p className="text-[10px] text-muted-foreground">BNF: <span className="font-mono">{marketStats.bankNiftyPCR}</span></p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-3 pb-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-[10px] text-muted-foreground">India VIX</p>
-              </div>
-              <p className="text-lg font-bold font-mono">{marketStats.indiaVix}</p>
-              <p className={`text-xs font-mono ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
-                {marketStats.vixChange > 0 ? "+" : ""}{marketStats.vixChange.toFixed(2)}%
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Market Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">Advance/Decline</p>
-            </div>
-            <div className="flex gap-2 text-sm font-mono font-bold">
-              <span className="text-bullish">{marketStats.advanceDecline.advances}</span>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-bearish">{marketStats.advanceDecline.declines}</span>
-            </div>
-            <Progress value={(marketStats.advanceDecline.advances / (marketStats.advanceDecline.advances + marketStats.advanceDecline.declines)) * 100} className="h-1.5 mt-1.5" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">FII Net (₹Cr)</p>
-            </div>
-            <p className={`text-lg font-bold font-mono ${marketStats.fiiData.net >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {marketStats.fiiData.net >= 0 ? "+" : ""}{marketStats.fiiData.net.toFixed(0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">DII Net (₹Cr)</p>
-            </div>
-            <p className={`text-lg font-bold font-mono ${marketStats.diiData.net >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {marketStats.diiData.net >= 0 ? "+" : ""}{marketStats.diiData.net.toFixed(0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">F&O Turnover</p>
-            </div>
-            <p className="text-lg font-bold font-mono">₹{(marketStats.totalFnOTurnover / 1000).toFixed(1)}K Cr</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── TOP GAINERS & LOSERS ── */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <ArrowUpRight className="h-4 w-4 text-bullish" /> Top Gainers
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="text-[10px]">
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Sector</TableHead>
-                  <TableHead className="text-right">LTP</TableHead>
-                  <TableHead className="text-right">Change</TableHead>
-                  <TableHead className="text-right">Chg%</TableHead>
-                  <TableHead className="text-right">Volume</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {topGainers.map(stock => (
-                  <TableRow
-                    key={stock.symbol}
-                    className="text-xs font-mono cursor-pointer hover:bg-accent/50"
-                    onClick={() => navigate(`/option-chain?symbol=${stock.symbol}`)}
-                  >
-                    <TableCell className="font-medium font-sans">{stock.symbol}</TableCell>
-                    <TableCell className="text-muted-foreground font-sans text-[10px]">{stock.sector}</TableCell>
-                    <TableCell className="text-right">{stock.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right text-bullish">+{stock.change.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className="bg-bullish/10 text-bullish px-1.5 py-0.5 rounded text-[10px]">
-                        +{stock.changePercent.toFixed(2)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{(stock.volume / 100000).toFixed(1)}L</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <ArrowDownRight className="h-4 w-4 text-bearish" /> Top Losers
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="text-[10px]">
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Sector</TableHead>
-                  <TableHead className="text-right">LTP</TableHead>
-                  <TableHead className="text-right">Change</TableHead>
-                  <TableHead className="text-right">Chg%</TableHead>
-                  <TableHead className="text-right">Volume</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {topLosers.map(stock => (
-                  <TableRow
-                    key={stock.symbol}
-                    className="text-xs font-mono cursor-pointer hover:bg-accent/50"
-                    onClick={() => navigate(`/option-chain?symbol=${stock.symbol}`)}
-                  >
-                    <TableCell className="font-medium font-sans">{stock.symbol}</TableCell>
-                    <TableCell className="text-muted-foreground font-sans text-[10px]">{stock.sector}</TableCell>
-                    <TableCell className="text-right">{stock.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right text-bearish">{stock.change.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">
-                      <span className="bg-bearish/10 text-bearish px-1.5 py-0.5 rounded text-[10px]">
-                        {stock.changePercent.toFixed(2)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{(stock.volume / 100000).toFixed(1)}L</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── FUTURES PREMIUM/DISCOUNT (Enhanced) ── */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2"><Globe className="h-4 w-4" /> Futures Premium / Discount vs Spot</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Visual bar chart */}
-              <div className="h-[180px] mb-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={futuresPremiumChart} layout="vertical" barSize={20}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={110} />
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value: number, name: string) => {
-                        if (name === "Premium") return [`₹${value.toFixed(2)}`, "Premium"];
-                        return [value.toFixed(2) + "%", "Premium %"];
-                      }}
-                    />
-                    <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" />
-                    <Bar dataKey="premium" name="Premium" radius={[0, 4, 4, 0]}>
-                      {futuresPremiumChart.map((entry, i) => (
-                        <Cell key={i} fill={entry.premium >= 0 ? "hsl(142 71% 45% / 0.7)" : "hsl(0 84% 60% / 0.7)"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Detail table */}
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-[10px]">
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead className="text-right">Spot</TableHead>
-                    <TableHead className="text-right">Futures</TableHead>
-                    <TableHead className="text-right">Premium</TableHead>
-                    <TableHead className="text-right">Basis %</TableHead>
-                    <TableHead className="text-right">OI Chg</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {futuresData.map((f, i) => (
-                    <TableRow key={i} className="text-xs font-mono">
-                      <TableCell className="font-medium font-sans">{f.symbol}</TableCell>
-                      <TableCell className="text-muted-foreground">{f.expiry}</TableCell>
-                      <TableCell className="text-right">{f.spotPrice.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className="text-right">{f.futuresPrice.toLocaleString("en-IN")}</TableCell>
-                      <TableCell className={`text-right font-medium ${f.premium >= 0 ? "text-bullish" : "text-bearish"}`}>
-                        {f.premium >= 0 ? "+" : ""}₹{f.premium.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${f.premium >= 0 ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
-                          {f.premium >= 0 ? "+" : ""}{f.premiumPercent.toFixed(2)}%
-                        </span>
-                      </TableCell>
-                      <TableCell className={`text-right ${f.oiChange >= 0 ? "text-bullish" : "text-bearish"}`}>
-                        {f.oiChange >= 0 ? "+" : ""}{(f.oiChange / 100000).toFixed(1)}L
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4" /> India VIX (30 Days)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[160px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={vixHistory}>
-                  <defs>
-                    <linearGradient id="vixGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(38 92% 50%)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="hsl(38 92% 50%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Area type="monotone" dataKey="vix" stroke="hsl(38 92% 50%)" fill="url(#vixGrad)" strokeWidth={1.5} dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            {/* Futures Basis Summary */}
-            <div className="mt-3 space-y-2">
-              <p className="text-[10px] text-muted-foreground font-medium">Basis Summary</p>
-              {futuresData.slice(0, 3).map((f, i) => (
-                <div key={i} className="flex items-center justify-between p-1.5 rounded bg-accent/30">
-                  <span className="text-[10px] font-medium">{f.symbol}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-mono font-bold ${f.premium >= 0 ? "text-bullish" : "text-bearish"}`}>
-                      {f.premium >= 0 ? "Premium" : "Discount"}
-                    </span>
-                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${f.premium >= 0 ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
-                      {f.premium >= 0 ? "+" : ""}{f.premiumPercent.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* ═══ GIFT NIFTY + EXPIRY CONTRACTS ═══ */}
+        <SectionHeader title="Expiry & Derivatives" subtitle="GIFT Nifty, NSE & MCX contract expiries" icon={<Activity className="h-4 w-4" />} />
+        <GiftNiftyExpiry giftNifty={giftNifty} indicativeNifty={indicativeNifty} nearestExpiries={nearestExpiries} />
+
+        {/* ═══ TOP MOVERS ═══ */}
+        <SectionHeader title="Top Movers" subtitle="Today's biggest gainers & losers" icon={<TrendingUp className="h-4 w-4" />} />
+        <TopMovers />
+
+        {/* ═══ FUTURES + VIX ═══ */}
+        <SectionHeader title="Futures & VIX" subtitle="Premium/discount analysis and volatility trends" icon={<BarChart3 className="h-4 w-4" />} />
+        <FuturesVIX />
+
+        {/* ═══ IV RANK SCANNER ═══ */}
+        <SectionHeader title="IV Rank Scanner" subtitle="Multi-symbol IV analysis with buy/sell signals" icon={<Zap className="h-4 w-4" />} />
+        <IVRankDashboard />
+
+        {/* ═══ SECTOR HEATMAP ═══ */}
+        <SectorHeatmap />
+
+        {/* ═══ MOST ACTIVE F&O ═══ */}
+        <MostActiveFnO />
+
+        {/* ═══ MARKET BREADTH ═══ */}
+        <SectionHeader title="Market Breadth" subtitle="Advance/decline, 52W highs/lows, EMA coverage & sector rotation" icon={<BarChart3 className="h-4 w-4" />} />
+        <MarketBreadth />
       </div>
-
-      {/* IV Rank Scanner */}
-      <IVRankDashboard />
-
-      {/* Sector Heatmap */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Sector Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-            {sectorData.map((sector) => {
-              const pos = sector.change >= 0;
-              const intensity = Math.min(Math.abs(sector.change) / 3, 1);
-              return (
-                <div
-                  key={sector.name}
-                  className="rounded-lg p-3 text-center transition-transform hover:scale-105 cursor-default"
-                  style={{
-                    backgroundColor: pos
-                      ? `hsl(142 71% 45% / ${0.08 + intensity * 0.25})`
-                      : `hsl(0 84% 60% / ${0.08 + intensity * 0.25})`,
-                  }}
-                >
-                  <p className="text-xs font-medium">{sector.name}</p>
-                  <p className={`text-sm font-bold font-mono ${pos ? "text-bullish" : "text-bearish"}`}>
-                    {pos ? "+" : ""}{sector.change.toFixed(2)}%
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Most Active F&O */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2"><Zap className="h-4 w-4" /> Most Active F&O Stocks</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs">
-                <TableHead>Symbol</TableHead>
-                <TableHead className="text-right">LTP</TableHead>
-                <TableHead className="text-right">Chg%</TableHead>
-                <TableHead className="text-right">Volume</TableHead>
-                <TableHead className="text-right">OI</TableHead>
-                <TableHead className="text-right">OI Chg</TableHead>
-                <TableHead>Interpretation</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mostActiveFnO.map((stock) => {
-                const interpretationColor = {
-                  "Long Buildup": "text-bullish",
-                  "Short Buildup": "text-bearish",
-                  "Long Unwinding": "text-bearish",
-                  "Short Covering": "text-bullish",
-                }[stock.oiInterpretation];
-                return (
-                  <TableRow key={stock.symbol} className="text-xs font-mono cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/option-chain?symbol=${stock.symbol}`)}>
-                    <TableCell className="font-medium font-sans">{stock.symbol}</TableCell>
-                    <TableCell className="text-right">{stock.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                    <TableCell className={`text-right ${stock.changePercent >= 0 ? "text-bullish" : "text-bearish"}`}>
-                      {stock.changePercent >= 0 ? "+" : ""}{stock.changePercent.toFixed(2)}%
-                    </TableCell>
-                    <TableCell className="text-right">{(stock.volume / 100000).toFixed(1)}L</TableCell>
-                    <TableCell className="text-right">{(stock.oi / 100000).toFixed(1)}L</TableCell>
-                    <TableCell className={`text-right ${stock.oiChange >= 0 ? "text-bullish" : "text-bearish"}`}>
-                      {stock.oiChange >= 0 ? "+" : ""}{(stock.oiChange / 100000).toFixed(1)}L
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${interpretationColor}`}>
-                        {stock.oiInterpretation}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* ── Market Breadth Indicators ── */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* A/D Line vs Nifty */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Advance/Decline Line vs Nifty (30 Days)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={breadth.advDecLine}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis yAxisId="ad" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis yAxisId="nifty" orientation="right" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Line yAxisId="ad" type="monotone" dataKey="adLine" stroke="hsl(210 100% 52%)" strokeWidth={1.5} dot={false} name="A/D Line" />
-                  <Line yAxisId="nifty" type="monotone" dataKey="nifty" stroke="hsl(38 92% 50%)" strokeWidth={1.5} dot={false} name="Nifty" />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* New Highs vs Lows */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">New 52W Highs vs Lows (20 Days)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={breadth.highsLows} barGap={0}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                  <XAxis dataKey="time" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="newHighs" fill="hsl(142 71% 45% / 0.7)" name="New Highs" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="newLows" fill="hsl(0 84% 60% / 0.7)" name="New Lows" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* % Stocks Above EMA + Sector Rotation */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">% Stocks Above Key EMAs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="text-[10px]">
-                  <TableHead>Index</TableHead>
-                  <TableHead className="text-right">Above 20 EMA</TableHead>
-                  <TableHead className="text-right">Above 50 EMA</TableHead>
-                  <TableHead className="text-right">Above 200 EMA</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {breadth.emaCoverage.map(e => (
-                  <TableRow key={e.label} className="text-xs font-mono">
-                    <TableCell className="font-medium font-sans">{e.label}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Progress value={e.above20} className="h-1.5 w-16" />
-                        <span className={e.above20 > 50 ? "text-bullish" : "text-bearish"}>{e.above20}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Progress value={e.above50} className="h-1.5 w-16" />
-                        <span className={e.above50 > 50 ? "text-bullish" : "text-bearish"}>{e.above50}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Progress value={e.above200} className="h-1.5 w-16" />
-                        <span className={e.above200 > 50 ? "text-bullish" : "text-bearish"}>{e.above200}%</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Sector Rotation Map</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {breadth.sectorRotation.map(s => {
-                const qColor = {
-                  Leading: "bg-bullish/15 border-bullish/30 text-bullish",
-                  Improving: "bg-primary/10 border-primary/30 text-primary",
-                  Weakening: "bg-warning/10 border-warning/30 text-warning",
-                  Lagging: "bg-bearish/15 border-bearish/30 text-bearish",
-                }[s.quadrant] || "";
-                return (
-                  <div key={s.sector} className={`p-2 rounded-md border ${qColor}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{s.sector}</span>
-                      <Badge variant="outline" className="text-[8px] h-4">{s.quadrant}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[9px] text-muted-foreground">Mom: <span className="font-mono">{s.momentum > 0 ? "+" : ""}{s.momentum}</span></span>
-                      <span className="text-[9px] text-muted-foreground">Trend: <span className="font-mono">{s.trend > 0 ? "+" : ""}{s.trend}</span></span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Access */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"].map(symbol => (
-          <Card
-            key={symbol}
-            className="cursor-pointer hover:border-primary/50 transition-all hover:shadow-md text-center py-3"
-            onClick={() => navigate(`/option-chain?symbol=${symbol}`)}
-          >
-            <CardContent className="p-0">
-              <p className="text-sm font-medium">{symbol}</p>
-              <p className="text-[10px] text-muted-foreground">Option Chain →</p>
-            </CardContent>
-          </Card>
-        ))}
-        <Card
-          className="cursor-pointer hover:border-primary/50 transition-all hover:shadow-md text-center py-3"
-          onClick={() => navigate("/oi-analysis")}
-        >
-          <CardContent className="p-0">
-            <p className="text-sm font-medium">OI Analysis</p>
-            <p className="text-[10px] text-muted-foreground">Deep Dive →</p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
     </ErrorBoundary>
   );
 }
