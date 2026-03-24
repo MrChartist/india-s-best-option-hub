@@ -602,6 +602,9 @@ export default function Index() {
         </Card>
       </div>
 
+      {/* IV Rank Scanner */}
+      <IVRankDashboard />
+
       {/* Sector Heatmap */}
       <Card>
         <CardHeader className="pb-2">
