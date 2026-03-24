@@ -34,6 +34,10 @@ export default function VolatilitySurface() {
   const termStructure = useMemo(() => getIVTermStructure(config.spot, config.step), [symbol]);
   const ivAnalytics = useMemo(() => getIVAnalytics(symbol), [symbol]);
   const ivHistory = useMemo(() => generateIVHistory(symbol), [symbol]);
+  const vrpHistory = useMemo(() => generateVRPHistory(symbol), [symbol]);
+  const greeksHeatmap = useMemo(() => generateGreeksHeatmap(config.spot, config.step), [symbol]);
+  const [greekType, setGreekType] = useState<"delta" | "gamma" | "theta" | "vega">("delta");
+  const [greekSide, setGreekSide] = useState<"ce" | "pe">("ce");
 
   // Build heatmap grid
   const strikes = [...new Set(surface.map(p => p.strike))].sort((a, b) => a - b);
