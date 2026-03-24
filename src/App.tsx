@@ -18,6 +18,7 @@ import VolatilitySurface from "./pages/VolatilitySurface";
 import FIIDIIActivity from "./pages/FIIDIIActivity";
 import OISpurts from "./pages/OISpurts";
 import GammaExposure from "./pages/GammaExposure";
+import SkewDashboard from "./pages/SkewDashboard";
 import Watchlist from "./pages/Watchlist";
 import NotFound from "./pages/NotFound";
 
