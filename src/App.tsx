@@ -49,6 +49,7 @@ const App = () => (
             <Route path="/gex" element={<GammaExposure />} />
             <Route path="/skew" element={<SkewDashboard />} />
             <Route path="/watchlist" element={<Watchlist />} />
+            <Route path="/docs" element={<Documentation />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

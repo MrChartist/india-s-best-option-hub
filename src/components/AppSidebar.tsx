@@ -37,6 +37,7 @@ const toolItems = [
   { title: "Strategy Finder", url: "/strategy-finder", icon: Crosshair },
   { title: "FII/DII", url: "/fii-dii", icon: Users },
   { title: "Positions", url: "/positions", icon: Briefcase },
+  { title: "Documentation", url: "/docs", icon: BookOpen },
 ];
 
 export function AppSidebar() {
