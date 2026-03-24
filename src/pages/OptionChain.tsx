@@ -364,6 +364,28 @@ export default function OptionChain() {
         ))}
       </div>
 
+      {/* Unusual Activity Banner */}
+      {unusualActivity.count > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-500/10 border border-orange-500/25 text-[10px]">
+          <Flame className="h-3.5 w-3.5 text-orange-500 animate-pulse" />
+          <span className="font-semibold text-orange-500">{unusualActivity.count} Unusual Activity</span>
+          <span className="text-muted-foreground">strikes detected (Vol &gt; 3× avg OI):</span>
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+            {unusualActivity.hotStrikes.map(s => {
+              const flag = unusualActivity.flags.get(s)!;
+              return (
+                <Badge key={s} variant="outline" className="text-[9px] gap-1 border-orange-500/30 text-orange-500 shrink-0">
+                  {s.toLocaleString("en-IN")}
+                  {flag.ce && <span className="text-primary">CE</span>}
+                  {flag.ce && flag.pe && <span className="text-muted-foreground">+</span>}
+                  {flag.pe && <span className="text-bearish">PE</span>}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Sticky ATM Bar */}
       {atmRow && viewMode === "expiration" && (
         <div className="sticky top-0 z-20 flex items-center justify-between gap-2 px-3 py-1 rounded bg-primary/5 border border-primary/20 text-[10px] font-mono">
