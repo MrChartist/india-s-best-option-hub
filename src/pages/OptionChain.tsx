@@ -510,7 +510,10 @@ export default function OptionChain() {
                             {/* ── PUT SIDE ── */}
                             {columnConfig.volume && (
                               <TableCell className="text-left py-1.5">
-                                <VolumeBar value={row.pe.volume} max={maxVol} side="put" />
+                                <div className="flex items-center gap-0.5">
+                                  <VolumeBar value={row.pe.volume} max={maxVol} side="put" />
+                                  {uaFlag?.pe && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
+                                </div>
                               </TableCell>
                             )}
                             {columnConfig.bid && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.bidPrice.toFixed(2)}</TableCell>}
