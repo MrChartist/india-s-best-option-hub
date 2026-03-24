@@ -101,6 +101,24 @@ export default function OptionChain() {
   const totalPEVol = chain.reduce((s, o) => s + o.pe.volume, 0);
   const atmRow = chain.find(o => o.strikePrice === atmStrike);
 
+  // ── Unusual Activity Detection: volume > 3x average OI ratio ──
+  const unusualActivity = useMemo(() => {
+    if (chain.length === 0) return { flags: new Map<number, { ce: boolean; pe: boolean }>(), count: 0, hotStrikes: [] as number[] };
+    const avgCEOI = totalCEOI / chain.length || 1;
+    const avgPEOI = totalPEOI / chain.length || 1;
+    const flags = new Map<number, { ce: boolean; pe: boolean }>();
+    const hotStrikes: number[] = [];
+    chain.forEach(row => {
+      const ceUnusual = row.ce.volume > avgCEOI * 3 && row.ce.volume > 50000;
+      const peUnusual = row.pe.volume > avgPEOI * 3 && row.pe.volume > 50000;
+      if (ceUnusual || peUnusual) {
+        flags.set(row.strikePrice, { ce: ceUnusual, pe: peUnusual });
+        hotStrikes.push(row.strikePrice);
+      }
+    });
+    return { flags, count: flags.size, hotStrikes };
+  }, [chain, totalCEOI, totalPEOI]);
+
   useEffect(() => {
     if (chain.length > 0 && atmRef.current && viewMode === "expiration") {
       setTimeout(() => atmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
