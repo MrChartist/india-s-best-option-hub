@@ -7,6 +7,8 @@ import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useNSEDa
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { TrendingUp, TrendingDown, Activity, BarChart3, Users, Clock, Zap, Globe, Wifi, WifiOff, ArrowUpRight, ArrowDownRight, CalendarClock, Plane } from "lucide-react";
+import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
+import { IVRankCard, IVRankDashboard } from "@/components/IVRankWidget";
 import { useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, AreaChart, Area, BarChart, Bar, CartesianGrid, Cell, ReferenceLine, ComposedChart } from "recharts";
@@ -311,30 +313,49 @@ export default function Index() {
         </Card>
       </div>
 
+      {/* Expected Move + IV Rank + Market Stats Row */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <ExpectedMoveWidget
+          symbol="NIFTY"
+          spotPrice={indices[0]?.ltp || 24250.75}
+          daysToExpiry={nearestExpiries.find(c => c.symbol === "NIFTY")?.timeLeft?.match(/(\d+)d/)?.[1] ? parseInt(nearestExpiries.find(c => c.symbol === "NIFTY")!.timeLeft.match(/(\d+)d/)![1]) : 4}
+        />
+        <ExpectedMoveWidget
+          symbol="BANKNIFTY"
+          spotPrice={indices[1]?.ltp || 51850.40}
+          iv={15.2}
+          daysToExpiry={nearestExpiries.find(c => c.symbol === "BANKNIFTY")?.timeLeft?.match(/(\d+)d/)?.[1] ? parseInt(nearestExpiries.find(c => c.symbol === "BANKNIFTY")!.timeLeft.match(/(\d+)d/)![1]) : 4}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <IVRankCard symbol="NIFTY" currentIV={marketStats.indiaVix} />
+          <IVRankCard symbol="BANKNIFTY" currentIV={15.2} />
+          <Card>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground">Nifty PCR</p>
+              </div>
+              <p className={`text-lg font-bold font-mono ${marketStats.niftyPCR > 1 ? "text-bullish" : "text-bearish"}`}>{marketStats.niftyPCR}</p>
+              <p className="text-[10px] text-muted-foreground">BNF: <span className="font-mono">{marketStats.bankNiftyPCR}</span></p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground">India VIX</p>
+              </div>
+              <p className="text-lg font-bold font-mono">{marketStats.indiaVix}</p>
+              <p className={`text-xs font-mono ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
+                {marketStats.vixChange > 0 ? "+" : ""}{marketStats.vixChange.toFixed(2)}%
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       {/* Market Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">India VIX</p>
-            </div>
-            <p className="text-lg font-bold font-mono">{marketStats.indiaVix}</p>
-            <p className={`text-xs font-mono ${marketStats.vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
-              {marketStats.vixChange > 0 ? "+" : ""}{marketStats.vixChange.toFixed(2)}%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-3 pb-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">Nifty PCR</p>
-            </div>
-            <p className={`text-lg font-bold font-mono ${marketStats.niftyPCR > 1 ? "text-bullish" : "text-bearish"}`}>{marketStats.niftyPCR}</p>
-            <p className="text-[10px] text-muted-foreground">BNF: <span className="font-mono">{marketStats.bankNiftyPCR}</span></p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="pt-3 pb-3">
             <div className="flex items-center gap-1.5 mb-1">
@@ -580,6 +601,9 @@ export default function Index() {
           </CardContent>
         </Card>
       </div>
+
+      {/* IV Rank Scanner */}
+      <IVRankDashboard />
 
       {/* Sector Heatmap */}
       <Card>
