@@ -1,13 +1,23 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { OptionData, ExpiryDate, IndexData } from "./mockData";
+import { getActiveBroker } from "./brokerConfig";
 
 const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-// Direct fetch to edge function (reliable for query params)
+// Direct fetch to edge function with optional user credentials
 async function fetchDhanProxy(endpoint: string, params?: Record<string, string>): Promise<any> {
   const qp = new URLSearchParams({ endpoint, ...params });
   const url = `https://${PROJECT_ID}.supabase.co/functions/v1/dhan-proxy?${qp.toString()}`;
-  const res = await fetch(url);
+
+  // Inject user's Dhan credentials if available
+  const headers: Record<string, string> = {};
+  const activeBroker = getActiveBroker();
+  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
+    headers["x-dhan-client-id"] = activeBroker.values.clientId;
+    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
+  }
+
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     const errText = await res.text();
     throw new Error(`Dhan proxy error ${res.status}: ${errText}`);
