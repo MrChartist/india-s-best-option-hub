@@ -188,7 +188,7 @@ VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
 
 ## 🏗️ Data Architecture
 
-Mr. Chartist Options Terminal uses a **3-tier data fallback** architecture to ensure the app always works:
+Mr. Chartist Options Terminal uses a **2-tier data** architecture to ensure the app always works:
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -202,11 +202,7 @@ Mr. Chartist Options Terminal uses a **3-tier data fallback** architecture to en
 │  (Option Chain, Expiry Lists, Greeks, OI)    │
 │  Uses YOUR API key via Supabase Edge Fn      │
 │                                              │
-│  Tier 2: NSE Direct Proxy  ← Fallback       │
-│  (Live Indices, Market Status, GIFT Nifty)   │
-│  No auth needed, via Supabase Edge Fn        │
-│                                              │
-│  Tier 3: Mock Data  ← Offline/Demo          │
+│  Tier 2: Mock Data  ← Offline/Demo          │
 │  (Full synthetic dataset for all pages)      │
 │  Works without any backend                   │
 │                                              │
@@ -216,7 +212,6 @@ Mr. Chartist Options Terminal uses a **3-tier data fallback** architecture to en
 | Data Source | What It Provides | Auth Required? |
 |-------------|-----------------|---------------|
 | **Dhan API** | Option chain, Greeks, IV, Expiry lists | Yes (your API key) |
-| **NSE Proxy** | Live indices, market status, GIFT Nifty, F&O stock list | No |
 | **Mock Data** | Complete synthetic dataset for all features | No |
 
 ### Connecting Your Dhan Broker
@@ -267,14 +262,14 @@ india-s-best-option-hub/
 │   │   ├── IVRankWidget.tsx
 │   │   └── ...
 │   ├── hooks/
-│   │   ├── useNSEData.ts      # Data hooks (live + mock fallback)
+│   │   ├── useMarketData.ts   # Data hooks (live + mock fallback)
 │   │   ├── useTheme.ts        # Dark/light mode toggle
 │   │   ├── useAlertEngine.ts  # Alert system logic
 │   │   └── useKeyboardShortcuts.ts
 │   ├── integrations/
 │   │   └── supabase/          # Supabase client config
 │   ├── lib/
-│   │   ├── nseApi.ts          # Dhan + NSE API layer
+│   │   ├── marketApi.ts       # Dhan API layer
 │   │   ├── mockData.ts        # Comprehensive mock dataset
 │   │   ├── brokerConfig.ts    # Multi-broker BYOK config
 │   │   └── utils.ts

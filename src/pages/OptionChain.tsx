@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { fnoStocks } from "@/lib/mockData";
-import { useLiveOptionChain } from "@/hooks/useNSEData";
+import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { toast } from "sonner";
 
 const underlyings = [

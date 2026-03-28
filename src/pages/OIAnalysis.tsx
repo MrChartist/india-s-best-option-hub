@@ -10,7 +10,7 @@ import { OIHeatmap } from "@/components/OIHeatmap";
 import { SupportResistance } from "@/components/SupportResistance";
 import { MultiExpiryOI } from "@/components/MultiExpiryOI";
 import { IVPercentileGauge } from "@/components/IVPercentileGauge";
-import { useLiveOptionChain } from "@/hooks/useNSEData";
+import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { Wifi, WifiOff } from "lucide-react";
 
 export default function OIAnalysis() {

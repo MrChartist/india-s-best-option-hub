@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useNSEData";
+import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useMarketData";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";

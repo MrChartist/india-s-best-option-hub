@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchLiveOptionChain, fetchLiveIndices, fetchMarketStatus, fetchExpiryList } from "@/lib/nseApi";
+import { fetchLiveOptionChain, fetchLiveIndices, fetchMarketStatus, fetchExpiryList } from "@/lib/marketApi";
 import { getOptionChain, indicesData, expiryDates, getMaxPain } from "@/lib/mockData";
 import type { OptionData, IndexData, ExpiryDate } from "@/lib/mockData";
 

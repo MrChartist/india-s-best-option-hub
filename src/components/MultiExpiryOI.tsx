@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useLiveOptionChain, useExpiryList } from "@/hooks/useNSEData";
+import { useLiveOptionChain, useExpiryList } from "@/hooks/useMarketData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ComposedChart, Line, Cell } from "recharts";
 import { Layers, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 
