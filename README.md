@@ -178,6 +178,238 @@ The Broker Settings page supports entering API keys for 7 Indian brokers:
 
 ---
 
+## ## 🐳 Running with Docker (No Local Setup Required)
+
+You can run the entire application using Docker without installing Node.js or any dependencies on your system.
+
+---
+
+### ✅ Prerequisites
+
+* Install **Docker Desktop**
+* Ensure Docker is running
+
+Verify:
+
+```bash
+docker --version
+```
+
+---
+
+### 🚀 Quick Start
+
+#### 1. Clone the repository
+
+```bash
+git clone https://github.com/MrChartist/india-s-best-option-hub.git
+cd india-s-best-option-hub
+```
+
+---
+
+#### 2. Build the Docker image
+
+```bash
+docker build -t option-hub .
+```
+
+Sample Output:
+```aiignore
+[+] Building 87.4s (10/10) FINISHED                                                                                                                                                                                                                      docker:desktop-linux
+ => [internal] load build definition from Dockerfile                                                                                                                                                                                                                     0.0s
+ => => transferring dockerfile: 294B                                                                                                                                                                                                                                     0.0s
+ => [internal] load metadata for docker.io/library/node:18                                                                                                                                                                                                               2.1s
+ => [internal] load .dockerignore                                                                                                                                                                                                                                        0.0s
+ => => transferring context: 144B                                                                                                                                                                                                                                        0.0s
+ => [1/5] FROM docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
+ => => resolve docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
+ => [internal] load build context                                                                                                                                                                                                                                        0.0s
+ => => transferring context: 7.42kB                                                                                                                                                                                                                                      0.0s
+ => CACHED [2/5] WORKDIR /app                                                                                                                                                                                                                                            0.0s
+ => CACHED [3/5] COPY package*.json ./                                                                                                                                                                                                                                   0.0s
+ => [4/5] RUN rm -rf node_modules package-lock.json     && npm install --force                                                                                                                                                                                          75.2s
+ => [5/5] COPY . .                                                                                                                                                                                                                                                       0.1s 
+ => exporting to image                                                                                                                                                                                                                                                   9.9s 
+ => => exporting layers                                                                                                                                                                                                                                                  7.4s 
+ => => exporting manifest sha256:75e3c113eac8c8dcc0ec769ec51bdfb5767ce0883609fe46f7ee57d983af34bb                                                                                                                                                                        0.0s 
+ => => exporting config sha256:e8dfd38c4b9b20bb6f764db17b5a0c770d80d79ef0fa696956fd6f14a7195eaa                                                                                                                                                                          0.0s 
+ => => exporting attestation manifest sha256:f65b10ee21b3422cab3fa8ba6596aed9a79262d011e0e87187cdaa28bde88f12                                                                                                                                                            0.0s 
+ => => exporting manifest list sha256:5ccf075f6e80ce19f175629b38be8df5b4a010110a079c3ed06228c1182029d9                                                                                                                                                                   0.0s
+ => => naming to docker.io/library/option-hub:latest                                                                                                                                                                                                                     0.0s
+ => => unpacking to docker.io/library/option-hub:latest                                                                                                                                                                                                                  2.4s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/q8ak3rr7fs3kwdwy7u8e48itu
+```
+
+Verify generated build image:
+```aiignore
+docker images | grep option-hub
+```
+
+Sample Output
+```aiignore
+option-hub                            latest    d906950fcb94   About a minute ago   2.24GB
+```
+---
+
+#### 3. Run the container
+
+```bash
+docker run -p 4001:4001 -p 4002:4002 option-hub
+```
+
+Sample Output
+```aiignore
+
+> india-s-best-option-hub@1.0.0 dev
+> concurrently -n vite,proxy -c cyan,green "vite" "node proxy-server.mjs" --host
+
+[proxy] 
+[proxy]   🚀 Mr. Chartist Proxy Server
+[proxy]   ├─ HTTP:       http://localhost:4002
+[proxy]   ├─ WebSocket:  ws://localhost:4002/ws
+[proxy]   ├─ Health:     http://localhost:4002/health
+[proxy]   ├─ Dhan (1°):  http://localhost:4002/api/dhan-proxy?endpoint=option-chain&symbol=NIFTY
+[proxy]   ├─ NSE  (2°):  http://localhost:4002/api/nse-proxy?endpoint=indices
+[proxy]   └─ TV Scanner: http://localhost:4002/api/tv-scan?type=stocks
+[proxy] 
+[proxy]   Data Priority: Dhan → NSE → TradingView
+[proxy]   Dhan credentials: ⚠️  Not set (configure in .env or Broker Settings)
+[proxy] 
+[vite] 
+[vite]   VITE v5.4.21  ready in 83 ms
+[vite] 
+[vite]   ➜  Local:   http://localhost:4001/
+[vite]   ➜  Network: http://172.17.0.2:4001/
+[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
+[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
+[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
+[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
+[proxy]   🌐 Browser WebSocket client connected
+```
+
+---
+
+#### 4. Open in browser
+
+```
+http://localhost:4001
+```
+
+---
+
+### 🔧 How it Works
+
+* **Frontend (Vite)** runs on: `http://localhost:4001`
+* **Proxy Server** runs on: `http://localhost:4002`
+* Everything runs inside an isolated container
+
+---
+
+### ⚠️ Notes
+
+* If port `4001` or `4002` is already in use, run:
+
+```bash
+docker run -p 5001:4001 -p 5002:4002 option-hub
+```
+
+Then open:
+
+```
+http://localhost:5001
+```
+
+---
+
+### 🔁 Development Mode (Hot Reload)
+
+To enable live code changes:
+
+```bash
+docker run -p 4001:4001 -p 4002:4002 -v $(pwd):/app option-hub
+```
+
+---
+
+### 🧠 Apple Silicon (M1/M2/M3) Note
+
+If you face issues related to Rollup or native modules, rebuild using:
+
+```bash
+docker build --no-cache -t option-hub .
+```
+
+---
+
+### 🛑 Stopping the Container
+
+Find running containers:
+
+```bash
+docker ps
+```
+
+Stop:
+
+```bash
+docker stop <container_id>
+```
+
+---
+
+### 🧹 Cleanup
+
+Remove container:
+
+```bash
+docker rm <container_id>
+```
+
+Remove image:
+
+```bash
+docker rmi option-hub
+```
+
+---
+
+### 📦 Optional: Docker Compose
+
+Create a `docker-compose.yml`:
+
+```yaml
+version: "3"
+
+services:
+  option-hub:
+    build: .
+    ports:
+      - "4001:4001"
+      - "4002:4002"
+    volumes:
+      - .:/app
+    command: npm run dev -- --host
+```
+
+Run:
+
+```bash
+docker-compose up --build
+```
+
+---
+
+### 🎯 Benefits of Docker Setup
+
+* No local dependency installation
+* Clean and isolated environment
+* Works across Mac, Linux, Windows
+* Easy onboarding for new users
+
+---
+
 ## 📡 Data Sources
 
 The terminal uses **3 data sources** with automatic failover:
