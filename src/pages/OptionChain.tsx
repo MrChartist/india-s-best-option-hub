@@ -5,25 +5,208 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Crosshair, Wifi, WifiOff, RefreshCw, Bell, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Settings2, Flame } from "lucide-react";
+import { Crosshair, Wifi, WifiOff, RefreshCw, Bell, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Settings2, Flame, Search, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { fnoStocks } from "@/lib/mockData";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { toast } from "sonner";
 
-const underlyings = [
-  { label: "NIFTY 50", value: "NIFTY" },
-  { label: "BANK NIFTY", value: "BANKNIFTY" },
-  { label: "FIN NIFTY", value: "FINNIFTY" },
-  { label: "MIDCAP NIFTY", value: "MIDCPNIFTY" },
-  ...fnoStocks.map(s => ({ label: s, value: s })),
+// ── Symbol categories for organized browsing ──
+const SYMBOL_CATEGORIES: { label: string; symbols: { label: string; value: string }[] }[] = [
+  {
+    label: "Indices",
+    symbols: [
+      { label: "NIFTY 50", value: "NIFTY" },
+      { label: "BANK NIFTY", value: "BANKNIFTY" },
+      { label: "FIN NIFTY", value: "FINNIFTY" },
+      { label: "MIDCAP NIFTY", value: "MIDCPNIFTY" },
+    ],
+  },
+  {
+    label: "Nifty 50 Stocks",
+    symbols: [
+      "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
+      "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK",
+      "ASIANPAINT", "MARUTI", "TATAMOTORS", "SUNPHARMA", "TITAN",
+      "WIPRO", "ULTRACEMCO", "BAJFINANCE", "HCLTECH", "NTPC",
+      "POWERGRID", "ONGC", "ADANIENT", "ADANIPORTS", "COALINDIA",
+      "DRREDDY", "NESTLEIND", "CIPLA", "BAJAJFINSV", "GRASIM",
+      "JSWSTEEL", "BRITANNIA", "TECHM", "INDUSINDBK",
+      "HINDALCO", "M&M", "APOLLOHOSP", "EICHERMOT", "DIVISLAB",
+      "BPCL", "HEROMOTOCO", "TATASTEEL", "SBILIFE", "HDFCLIFE",
+      "SHRIRAMFIN", "TRENT", "BAJAJ-AUTO",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Banking & Finance",
+    symbols: [
+      "BANKBARODA", "PNB", "CANBK", "IDFCFIRSTB", "FEDERALBNK",
+      "BANDHANBNK", "RBLBANK", "AUBANK", "MANAPPURAM", "MUTHOOTFIN",
+      "CHOLAFIN", "LICHSGFIN", "CANFINHOME", "ICICIGI", "ICICIPRULI",
+      "HDFCAMC", "SBICARD", "RECLTD", "PFC",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "IT & Technology",
+    symbols: [
+      "LTIM", "MPHASIS", "COFORGE", "PERSISTENT", "LTTS",
+      "HAPPSTMNDS", "TATAELXSI", "DIXON",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Pharma & Healthcare",
+    symbols: [
+      "TORNTPHARM", "LUPIN", "AUROPHARMA", "BIOCON", "ALKEM",
+      "IPCALAB", "LALPATHLAB", "METROPOLIS", "ABBOTINDIA", "SYNGENE", "GLENMARK",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Auto & Ancillary",
+    symbols: [
+      "ASHOKLEY", "ESCORTS", "TVSMOTOR", "MRF", "MOTHERSON",
+      "EXIDEIND", "BALKRISIND", "BHARATFORG",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Metals & Mining",
+    symbols: [
+      "VEDL", "JINDALSTEL", "SAIL", "NMDC", "NATIONALUM",
+      "MOIL", "HINDALCO", "TATASTEEL",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Energy & Oil",
+    symbols: [
+      "IOC", "GAIL", "PETRONET", "IGL", "MGL", "PIIND", "NHPC", "TATAPOWER",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Defence & PSU",
+    symbols: [
+      "HAL", "BEL", "BHEL", "IRCTC", "IRFC", "RVNL", "CONCOR", "SUZLON",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Infra & Capital Goods",
+    symbols: [
+      "SIEMENS", "ABB", "CUMMINSIND", "VOLTAS", "HAVELLS",
+      "CROMPTON", "POLYCAB", "ADANIGREEN", "ADANITRANS",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "FMCG & Consumer",
+    symbols: [
+      "GODREJCP", "DABUR", "MARICO", "COLPAL", "EMAMILTD", "UBL",
+      "PAGEIND", "BATAINDIA", "JUBLFOOD",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "Real Estate",
+    symbols: [
+      "DLF", "GODREJPROP", "OBEROIRLTY", "PRESTIGE", "BRIGADE", "PHOENIXLTD",
+    ].map(s => ({ label: s, value: s })),
+  },
+  {
+    label: "New Age & Others",
+    symbols: [
+      "ZOMATO", "PAYTM", "NYKAA", "POLICYBZR", "DELHIVERY", "INDIGO",
+      "MCX", "PVRINOX", "SUNTV", "ZEEL", "IDEA",
+    ].map(s => ({ label: s, value: s })),
+  },
 ];
+
+// Flat list for search
+const ALL_SYMBOLS = SYMBOL_CATEGORIES.flatMap(cat => cat.symbols);
+
+// ── Searchable Symbol Selector Component ──
+function SymbolSearch({ value, onSelect }: { value: string; onSelect: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!search) return SYMBOL_CATEGORIES;
+    const q = search.toUpperCase();
+    return SYMBOL_CATEGORIES
+      .map(cat => ({
+        ...cat,
+        symbols: cat.symbols.filter(s =>
+          s.value.includes(q) || s.label.toUpperCase().includes(q)
+        ),
+      }))
+      .filter(cat => cat.symbols.length > 0);
+  }, [search]);
+
+  const currentLabel = ALL_SYMBOLS.find(s => s.value === value)?.label || value;
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-[160px] h-8 text-xs font-medium justify-between gap-1" role="combobox">
+          <span className="truncate">{currentLabel}</span>
+          <Search className="h-3 w-3 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-0" align="start">
+        <div className="flex items-center border-b px-3 py-2 gap-2">
+          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <Input
+            ref={inputRef}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search F&O symbols..."
+            className="h-7 border-0 p-0 text-xs focus-visible:ring-0 shadow-none"
+          />
+          {search && (
+            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setSearch("")}>
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        <ScrollArea className="h-[320px]">
+          <div className="p-1">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No symbols found</p>
+            ) : (
+              filtered.map(cat => (
+                <div key={cat.label}>
+                  <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5 sticky top-0 bg-popover">
+                    {cat.label}
+                  </p>
+                  <div className="grid grid-cols-3 gap-0.5">
+                    {cat.symbols.map(s => (
+                      <button
+                        key={s.value}
+                        onClick={() => { onSelect(s.value); setOpen(false); setSearch(""); }}
+                        className={`text-[10px] px-2 py-1.5 rounded text-left transition-colors hover:bg-accent ${
+                          s.value === value ? "bg-primary/10 text-primary font-semibold" : ""
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ── Volume Bar ──
 function VolumeBar({ value, max, side }: { value: number; max: number; side: "call" | "put" }) {
@@ -215,12 +398,7 @@ export default function OptionChain() {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Select value={symbol} onValueChange={(v) => { setSymbol(v); setSelectedExpiry(undefined); }}>
-            <SelectTrigger className="w-[130px] h-8 text-xs font-medium"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {underlyings.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <SymbolSearch value={symbol} onSelect={(v) => { setSymbol(v); setSelectedExpiry(undefined); }} />
 
           {/* View Mode Tabs */}
           <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as any)} className="bg-muted rounded-md p-0.5">
@@ -234,9 +412,9 @@ export default function OptionChain() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={`gap-1 text-[9px] ${isLive ? "border-bullish/50 text-bullish" : "border-muted-foreground/30"}`}>
+          <Badge variant="outline" className={`gap-1 text-[9px] ${isLive ? "border-bullish/50 text-bullish" : "border-red-500/30 text-red-400"}`}>
             {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : "MOCK"}
+            {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : "OFFLINE"}
           </Badge>
           <span className="text-[10px] font-mono">
             {symbol} <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>

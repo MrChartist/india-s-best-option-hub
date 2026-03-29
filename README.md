@@ -1,246 +1,318 @@
-# Mr. Chartist — Options Terminal | NSE F&O Analytics
+# 🚀 India's Best Option Hub — Open-Source Options & Futures Terminal
 
 <div align="center">
 
-![OptionsDesk Dashboard](docs/screenshots/dashboard-dark.png)
-
 **India's most comprehensive open-source Options & Futures analytics terminal.**
-Built by **Mr. Chartist** for traders who need institutional-grade tools without the institutional price tag.
+
+Built for NSE F&O traders who want institutional-grade tools — free, open-source, and running in your browser.
 
 [![React](https://img.shields.io/badge/React-18.3-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646cff?logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06b6d4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Sponsor](https://img.shields.io/badge/Sponsor-❤️-ea4aaa?logo=github-sponsors)](https://github.com/sponsors/MrChartist)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Live Demo](#quick-start) · [Features](#-features) · [Screenshots](#-screenshots) · [Setup Guide](#-getting-started) · [API Docs](#-data-architecture) · [Sponsor](#-sponsor) · [Contributing](#-contributing)
+[Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Pages Guide](#-pages-guide) · [Roadmap](#-current-status--roadmap) · [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## 🧠 Why Mr. Chartist Options Terminal?
-
-Most F&O terminals in India are either:
-- **Locked behind expensive broker subscriptions** (Sensibull, Opstra)
-- **Too basic for serious analysis** (free tools)
-- **Desktop-only** with no mobile/responsive support
-
-**Mr. Chartist Options Terminal** bridges this gap — a fully responsive, real-time, broker-agnostic F&O analytics platform that works in your browser. Plug in your own broker API key (Dhan supported, more coming) and get institutional-grade data flowing in seconds.
+> **⚠️ BASE PROJECT — Work in Progress**
+>
+> This is a **base/starter project** — it's functional and covers a LOT of ground, but some features may not be fully connected or polished yet. Think of it as a solid foundation you can build on top of. The creator ([MrChartist](https://github.com/MrChartist)) is actively working on completing this within the next **10–30 days**. See the [Roadmap](#-current-status--roadmap) for details.
+>
+> **You're free to fork, copy, modify, and improve this project!** It's MIT licensed. If something doesn't make sense, throw the code at Claude/ChatGPT/Gemini and vibe-code your way through it. 🚀
 
 ---
 
-## ✨ Features
+## 🧠 What Is This?
 
-### 📊 Market Dashboard
-- **Live Index Tracking** — NIFTY 50, BANK NIFTY, FINNIFTY, MIDCAP NIFTY with real-time LTP, change %, and intraday sparklines
-- **India VIX & GIFT Nifty** — Pre-market direction and volatility context
-- **Key Metrics** — PCR, VIX, Advance/Decline ratio, FII/DII net flows at a glance
-- **IV Rank Scanner** — Multi-symbol IV analysis with buy/sell premium signals
-- **Expected Move Calculator** — IV-based range estimates for NIFTY and BANKNIFTY by expiry
-- **Sector Heatmap** — Color-coded sector performance map for rotation analysis
-- **Market Breadth** — Advance/Decline, 52W Highs/Lows, Stocks above EMA, sector rotation charts
-- **Most Active F&O** — Strongest buildup signals (Long Buildup, Short Covering, etc.)
+This is a **free, browser-based Options & Futures analytics terminal** for the Indian stock market (NSE).
 
-### ⛓️ Option Chain
-- **Full Strike-Level Data** — LTP, OI, OI Change, Volume, IV for all CE/PE strikes
-- **Real-Time Greeks** — Delta, Gamma, Theta, Vega per strike
-- **Multi-Expiry Support** — Switch between weekly and monthly expiries instantly
-- **ATM Highlighting** — Automatic at-the-money detection with visual emphasis
-- **Max Pain Indicator** — Calculated and displayed in the header
-- **Quick Trade** — One-click "Buy/Sell" buttons that pre-populate the Strategy Builder
-- **PCR & Total OI** — Live Put-Call Ratio with OI distribution bar
+**Think of it as your personal trading dashboard** that shows:
+- Live prices of NIFTY, BANKNIFTY, and other indices
+- Full option chain with OI (Open Interest), IV (Implied Volatility), and Greeks
+- Charts showing where the smart money is positioned
+- Tools to build and test trading strategies before risking real money
 
-### 📈 OI Analysis
-- **OI vs Price Chart** — Stacked area visualization of Call/Put OI with price overlay
-- **Change in OI** — Spot intraday OI buildup patterns
-- **Strike-Wise Distribution** — Bar chart of OI concentration across strikes
-- **Multi-Expiry Comparison** — Overlay OI curves across different expiry dates
-
-### 🧮 Strategy Builder
-- **Multi-Leg Payoff** — Build any combination of CE/PE Buy/Sell with up to N legs
-- **Preset Strategies** — Bull Call Spread, Iron Condor, Straddle, Strangle, Butterfly, and more — pre-loaded with one click
-- **Visual Payoff Chart** — Interactive area chart with breakeven lines, spot reference, and profit/loss zones
-- **Risk Metrics Panel** — Max Profit, Max Loss, Risk:Reward ratio, Probability of Profit
-- **Greeks Dashboard** — Combined position Delta, Gamma, Theta, Vega  
-- **Margin Estimator** — Approximate margin requirement based on SPAN logic
-- **Multi-DTE Payoff** — See how your strategy decays across different days-to-expiry
-
-### 🏛️ FII/DII Activity
-- **Daily Institutional Flows** — FII and DII buy/sell data across Cash, F&O, and combined segments
-- **Trend Analysis** — Rolling net flow charts showing institutional sentiment over time
-- **Monthly Aggregates** — Cumulative FII/DII positioning for macro context
-
-### 💼 Position Tracker
-- **Portfolio Dashboard** — Track all active option positions with real-time MTM P&L
-- **P&L Simulator** — What-if scenarios: "What happens if NIFTY moves +2% tomorrow?"
-- **Greeks Decay** — Watch how your position Greeks evolve as time passes
-- **Risk Alerts** — Configurable alerts for margin breach, P&L thresholds, and Greeks limits
-- **Multi-Broker** — Works with any connected broker API
-
-### 🔗 Broker Integration
-- **BYOK (Bring Your Own Key)** — Connect your own Dhan API credentials
-- **Secure Storage** — Keys stored in browser `localStorage` — never sent to any third-party server
-- **Easy Configuration** — Simple setup form with validation and connection testing
-
-### 🎨 UI/UX
-- **Dual Theme** — Professional dark mode (terminal-style) and clean light mode
-- **Fully Responsive** — Works on desktop, tablet, and mobile
-- **Keyboard Shortcuts** — `⌘1`–`⌘7` for instant page navigation
-- **Micro-Animations** — Staggered fade-ins, glow effects, smooth transitions
-- **JetBrains Mono** — Monospaced font for all numerical data for perfect alignment
+**Who is this for?**
+- 📈 **Options traders** who want professional tools without paying ₹2000+/month
+- 🎓 **Beginners** learning about option chains, OI analysis, and Greeks
+- 💻 **Developers** who want to build on top of a solid F&O analytics platform
+- 🧪 **Vibe coders** who want a real-world project to hack on with AI tools
 
 ---
 
-## 📸 Screenshots
+## ✨ What You Get
 
-<details>
-<summary><strong>🌙 Dashboard — Dark Mode</strong></summary>
+| Feature | What It Does | Status |
+|---------|-------------|--------|
+| **📊 Live Dashboard** | Real-time NIFTY, BANKNIFTY prices, VIX, sector heatmap, market sentiment score | ✅ Working |
+| **⛓️ Option Chain** | Full strike-wise data — LTP, OI, OI Change, Volume, IV for every CE/PE strike | ✅ Working |
+| **📈 OI Analysis** | Visual charts showing Call/Put writers positioning (Max Pain, Delta OI, PCR) | ✅ Working |
+| **🧮 Strategy Builder** | Build Bull Call Spread, Iron Condor, Straddle — see payoff chart before you trade | ✅ Working |
+| **💼 Position Tracker** | Track your open positions with real-time P&L | ✅ Working |
+| **⭐ Watchlist** | Save your favorite stocks for quick access | ✅ Working |
+| **🔑 Broker API Keys** | Connect your Dhan/Zerodha/Angel One account for live data (BYOK) | ✅ Working (Dhan fully connected) |
+| **📡 WebSocket Live Feed** | Real-time price ticks via Dhan WebSocket binary protocol | ✅ Working |
+| **🗄️ Local Database** | IndexedDB-based persistence for price snapshots and candle history | ✅ Working |
 
-![Dashboard Dark Mode](docs/screenshots/dashboard-dark.png)
+### Dashboard Sections
 
-</details>
+The dashboard is packed with live data widgets:
 
-<details>
-<summary><strong>☀️ Dashboard — Light Mode</strong></summary>
-
-![Dashboard Light Mode](docs/screenshots/dashboard-light.png)
-
-</details>
-
-<details>
-<summary><strong>⛓️ Option Chain</strong></summary>
-
-![Option Chain](docs/screenshots/option-chain.png)
-
-</details>
-
-<details>
-<summary><strong>🧮 Strategy Builder</strong></summary>
-
-![Strategy Builder](docs/screenshots/strategy-builder.png)
-
-</details>
-
-<details>
-<summary><strong>🏛️ FII/DII Activity</strong></summary>
-
-![FII/DII Activity](docs/screenshots/fii-dii-activity.png)
-
-</details>
-
-<details>
-<summary><strong>💼 Position Tracker</strong></summary>
-
-![Position Tracker](docs/screenshots/position-tracker.png)
-
-</details>
+- **Index Cards** — NIFTY 50, BANK NIFTY, FINNIFTY, MIDCAP NIFTY with live prices & intraday sparklines
+- **Data Sources Bar** — Real-time status of all 6 data sources (Dhan API, Dhan WS, Live Feed, NSE, TradingView, VIX)
+- **Key Metrics** — PCR, VIX, Max Pain for NIFTY and BANKNIFTY
+- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry (based on IV)
+- **IV Rank Scanner** — Scans major stocks for IV Rank with buy/sell signals
+- **Top Movers** — Today's biggest gainers and losers in F&O
+- **Futures & VIX** — Premium/Discount analysis and VIX trend charts
+- **Sector Performance** — Color-coded sector heatmap showing money flow
+- **Most Active F&O** — Stocks with highest trading activity + OI interpretation
+- **Market Breadth** — Overall market health score, Advance/Decline ratio, VIX regime
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18+ (LTS recommended)
-- [npm](https://www.npmjs.com/) v9+ or [yarn](https://yarnpkg.com/)
-- A [Supabase](https://supabase.com/) project (for the Edge Function proxy — see below)
-- *(Optional)* A [Dhan](https://dhanhq.co/) trading account for live market data
+| Tool | Version | Download |
+|------|---------|----------|
+| **Node.js** | v18 or higher | [nodejs.org](https://nodejs.org/) |
+| **Git** | Any recent version | [git-scm.com](https://git-scm.com/downloads) |
+| **Code Editor** | Optional but recommended | [VS Code](https://code.visualstudio.com/) |
 
-### Quick Start
+> **New to coding?** Don't worry! Just follow the steps below. If you get stuck, copy the error message and ask ChatGPT/Claude/Gemini for help.
+
+### Step 1: Clone the Repository
+
+**Option A: Using Git (recommended)**
+
+Open your terminal (Command Prompt, PowerShell, or Terminal on Mac/Linux) and run:
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/MrChartist/india-s-best-option-hub.git
 cd india-s-best-option-hub
+```
 
-# 2. Install dependencies
+**Option B: Download ZIP (no Git needed)**
+
+1. Go to [github.com/MrChartist/india-s-best-option-hub](https://github.com/MrChartist/india-s-best-option-hub)
+2. Click the green **"Code"** button → **"Download ZIP"**
+3. Extract the ZIP file to any folder
+4. Open a terminal in that folder
+
+### Step 2: Install Dependencies
+
+```bash
 npm install
+```
 
-# 3. Configure environment variables
-cp .env.example .env
-# Edit .env with your Supabase project details (see below)
+This downloads all the libraries the project needs. Wait for it to finish (~1-2 minutes on first install).
 
-# 4. Start the development server
+> **Getting errors?** Make sure Node.js is installed by running `node --version`. You should see `v18.x.x` or higher. If not, [download Node.js](https://nodejs.org/).
+
+### Step 3: Start the App
+
+```bash
 npm run dev
 ```
 
-The app will be running at **http://localhost:4001**
+This starts **two servers simultaneously**:
 
-### Environment Variables
+| Server | URL | Purpose |
+|--------|-----|---------|
+| **Vite** (frontend) | `http://localhost:4001` | The React app you see in the browser |
+| **Proxy** (data relay) | `http://localhost:4002` | Routes data from Dhan/NSE/TradingView |
 
-Create a `.env` file in the project root:
+**Open your browser and go to:** `http://localhost:4001`
 
-```env
-# ── Supabase (Required for live data) ──
-VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_public_key
-VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
+🎉 **That's it!** You should see the dashboard loading. During market hours (Mon–Fri, 9:15 AM – 3:30 PM IST), live data from TradingView and NSE will populate automatically — no API key needed for basic data.
 
-# Note: If these are not set, the app will gracefully fall back to built-in
-# mock data, so you can explore the UI without any backend setup.
+### Step 4 (Optional): Add Dhan API for Premium Data
+
+For the best experience (real-time option chain, Greeks, live WebSocket ticks):
+
+1. **Create a Dhan account** at [dhan.co](https://dhan.co) (free)
+2. **Get API credentials** from [Dhan Developer Portal](https://dhanhq.co/docs/v2/)
+3. **Create a `.env` file** in the project root:
+
+```bash
+# Windows
+copy .env.example .env
+
+# Mac/Linux
+cp .env.example .env
 ```
 
-> **💡 No Supabase?** No problem. The app ships with comprehensive mock data for all pages. Just run `npm run dev` and explore everything — live data is optional.
+4. **Add your credentials** to `.env`:
+
+```env
+DHAN_CLIENT_ID=your_client_id_here
+DHAN_ACCESS_TOKEN=your_access_token_here
+```
+
+5. **Restart the app** (press `Ctrl+C` to stop, then run `npm run dev` again)
+
+The proxy server will automatically detect your Dhan credentials and connect to the Dhan WebSocket for live ticks.
+
+> **📝 Note:** You can also add Dhan credentials from the UI itself — go to **Broker Settings** page (`/broker-settings`) and enter your keys there. They're stored in your browser's localStorage and never sent to any external server.
+
+### Step 5 (Optional): Add Other Broker Keys
+
+The Broker Settings page supports entering API keys for 7 Indian brokers:
+
+| Broker | Status |
+|--------|--------|
+| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket) |
+| **Zerodha (Kite)** | 🔧 UI ready, backend integration coming soon |
+| **Angel One (SmartAPI)** | 🔧 UI ready, backend integration coming soon |
+| **Upstox** | 🔧 UI ready, backend integration coming soon |
+| **Fyers** | 🔧 UI ready, backend integration coming soon |
+| **5paisa** | 🔧 UI ready, backend integration coming soon |
+| **Alice Blue** | 🔧 UI ready, backend integration coming soon |
 
 ---
 
-## 🏗️ Data Architecture
+## 📡 Data Sources
 
-Mr. Chartist Options Terminal uses a **2-tier data** architecture to ensure the app always works:
+The terminal uses **3 data sources** with automatic failover:
 
 ```
-┌──────────────────────────────────────────────┐
-│                Browser (React)               │
-├──────────────────────────────────────────────┤
-│  useQuery hooks with automatic retry/cache   │
-│  (React Query — 5s/30s refresh intervals)    │
-├──────────────────────────────────────────────┤
-│                                              │
-│  Tier 1: Dhan Broker API  ← Primary         │
-│  (Option Chain, Expiry Lists, Greeks, OI)    │
-│  Uses YOUR API key via Supabase Edge Fn      │
-│                                              │
-│  Tier 2: Mock Data  ← Offline/Demo          │
-│  (Full synthetic dataset for all pages)      │
-│  Works without any backend                   │
-│                                              │
-└──────────────────────────────────────────────┘
+Priority: Dhan API (1st) → NSE India (2nd) → TradingView (3rd)
 ```
 
-| Data Source | What It Provides | Auth Required? |
-|-------------|-----------------|---------------|
-| **Dhan API** | Option chain, Greeks, IV, Expiry lists | Yes (your API key) |
-| **Mock Data** | Complete synthetic dataset for all features | No |
+| Source | What It Provides | Auth Needed? | Accuracy |
+|--------|-----------------|-------------|----------|
+| **Dhan API** ⭐ | Option Chain, Greeks, Expiry List, Live WebSocket Ticks | Yes (free API key) | Real-time |
+| **NSE India** | Indices, Sectors, Advance/Decline, Option Chain (fallback) | No | 3-5 sec delay |
+| **TradingView** | 100+ F&O stock prices, Volume, Sector data | No | 15-30 sec delay |
 
-### Connecting Your Dhan Broker
+### How the Data Flows
 
-1. Go to [Dhan Developer Portal](https://dhanhq.co/docs/v2/) and create an API app
-2. Copy your **Client ID** and **Access Token**
-3. In the app, navigate to **Settings → Broker API Keys**
-4. Enter your credentials and save
-5. The option chain will automatically switch to live data
+```
+Your Browser  ←→  Local Proxy Server (:4002)  ←→  Dhan / NSE / TradingView
+      ↑                    ↑
+      │                    │
+   React App          Handles CORS,
+   (port 4001)        caching, retry,
+                       WebSocket relay
+```
 
-> **🔒 Security:** Your broker credentials are stored **only in your browser's localStorage**. They are sent to your own Supabase Edge Function (which you control), never to any third-party server.
+1. Your browser sends requests to the **local proxy server** (runs on your machine)
+2. The proxy forwards requests to Dhan/NSE/TradingView APIs
+3. The proxy caches responses (3–30 seconds) to avoid rate limits
+4. Data flows back to your browser in real-time
+5. Dhan WebSocket data is parsed from binary and relayed as clean JSON to the browser
+
+> **🔒 Security:** Your API keys never leave your machine. The proxy runs 100% locally — no external servers, no cloud, no tracking. Broker keys stored in the browser are kept in localStorage only.
+
+### Data Source Status Bar
+
+The dashboard shows a **real-time status bar** at the top with all 6 source indicators:
+
+| Indicator | Meaning |
+|-----------|---------|
+| 🟢 **Dhan API** | Primary data source — Option Chain, Greeks |
+| 🟢 **Dhan WS** | WebSocket live ticks — Index prices, VIX |
+| 🟢 **Live Feed** | Browser receiving WebSocket data |
+| 🟢 **NSE** | Fallback — Indices, Sectors, A/D ratio |
+| 🟢 **TradingView** | F&O stock scanner — LTP, Volume |
+| 🟢 **VIX** | India VIX from WebSocket or NSE |
+
+Hover over any indicator to see detailed connection info, including tick count, cached data, and connected clients.
+
+---
+
+## 📖 Pages Guide
+
+### 1. Dashboard (`/`)
+
+The main dashboard with 10+ live data sections. Everything refreshes automatically during market hours.
+
+**Key sections:**
+- **Ticker Tape** — Scrolling prices at the top
+- **Index Cards** — Click any card to open its option chain
+- **Key Metrics** — PCR, VIX, Max Pain
+- **IV Rank Scanner** — Shows if options are cheap or expensive
+- **Market Breadth** — Overall market health with sentiment score (0–100)
+
+### 2. Option Chain (`/option-chain`)
+
+Full option chain for any F&O symbol — NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, or individual stocks.
+
+**Features:**
+- All strikes with CE/PE data (LTP, OI, OI Change, Volume, IV)
+- ATM (At-The-Money) strike auto-highlighted
+- Switch between expiry dates
+- PCR and total OI shown in the header
+- Click any row for quick trade actions
+
+### 3. OI Analysis (`/oi-analysis`)
+
+Deep analysis of Open Interest data with 7 chart tabs:
+
+| Tab | What It Shows |
+|-----|--------------|
+| **OI Distribution** | Where Call/Put writers are concentrated |
+| **Delta OI** | Directional exposure at each strike |
+| **Strike PCR** | Put-Call ratio per strike |
+| **ATM Zone** | OI buildup around the current price |
+| **Multi-Expiry** | Weekly vs Monthly OI comparison |
+| **IV Smile** | Implied Volatility skew across strikes |
+| **PCR Dashboard** | Live PCR gauge + OI breakdown |
+
+### 4. Strategy Builder (`/strategy-builder`)
+
+Build any options strategy and see its payoff chart before trading.
+
+**Pre-built strategies:** Bull Call Spread, Bear Put Spread, Long Straddle, Iron Condor, Butterfly, Collar, and more.
+
+### 5. Position Tracker (`/position-tracker`)
+
+Track your open option positions with simulated P&L.
+
+### 6. Watchlist (`/watchlist`)
+
+Save your favorite F&O symbols for quick access.
+
+### 7. Broker Settings (`/broker-settings`)
+
+Configure your broker API credentials. See real-time connection status for all data sources. Supports 7 Indian brokers with BYOK (Bring Your Own Key) architecture.
+
+---
+
+## ⌨️ Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘1` or `Ctrl+1` | Go to Dashboard |
+| `⌘2` or `Ctrl+2` | Go to Option Chain |
+| `⌘3` or `Ctrl+3` | Go to OI Analysis |
+| `⌘4` or `Ctrl+4` | Go to Watchlist |
+| `⌘5` or `Ctrl+5` | Go to Strategy Builder |
+| `⌘6` or `Ctrl+6` | Go to Position Tracker |
 
 ---
 
 ## 🧱 Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Framework** | React 18 + TypeScript | Component architecture with type safety |
-| **Build Tool** | Vite 5 | Lightning-fast HMR and builds |
-| **Routing** | React Router v6 | Client-side navigation |
-| **State/Data** | TanStack React Query | Server state management with caching |
-| **UI Components** | shadcn/ui + Radix | Accessible, customizable component library |
-| **Styling** | Tailwind CSS 3 + CSS Variables | Utility-first with design token system |
-| **Charts** | Recharts | Composable chart components |
-| **Backend** | Supabase Edge Functions | Serverless API proxy (CORS bypass) |
-| **Broker API** | Dhan API v2 | Live market data |
-| **Typography** | Inter + JetBrains Mono | UI text + monospaced data display |
-| **Testing** | Vitest + Playwright | Unit and E2E testing |
+| What | Technology | Why |
+|------|-----------|-----|
+| **Frontend** | React 18 + TypeScript | Modern, type-safe UI with component reuse |
+| **Build Tool** | Vite 5 | Instant hot-reload during development |
+| **Data Fetching** | TanStack React Query | Automatic caching, retry, and background refresh |
+| **UI Library** | shadcn/ui + Radix | Beautiful, accessible components out of the box |
+| **Styling** | Tailwind CSS 3 | Fast styling with dark/light theme support |
+| **Charts** | Recharts | Interactive charts for OI, IV, and payoff diagrams |
+| **Proxy Server** | Node.js (native http + ws) | Local CORS proxy — no Express, no bloat |
+| **WebSocket** | ws (Node.js) | Real-time binary protocol parsing for Dhan feed |
+| **Local Storage** | IndexedDB (localDatabase.ts) | Persistent price snapshots + candle history |
+| **Routing** | React Router v6 | Client-side navigation between pages |
 
 ---
 
@@ -248,154 +320,310 @@ Mr. Chartist Options Terminal uses a **2-tier data** architecture to ensure the 
 
 ```
 india-s-best-option-hub/
-├── public/                    # Static assets
-├── docs/
-│   └── screenshots/           # App screenshots for README
+├── proxy-server.mjs          # Local proxy server (Dhan + NSE + TradingView + WebSocket relay)
+├── .env.example              # Environment variable template  
+├── package.json              # Dependencies and scripts
+├── vite.config.ts            # Vite configuration (port 4001)
+├── tailwind.config.ts        # Tailwind CSS with custom design system
+├── index.html                # HTML entry point with SEO meta tags
+│
 ├── src/
-│   ├── components/
-│   │   ├── ui/                # shadcn/ui base components
-│   │   ├── dashboard/         # Dashboard section components
-│   │   ├── AppSidebar.tsx     # Main navigation sidebar
-│   │   ├── DashboardLayout.tsx # Layout wrapper with sidebar
-│   │   ├── ExpectedMoveWidget.tsx
-│   │   ├── IVPercentileGauge.tsx
-│   │   ├── IVRankWidget.tsx
-│   │   └── ...
-│   ├── hooks/
-│   │   ├── useMarketData.ts   # Data hooks (live + mock fallback)
-│   │   ├── useTheme.ts        # Dark/light mode toggle
-│   │   ├── useAlertEngine.ts  # Alert system logic
-│   │   └── useKeyboardShortcuts.ts
-│   ├── integrations/
-│   │   └── supabase/          # Supabase client config
-│   ├── lib/
-│   │   ├── marketApi.ts       # Dhan API layer
-│   │   ├── mockData.ts        # Comprehensive mock dataset
-│   │   ├── brokerConfig.ts    # Multi-broker BYOK config
-│   │   └── utils.ts
-│   ├── pages/
-│   │   ├── Index.tsx          # Dashboard
-│   │   ├── OptionChain.tsx    # Full option chain
-│   │   ├── OIAnalysis.tsx     # OI analysis & charts
-│   │   ├── Watchlist.tsx      # Custom watchlist
-│   │   ├── StrategyBuilder.tsx # Multi-leg strategy builder
-│   │   ├── FIIDIIActivity.tsx # Institutional flow data
-│   │   ├── PositionTracker.tsx # Position & P&L tracking
-│   │   └── BrokerSettings.tsx # API key management
-│   ├── index.css              # Design system (CSS variables)
-│   ├── App.tsx                # Routes & providers
-│   └── main.tsx               # Entry point
-├── .env.example               # Environment variable template
-├── .gitignore
-├── package.json
-├── tailwind.config.ts
-├── vite.config.ts
-└── tsconfig.json
+│   ├── main.tsx              # App entry point
+│   ├── App.tsx               # Routes and providers (React Query, Router, Toasts)
+│   ├── index.css             # Design system (CSS variables, dark/light themes)
+│   │
+│   ├── pages/                # Each page = one route
+│   │   ├── Index.tsx         # Dashboard (/) — 10+ widget sections
+│   │   ├── OptionChain.tsx   # Option Chain (/option-chain)
+│   │   ├── OIAnalysis.tsx    # OI Analysis (/oi-analysis) — 7 chart tabs
+│   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
+│   │   ├── StrategyBuilder.tsx # Strategy Builder (/strategy-builder)
+│   │   ├── PositionTracker.tsx # Position Tracker (/position-tracker)
+│   │   ├── BrokerSettings.tsx  # Broker Settings (/broker-settings)
+│   │   └── NotFound.tsx      # 404 page
+│   │
+│   ├── components/           # Reusable UI pieces
+│   │   ├── ui/               # Base components (Button, Card, Table, Badge, etc.)
+│   │   ├── dashboard/        # Dashboard section widgets
+│   │   │   ├── DataSourcesBar.tsx    # 6-source real-time status bar
+│   │   │   ├── MarketHeader.tsx      # Market open/closed indicator
+│   │   │   ├── TickerTape.tsx        # Scrolling price ticker
+│   │   │   ├── IndexCards.tsx        # NIFTY/BANKNIFTY cards with sparklines
+│   │   │   ├── KeyMetrics.tsx        # PCR, VIX, Max Pain cards
+│   │   │   ├── TopMovers.tsx         # Gainers & losers table
+│   │   │   ├── SectorHeatmap.tsx     # Color-coded sector performance grid
+│   │   │   ├── MostActiveFnO.tsx     # Highest activity F&O stocks
+│   │   │   ├── MarketBreadth.tsx     # Sentiment score, A/D ratio, VIX regime
+│   │   │   ├── FuturesVIX.tsx        # Futures premium/discount + VIX chart
+│   │   │   ├── GiftNiftyExpiry.tsx   # GIFT Nifty + expiry countdown
+│   │   │   ├── WelcomeBanner.tsx     # Welcome message
+│   │   │   ├── QuickTradeActions.tsx # Quick navigation cards
+│   │   │   ├── SectionHeader.tsx     # Section titles with tooltips
+│   │   │   └── InfoTooltip.tsx       # Educational tooltips
+│   │   ├── IVPercentileGauge.tsx     # IV analysis with live smile chart
+│   │   ├── IVRankWidget.tsx          # IV rank scanner (multi-symbol)
+│   │   ├── ExpectedMoveWidget.tsx    # Expected move calculator
+│   │   ├── DashboardLayout.tsx       # Sidebar + main content layout
+│   │   ├── AppSidebar.tsx            # Navigation sidebar with all routes
+│   │   ├── CommandPalette.tsx        # Cmd+K command palette
+│   │   ├── AlertSystem.tsx           # Price/OI alert engine
+│   │   ├── DatabaseManager.tsx       # IndexedDB price/candle manager UI
+│   │   ├── ErrorBoundary.tsx         # Graceful error handling
+│   │   ├── LoadingSkeletons.tsx      # Loading skeleton animations
+│   │   └── ...                       # More specialized components
+│   │
+│   ├── hooks/                # React hooks (data fetching & state)
+│   │   ├── useMarketData.ts  # All market data hooks (option chain, indices, F&O stocks)
+│   │   ├── useWebSocket.ts   # WebSocket connection for live Dhan ticks
+│   │   ├── useLocalDatabase.ts # IndexedDB read/write hooks
+│   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
+│   │   ├── useAlertEngine.ts # Alert engine logic
+│   │   └── useTheme.ts      # Dark/light theme toggle
+│   │
+│   ├── lib/                  # Utility functions & core logic
+│   │   ├── marketApi.ts      # API calls (Dhan → NSE → TradingView fallback chain)
+│   │   ├── websocketClient.ts # Browser-side WebSocket client for Dhan relay
+│   │   ├── brokerConfig.ts   # Broker definitions + localStorage key management
+│   │   ├── oiUtils.ts        # OI analysis calculations (Max Pain, PCR, Delta OI)
+│   │   ├── positionStore.ts  # Position tracking with lot sizes
+│   │   ├── localDatabase.ts  # IndexedDB wrapper for persistent storage
+│   │   ├── mockData.ts       # TypeScript type definitions and data models
+│   │   └── utils.ts          # General utilities (cn helper)
+│   │
+│   └── test/                 # Test files
+│
+├── docs/
+│   └── screenshots/          # App screenshots for README
+│
+└── public/                   # Static files
 ```
-
----
-
-## 🎨 Design System
-
-Mr. Chartist Options Terminal uses a **CSS variable-based** dual-theme design system:
-
-| Token | Dark Mode | Light Mode |
-|-------|-----------|------------|
-| `--background` | `hsl(225, 25%, 5%)` — Deep Navy | `hsl(220, 16%, 96%)` — Soft Gray |
-| `--card` | `hsl(225, 22%, 8%)` — Elevated Surface | `hsl(0, 0%, 100%)` — White |
-| `--primary` | `hsl(174, 72%, 44%)` — Teal | `hsl(174, 72%, 38%)` — Teal |
-| `--bullish` | `hsl(152, 60%, 44%)` — Green | `hsl(152, 60%, 36%)` — Green |
-| `--bearish` | `hsl(0, 68%, 52%)` — Red | `hsl(0, 68%, 50%)` — Red |
-| `--warning` | `hsl(38, 92%, 50%)` — Amber | `hsl(38, 92%, 46%)` — Amber |
 
 ---
 
 ## 📜 Available Scripts
 
-```bash
-npm run dev        # Start dev server (http://localhost:4001)
-npm run build      # Production build
-npm run preview    # Preview production build
-npm run test       # Run unit tests (Vitest)
-npm run test:watch # Run tests in watch mode
-npm run lint       # ESLint check
+| Command | What It Does |
+|---------|-------------|
+| `npm run dev` | **Start everything** — Vite frontend (`:4001`) + Proxy server (`:4002`) together |
+| `npm run dev:vite` | Start only Vite (frontend only, no live data from proxy) |
+| `npm run proxy` | Start only the proxy server |
+| `npm run build` | Create production build in `dist/` folder |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Check code for TypeScript/ESLint errors |
+| `npm run test` | Run tests with Vitest |
+
+---
+
+## 🔧 Troubleshooting
+
+### "The dashboard shows no data"
+
+- **During market hours?** Data loads automatically from TradingView/NSE. Wait 5–10 seconds.
+- **After market hours?** Most data sources return empty responses. This is normal — NSE/TradingView only serve data during trading sessions.
+- **Check the status bar** at the top — it shows which sources are connected. Hover over each indicator for details.
+- **Proxy not running?** Make sure you used `npm run dev` (not `npm run dev:vite`).
+
+### "npm install fails"
+
+- Make sure you have **Node.js v18+** installed: `node --version`
+- Try clearing npm cache: `npm cache clean --force` then `npm install` again
+- On Windows, try running as Administrator
+- On Mac/Linux, if permission errors: `sudo npm install` (not recommended long-term — fix npm permissions instead)
+
+### "Port 4001 is already in use"
+
+Edit `vite.config.ts` and change the port:
+
+```ts
+server: {
+  port: 3000, // Change to any available port
+}
 ```
 
+### "Port 4002 is already in use"
+
+Create a `.env` file and change the proxy port:
+
+```env
+PROXY_PORT=4003
+```
+
+### "Dhan API shows 429 Too Many Requests"
+
+This means you're hitting Dhan's rate limit. The proxy caches responses to minimize this, but on weekends/holidays, Dhan may still reject requests. Wait and retry during market hours.
+
+### "Option chain shows no data"
+
+- Option chain data requires **Dhan API** or **NSE** to be responsive
+- On weekends, both return empty responses — data will load on Monday
+- Check Broker Settings page to verify your Dhan credentials
+- Verify the proxy is running: visit `http://localhost:4002/health` in your browser
+
+### "WebSocket not connecting"
+
+- WebSocket requires valid Dhan credentials (Client ID + Access Token)
+- Check `http://localhost:4002/health` — it shows `websocket.dhanConnected: true/false`
+- The WS auto-reconnects with exponential backoff if disconnected
+
 ---
 
-## 🛣️ Roadmap
+## 🗺️ Current Status & Roadmap
 
-- [ ] **More Broker Integrations** — Zerodha, Upstox, and more via BYOK
-- [ ] **Real-Time WebSocket Feeds** — Sub-second data updates
-- [ ] **PWA Support** — Install as a native app on mobile
-- [ ] **Community Features** — Share strategies, discuss setups
+### ✅ What's Working Now
+
+- Full Dashboard with 10+ live widgets
+- Option Chain (Dhan primary, NSE fallback)
+- OI Analysis with 7 chart types
+- Strategy Builder with payoff diagrams
+- Position Tracker
+- Watchlist
+- Dhan WebSocket live feed with binary protocol parsing
+- Proxy server with 3-source failover (Dhan → NSE → TradingView)
+- Data source status bar
+- Keyboard shortcuts & command palette
+- Dark/Light theme
+- IndexedDB local persistence
+- BYOK broker key storage
+
+### 🔧 What's Being Worked On (Next 10–30 Days)
+
+- [ ] Full integration for Zerodha, Angel One, Upstox, Fyers APIs
+- [ ] Historical OI change charts
+- [ ] Options Greeks calculator with real-time Greeks from Dhan
+- [ ] Multi-expiry comparison views
+- [ ] Alert system with push notifications
+- [ ] Advanced strategy P&L with multi-DTE scenarios
+- [ ] GEX (Gamma Exposure) analysis
+- [ ] FII/DII activity dashboard
+- [ ] Mobile-responsive layout improvements
+- [ ] Production deployment guide (Vercel + VPS proxy)
+
+### 🤔 Known Gaps (Help Wanted!)
+
+- Some dashboard sections may show empty during off-market hours — this is by design (no mock data)
+- Zerodha/Angel One/Upstox/Fyers/5paisa/Alice Blue have UI forms but no backend connectors yet
+- The Strategy Builder payoff chart doesn't integrate with live option chain pricing yet
+- Some component state doesn't persist across page navigation
 
 ---
 
-## ❤️ Sponsor
+## 🌐 Deploying to Production
 
-If Mr. Chartist Options Terminal saves you time or helps your trading, consider sponsoring the project to keep it alive and growing.
+### Deploy on Vercel / Netlify (Frontend Only)
 
-<div align="center">
+```bash
+npm run build
+```
 
-[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor_on_GitHub-❤️-ea4aaa?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/MrChartist)
+Upload the `dist/` folder to any static hosting (Vercel, Netlify, GitHub Pages).
 
-</div>
+> **Note:** Without the proxy server, live data won't work. The frontend will show empty states gracefully. For full functionality, you need the proxy running somewhere.
 
-### Sponsorship Tiers
+### Deploy Full Stack (Frontend + Proxy)
 
-| Tier | Amount | Perks |
-|------|--------|-------|
-| ☕ **Supporter** | $5/mo | Your name in the README sponsors list |
-| 🚀 **Pro Trader** | $15/mo | Name in README + Priority feature requests + Early access to new features |
-| 💎 **Institutional** | $50/mo | Logo in README + All Pro perks + Private Discord channel + Direct support |
+For a complete deployment with live data:
 
-### 🌟 Sponsors
-
-<!-- sponsors -->
-*Become the first sponsor and your name will appear here!*
-<!-- /sponsors -->
+1. Deploy the **proxy server** (`proxy-server.mjs`) on a VPS (DigitalOcean, AWS, Railway, Render, etc.)
+2. Set `VITE_PROXY_URL` in `.env` to your proxy's public URL
+3. Deploy the frontend on Vercel/Netlify
+4. Set environment variables on the VPS: `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN`
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
+**Contributions are very welcome!** This is a community project and there's a LOT of room for improvement.
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
+### How to Contribute
+
+1. **Fork** this repository
+2. **Create** a feature branch: `git checkout -b feature/my-feature`
+3. **Make changes** and commit: `git commit -m 'Add my feature'`
+4. **Push** to your fork: `git push origin feature/my-feature`
 5. **Open** a Pull Request
 
-### Development Guidelines
+### Contribution Ideas
 
-- Use TypeScript for all new code
-- Follow the existing component structure in `src/components/`
-- Use the design token system (CSS variables) — no hardcoded colors
-- Write unit tests for utility functions
-- Ensure both light and dark themes render correctly
+- 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.)
+- 📊 **Improve charts** (candlestick charts, better OI visualization)
+- 📱 **Mobile responsiveness** (some sections need mobile love)
+- 🧪 **Add tests** (very few tests exist right now)
+- 📝 **Documentation** (component docs, API docs)
+- 🎨 **UI polish** (animations, better loading states)
+- 🐛 **Bug fixes** (find something broken? Fix it!)
+
+### Rules
+
+- Write TypeScript (no plain JavaScript in `src/`)
+- Use the design system (CSS variables) — no hardcoded colors
+- Test in both dark and light themes
+- Don't add mock/fake data — all data must come from real APIs
+- Keep the proxy server dependency-free (only `ws` as external dep)
+
+---
+
+## 🧑‍💻 New to This? Start Here
+
+If you're new to web development or this codebase, here's how to navigate:
+
+1. **Start with `src/pages/Index.tsx`** — this is the Dashboard page. It imports and renders all dashboard widgets.
+2. **Read `src/hooks/useMarketData.ts`** — this is where all data fetching happens. Understand the WebSocket → Polling → Database fallback chain.
+3. **Check `src/lib/marketApi.ts`** — this is the API layer. See how Dhan → NSE → TradingView fallback works.
+4. **Look at `proxy-server.mjs`** — the Node.js proxy server that handles CORS, caching, and WebSocket relay.
+5. **Use AI tools!** Copy any file into Claude/ChatGPT and ask "explain this code" — it works great for understanding the architecture.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Browser (React)                  │
+│                                                     │
+│  Pages → Hooks (useMarketData) → API (marketApi)   │
+│             ↓                        ↓              │
+│     WebSocket Client          fetch() calls         │
+│         (ws://)               (http://)             │
+└─────────────┬──────────────────────┬────────────────┘
+              │                      │
+              ▼                      ▼
+┌─────────────────────────────────────────────────────┐
+│              Proxy Server (Node.js :4002)            │
+│                                                     │
+│  WebSocket Relay ← Dhan WS (binary)    HTTP Routes  │
+│  (JSON broadcast)                       ↓     ↓    │
+│                                    Dhan  NSE  TV    │
+│                                    API   API  Scan  │
+│                           ┌─ Cache Layer (Map) ──┐  │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## ⚠️ Disclaimer
 
-This project is for **educational and analytical purposes only**. It is not financial advice. Trading in derivatives involves significant risk and may result in loss of capital. Always do your own research and consult a registered financial advisor before making trading decisions.
+This project is for **educational and analytical purposes only**. It is **not financial advice**.
 
-The developers of this project are not responsible for any financial losses incurred while using this software.
+- Trading in derivatives involves significant risk and may result in loss of capital
+- Always do your own research and consult a registered financial advisor (SEBI-registered)
+- The developers are not responsible for any financial losses
+- This tool does not execute trades — it is an analytics-only platform
+- API keys are stored locally and never transmitted to external servers
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies. Just include the original license.
 
 ---
 
 <div align="center">
 
-**Built with ❤️ by Mr. Chartist for the Indian Options Trading Community**
+**Built with ❤️ by [Mr. Chartist](https://github.com/MrChartist) for the Indian Options Trading Community**
 
-*If this project helps your trading, consider giving it a ⭐*
+*If this project helps your trading, consider giving it a ⭐ on GitHub!*
+
+*Found a bug? Have an idea? [Open an issue](https://github.com/MrChartist/india-s-best-option-hub/issues) or submit a PR!*
 
 </div>

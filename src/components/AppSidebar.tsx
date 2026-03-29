@@ -1,4 +1,4 @@
-import { LayoutDashboard, TableProperties, BarChart3, Star, Settings, Layers, Activity, Briefcase } from "lucide-react";
+import { LayoutDashboard, TableProperties, BarChart3, Star, Settings, Layers, Briefcase } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -26,8 +26,7 @@ const mainItems = [
 
 const tradingItems = [
   { title: "Strategy Builder", url: "/strategy-builder", icon: Layers, shortcut: "5" },
-  { title: "FII/DII Activity", url: "/fii-dii", icon: Activity, shortcut: "6" },
-  { title: "Position Tracker", url: "/position-tracker", icon: Briefcase, shortcut: "7" },
+  { title: "Position Tracker", url: "/position-tracker", icon: Briefcase, shortcut: "6" },
 ];
 
 const settingItems = [

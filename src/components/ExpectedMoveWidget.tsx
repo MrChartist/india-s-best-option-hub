@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { calculateExpectedMove } from "@/lib/gexData";
-import { marketStats } from "@/lib/mockData";
 import { Target, ArrowUpDown } from "lucide-react";
 
 interface Props {
@@ -14,7 +13,7 @@ interface Props {
 }
 
 export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 24250.75, iv, daysToExpiry = 4, compact = false }: Props) {
-  const effectiveIV = iv || marketStats.indiaVix;
+  const effectiveIV = iv || 0; // No mock VIX fallback
   const move = useMemo(() => calculateExpectedMove(spotPrice, effectiveIV, daysToExpiry), [spotPrice, effectiveIV, daysToExpiry]);
 
   if (compact) {

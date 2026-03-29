@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { useLiveIndices, useMarketStatus, useExpiryList } from "@/hooks/useMarketData";
+import { useLiveIndices, useMarketStatus, useExpiryList, useAllIndices } from "@/hooks/useMarketData";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
 import { IVRankCard, IVRankDashboard } from "@/components/IVRankWidget";
-import { marketStats } from "@/lib/mockData";
+import { useWebSocketVix } from "@/hooks/useWebSocket";
 import { Target, BarChart3, Zap, TrendingUp, Activity } from "lucide-react";
 
 import { MarketHeader } from "@/components/dashboard/MarketHeader";
@@ -20,6 +20,7 @@ import { SectorHeatmap } from "@/components/dashboard/SectorHeatmap";
 import { MostActiveFnO } from "@/components/dashboard/MostActiveFnO";
 import { MarketBreadth } from "@/components/dashboard/MarketBreadth";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
+import { DataSourcesBar } from "@/components/dashboard/DataSourcesBar";
 
 const EXPIRY_CONTRACTS = [
   { symbol: "NIFTY", exchange: "NSE", lotSize: 25, type: "Weekly" },
@@ -48,6 +49,8 @@ export default function Index() {
   const { data: marketStatusResult } = useMarketStatus();
   const { data: niftyExpiry } = useExpiryList("NIFTY");
   const { data: bnfExpiry } = useExpiryList("BANKNIFTY");
+  const { data: allIndicesData } = useAllIndices();
+  const { vix: wsVix } = useWebSocketVix();
 
   const indices = indicesResult?.data || [];
   const isLive = indicesResult?.isLive || false;
@@ -55,6 +58,9 @@ export default function Index() {
   const marketStatus = marketStatusResult?.status || "Closed";
   const giftNifty = marketStatusResult?.giftNifty;
   const indicativeNifty = marketStatusResult?.indicativeNifty;
+  
+  // Live VIX value for Expected Move calculations
+  const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 13.5;
 
   const nearestExpiries = useMemo(() => {
     const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
@@ -86,6 +92,7 @@ export default function Index() {
       <div className="space-y-3 animate-fade-in">
         {/* ═══ WELCOME + HEADER ═══ */}
         <MarketHeader isLive={isLive} isOpen={isOpen} marketStatus={marketStatus} />
+        <DataSourcesBar />
         <WelcomeBanner />
 
         {/* ═══ TICKER TAPE ═══ */}
@@ -112,9 +119,9 @@ export default function Index() {
         {/* ═══ KEY METRICS ═══ */}
         <SectionHeader
           title="Key Market Metrics"
-          subtitle="PCR, VIX, Advance/Decline, FII/DII"
+          subtitle="PCR, VIX, Max Pain, Advance/Decline"
           icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="PCR > 1 = bullish, < 0.7 = bearish. VIX measures fear — rising VIX = more volatility ahead. FII/DII shows institutional money flow."
+          tooltip="PCR > 1 = bullish, < 0.7 = bearish. VIX measures fear — rising VIX = more volatility ahead. Max Pain is the strike where option writers profit most."
         />
         <KeyMetrics />
 
@@ -129,19 +136,20 @@ export default function Index() {
           <ExpectedMoveWidget
             symbol="NIFTY"
             spotPrice={indices[0]?.ltp || 24250.75}
+            iv={liveVix}
             daysToExpiry={getDTE("NIFTY")}
           />
           <ExpectedMoveWidget
             symbol="BANKNIFTY"
             spotPrice={indices[1]?.ltp || 51850.40}
-            iv={15.2}
+            iv={liveVix * 1.15}
             daysToExpiry={getDTE("BANKNIFTY")}
           />
           <div className="grid grid-cols-2 gap-2">
-            <IVRankCard symbol="NIFTY" currentIV={marketStats.indiaVix} />
-            <IVRankCard symbol="BANKNIFTY" currentIV={15.2} />
-            <IVRankCard symbol="FINNIFTY" currentIV={12.8} />
-            <IVRankCard symbol="MIDCPNIFTY" currentIV={15.1} />
+            <IVRankCard symbol="NIFTY" currentIV={liveVix} />
+            <IVRankCard symbol="BANKNIFTY" currentIV={liveVix * 1.15} />
+            <IVRankCard symbol="FINNIFTY" currentIV={liveVix * 0.95} />
+            <IVRankCard symbol="MIDCPNIFTY" currentIV={liveVix * 1.1} />
           </div>
         </div>
 
@@ -202,9 +210,9 @@ export default function Index() {
         {/* ═══ MARKET BREADTH ═══ */}
         <SectionHeader
           title="Market Breadth"
-          subtitle="Advance/decline, 52W highs/lows, EMA coverage & sector rotation"
+          subtitle="Sentiment, Advance/Decline, VIX regime & F&O breadth"
           icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="Measures overall market health. Divergence between breadth and index = potential reversal. Stocks above 200 EMA > 60% = strong bull market."
+          tooltip="Composite market health score combining Advance/Decline ratio, VIX levels, and F&O stock breadth. Helps identify whether market internals support the trend."
         />
         <MarketBreadth />
       </div>

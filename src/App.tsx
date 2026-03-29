@@ -9,7 +9,6 @@ import OptionChain from "./pages/OptionChain";
 import OIAnalysis from "./pages/OIAnalysis";
 import Watchlist from "./pages/Watchlist";
 import StrategyBuilder from "./pages/StrategyBuilder";
-import FIIDIIActivity from "./pages/FIIDIIActivity";
 import PositionTracker from "./pages/PositionTracker";
 import BrokerSettings from "./pages/BrokerSettings";
 import NotFound from "./pages/NotFound";
@@ -29,7 +28,6 @@ const App = () => (
             <Route path="/oi-analysis" element={<OIAnalysis />} />
             <Route path="/watchlist" element={<Watchlist />} />
             <Route path="/strategy-builder" element={<StrategyBuilder />} />
-            <Route path="/fii-dii" element={<FIIDIIActivity />} />
             <Route path="/position-tracker" element={<PositionTracker />} />
             <Route path="/broker-settings" element={<BrokerSettings />} />
           </Route>

@@ -10,7 +10,14 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, Search, TrendingUp, TrendingDown, Keyboard } from "lucide-react";
-import { indicesData, fnoStocks } from "@/lib/mockData";
+import { useLiveIndices } from "@/hooks/useMarketData";
+
+// Static F&O stock list for command palette navigation (no prices needed)
+const FNO_STOCKS = [
+  "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
+  "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK",
+  "TATAMOTORS", "SUNPHARMA", "TITAN", "WIPRO", "BAJFINANCE", "HCLTECH",
+];
 
 interface CommandPaletteProps {
   open: boolean;
@@ -19,6 +26,8 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const { data: indicesResult } = useLiveIndices();
+  const indices = indicesResult?.data || [];
 
   const go = (path: string) => {
     navigate(path);
@@ -42,19 +51,28 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandSeparator />
 
         <CommandGroup heading="Indices">
-          {indicesData.map(idx => (
+          {indices.length > 0 ? indices.map((idx: any) => (
             <CommandItem key={idx.symbol} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
               {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
               {idx.name}
               <span className="ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
             </CommandItem>
-          ))}
+          )) : (
+            <>
+              {["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"].map(sym => (
+                <CommandItem key={sym} onSelect={() => go(`/option-chain?symbol=${sym}`)}>
+                  <Search className="mr-2 h-4 w-4" />
+                  {sym}
+                </CommandItem>
+              ))}
+            </>
+          )}
         </CommandGroup>
 
         <CommandSeparator />
 
         <CommandGroup heading="F&O Stocks">
-          {fnoStocks.slice(0, 10).map(stock => (
+          {FNO_STOCKS.map(stock => (
             <CommandItem key={stock} onSelect={() => go(`/option-chain?symbol=${stock}`)}>
               <Search className="mr-2 h-4 w-4" />
               {stock}

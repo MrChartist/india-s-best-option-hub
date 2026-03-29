@@ -4,8 +4,9 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Sliders, Clock, Percent, Activity } from "lucide-react";
+import { Sliders, Clock, Percent, Activity } from "lucide-react";
 import type { Position } from "@/lib/mockData";
+import { getSpotPrice } from "@/lib/positionStore";
 
 interface Props {
   positions: Position[];
@@ -33,13 +34,47 @@ function normCDF(x: number): number {
   return 0.5 * (1.0 + sign * y);
 }
 
+// Derive the dominant underlying from positions
+function deriveBaseSpot(positions: Position[]): number {
+  if (positions.length === 0) return 24250;
+
+  // Count occurrences of each symbol
+  const counts: Record<string, number> = {};
+  for (const p of positions) {
+    counts[p.symbol] = (counts[p.symbol] || 0) + 1;
+  }
+
+  // Pick the most common symbol
+  const topSymbol = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  return getSpotPrice(topSymbol);
+}
+
+// Derive DTE from expiry strings
+function deriveDTE(positions: Position[]): number {
+  if (positions.length === 0) return 7;
+
+  // Try to parse the nearest expiry
+  for (const p of positions) {
+    if (p.expiry) {
+      // Try parsing "27 Mar", "27 Mar 2026", etc.
+      const parsed = new Date(p.expiry + (p.expiry.match(/\d{4}/) ? "" : " 2026"));
+      if (!isNaN(parsed.getTime())) {
+        const days = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        if (days > 0 && days < 90) return days;
+      }
+    }
+  }
+
+  return 7; // default
+}
+
 export function WhatIfSimulator({ positions }: Props) {
   const [spotChange, setSpotChange] = useState(0); // % change
   const [ivChange, setIvChange] = useState(0); // absolute % change
   const [daysForward, setDaysForward] = useState(0); // days forward
 
-  const baseSpot = 24250; // approximate
-  const baseDTE = 7;
+  const baseSpot = useMemo(() => deriveBaseSpot(positions), [positions]);
+  const baseDTE = useMemo(() => deriveDTE(positions), [positions]);
 
   const simulation = useMemo(() => {
     const newSpot = baseSpot * (1 + spotChange / 100);
@@ -62,17 +97,33 @@ export function WhatIfSimulator({ positions }: Props) {
         simPnlPct: pos.entryPrice > 0 ? Math.round(((newPrice - pos.entryPrice) / pos.entryPrice) * 10000) / 100 : 0,
       };
     });
-  }, [positions, spotChange, ivChange, daysForward]);
+  }, [positions, spotChange, ivChange, daysForward, baseSpot, baseDTE]);
 
   const totalSimPnl = simulation.reduce((s, p) => s + p.simPnl, 0);
   const totalCurrentPnl = positions.reduce((s, p) => s + p.pnl, 0);
   const totalPnlChange = totalSimPnl - totalCurrentPnl;
+
+  if (positions.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-6">Add positions to use the What-If simulator.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
+          <Badge variant="outline" className="text-[9px] font-mono">Base: {baseSpot.toLocaleString("en-IN")} | {baseDTE} DTE</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -130,11 +181,11 @@ export function WhatIfSimulator({ positions }: Props) {
               value={[daysForward]}
               onValueChange={([v]) => setDaysForward(v)}
               min={0}
-              max={baseDTE}
+              max={Math.max(baseDTE, 1)}
               step={1}
             />
             <p className="text-[9px] text-muted-foreground font-mono text-center">
-              {baseDTE - daysForward} DTE remaining
+              {Math.max(0, baseDTE - daysForward)} DTE remaining
             </p>
           </div>
         </div>

@@ -16,9 +16,14 @@ import {
   type BrokerInfo,
   type BrokerCredentials,
 } from "@/lib/brokerConfig";
+import { testDhanConnection } from "@/lib/marketApi";
+import { useProxyHealth } from "@/hooks/useMarketData";
+import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import {
   Shield, ExternalLink, Trash2, CheckCircle2, Circle, Eye, EyeOff, Info, Key, Plug, AlertTriangle,
+  Server, Zap, Globe, BarChart3, Loader2, CheckCircle, XCircle, Wifi,
 } from "lucide-react";
+import { DatabaseManager } from "@/components/DatabaseManager";
 
 function BrokerCard({
   broker,
@@ -156,6 +161,128 @@ function BrokerCard({
   );
 }
 
+function ConnectionStatusPanel() {
+  const { data: health } = useProxyHealth();
+  const wsConnected = useWebSocketStatus();
+  const [dhanStatus, setDhanStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [dhanMessage, setDhanMessage] = useState("");
+
+  const handleTestDhan = async () => {
+    setDhanStatus("testing");
+    try {
+      const result = await testDhanConnection();
+      if (result.status === "success") {
+        setDhanStatus("success");
+        setDhanMessage("Connected successfully");
+        toast.success("Dhan API connection verified!");
+      } else {
+        setDhanStatus("error");
+        setDhanMessage(result.message || "Connection failed");
+        toast.error("Dhan connection failed: " + result.message);
+      }
+    } catch (e: any) {
+      setDhanStatus("error");
+      setDhanMessage(e.message || "Network error");
+      toast.error("Connection test failed");
+    }
+  };
+
+  const sources = [
+    {
+      name: "Dhan API (Primary)",
+      icon: <Wifi className="h-4 w-4" />,
+      status: dhanStatus === "success" ? "online" : dhanStatus === "error" ? "offline" : health?.sources?.dhan ? "online" : "unknown",
+      detail: dhanStatus === "success"
+        ? "Primary source · Option Chain, Greeks, WebSocket"
+        : health?.sources?.dhan
+        ? "Credentials loaded from .env · Option Chain, Expiry, WebSocket"
+        : dhanMessage || "Click Test to verify — provides Option Chain, Greeks, Live Ticks",
+      color: dhanStatus === "success" || health?.sources?.dhan ? "text-emerald-500" : dhanStatus === "error" ? "text-red-500" : "text-zinc-500",
+    },
+    {
+      name: "Dhan WebSocket",
+      icon: <Zap className="h-4 w-4" />,
+      status: wsConnected ? "online" : "offline",
+      detail: wsConnected
+        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached, ${health?.websocket?.instrumentsSubscribed || 0} instruments`
+        : "Requires Dhan credentials · Real-time index + VIX ticks",
+      color: wsConnected ? "text-emerald-500" : "text-zinc-500",
+    },
+    {
+      name: "NSE India (Fallback)",
+      icon: <Globe className="h-4 w-4" />,
+      status: health?.reachable ? "online" : "offline",
+      detail: "Fallback · Indices, Sectors, A/D, Option Chain if Dhan fails",
+      color: health?.reachable ? "text-emerald-500" : "text-red-500",
+    },
+    {
+      name: "TradingView Scanner",
+      icon: <BarChart3 className="h-4 w-4" />,
+      status: "online",
+      detail: "No auth needed · 100+ F&O stocks LTP, Volume, Sectors",
+      color: "text-emerald-500",
+    },
+    {
+      name: "Proxy Server",
+      icon: <Server className="h-4 w-4" />,
+      status: health?.reachable ? "online" : "offline",
+      detail: health?.reachable ? `Uptime: ${Math.floor((health.uptime || 0) / 60)}min · Routes all API traffic` : "Not reachable — run: npm run dev",
+      color: health?.reachable ? "text-emerald-500" : "text-red-500",
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Wifi className="h-4 w-4 text-primary" />
+          Connection Status
+          <Badge variant="outline" className="text-2xs ml-auto">
+            {sources.filter(s => s.status === "online").length}/{sources.length} Online
+          </Badge>
+        </CardTitle>
+        <CardDescription className="text-xs">Real-time status of all data sources</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {sources.map((src) => (
+          <div key={src.name} className="flex items-center gap-3 p-2 rounded-md bg-accent/20">
+            <div className={src.color}>{src.icon}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium">{src.name}</span>
+                <div className={`h-1.5 w-1.5 rounded-full ${
+                  src.status === "online" ? "bg-emerald-500" :
+                  src.status === "offline" ? "bg-red-500" : "bg-zinc-500"
+                }`} />
+              </div>
+              <p className="text-[10px] text-muted-foreground truncate">{src.detail}</p>
+            </div>
+            {src.name.startsWith("Dhan API") && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1"
+                onClick={handleTestDhan}
+                disabled={dhanStatus === "testing"}
+              >
+                {dhanStatus === "testing" ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Testing</>
+                ) : dhanStatus === "success" ? (
+                  <><CheckCircle className="h-3 w-3 text-emerald-500" /> Connected</>
+                ) : dhanStatus === "error" ? (
+                  <><XCircle className="h-3 w-3 text-red-500" /> Retry</>
+                ) : (
+                  <>Test</>
+                )}
+              </Button>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BrokerSettings() {
   const [savedBrokers, setSavedBrokers] = useState(getSavedBrokers());
   const activeBroker = getActiveBroker();
@@ -215,6 +342,12 @@ export default function BrokerSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Connection Status Panel */}
+      <ConnectionStatusPanel />
+
+      {/* Database Manager */}
+      <DatabaseManager />
 
       <Tabs defaultValue={connectedBrokers.length > 0 ? "connected" : "available"}>
         <TabsList>

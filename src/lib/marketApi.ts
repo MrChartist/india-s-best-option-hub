@@ -1,13 +1,13 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { OptionData, ExpiryDate, IndexData } from "./mockData";
 import { getActiveBroker } from "./brokerConfig";
 
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+// Local proxy base URL — override via VITE_PROXY_URL if deploying proxy elsewhere
+const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
 
-// Direct fetch to edge function with optional user credentials
+// Direct fetch to local proxy with optional user credentials
 async function fetchDhanProxy(endpoint: string, params?: Record<string, string>): Promise<any> {
   const qp = new URLSearchParams({ endpoint, ...params });
-  const url = `https://${PROJECT_ID}.supabase.co/functions/v1/dhan-proxy?${qp.toString()}`;
+  const url = `${PROXY_BASE}/api/dhan-proxy?${qp.toString()}`;
 
   // Inject user's Dhan credentials if available
   const headers: Record<string, string> = {};
@@ -25,11 +25,11 @@ async function fetchDhanProxy(endpoint: string, params?: Record<string, string>)
   return res.json();
 }
 
-// Keep NSE proxy as fallback for indices & market status (Dhan doesn't provide broad index data the same way)
+// NSE proxy for indices & market status
 async function fetchNSEProxy(endpoint: string, symbol?: string): Promise<any> {
   const params = new URLSearchParams({ endpoint });
   if (symbol) params.set("symbol", symbol);
-  const url = `https://${PROJECT_ID}.supabase.co/functions/v1/nse-proxy?${params.toString()}`;
+  const url = `${PROXY_BASE}/api/nse-proxy?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
     const errText = await res.text();
@@ -302,4 +302,237 @@ export async function fetchMarketStatus() {
 
 export async function fetchFnOStocks() {
   return fetchNSEProxy("equity-derivatives");
+}
+
+// ── All Indices (for VIX, sector performance) ──
+
+const SECTOR_INDEX_MAP: Record<string, string> = {
+  "NIFTY IT": "IT",
+  "NIFTY BANK": "Banking",
+  "NIFTY AUTO": "Auto",
+  "NIFTY PHARMA": "Pharma",
+  "NIFTY METAL": "Metal",
+  "NIFTY ENERGY": "Energy",
+  "NIFTY FMCG": "FMCG",
+  "NIFTY REALTY": "Realty",
+  "NIFTY MEDIA": "Media",
+  "NIFTY PSU BANK": "PSU Bank",
+  "NIFTY FIN SERVICE": "Fin Svc",
+  "NIFTY INFRA": "Infra",
+  "NIFTY HEALTHCARE INDEX": "Health",
+  "NIFTY CONSUMER DURABLES": "Consumer",
+};
+
+export async function fetchAllIndices() {
+  const raw = await fetchNSEProxy("indices");
+  if (!raw?.data) return null;
+
+  // Extract VIX
+  const vixEntry = raw.data.find((d: any) => d.index === "INDIA VIX");
+  const vix = vixEntry ? {
+    value: vixEntry.last,
+    change: vixEntry.variation || 0,
+    changePercent: vixEntry.percentChange || 0,
+    high: vixEntry.high || vixEntry.last,
+    low: vixEntry.low || vixEntry.last,
+  } : null;
+
+  // Extract sector indices
+  const sectors = raw.data
+    .filter((d: any) => SECTOR_INDEX_MAP[d.index])
+    .map((d: any) => ({
+      name: SECTOR_INDEX_MAP[d.index],
+      fullName: d.index,
+      change: d.percentChange || 0,
+      ltp: d.last || 0,
+      open: d.open || d.last,
+      high: d.high || d.last,
+      low: d.low || d.last,
+    }));
+
+  // Advance/Decline from NIFTY 50
+  const nifty50 = raw.data.find((d: any) => d.index === "NIFTY 50");
+  const advances = nifty50?.advances || 0;
+  const declines = nifty50?.declines || 0;
+  const unchanged = nifty50?.unchanged || 0;
+
+  return { vix, sectors, advances, declines, unchanged };
+}
+
+// ── F&O Stocks List (Top Movers + Most Active) ──
+
+export interface FnOStockData {
+  symbol: string;
+  ltp: number;
+  change: number;
+  changePercent: number;
+  open: number;
+  high: number;
+  low: number;
+  previousClose: number;
+  volume: number;
+  // OI fields from NSE equity-derivatives endpoint
+  totalTradedVolume?: number;
+  openInterest?: number;
+  oiChange?: number;
+  sector?: string;
+}
+
+export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
+  // Try NSE first (has OI data)
+  try {
+    const raw = await fetchNSEProxy("equity-derivatives");
+    if (raw?.data?.length > 0) {
+      return raw.data
+        .filter((d: any) => d.symbol && d.symbol !== "NIFTY 50" && d.lastPrice)
+        .map((d: any) => ({
+          symbol: d.symbol,
+          ltp: d.lastPrice || 0,
+          change: d.change || 0,
+          changePercent: d.pChange || 0,
+          open: d.open || d.lastPrice,
+          high: d.dayHigh || d.lastPrice,
+          low: d.dayLow || d.lastPrice,
+          previousClose: d.previousClose || d.lastPrice,
+          volume: d.totalTradedVolume || 0,
+          totalTradedVolume: d.totalTradedVolume || 0,
+          openInterest: d.openInterest || 0,
+          oiChange: d.changeinOpenInterest || 0,
+          sector: d.meta?.industry || "",
+        }));
+    }
+  } catch (e) {
+    console.warn("NSE F&O stocks fetch failed, trying TradingView:", e);
+  }
+
+  // Fallback to TradingView Scanner (no OI but great LTP/volume data)
+  try {
+    const tvData = await fetchTradingViewStocks();
+    if (tvData.length > 0) return tvData;
+  } catch (e) {
+    console.warn("TradingView stocks fetch also failed:", e);
+  }
+
+  return [];
+}
+
+// ── TradingView Scanner API ──
+
+export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
+  const url = `${PROXY_BASE}/api/tv-scan?type=stocks`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TV scan error: ${res.status}`);
+  const data = await res.json();
+  
+  return (data.stocks || []).map((s: any) => ({
+    symbol: s.symbol || "",
+    ltp: s.ltp || 0,
+    change: s.changeAbs || 0,
+    changePercent: s.changePercent || 0,
+    open: s.open || 0,
+    high: s.high || 0,
+    low: s.low || 0,
+    previousClose: (s.ltp || 0) - (s.changeAbs || 0),
+    volume: s.volume || 0,
+    totalTradedVolume: s.volume || 0,
+    openInterest: 0,
+    oiChange: 0,
+    sector: s.sector || "",
+  }));
+}
+
+export async function fetchTradingViewIndices(): Promise<any[]> {
+  const url = `${PROXY_BASE}/api/tv-scan?type=indices`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TV indices error: ${res.status}`);
+  const data = await res.json();
+  return data.stocks || [];
+}
+
+// ── FII/DII Activity Data ──
+
+export interface FIIDIIData {
+  category: string; // "FII/FPI" or "DII"
+  date: string;
+  buyValue: number;
+  sellValue: number;
+  netValue: number;
+}
+
+export async function fetchFIIDII(): Promise<FIIDIIData[]> {
+  const raw = await fetchNSEProxy("fii-dii");
+  if (!raw?.data) return [];
+  
+  return raw.data.map((d: any) => ({
+    category: d.category || "",
+    date: d.date || "",
+    buyValue: parseFloat(d.buyValue?.replace(/,/g, "")) || 0,
+    sellValue: parseFloat(d.sellValue?.replace(/,/g, "")) || 0,
+    netValue: parseFloat(d.netValue?.replace(/,/g, "")) || 0,
+  }));
+}
+
+// ── Test Connection ──
+
+export async function testDhanConnection(): Promise<{ status: string; message: string }> {
+  const headers: Record<string, string> = {};
+  const activeBroker = getActiveBroker();
+  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
+    headers["x-dhan-client-id"] = activeBroker.values.clientId;
+    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
+  }
+  const res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers });
+  return res.json();
+}
+
+export async function fetchProxyHealth(): Promise<any> {
+  const res = await fetch(`${PROXY_BASE}/health`);
+  if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Instrument Master Download ──
+
+export async function fetchInstrumentMaster(): Promise<{
+  instruments: any[];
+  count: number;
+}> {
+  const result = await fetchDhanProxy("instruments");
+  return result;
+}
+
+// ── Historical Candle Data ──
+
+export interface HistoricalCandleResponse {
+  status: string;
+  data: {
+    timestamp: number[];
+    open: number[];
+    high: number[];
+    low: number[];
+    close: number[];
+    volume: number[];
+    oi?: number[];
+  };
+  remarks?: string;
+}
+
+export async function fetchHistoricalCandles(
+  securityId: string,
+  exchangeSegment: string = "IDX_I",
+  instrument: string = "INDEX",
+  interval: string = "5",
+  fromDate?: string,
+  toDate?: string,
+): Promise<HistoricalCandleResponse> {
+  const params: Record<string, string> = {
+    securityId,
+    exchangeSegment,
+    instrument,
+    interval,
+  };
+  if (fromDate) params.fromDate = fromDate;
+  if (toDate) params.toDate = toDate;
+
+  return fetchDhanProxy("historical", params);
 }

@@ -23,15 +23,6 @@ export function WelcomeBanner() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-              onClick={() => navigate("/docs")}
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              Feature Guide
-            </Button>
-            <Button
               size="sm"
               className="gap-1.5 text-xs h-8"
               onClick={() => navigate("/option-chain")}

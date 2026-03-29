@@ -5,24 +5,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell, LineChart, Line, ComposedChart, Area } from "recharts";
-import { getMaxPain, generatePCRHistory, getDeltaOI, getStrikePCR, getATMZoneAnalysis } from "@/lib/mockData";
+import { getMaxPain, getDeltaOI, getStrikePCR, getATMZoneAnalysis, calculatePCR } from "@/lib/oiUtils";
 import { OIHeatmap } from "@/components/OIHeatmap";
 import { SupportResistance } from "@/components/SupportResistance";
 import { MultiExpiryOI } from "@/components/MultiExpiryOI";
 import { IVPercentileGauge } from "@/components/IVPercentileGauge";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
-import { Wifi, WifiOff } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function OIAnalysis() {
   const [symbol, setSymbol] = useState("NIFTY");
   const [atmZoneSize, setATMZoneSize] = useState<number>(5);
-  const { data: liveData } = useLiveOptionChain(symbol);
+  const { data: liveData, refetch, isLoading } = useLiveOptionChain(symbol);
   const chain = liveData?.chain || [];
   const spotPrice = liveData?.spotPrice || 0;
   const stepSize = liveData?.stepSize || 50;
   const isLive = liveData?.isLive || false;
   const maxPain = useMemo(() => getMaxPain(chain), [chain]);
-  const pcrHistory = useMemo(() => generatePCRHistory(), []);
+  // Live PCR computed from current chain
+  const pcrData = useMemo(() => calculatePCR(chain), [chain]);
 
   const oiData = useMemo(() => {
     return chain
@@ -123,23 +125,58 @@ export default function OIAnalysis() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">OI Analysis</h1>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : ""}`}>
+            <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : "border-red-500/50 text-red-400"}`}>
               {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isLive ? "LIVE" : "MOCK"}
+              {isLive ? "LIVE" : "OFFLINE"}
             </Badge>
-            <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Correlation · Heatmap</p>
+            {isLive && spotPrice > 0 && (
+              <span className="text-xs font-mono text-muted-foreground">
+                Spot: <span className="text-foreground font-medium">{spotPrice.toLocaleString("en-IN")}</span>
+                {maxPain > 0 && <> · Max Pain: <span className="text-warning font-medium">{maxPain.toLocaleString("en-IN")}</span></>}
+              </span>
+            )}
+            <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Heatmap</p>
           </div>
         </div>
-        <Select value={symbol} onValueChange={setSymbol}>
-          <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="NIFTY">NIFTY</SelectItem>
-            <SelectItem value="BANKNIFTY">BANKNIFTY</SelectItem>
-            <SelectItem value="FINNIFTY">FINNIFTY</SelectItem>
-            <SelectItem value="MIDCPNIFTY">MIDCPNIFTY</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => refetch()} disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            <span className="text-xs">Refresh</span>
+          </Button>
+          <Select value={symbol} onValueChange={setSymbol}>
+            <SelectTrigger className="w-[150px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="NIFTY">NIFTY</SelectItem>
+              <SelectItem value="BANKNIFTY">BANKNIFTY</SelectItem>
+              <SelectItem value="FINNIFTY">FINNIFTY</SelectItem>
+              <SelectItem value="MIDCPNIFTY">MIDCPNIFTY</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* Loading / Empty State */}
+      {!isLive && !isLoading && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <WifiOff className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">No Live Data Available</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Market may be closed or proxy is unreachable. Data auto-refreshes every 3 seconds when live.</p>
+            <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={() => refetch()}>
+              <RefreshCw className="h-3 w-3" /> Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading && !isLive && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-3" />
+            <p className="text-sm font-medium text-muted-foreground">Loading Option Chain...</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
@@ -465,25 +502,83 @@ export default function OIAnalysis() {
         </TabsContent>
 
         <TabsContent value="pcr-trend">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Intraday PCR vs Spot Price</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={pcrHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                    <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis yAxisId="pcr" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
-                    <YAxis yAxisId="spot" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine yAxisId="pcr" y={1} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: "PCR=1", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
-                    <Area yAxisId="pcr" type="monotone" dataKey="pcr" stroke="hsl(210 100% 52%)" fill="hsl(210 100% 52% / 0.1)" strokeWidth={2} name="PCR" />
-                    <Line yAxisId="spot" type="monotone" dataKey="spotPrice" stroke="hsl(38 92% 50%)" strokeWidth={1.5} dot={false} name="Spot" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* PCR Gauges */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Put-Call Ratio (OI)</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center">
+                  <p className={`text-4xl font-bold font-mono ${pcrData.signalColor}`}>{pcrData.pcrOI.toFixed(2)}</p>
+                  <Badge variant="outline" className={`mt-2 ${pcrData.signalColor}`}>{pcrData.signal}</Badge>
+                </div>
+                <div className="relative h-3 rounded-full bg-gradient-to-r from-bearish/30 via-warning/30 to-bullish/30 overflow-hidden">
+                  <div
+                    className="absolute top-0 h-full w-1.5 bg-foreground rounded-full shadow-lg transition-all"
+                    style={{ left: `${Math.min(Math.max((pcrData.pcrOI / 2) * 100, 2), 98)}%`, transform: "translateX(-50%)" }}
+                  />
+                </div>
+                <div className="flex justify-between text-[9px] text-muted-foreground font-mono">
+                  <span>0.0 (Bearish)</span>
+                  <span>1.0</span>
+                  <span>2.0 (Bullish)</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <div className="p-2 rounded-md bg-accent/30 text-center">
+                    <p className="text-[9px] text-muted-foreground">OI PCR</p>
+                    <p className="text-lg font-bold font-mono">{pcrData.pcrOI.toFixed(2)}</p>
+                  </div>
+                  <div className="p-2 rounded-md bg-accent/30 text-center">
+                    <p className="text-[9px] text-muted-foreground">Vol PCR</p>
+                    <p className="text-lg font-bold font-mono">{pcrData.pcrVolume.toFixed(2)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* OI Breakdown */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Open Interest Breakdown</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-bearish">CALL OI (Writers = Resistance)</h4>
+                    <div className="p-3 rounded-md bg-bearish/5 border border-bearish/10">
+                      <p className="text-2xl font-bold font-mono text-bearish">{(pcrData.totalCEOI / 100000).toFixed(1)}L</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Total CE Open Interest</p>
+                    </div>
+                    <div className="p-3 rounded-md bg-accent/30">
+                      <p className="text-lg font-bold font-mono">{(pcrData.totalCEVol / 100000).toFixed(1)}L</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Total CE Volume</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-bullish">PUT OI (Writers = Support)</h4>
+                    <div className="p-3 rounded-md bg-bullish/5 border border-bullish/10">
+                      <p className="text-2xl font-bold font-mono text-bullish">{(pcrData.totalPEOI / 100000).toFixed(1)}L</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Total PE Open Interest</p>
+                    </div>
+                    <div className="p-3 rounded-md bg-accent/30">
+                      <p className="text-lg font-bold font-mono">{(pcrData.totalPEVol / 100000).toFixed(1)}L</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Total PE Volume</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* PCR Interpretation */}
+                <div className="mt-4 p-3 rounded-md bg-accent/50 border border-border/50">
+                  <p className="text-xs text-muted-foreground">
+                    <strong className={pcrData.signalColor}>{pcrData.signal}:</strong>{" "}
+                    {pcrData.pcrOI > 1.3 ? "Heavy put writing indicates strong support below. Sellers are confident market won't fall." : 
+                     pcrData.pcrOI > 1.0 ? "Moderate put writing suggests support building. Mild bullish bias." :
+                     pcrData.pcrOI > 0.7 ? "PCR near neutral. No strong directional bias from OI data." :
+                     pcrData.pcrOI > 0.5 ? "Call writing dominates. Resistance building above. Mild bearish bias." :
+                     "Heavy call writing suggests strong resistance. Bears are dominant."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="oi-interp">

@@ -18,9 +18,9 @@ export function MarketHeader({ isLive, isOpen, marketStatus }: Props) {
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className={`gap-1.5 text-2xs ${isLive ? "border-bullish/40 text-bullish" : "border-muted-foreground/30 text-muted-foreground"}`}>
+        <Badge variant="outline" className={`gap-1.5 text-2xs ${isLive ? "border-bullish/40 text-bullish" : "border-red-500/30 text-red-400"}`}>
           {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          {isLive ? "LIVE" : "MOCK"}
+          {isLive ? "LIVE" : "OFFLINE"}
         </Badge>
         <Badge variant={isOpen ? "default" : "secondary"} className={`gap-1.5 text-2xs ${isOpen ? "bg-bullish text-bullish-foreground" : ""}`}>
           <Clock className="h-3 w-3" />

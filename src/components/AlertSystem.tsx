@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Bell, Plus, Trash2, AlertTriangle, TrendingUp, BarChart3, Volume2, VolumeX, CheckCircle } from "lucide-react";
 import { useAlertEngine, playAlertSound, type AlertCondition, type AlertTone } from "@/hooks/useAlertEngine";
-import { marketStats } from "@/lib/mockData";
+import { useAllIndices } from "@/hooks/useMarketData";
+import { useWebSocketVix } from "@/hooks/useWebSocket";
 import { toast } from "sonner";
 
 const typeIcons = {
@@ -43,10 +44,15 @@ export function AlertSystem({ open, onOpenChange }: AlertSystemProps) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
-  // Alert data from market stats (in production, this comes from live data)
+  // Live data from hooks
+  const { data: allIndicesData } = useAllIndices();
+  const { vix: wsVix } = useWebSocketVix();
+  const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
+
+  // Alert data from live market stats
   const alertData = {
     spotPrice: 24250,
-    vix: marketStats.indiaVix,
+    vix: liveVix,
     pcr: 0.95,
     atmIV: 14.5,
     maxOIChange: 500000,

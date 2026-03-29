@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Radio } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
-import { generateIntradayData } from "@/lib/mockData";
+import { useWebSocketStatus } from "@/hooks/useWebSocket";
+import { getCandleHistory, type CandleHistory } from "@/lib/localDatabase";
 
 interface IndexData {
-  symbol: string;
   name: string;
+  symbol: string;
   ltp: number;
   change: number;
   changePercent: number;
@@ -21,28 +22,62 @@ interface Props {
   indices: IndexData[];
 }
 
+// Map index symbols to their Dhan security IDs
+const SYMBOL_SEC_MAP: Record<string, string> = {
+  NIFTY: "13",
+  BANKNIFTY: "25",
+  FINNIFTY: "27",
+  MIDCPNIFTY: "442",
+};
+
 export function IndexCards({ indices }: Props) {
   const navigate = useNavigate();
+  const wsConnected = useWebSocketStatus();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       {indices.map((index, idx) => (
-        <IndexCard key={index.symbol} index={index} idx={idx} onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)} />
+        <IndexCard key={index.symbol} index={index} idx={idx} isLive={wsConnected} onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)} />
       ))}
     </div>
   );
 }
 
-function IndexCard({ index, idx, onClick }: { index: IndexData; idx: number; onClick: () => void }) {
+function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: number; isLive?: boolean; onClick: () => void }) {
   const isPositive = index.change >= 0;
-  const intraday = useMemo(() => generateIntradayData(index.prevClose, idx < 2 ? 0.5 + idx * 0.1 : 0.4), [index.prevClose, idx]);
+  const [storedCandles, setStoredCandles] = useState<{ price: number }[] | null>(null);
+
+  // Try to load stored candle data from IndexedDB
+  useEffect(() => {
+    const secId = SYMBOL_SEC_MAP[index.symbol];
+    if (!secId) return;
+
+    getCandleHistory(secId, "5").then((history) => {
+      if (history && history.candles.length > 0) {
+        // Use last 75 candles (about 1 trading day of 5-min candles)
+        const recent = history.candles.slice(-75);
+        setStoredCandles(recent.map((c) => ({ price: c.close })));
+      }
+    }).catch(() => { /* IndexedDB not available */ });
+  }, [index.symbol]);
+
+  // Use stored candles if available, otherwise show empty sparkline
+  const intraday = useMemo(() => {
+    if (storedCandles && storedCandles.length > 0) return storedCandles;
+    // No mock — return empty so sparkline is blank
+    return [];
+  }, [storedCandles]);
 
   return (
     <Card className="cursor-pointer group hover:border-primary/30 transition-all hover:shadow-sm" onClick={onClick}>
       <CardContent className="pt-4 pb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <p className="text-2xs text-muted-foreground font-medium uppercase tracking-wider">{index.name}</p>
+            <div className="flex items-center gap-1">
+              <p className="text-2xs text-muted-foreground font-medium uppercase tracking-wider">{index.name}</p>
+              {isLive && <Radio className="h-2 w-2 text-bullish animate-pulse" />}
+              {storedCandles && <span className="text-[8px] text-primary/50 uppercase tracking-wider">DB</span>}
+            </div>
             <p className="text-xl font-bold font-mono tabular-nums tracking-tight">{index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
           </div>
           <div className={`flex items-center gap-1 text-2xs font-mono px-2 py-0.5 rounded-md ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>

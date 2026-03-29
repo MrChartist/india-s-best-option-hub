@@ -35,3 +35,9 @@ coverage/
 
 # Temp
 *.tsbuildinfo
+
+# Lovable / AI tool artifacts
+.lovable/
+.gemini/
+.agents/
+_agents/
