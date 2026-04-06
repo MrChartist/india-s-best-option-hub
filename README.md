@@ -1,17 +1,19 @@
-# 🚀 India's Best Option Hub — Open-Source Options & Futures Terminal
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:1a1a2e,100:6366f1&height=180&section=header&text=Option%20Hub&fontSize=52&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=India's%20Best%20Open-Source%20F%26O%20Terminal&descSize=16&descAlignY=55&descColor=8b5cf6" width="100%" />
 
 <div align="center">
 
 **India's most comprehensive open-source Options & Futures analytics terminal.**
 
-Built for NSE F&O traders who want institutional-grade tools — free, open-source, and running in your browser.
+Built for NSE F&O traders who want institutional-grade tools -- free, open-source, and running in your browser.
+
+Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Chartist Ecosystem](https://mrchartist.com)
 
 [![React](https://img.shields.io/badge/React-18.3-61dafb?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646cff?logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06b6d4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
 [Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Pages Guide](#-pages-guide) · [Roadmap](#-current-status--roadmap) · [Contributing](#-contributing)
 
@@ -620,10 +622,17 @@ You are free to use, copy, modify, merge, publish, distribute, sublicense, and/o
 
 <div align="center">
 
-**Built with ❤️ by [Mr. Chartist](https://github.com/MrChartist) for the Indian Options Trading Community**
+**Built with care by [Mr. Chartist](https://github.com/MrChartist) for the Indian Options Trading Community**
 
-*If this project helps your trading, consider giving it a ⭐ on GitHub!*
+*If this project helps your trading, consider giving it a star on GitHub!*
 
 *Found a bug? Have an idea? [Open an issue](https://github.com/MrChartist/india-s-best-option-hub/issues) or submit a PR!*
 
+<br/>
+
+<a href="https://mrchartist.com"><img src="https://img.shields.io/badge/mrchartist.com-6366f1?style=flat-square&logo=safari&logoColor=white" alt="Website"/></a>
+<a href="https://github.com/MrChartist"><img src="https://img.shields.io/badge/More_Projects-0d1117?style=flat-square&logo=github&logoColor=white" alt="GitHub"/></a>
+
 </div>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,50:1a1a2e,100:6366f1&height=100&section=footer" width="100%" />
