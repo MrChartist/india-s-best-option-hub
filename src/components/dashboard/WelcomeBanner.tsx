@@ -13,11 +13,11 @@ export function WelcomeBanner() {
       <CardContent className="py-4 px-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2 drop-shadow-sm">
+              <TrendingUp className="h-6 w-6 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
               {greeting}, Trader!
             </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-md">
+            <p className="text-sm text-muted-foreground mt-1 max-w-lg">
               Your F&O command center — track indices, analyze OI, scan for opportunities, and build strategies. All in one place.
             </p>
           </div>

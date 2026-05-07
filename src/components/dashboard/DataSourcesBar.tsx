@@ -137,7 +137,7 @@ export function DataSourcesBar() {
       {/* Overall status indicator */}
       <div className="flex items-center gap-1.5 mr-2 pr-2 border-r border-border/30 shrink-0">
         <div className={`h-2 w-2 rounded-full ${liveCount >= 4 ? "bg-emerald-500 animate-pulse" : liveCount >= 2 ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
-        <span className="text-[10px] font-semibold text-muted-foreground whitespace-nowrap">
+        <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
           {liveCount}/{totalCount} Sources
         </span>
       </div>
@@ -146,7 +146,7 @@ export function DataSourcesBar() {
       {sources.map((src) => (
         <Tooltip key={src.name}>
           <TooltipTrigger asChild>
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-medium cursor-default transition-all duration-200 shrink-0 ${
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium cursor-default transition-all duration-200 shrink-0 ${
               src.primary 
                 ? src.status === "live"
                   ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
@@ -160,16 +160,16 @@ export function DataSourcesBar() {
               <span className="hidden sm:inline whitespace-nowrap">{src.name}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs max-w-[280px]">
+          <TooltipContent side="bottom" className="text-sm max-w-[280px]">
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <div className={`h-2 w-2 rounded-full shrink-0 ${statusColor(src.status)}`} />
                 <span className="font-semibold">{src.name}</span>
-                <Badge variant="outline" className={`text-[8px] h-4 px-1 ${statusTextColor(src.status)}`}>
+                <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${statusTextColor(src.status)}`}>
                   {statusLabel(src.status)}
                 </Badge>
               </div>
-              <p className="text-muted-foreground text-[11px] leading-snug">{src.detail}</p>
+              <p className="text-muted-foreground text-xs leading-snug">{src.detail}</p>
             </div>
           </TooltipContent>
         </Tooltip>

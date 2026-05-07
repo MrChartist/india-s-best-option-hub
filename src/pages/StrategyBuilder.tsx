@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLiveIndices } from "@/hooks/useMarketData";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Zap, Shield, Target } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Zap, Shield, Target, Copy, Check } from "lucide-react";
 import { getPresetStrategies, calculatePayoff, calculateGreeks, estimateMargin, estimateProbOfProfit, type StrategyLeg } from "@/lib/mockData";
+import { getSpotPrice, getLotSize, getStepSize } from "@/lib/positionStore";
 import { PayoffMultiDTE } from "@/components/PayoffMultiDTE";
 
 const outlookIcons = {
@@ -27,9 +29,11 @@ const riskColors = {
 
 export default function StrategyBuilder() {
   const [searchParams] = useSearchParams();
-  const spotPrice = 24250.75;
-  const lotSize = 25;
-  const stepSize = 50;
+  const { data: indicesResult } = useLiveIndices();
+  const liveNiftyPrice = indicesResult?.data?.find((i: any) => i.symbol === "NIFTY")?.ltp;
+  const spotPrice = liveNiftyPrice || getSpotPrice("NIFTY");
+  const lotSize = getLotSize("NIFTY");
+  const stepSize = getStepSize("NIFTY");
 
   const presets = useMemo(() => getPresetStrategies(spotPrice, stepSize), []);
   const [legs, setLegs] = useState<StrategyLeg[]>(presets[0].legs);
@@ -184,6 +188,10 @@ export default function StrategyBuilder() {
                   <div><Label className="text-[9px]">Lots</Label><Input type="number" value={leg.lots} onChange={e => updateLeg(i, "lots", Number(e.target.value))} className="h-6 text-[10px] font-mono" min={1} /></div>
                   <div><Label className="text-[9px]">₹ Prem</Label><Input type="number" value={leg.premium} onChange={e => updateLeg(i, "premium", Number(e.target.value))} className="h-6 text-[10px] font-mono" /></div>
                 </div>
+                <div className={`text-[9px] font-mono text-right ${leg.action === "BUY" ? "text-bearish" : "text-bullish"}`}>
+                  {leg.action === "BUY" ? "Cost" : "Credit"}: ₹{(leg.premium * leg.lots * lotSize).toLocaleString("en-IN")}
+                  <span className="text-muted-foreground ml-1">({leg.lots}×{lotSize}×{leg.premium})</span>
+                </div>
               </div>
             ))}
             <Button variant="outline" size="sm" onClick={addLeg} className="w-full h-7 text-xs">
@@ -202,27 +210,53 @@ export default function StrategyBuilder() {
                   <AreaChart data={payoffData}>
                     <defs>
                       <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.2} />
-                        <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
+                        <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0.02} />
                       </linearGradient>
                       <linearGradient id="lossGrad" x1="0" y1="1" x2="0" y2="0">
-                        <stop offset="0%" stopColor="hsl(0 84% 60%)" stopOpacity={0.15} />
-                        <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0} />
+                        <stop offset="0%" stopColor="hsl(0 84% 60%)" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                    <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" }}
-                      formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "P&L"]}
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                    <XAxis
+                      dataKey="spot"
+                      tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                      tickFormatter={(v) => v.toLocaleString("en-IN")}
                     />
-                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeWidth={1} />
-                    <ReferenceLine x={spotPrice} stroke="hsl(210 100% 52%)" strokeDasharray="5 5" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
+                    <YAxis
+                      tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                      tickFormatter={(v) => `₹${(v / 1000).toFixed(v >= 1000 || v <= -1000 ? 0 : 1)}K`}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                      formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "P&L"]}
+                      labelFormatter={(label) => `Spot: ${Number(label).toLocaleString("en-IN")}`}
+                    />
+                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeOpacity={0.6} />
+                    <ReferenceLine
+                      x={spotPrice}
+                      stroke="hsl(210 100% 52%)"
+                      strokeDasharray="6 4"
+                      strokeWidth={1.5}
+                      label={{ value: `● SPOT ${spotPrice.toLocaleString("en-IN")}`, fill: "hsl(210 100% 52%)", fontSize: 9, position: "top" }}
+                    />
                     {stats.breakevens.map((be, i) => (
-                      <ReferenceLine key={i} x={be} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: `BE: ${be}`, fill: "hsl(38 92% 50%)", fontSize: 8 }} />
+                      <ReferenceLine
+                        key={i}
+                        x={be}
+                        stroke="hsl(38 92% 50%)"
+                        strokeDasharray="4 3"
+                        strokeWidth={1.5}
+                        label={{ value: `BE: ${be.toLocaleString("en-IN")}`, fill: "hsl(38 92% 50%)", fontSize: 8, position: "insideTopRight" }}
+                      />
                     ))}
-                    <Area type="monotone" dataKey="pnl" stroke="hsl(210 100% 52%)" fill="url(#profitGrad)" strokeWidth={2} />
+                    {/* Profit zone (green) */}
+                    <Area type="monotone" dataKey="pnl" stroke="none" fill="url(#profitGrad)" baseValue={0} />
+                    {/* Loss zone (red) — uses negative clip */}
+                    <Area type="monotone" dataKey="pnl" stroke="none" fill="url(#lossGrad)" baseValue={0} />
+                    {/* Main P&L line */}
+                    <Area type="monotone" dataKey="pnl" stroke="hsl(210 100% 52%)" fill="none" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "hsl(210 100% 52%)", stroke: "hsl(var(--background))", strokeWidth: 2 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -273,36 +307,113 @@ export default function StrategyBuilder() {
           {/* Multi-DTE Payoff */}
           <PayoffMultiDTE legs={legs} spotPrice={spotPrice} lotSize={lotSize} stepSize={stepSize} daysToExpiry={7} />
 
-          {/* Combined Greeks */}
+          {/* Combined Greeks — Visual Dashboard */}
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Combined Position Greeks</CardTitle></CardHeader>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Position Greeks</CardTitle>
+                <CopyTradeButton legs={legs} stats={stats} spotPrice={spotPrice} lotSize={lotSize} selectedPreset={selectedPreset} />
+              </div>
+            </CardHeader>
             <CardContent>
               <div className="grid grid-cols-4 gap-3">
-                <div className="text-center p-2 rounded-md bg-accent/30">
-                  <p className="text-[10px] text-muted-foreground">Delta (Δ)</p>
-                  <p className={`text-lg font-bold font-mono ${stats.totalDelta >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalDelta}</p>
-                  <p className="text-[9px] text-muted-foreground">{stats.totalDelta >= 0 ? "Net Long" : "Net Short"}</p>
-                </div>
-                <div className="text-center p-2 rounded-md bg-accent/30">
-                  <p className="text-[10px] text-muted-foreground">Gamma (Γ)</p>
-                  <p className="text-lg font-bold font-mono">{stats.totalGamma}</p>
-                  <p className="text-[9px] text-muted-foreground">{stats.totalGamma > 0 ? "Long Gamma" : "Short Gamma"}</p>
-                </div>
-                <div className="text-center p-2 rounded-md bg-accent/30">
-                  <p className="text-[10px] text-muted-foreground">Theta (Θ)</p>
-                  <p className={`text-lg font-bold font-mono ${stats.totalTheta >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalTheta}</p>
-                  <p className="text-[9px] text-muted-foreground">₹/day</p>
-                </div>
-                <div className="text-center p-2 rounded-md bg-accent/30">
-                  <p className="text-[10px] text-muted-foreground">Vega (ν)</p>
-                  <p className="text-lg font-bold font-mono">{stats.totalVega}</p>
-                  <p className="text-[9px] text-muted-foreground">per 1% IV</p>
-                </div>
+                <GreekCard
+                  label="Delta (Δ)"
+                  value={stats.totalDelta}
+                  description={stats.totalDelta >= 0 ? "Net Long" : "Net Short"}
+                  color={stats.totalDelta >= 0 ? "bullish" : "bearish"}
+                  tooltip="Directional exposure. +1 = fully long, -1 = fully short."
+                />
+                <GreekCard
+                  label="Gamma (Γ)"
+                  value={stats.totalGamma}
+                  description={stats.totalGamma > 0 ? "Long Gamma" : "Short Gamma"}
+                  color={stats.totalGamma > 0 ? "bullish" : "bearish"}
+                  tooltip="Rate of delta change. Long gamma = profits accelerate with movement."
+                />
+                <GreekCard
+                  label="Theta (Θ)"
+                  value={stats.totalTheta}
+                  description="₹/day decay"
+                  color={stats.totalTheta >= 0 ? "bullish" : "bearish"}
+                  tooltip="Time decay. Negative = you lose money daily, Positive = you earn daily."
+                />
+                <GreekCard
+                  label="Vega (ν)"
+                  value={stats.totalVega}
+                  description="per 1% IV"
+                  color="neutral"
+                  tooltip="IV sensitivity. Positive = profits when volatility rises."
+                />
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+// Greek Card with visual indicator
+function GreekCard({ label, value, description, color, tooltip }: {
+  label: string; value: number; description: string;
+  color: "bullish" | "bearish" | "neutral"; tooltip: string;
+}) {
+  const colorMap = {
+    bullish: { bg: "bg-bullish/8", border: "border-bullish/20", text: "text-bullish", bar: "bg-bullish" },
+    bearish: { bg: "bg-bearish/8", border: "border-bearish/20", text: "text-bearish", bar: "bg-bearish" },
+    neutral: { bg: "bg-primary/5", border: "border-primary/15", text: "text-foreground", bar: "bg-primary" },
+  };
+  const c = colorMap[color];
+  const barWidth = Math.min(Math.abs(value) * 5, 100);
+
+  return (
+    <div className={`text-center p-3 rounded-lg ${c.bg} border ${c.border} transition-all duration-200 hover:shadow-sm group cursor-default`} title={tooltip}>
+      <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+      <p className={`text-xl font-bold font-mono ${c.text} mt-0.5`}>{value}</p>
+      {/* Intensity bar */}
+      <div className="h-1 bg-muted/50 rounded-full mt-2 mb-1 overflow-hidden">
+        <div className={`h-full rounded-full ${c.bar} transition-all duration-500`} style={{ width: `${barWidth}%` }} />
+      </div>
+      <p className="text-[9px] text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+// Copy trade summary to clipboard
+function CopyTradeButton({ legs, stats, spotPrice, lotSize, selectedPreset }: {
+  legs: StrategyLeg[]; stats: any; spotPrice: number; lotSize: number; selectedPreset: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const lines = [
+      `📊 ${selectedPreset || "Custom Strategy"} — Trade Plan`,
+      `${'─'.repeat(40)}`,
+      `Spot: ₹${spotPrice.toLocaleString("en-IN")} | Lot Size: ${lotSize}`,
+      ``,
+      ...legs.map((l, i) => `  Leg ${i + 1}: ${l.action} ${l.type} ${l.strike} × ${l.lots} lots @ ₹${l.premium}`),
+      ``,
+      `Max Profit: ₹${stats.maxProfit.toLocaleString("en-IN")}`,
+      `Max Loss:   ₹${stats.maxLoss.toLocaleString("en-IN")}`,
+      `R:R Ratio:  ${stats.riskReward}`,
+      `Prob Profit: ${stats.probOfProfit}%`,
+      `Net Premium: ${stats.netPremium >= 0 ? "Credit" : "Debit"} ₹${Math.abs(stats.netPremium).toLocaleString("en-IN")}`,
+      `Breakevens:  ${stats.breakevens.length > 0 ? stats.breakevens.map((b: number) => b.toLocaleString("en-IN")).join(", ") : "None"}`,
+      ``,
+      `Greeks: Δ${stats.totalDelta} | Γ${stats.totalGamma} | Θ${stats.totalTheta} | ν${stats.totalVega}`,
+      `${'─'.repeat(40)}`,
+      `Generated by Mr. Chartist Options Terminal`,
+    ];
+    navigator.clipboard.writeText(lines.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Button variant="outline" size="sm" className="h-7 gap-1.5 text-[10px]" onClick={handleCopy}>
+      {copied ? <Check className="h-3 w-3 text-bullish" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied!" : "Export"}
+    </Button>
   );
 }

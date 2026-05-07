@@ -188,6 +188,11 @@ interface NSEOptionChainResponse {
 }
 
 export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?: string) {
+  // Guard against malformed/empty response
+  if (!raw?.records?.expiryDates || !raw?.records?.data) {
+    return { chain: [], spotPrice: 0, expiries: [], totalCEOI: 0, totalPEOI: 0 };
+  }
+
   const expiries: ExpiryDate[] = raw.records.expiryDates.map((exp) => {
     const d = new Date(exp);
     const now = new Date();
@@ -252,7 +257,11 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
       } catch {
         // Expiry fetch failed, continue with chain data
       }
-      return { ...parsed, expiries, source: "dhan" as const };
+      return {
+        ...parsed, expiries, source: "dhan" as const,
+        afterHours: raw.afterHours || false,
+        cachedAt: raw.cachedAt || null,
+      };
     }
   } catch (e) {
     console.warn("Dhan option chain fetch failed, trying NSE:", e);
@@ -262,7 +271,7 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
   try {
     const raw = await fetchNSEProxy("option-chain", symbol);
     const parsed = parseNSEOptionChain(raw, expiry);
-    return { ...parsed, source: "nse" as const };
+    return { ...parsed, source: "nse" as const, afterHours: false, cachedAt: null };
   } catch (e) {
     console.warn("NSE option chain also failed:", e);
     throw e;

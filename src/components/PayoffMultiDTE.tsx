@@ -202,7 +202,7 @@ export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpir
           </div>
           <div className="p-2 rounded-md bg-accent/30 text-center">
             <p className="text-[9px] text-muted-foreground">Breakevens</p>
-            <p className="text-xs font-mono">{stats.breakevens.length > 0 ? stats.breakevens.join(", ") : "—"}</p>
+            <p className="text-xs font-mono">{stats.breakevens.length > 0 ? stats.breakevens.map(b => b.toLocaleString("en-IN")).join(", ") : "—"}</p>
           </div>
         </div>
       </CardContent>

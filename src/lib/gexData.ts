@@ -109,39 +109,6 @@ export function getGEXSummary(gexByStrike: GEXByStrike[], spotPrice: number): GE
   };
 }
 
-// ── Mock GEX Data ──
-
-export function generateMockGEX(spotPrice: number, stepSize: number = 50): GEXByStrike[] {
-  const rand = seededRandom(Math.round(spotPrice * 7));
-  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const strikes: GEXByStrike[] = [];
-
-  for (let i = -20; i <= 20; i++) {
-    const strike = atmStrike + i * stepSize;
-    const moneyness = Math.abs(i);
-    const oiBase = Math.max(500000, 5000000 * Math.exp(-moneyness * 0.15));
-    const callOI = Math.round(oiBase * (0.7 + rand() * 0.6) * (i < 0 ? 0.5 : 1));
-    const putOI = Math.round(oiBase * (0.7 + rand() * 0.6) * (i > 0 ? 0.5 : 1));
-    const gammaBase = 0.002 * Math.exp(-moneyness * moneyness * 0.02);
-    const callGamma = gammaBase * (0.8 + rand() * 0.4);
-    const putGamma = gammaBase * (0.8 + rand() * 0.4);
-
-    const callGEX = callGamma * callOI * 25 * spotPrice * spotPrice * 0.01 / 1e7;
-    const putGEX = -putGamma * putOI * 25 * spotPrice * spotPrice * 0.01 / 1e7;
-
-    strikes.push({
-      strike,
-      callGEX: Math.round(callGEX * 100) / 100,
-      putGEX: Math.round(putGEX * 100) / 100,
-      netGEX: Math.round((callGEX + putGEX) * 100) / 100,
-      callOI,
-      putOI,
-      callGamma,
-      putGamma,
-    });
-  }
-  return strikes;
-}
 
 // ── IV Rank / Percentile ──
 

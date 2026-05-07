@@ -18,7 +18,7 @@ export default {
         mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'monospace'],
       },
       fontSize: {
-        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],
+        '2xs': ['0.6875rem', { lineHeight: '0.875rem' }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -83,10 +83,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'glow': '0 0 12px -3px hsl(var(--primary) / 0.2)',
-        'glow-sm': '0 0 6px -2px hsl(var(--primary) / 0.15)',
-        'card': '0 1px 3px 0 hsl(var(--foreground) / 0.04), 0 1px 2px -1px hsl(var(--foreground) / 0.04)',
-        'card-hover': '0 4px 16px -4px hsl(var(--primary) / 0.1), 0 0 0 1px hsl(var(--primary) / 0.08)',
+        'glow': '0 0 12px -3px hsl(var(--primary) / 0.5)',
+        'glow-sm': '0 0 6px -2px hsl(var(--primary) / 0.4)',
+        'neon-cyan': '0 0 10px rgba(0, 242, 254, 0.4), 0 0 20px rgba(0, 242, 254, 0.2)',
+        'neon-green': '0 0 10px rgba(0, 255, 150, 0.4), 0 0 20px rgba(0, 255, 150, 0.2)',
+        'neon-orange': '0 0 10px rgba(255, 153, 0, 0.4), 0 0 20px rgba(255, 153, 0, 0.2)',
+        'card': 'inset 0 1px 0 0 rgba(255,255,255,0.03), 0 4px 20px -2px rgba(0,0,0,0.4)',
+        'card-hover': 'inset 0 1px 0 0 rgba(255,255,255,0.06), 0 8px 30px -4px rgba(0,0,0,0.6), 0 0 0 1px hsl(var(--primary) / 0.2)',
+        'float': '0 10px 40px -10px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.05)',
       },
       keyframes: {
         "accordion-down": {

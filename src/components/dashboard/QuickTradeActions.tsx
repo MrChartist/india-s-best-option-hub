@@ -17,13 +17,13 @@ export function QuickTradeActions() {
       {actions.map((a) => (
         <Card
           key={a.path}
-          className={`cursor-pointer border transition-all hover:scale-[1.02] hover:shadow-md ${a.accent}`}
+          className={`cursor-pointer border transition-all duration-300 hover:scale-[1.02] hover:shadow-card-hover ${a.accent}`}
           onClick={() => navigate(a.path)}
         >
-          <CardContent className="p-3 flex flex-col items-center text-center gap-1.5">
-            <a.icon className="h-5 w-5" />
-            <p className="text-xs font-semibold leading-tight">{a.label}</p>
-            <p className="text-[9px] text-muted-foreground leading-tight hidden sm:block">{a.desc}</p>
+          <CardContent className="p-4 flex flex-col items-center text-center gap-2">
+            <a.icon className="h-6 w-6 drop-shadow-md" />
+            <p className="text-base font-bold leading-tight drop-shadow-sm">{a.label}</p>
+            <p className="text-xs text-muted-foreground leading-tight hidden sm:block font-medium">{a.desc}</p>
           </CardContent>
         </Card>
       ))}

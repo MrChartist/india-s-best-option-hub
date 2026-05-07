@@ -36,7 +36,7 @@ function normCDF(x: number): number {
 
 // Derive the dominant underlying from positions
 function deriveBaseSpot(positions: Position[]): number {
-  if (positions.length === 0) return 24250;
+  if (positions.length === 0) return getSpotPrice("NIFTY");
 
   // Count occurrences of each symbol
   const counts: Record<string, number> = {};
@@ -127,6 +127,28 @@ export function WhatIfSimulator({ positions }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Quick Scenario Presets */}
+        <div className="flex flex-wrap gap-1.5">
+          <span className="text-[9px] text-muted-foreground self-center mr-1">Presets:</span>
+          {[
+            { label: "📊 Budget Day", spot: 0, iv: 5, days: 0 },
+            { label: "🗳️ Election", spot: 3, iv: 8, days: 0 },
+            { label: "🏦 RBI Policy", spot: -1, iv: 2, days: 0 },
+            { label: "🦢 Black Swan", spot: -5, iv: 8, days: 0 },
+            { label: "⏰ Theta Decay", spot: 0, iv: -2, days: 3 },
+            { label: "📈 Expiry Day", spot: 0, iv: -5, days: Math.max(baseDTE - 1, 0) },
+            { label: "↩️ Reset", spot: 0, iv: 0, days: 0 },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              className="text-[9px] px-2 py-1 rounded-md bg-accent/50 hover:bg-accent border border-transparent hover:border-border/50 transition-all duration-150 font-medium"
+              onClick={() => { setSpotChange(preset.spot); setIvChange(preset.iv); setDaysForward(preset.days); }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
         {/* Sliders */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-accent/30">
           <div className="space-y-2">

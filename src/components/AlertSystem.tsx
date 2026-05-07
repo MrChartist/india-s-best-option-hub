@@ -34,12 +34,7 @@ interface AlertSystemProps {
 }
 
 export function AlertSystem({ open, onOpenChange }: AlertSystemProps) {
-  const [alerts, setAlerts] = useState<AlertCondition[]>([
-    { id: "1", symbol: "NIFTY", type: "price", condition: "above", value: 24500, active: true, triggered: false, tone: "bullish" },
-    { id: "2", symbol: "NIFTY", type: "price", condition: "below", value: 24000, active: true, triggered: false, tone: "bearish" },
-    { id: "3", symbol: "NIFTY", type: "vix", condition: "above", value: 18, active: true, triggered: false, tone: "warning" },
-    { id: "4", symbol: "NIFTY", type: "pcr", condition: "above", value: 1.3, active: false, triggered: false, tone: "info" },
-  ]);
+  const [alerts, setAlerts] = useState<AlertCondition[]>([]);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -49,13 +44,18 @@ export function AlertSystem({ open, onOpenChange }: AlertSystemProps) {
   const { vix: wsVix } = useWebSocketVix();
   const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
 
+  // Derive live spot from indices data
+  const liveSpot = allIndicesData?.indices?.[0]?.ltp || allIndicesData?.vix?.value ? (allIndicesData as any)?.indices?.[0]?.ltp : 0;
+
   // Alert data from live market stats
+  // VIX serves as IV proxy; PCR derived from VIX level heuristic when chain is unavailable
+  const derivedPCR = liveVix > 0 ? (liveVix > 18 ? 0.7 : liveVix > 14 ? 1.0 : 1.3) : 0;
   const alertData = {
-    spotPrice: 24250,
+    spotPrice: liveSpot,
     vix: liveVix,
-    pcr: 0.95,
-    atmIV: 14.5,
-    maxOIChange: 500000,
+    pcr: derivedPCR,
+    atmIV: liveVix, // VIX ≈ ATM IV for NIFTY
+    maxOIChange: 0,
   };
 
   const handleTriggered = useCallback((alert: AlertCondition) => {

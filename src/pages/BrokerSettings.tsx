@@ -24,6 +24,7 @@ import {
   Server, Zap, Globe, BarChart3, Loader2, CheckCircle, XCircle, Wifi,
 } from "lucide-react";
 import { DatabaseManager } from "@/components/DatabaseManager";
+import { ChartDataDownloader } from "@/components/ChartDataDownloader";
 
 function BrokerCard({
   broker,
@@ -348,6 +349,9 @@ export default function BrokerSettings() {
 
       {/* Database Manager */}
       <DatabaseManager />
+
+      {/* Chart Data Downloader */}
+      <ChartDataDownloader />
 
       <Tabs defaultValue={connectedBrokers.length > 0 ? "connected" : "available"}>
         <TabsList>

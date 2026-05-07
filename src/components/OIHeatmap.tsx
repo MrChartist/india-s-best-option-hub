@@ -7,9 +7,10 @@ import { type OptionData } from "@/lib/mockData";
 interface OIHeatmapProps {
   chain: OptionData[];
   spotPrice: number;
+  stepSize?: number;
 }
 
-export function OIHeatmap({ chain, spotPrice }: OIHeatmapProps) {
+export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
   const heatmapData = useMemo(() => {
     const filtered = chain.filter(o => o.ce.oi > 10000 || o.pe.oi > 10000);
     const maxOI = Math.max(...filtered.map(o => Math.max(o.ce.oi, o.pe.oi)));
@@ -21,9 +22,9 @@ export function OIHeatmap({ chain, spotPrice }: OIHeatmapProps) {
       peOI: o.pe.oi,
       ceOIChg: o.ce.oiChange,
       peOIChg: o.pe.oiChange,
-      isATM: Math.abs(o.strikePrice - spotPrice) < 50,
+      isATM: Math.abs(o.strikePrice - spotPrice) < stepSize,
     }));
-  }, [chain, spotPrice]);
+  }, [chain, spotPrice, stepSize]);
 
   const getColor = (intensity: number, type: "call" | "put") => {
     const alpha = 0.1 + intensity * 0.85;

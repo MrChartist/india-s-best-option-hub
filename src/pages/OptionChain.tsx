@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Crosshair, Wifi, WifiOff, RefreshCw, Bell, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Settings2, Flame, Search, X } from "lucide-react";
+import { Crosshair, Wifi, WifiOff, RefreshCw, Bell, TrendingUp, TrendingDown, Layers, ChevronLeft, ChevronRight, Settings2, Flame, Search, X, Download, BarChart3, ChevronDown, ChevronUp, History } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
+import { StockChart } from "@/components/StockChart";
 import { toast } from "sonner";
 
 // ── Symbol categories for organized browsing ──
@@ -226,19 +227,25 @@ function VolumeBar({ value, max, side }: { value: number; max: number; side: "ca
   );
 }
 
-// ── OI Bar (colored by value intensity) ──
+// ── OI Bar (colored by value intensity with smooth animations) ──
 function OIBar({ value, max, side }: { value: number; max: number; side: "call" | "put" }) {
   const pct = Math.min((value / max) * 100, 100);
   const isHigh = pct > 60;
+  const isMega = pct > 85;
+  const opacity = 0.25 + (pct / 100) * 0.65; // Scale from 0.25 to 0.9
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`text-[10px] font-mono tabular-nums ${isHigh ? (side === "call" ? "text-primary font-semibold" : "text-bearish font-semibold") : ""}`}>
+    <div className="flex items-center gap-1.5 group" title={`${value.toLocaleString("en-IN")} (${pct.toFixed(1)}% of max)`}>
+      <span className={`text-[10px] font-mono tabular-nums transition-colors ${isHigh ? (side === "call" ? "text-primary font-semibold" : "text-bearish font-semibold") : ""}`}>
         {value >= 1000000 ? (value / 1000000).toFixed(1) + "M" : (value / 1000).toFixed(0) + "K"}
       </span>
-      <div className={`w-[50px] h-[6px] rounded-sm overflow-hidden ${side === "call" ? "bg-primary/10" : "bg-bearish/10"}`}>
+      <div className={`w-[55px] h-[7px] rounded-sm overflow-hidden ${side === "call" ? "bg-primary/8" : "bg-bearish/8"}`}>
         <div
-          className={`h-full rounded-sm ${side === "call" ? "bg-primary/50" : "bg-bearish/40"}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full rounded-sm transition-all duration-500 ease-out ${
+            side === "call"
+              ? isMega ? "bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.4)]" : "bg-primary"
+              : isMega ? "bg-bearish shadow-[0_0_6px_hsl(var(--bearish)/0.4)]" : "bg-bearish"
+          }`}
+          style={{ width: `${pct}%`, opacity }}
         />
       </div>
     </div>
@@ -259,6 +266,30 @@ export default function OptionChain() {
   });
   const atmRef = useRef<HTMLTableRowElement>(null);
   const strikeScrollRef = useRef<HTMLDivElement>(null);
+  const [showChart, setShowChart] = useState(false);
+  const [isDownloadingPast, setIsDownloadingPast] = useState(false);
+  const [focusedStrikeIdx, setFocusedStrikeIdx] = useState<number>(-1);
+
+  // ── Keyboard Navigation: J/K to move, G to jump to ATM ──
+  useEffect(() => {
+    if (viewMode !== "expiration" || !hasData) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedStrikeIdx(prev => Math.min(prev + 1, enrichedChain.length - 1));
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedStrikeIdx(prev => Math.max(prev - 1, 0));
+      } else if (e.key === "g") {
+        const atmIdx = enrichedChain.findIndex(r => r.strikePrice === atmStrike);
+        if (atmIdx >= 0) { setFocusedStrikeIdx(atmIdx); scrollToATM(); }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [viewMode, hasData, enrichedChain.length, atmStrike]);
 
   const quickTrade = useCallback((strike: number, type: "CE" | "PE", action: "BUY" | "SELL") => {
     navigate(`/strategy?${new URLSearchParams({ symbol, strike: String(strike), type, action })}`);
@@ -273,6 +304,8 @@ export default function OptionChain() {
   const maxPain = data?.maxPain || 0;
   const expiries = data?.expiries || [];
   const isLive = data?.isLive || false;
+  const afterHours = data?.afterHours || false;
+  const hasData = chain.length > 0;
 
   const atmStrike = useMemo(() => Math.round(spotPrice / stepSize) * stepSize, [spotPrice, stepSize]);
   const totalCEOI = chain.reduce((s, o) => s + o.ce.oi, 0);
@@ -350,6 +383,7 @@ export default function OptionChain() {
     const row = enrichedChain.find(r => r.strikePrice === selectedStrike);
     if (!row) return [];
     // For now show current expiry data; in production would fetch all expiries
+    // SIMULATED: Using factor-based approximation until multi-expiry API is integrated
     return expiries.map((exp, i) => {
       const factor = 1 + i * 0.08; // simulate different expiry prices
       return {
@@ -389,6 +423,98 @@ export default function OptionChain() {
 
   const allStrikes = enrichedChain.map(r => r.strikePrice);
 
+  // ── CSV Download: Export current option chain ──
+  const downloadCSV = useCallback(() => {
+    if (enrichedChain.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    const expLabel = expiries.find(e => e.value === (selectedExpiry || expiries[0]?.value))?.label || "current";
+    const headers = ["Strike","CE_LTP","CE_IV","CE_Delta","CE_Gamma","CE_Theta","CE_Vega","CE_OI","CE_Volume","CE_Bid","CE_Ask","PE_LTP","PE_IV","PE_Delta","PE_Gamma","PE_Theta","PE_Vega","PE_OI","PE_Volume","PE_Bid","PE_Ask"];
+    const rows = enrichedChain.map(r => [
+      r.strikePrice, r.ce.ltp, r.ce.iv, r.ce.delta, r.ce.gamma, r.ce.theta, r.ce.vega, r.ce.oi, r.ce.volume, r.ce.bidPrice, r.ce.askPrice,
+      r.pe.ltp, r.pe.iv, r.pe.delta, r.pe.gamma, r.pe.theta, r.pe.vega, r.pe.oi, r.pe.volume, r.pe.bidPrice, r.pe.askPrice,
+    ].join(","));
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${symbol}_${expLabel.replace(/\s+/g, "_")}_option_chain.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${enrichedChain.length} strikes to CSV`);
+  }, [enrichedChain, symbol, expiries, selectedExpiry]);
+
+  // ── Download Past Option Chain from Dhan API ──
+  const downloadPastOC = useCallback(async (pastExpiry: string) => {
+    setIsDownloadingPast(true);
+    try {
+      const res = await fetch(`http://localhost:4002/api/dhan-proxy?endpoint=option-chain&symbol=${symbol}&expiry=${pastExpiry}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const json = await res.json();
+      const chainData = json?.data || json;
+
+      // Parse Dhan option chain response into CSV
+      if (chainData && typeof chainData === "object") {
+        const headers = ["Strike","CE_LTP","CE_IV","CE_OI","CE_Volume","CE_Delta","CE_Bid","CE_Ask","PE_LTP","PE_IV","PE_OI","PE_Volume","PE_Delta","PE_Bid","PE_Ask"];
+        const rows: string[] = [];
+        
+        // Dhan returns data keyed by strike price
+        const oc = chainData.oc || chainData;
+        if (Array.isArray(oc)) {
+          oc.forEach((row: any) => {
+            rows.push([
+              row.strikePrice || row.strike_price || "",
+              row.ce_ltp || row.call_ltp || "",
+              row.ce_iv || row.call_iv || "",
+              row.ce_oi || row.call_oi || "",
+              row.ce_volume || row.call_volume || "",
+              row.ce_delta || "",
+              row.ce_bid || "",
+              row.ce_ask || "",
+              row.pe_ltp || row.put_ltp || "",
+              row.pe_iv || row.put_iv || "",
+              row.pe_oi || row.put_oi || "",
+              row.pe_volume || row.put_volume || "",
+              row.pe_delta || "",
+              row.pe_bid || "",
+              row.pe_ask || "",
+            ].join(","));
+          });
+        }
+
+        if (rows.length === 0) {
+          // Fallback: dump raw JSON as CSV
+          const blob = new Blob([JSON.stringify(chainData, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${symbol}_${pastExpiry}_option_chain_raw.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast.success(`Downloaded raw option chain data for ${pastExpiry}`);
+        } else {
+          const csv = [headers.join(","), ...rows].join("\n");
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${symbol}_${pastExpiry}_option_chain.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast.success(`Exported ${rows.length} strikes for ${pastExpiry}`);
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Failed to download: ${err.message}`);
+    } finally {
+      setIsDownloadingPast(false);
+    }
+  }, [symbol]);
+
   // Active columns count for colSpan
   const callCols = [columnConfig.iv, columnConfig.intrinsic, columnConfig.timeValue, columnConfig.rho, columnConfig.vega, columnConfig.theta, columnConfig.gamma, columnConfig.delta, columnConfig.price, columnConfig.ask, columnConfig.bid, columnConfig.volume].filter(Boolean).length;
   const putCols = callCols;
@@ -412,12 +538,13 @@ export default function OptionChain() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={`gap-1 text-[9px] ${isLive ? "border-bullish/50 text-bullish" : "border-red-500/30 text-red-400"}`}>
+          <Badge variant="outline" className={`gap-1 text-[9px] ${isLive ? "border-bullish/50 text-bullish" : afterHours ? "border-amber-500/50 text-amber-400" : "border-red-500/30 text-red-400"}`}>
             {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : "OFFLINE"}
+            {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : afterHours ? "CLOSED" : "OFFLINE"}
           </Badge>
           <span className="text-[10px] font-mono">
             {symbol} <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            {afterHours && <span className="text-amber-400/60 ml-1 text-[8px]">(Last Close)</span>}
           </span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => refetch()}>
             <RefreshCw className="h-3.5 w-3.5" />
@@ -425,6 +552,37 @@ export default function OptionChain() {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={scrollToATM}>
             <Crosshair className="h-3.5 w-3.5" />
           </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowChart(v => !v)} title="Toggle Price Chart">
+            <BarChart3 className={`h-3.5 w-3.5 ${showChart ? "text-primary" : ""}`} />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={downloadCSV} title="Download CSV">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Download Past OC Data */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Download Past Option Chain">
+                <History className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3" align="end">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Download Past Expiry</p>
+              <div className="space-y-1">
+                {expiries.map(exp => (
+                  <button
+                    key={exp.value}
+                    onClick={() => downloadPastOC(exp.value)}
+                    disabled={isDownloadingPast}
+                    className="w-full text-left px-2 py-1.5 rounded text-[10px] hover:bg-accent transition-colors flex items-center justify-between"
+                  >
+                    <span>{exp.label} ({exp.daysToExpiry}d)</span>
+                    <Download className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Column Config */}
           <Popover>
@@ -445,6 +603,11 @@ export default function OptionChain() {
           </Popover>
         </div>
       </div>
+
+      {/* Price Chart (collapsible) */}
+      {showChart && (
+        <StockChart symbol={symbol} inline height={280} />
+      )}
 
       {/* Expiry selector */}
       {viewMode === "expiration" && expiries.length > 0 && (
@@ -477,6 +640,20 @@ export default function OptionChain() {
               </SelectContent>
             </Select>
           )}
+        </div>
+      )}
+
+      {/* After-Hours Banner */}
+      {afterHours && hasData && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <div className="flex-1">
+            <p className="text-xs font-medium">Market Closed — Showing Last Available Data</p>
+            <p className="text-[10px] text-amber-400/60 mt-0.5">
+              Data is from the last market session. PCR, Max Pain, and OI values reflect closing snapshot.
+              {data?.cachedAt && ` Cached ${Math.round((Date.now() - data.cachedAt) / 60000)} min ago.`}
+            </p>
+          </div>
         </div>
       )}
 
@@ -585,7 +762,15 @@ export default function OptionChain() {
         <Card>
           <CardContent className="p-0 overflow-auto max-h-[65vh]">
             {isLoading ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Loading...</div>
+              <div className="p-4 space-y-2">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <div className="flex-1 h-6 skeleton-shimmer rounded bg-muted/20" style={{ animationDelay: `${i * 60}ms` }} />
+                    <div className="w-16 h-6 skeleton-shimmer rounded bg-primary/5" />
+                    <div className="flex-1 h-6 skeleton-shimmer rounded bg-muted/20" style={{ animationDelay: `${i * 60 + 30}ms` }} />
+                  </div>
+                ))}
+              </div>
             ) : (
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
@@ -638,14 +823,16 @@ export default function OptionChain() {
                     const uaFlag = unusualActivity.flags.get(row.strikePrice);
                     const hasUA = !!uaFlag;
 
+                    const isFocused = idx === focusedStrikeIdx;
+
                     return (
                       <ContextMenu key={row.strikePrice}>
                         <ContextMenuTrigger asChild>
                           <TableRow
                             ref={isATM ? atmRef : undefined}
                             className={`text-[10px] sm:text-[11px] font-mono cursor-context-menu transition-colors hover:bg-accent/30 ${
-                              isATM ? "bg-primary/[0.06] border-y border-primary/20" : ""
-                            } ${hasUA ? "bg-orange-500/[0.04]" : ""}`}
+                              isATM ? "bg-primary/[0.08] border-y-2 border-primary/30 shadow-[inset_0_0_20px_hsl(var(--primary)/0.06)]" : ""
+                            } ${hasUA ? "bg-orange-500/[0.04]" : ""} ${isFocused ? "ring-1 ring-primary/60 bg-primary/[0.04]" : ""}`}
                           >
                             {/* ── CALL SIDE ── */}
                             {columnConfig.iv && <TableCell className={`text-right py-1.5 tabular-nums ${isITMCall ? "text-muted-foreground/70" : ""}`}>{row.ce.iv.toFixed(1)}</TableCell>}
@@ -675,12 +862,19 @@ export default function OptionChain() {
                             )}
 
                             {/* ── STRIKE ── */}
-                            <TableCell className="text-center py-1.5 bg-accent/50 border-l-2 border-border font-bold relative">
-                              <div className="flex items-center justify-center gap-1">
-                                {hasUA && <Flame className="h-3 w-3 text-orange-500 animate-pulse shrink-0" />}
-                                {row.strikePrice.toLocaleString("en-IN")}
-                                {isATM && <Badge className="text-[7px] px-1 py-0 h-3.5 bg-foreground text-background">{symbol} {spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Badge>}
-                                {isMP && <Badge variant="outline" className="text-[7px] px-1 py-0 h-3.5 border-warning text-warning">MP</Badge>}
+                            <TableCell className="text-center bg-accent/50 border-l-2 border-border py-1.5">
+                              <div className="flex flex-col items-center">
+                                <div className="flex items-center gap-1">
+                                  <span className={`font-bold text-[11px] ${isATM ? "text-primary" : isMP ? "text-warning" : ""}`}>
+                                    {row.strikePrice.toLocaleString("en-IN")}
+                                  </span>
+                                  {isATM && (
+                                    <span className="text-[7px] font-bold bg-primary text-primary-foreground px-1 py-0 rounded-sm leading-tight">
+                                      ATM
+                                    </span>
+                                  )}
+                                </div>
+                                {isMP && <span className="text-[7px] text-warning/60 font-medium">MAX PAIN</span>}
                               </div>
                             </TableCell>
                             <TableCell className="text-center py-1.5 bg-accent/50 border-r-2 border-border text-muted-foreground">{avgIV}</TableCell>
@@ -740,6 +934,30 @@ export default function OptionChain() {
                     );
                   })}
                 </TableBody>
+                {/* ── Sticky Summary Footer ── */}
+                {hasData && (
+                  <tfoot className="sticky bottom-0 z-10 bg-card border-t-2 border-primary/20">
+                    <tr className="text-[10px] font-mono font-semibold">
+                      <td colSpan={callCols} className="text-right py-2 px-2">
+                        <div className="flex items-center justify-end gap-4">
+                          <span className="text-muted-foreground">CE Vol: <span className="text-foreground">{totalCEVol >= 1000000 ? (totalCEVol / 1000000).toFixed(1) + 'M' : (totalCEVol / 1000).toFixed(0) + 'K'}</span></span>
+                          <span className="text-muted-foreground">CE OI: <span className="text-primary font-bold">{totalCEOI >= 1000000 ? (totalCEOI / 1000000).toFixed(1) + 'M' : (totalCEOI / 100000).toFixed(1) + 'L'}</span></span>
+                        </div>
+                      </td>
+                      <td colSpan={2} className="text-center py-2 bg-accent/50 border-x-2 border-border">
+                        <span className={`text-xs font-bold ${Number(pcr) > 1 ? 'text-bullish' : 'text-bearish'}`}>
+                          PCR: {pcr}
+                        </span>
+                      </td>
+                      <td colSpan={callCols} className="text-left py-2 px-2">
+                        <div className="flex items-center gap-4">
+                          <span className="text-muted-foreground">PE OI: <span className="text-bearish font-bold">{totalPEOI >= 1000000 ? (totalPEOI / 1000000).toFixed(1) + 'M' : (totalPEOI / 100000).toFixed(1) + 'L'}</span></span>
+                          <span className="text-muted-foreground">PE Vol: <span className="text-foreground">{totalPEVol >= 1000000 ? (totalPEVol / 1000000).toFixed(1) + 'M' : (totalPEVol / 1000).toFixed(0) + 'K'}</span></span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </Table>
             )}
           </CardContent>
@@ -751,8 +969,19 @@ export default function OptionChain() {
         <Card>
           <CardContent className="p-0 overflow-auto">
             {byStrikeData.length === 0 ? (
-              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Select a strike above</div>
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
+                <Crosshair className="h-8 w-8 opacity-20" />
+                <p className="text-sm">Select a strike price above to compare across expiries</p>
+                <p className="text-[10px] opacity-60">Use the strike selector in the header bar</p>
+              </div>
             ) : (
+              <>
+              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-amber-500/20 bg-amber-500/5">
+                <Badge variant="outline" className="text-[8px] h-4 px-1.5 border-amber-500/40 text-amber-600 gap-1">
+                  ⚠ Simulated
+                </Badge>
+                <span className="text-[9px] text-muted-foreground">Multi-expiry data is approximated from current expiry. Live multi-expiry API integration pending.</span>
+              </div>
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow className="text-[10px] border-b-2">
@@ -820,6 +1049,7 @@ export default function OptionChain() {
                   ))}
                 </TableBody>
               </Table>
+              </>
             )}
           </CardContent>
         </Card>

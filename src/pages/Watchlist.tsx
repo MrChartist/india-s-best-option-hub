@@ -8,7 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { useFnOStocks, useLiveIndices } from "@/hooks/useMarketData";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import { useNavigate } from "react-router-dom";
-import { Search, Star, TrendingUp, TrendingDown, ExternalLink, Radio, Loader2, Plus, X } from "lucide-react";
+import { Search, Star, TrendingUp, TrendingDown, ExternalLink, Radio, Loader2, Plus, X, BarChart3 } from "lucide-react";
+import { MiniChart } from "@/components/MiniChart";
+import { StockChart } from "@/components/StockChart";
 
 const STORAGE_KEY = "optionsdesk_watchlist";
 const DEFAULT_WATCHLIST = ["NIFTY", "BANKNIFTY", "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN", "TATAMOTORS", "BAJFINANCE", "ADANIENT", "LT", "KOTAKBANK", "ITC", "HINDUNILVR"];
@@ -34,6 +36,7 @@ export default function Watchlist() {
   const { data: fnoData, isLoading } = useFnOStocks();
   const { data: indicesResult } = useLiveIndices();
   const wsConnected = useWebSocketStatus();
+  const [chartSymbol, setChartSymbol] = useState<string | null>(null);
 
   const allStocks = fnoData?.allStocks || [];
   const indices = indicesResult?.data || [];
@@ -185,20 +188,29 @@ export default function Watchlist() {
                   <TableHead className="text-right">Volume</TableHead>
                   <TableHead className="text-right">OI</TableHead>
                   <TableHead className="text-right">OI Chg</TableHead>
+                  <TableHead className="text-center w-[90px]">Chart</TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {watchlistRows.map(w => (
-                  <TableRow key={w.symbol} className="text-[11px] font-mono hover:bg-accent/50">
+                {watchlistRows.map(w => {
+                  const dayRange = w.high - w.low;
+                  const dayPos = dayRange > 0 ? ((w.ltp - w.low) / dayRange) * 100 : 50;
+                  return (
+                  <TableRow key={w.symbol} className={`text-[11px] font-mono transition-all duration-150 group border-l-2 ${w.changePercent >= 0 ? "hover:bg-bullish/[0.03] border-transparent hover:border-bullish/50" : "hover:bg-bearish/[0.03] border-transparent hover:border-bearish/50"}`}>
                     <TableCell>
                       <Star
                         className="h-3 w-3 text-warning fill-warning cursor-pointer hover:opacity-60 transition-opacity"
                         onClick={() => removeFromWatchlist(w.symbol)}
                       />
                     </TableCell>
-                    <TableCell className="font-sans font-medium">{w.symbol}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-sans font-medium">
+                      <div className="flex items-center gap-1">
+                        {w.changePercent >= 0 ? <TrendingUp className="h-3 w-3 text-bullish opacity-0 group-hover:opacity-100 transition-opacity" /> : <TrendingDown className="h-3 w-3 text-bearish opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        {w.symbol}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
                       {w.ltp > 0 ? `₹${w.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                     </TableCell>
                     <TableCell className={`text-right ${w.change >= 0 ? "text-bullish" : "text-bearish"}`}>
@@ -229,8 +241,22 @@ export default function Watchlist() {
                     <TableCell className={`text-right ${(w.oiChange || 0) >= 0 ? "text-bullish" : "text-bearish"}`}>
                       {w.oiChange !== 0 ? `${w.oiChange >= 0 ? "+" : ""}${(w.oiChange / 100000).toFixed(1)}L` : "—"}
                     </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <MiniChart symbol={w.symbol} width={80} height={24} />
+                        {/* Day range indicator */}
+                        {dayRange > 0 && (
+                          <div className="relative w-full h-[2px] bg-muted/50 rounded-full">
+                            <div className={`absolute top-[-1px] h-[4px] w-[4px] rounded-full ${w.changePercent >= 0 ? "bg-bullish" : "bg-bearish"}`} style={{ left: `${Math.min(dayPos, 95)}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setChartSymbol(w.symbol)} title="View Chart">
+                          <BarChart3 className="h-3 w-3" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigate(`/option-chain?symbol=${w.symbol}`)}>
                           <ExternalLink className="h-3 w-3" />
                         </Button>
@@ -240,7 +266,8 @@ export default function Watchlist() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {watchlistRows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-8 text-muted-foreground text-sm">
@@ -248,11 +275,41 @@ export default function Watchlist() {
                     </TableCell>
                   </TableRow>
                 )}
+                {watchlistRows.length > 0 && (
+                  <TableRow className="bg-accent/20 border-t-2 border-border font-medium">
+                    <TableCell className="text-[10px] text-muted-foreground py-2">
+                      {watchlistRows.length} symbols
+                    </TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell className="text-right text-[10px] py-2">
+                      <span className="text-bullish">{watchlistRows.filter(w => (w.changePercent || 0) >= 0).length}↑</span>
+                      {" / "}
+                      <span className="text-bearish">{watchlistRows.filter(w => (w.changePercent || 0) < 0).length}↓</span>
+                    </TableCell>
+                    <TableCell className={`text-right text-[10px] font-mono py-2 ${
+                      (watchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(watchlistRows.length, 1)) >= 0 ? "text-bullish" : "text-bearish"
+                    }`}>
+                      Avg: {((watchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(watchlistRows.length, 1))).toFixed(2)}%
+                    </TableCell>
+                    <TableCell colSpan={7} />
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {/* Stock Chart Drawer */}
+      {chartSymbol && (
+        <StockChart
+          symbol={chartSymbol}
+          asSheet
+          open={!!chartSymbol}
+          onOpenChange={(open) => { if (!open) setChartSymbol(null); }}
+        />
+      )}
     </div>
   );
 }

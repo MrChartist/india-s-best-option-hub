@@ -175,7 +175,7 @@ export function useMarketStatus() {
 }
 
 // ── Hook: Live Option Chain ──
-// NO MOCK FALLBACK — returns null when live data unavailable
+// Returns live data during market hours, or cached "last close" data after hours
 export function useLiveOptionChain(symbol: string, expiry?: string) {
   return useQuery({
     queryKey: ["live-option-chain", symbol, expiry],
@@ -186,19 +186,26 @@ export function useLiveOptionChain(symbol: string, expiry?: string) {
           if (result && result.chain.length > 0) {
             markProxyOnline();
             const stepSize = result.chain.length > 1 ? Math.abs(result.chain[1].strikePrice - result.chain[0].strikePrice) : 50;
+            const isAfterHours = !!(result as any).afterHours;
             return {
               chain: result.chain, spotPrice: result.spotPrice, expiries: result.expiries,
               lotSize: getLotSize(symbol), stepSize, maxPain: getMaxPain(result.chain),
               totalCEOI: result.totalCEOI, totalPEOI: result.totalPEOI,
-              isLive: true, source: result.source || "live",
+              isLive: !isAfterHours, afterHours: isAfterHours,
+              source: result.source || "live",
+              cachedAt: (result as any).cachedAt || null,
             };
           }
         } catch (e) { markProxyOffline(); console.warn("Option chain fetch failed:", e); }
       }
-      // NO MOCK — return null so UI shows "unable to load" instead of fake data
       return null;
     },
-    refetchInterval: (query) => query.state.data?.isLive ? 3000 : 15000,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.isLive) return 3000;         // Live: 3s refresh
+      if (data?.afterHours) return 120000;   // After hours: 2min (data won't change)
+      return 15000;                           // Offline/retrying: 15s
+    },
     staleTime: 2000,
     retry: 1,
   });

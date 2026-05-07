@@ -55,52 +55,58 @@
     --chart-grid: 220 13% 91%;
   }
 
-  /* ── DARK MODE — Professional Terminal ── */
+  /* ── DARK MODE — Ultra-Premium Obsidian ── */
   .dark {
-    --background: 225 25% 5%;
-    --foreground: 215 20% 88%;
+    /* Base Backgrounds */
+    --background: 0 0% 4%; /* #0A0A0A */
+    --foreground: 0 0% 95%; /* High contrast white */
 
-    --card: 225 22% 8%;
-    --card-foreground: 215 20% 88%;
+    --card: 0 0% 7%; /* #121212 */
+    --card-foreground: 0 0% 95%;
 
-    --popover: 225 22% 10%;
-    --popover-foreground: 215 20% 88%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 174 72% 44%;
-    --primary-foreground: 225 25% 5%;
+    /* Neon Cyan Primary */
+    --primary: 190 100% 50%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 225 18% 12%;
-    --secondary-foreground: 215 15% 65%;
+    /* Deep Muted Elements */
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 85%;
 
-    --muted: 225 16% 10%;
-    --muted-foreground: 218 10% 42%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 70%;
 
-    --accent: 225 18% 13%;
-    --accent-foreground: 215 20% 88%;
+    --accent: 190 100% 10%; /* Faint cyan tint for active states */
+    --accent-foreground: 190 100% 50%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 100% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 225 16% 12%;
-    --input: 225 16% 14%;
-    --ring: 174 72% 44%;
+    /* Ultra-subtle borders */
+    --border: 0 0% 18%; /* Made borders slightly more visible */
+    --input: 0 0% 18%;
+    --ring: 190 100% 50%;
 
-    --sidebar-background: 228 28% 4%;
-    --sidebar-foreground: 215 10% 50%;
-    --sidebar-primary: 174 72% 44%;
-    --sidebar-primary-foreground: 225 25% 5%;
-    --sidebar-accent: 225 18% 9%;
-    --sidebar-accent-foreground: 215 20% 88%;
-    --sidebar-border: 225 16% 9%;
-    --sidebar-ring: 174 72% 44%;
+    /* Sidebar - blends seamlessly */
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 190 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 8%;
+    --sidebar-ring: 190 100% 50%;
 
-    --bullish: 152 60% 44%;
-    --bullish-foreground: 0 0% 100%;
-    --bearish: 0 68% 52%;
+    /* Market Sentiment Colors (High saturation neon) */
+    --bullish: 145 100% 45%; /* Neon Green */
+    --bullish-foreground: 0 0% 0%;
+    --bearish: 0 100% 60%; /* Neon Red */
     --bearish-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 35 100% 55%; /* Neon Orange */
     --warning-foreground: 0 0% 0%;
-    --chart-grid: 225 16% 11%;
+    --chart-grid: 0 0% 12%;
   }
 }
 
@@ -139,6 +145,18 @@
 
   /* Tabular nums for data */
   .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Subtle noise texture */
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 150px;
+    opacity: 0.025;
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
 }
 
 @layer utilities {
@@ -205,11 +223,12 @@
 
   /* Card hover effect */
   .card-interactive {
-    @apply transition-all duration-200 ease-out;
+    @apply transition-all duration-300 ease-out;
+    transform: translateY(0);
   }
   .card-interactive:hover {
-    @apply border-primary/30 shadow-lg;
-    box-shadow: 0 4px 24px -4px hsl(var(--primary) / 0.08), 0 0 0 1px hsl(var(--primary) / 0.1);
+    @apply border-primary/40 shadow-card-hover;
+    transform: translateY(-2px);
   }
 
   /* Glass effect */
@@ -227,5 +246,44 @@
     @apply absolute inset-0 rounded-full;
     animation: glow-pulse 2s ease-in-out infinite;
     background: hsl(var(--bullish));
+  }
+
+  /* Page transition */
+  @keyframes page-enter {
+    from { opacity: 0; transform: translateY(6px) scale(0.998); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .page-transition {
+    animation: page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Skeleton shimmer effect */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--muted) / 0.3);
+    border-radius: 4px;
+  }
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 25%, hsl(var(--muted-foreground) / 0.05) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* OI bar transition */
+  .oi-bar {
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  }
+
+  /* ATM glow row */
+  .atm-glow {
+    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.3), 0 0 12px -2px hsl(var(--primary) / 0.15);
   }
 }

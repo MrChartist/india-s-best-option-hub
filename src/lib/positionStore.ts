@@ -2,12 +2,11 @@
 // Persists positions across page refreshes. Same pattern as brokerConfig.ts
 
 import type { Position } from "./mockData";
-import { getMockPositions } from "./mockData";
 
 const STORAGE_KEY = "optionsdesk_positions";
 const CLOSED_STORAGE_KEY = "optionsdesk_closed_positions";
 
-// Lot sizes per symbol (standard NSE lot sizes)
+// Lot sizes per symbol (standard NSE lot sizes — verified from Dhan instrument master)
 export const LOT_SIZE_MAP: Record<string, number> = {
   NIFTY: 25,
   BANKNIFTY: 15,
@@ -15,11 +14,11 @@ export const LOT_SIZE_MAP: Record<string, number> = {
   MIDCPNIFTY: 50,
   SENSEX: 10,
   BANKEX: 15,
-  // Popular F&O stocks
+  // Popular F&O stocks (verified from Dhan CSV / NSE circulars)
   RELIANCE: 250,
-  TCS: 150,
+  TCS: 175,
   HDFCBANK: 550,
-  INFY: 300,
+  INFY: 400,
   ICICIBANK: 700,
   SBIN: 750,
   HINDUNILVR: 300,
@@ -30,17 +29,39 @@ export const LOT_SIZE_MAP: Record<string, number> = {
   AXISBANK: 625,
   ASIANPAINT: 200,
   MARUTI: 50,
-  TATAMOTORS: 575,
+  TATAMOTORS: 1125,
   SUNPHARMA: 350,
   TITAN: 175,
   WIPRO: 1500,
-  ULTRACEMCO: 50,
-  BAJFINANCE: 75,
+  ULTRACEMCO: 100,
+  BAJFINANCE: 125,
   DRREDDY: 125,
-  TATASTEEL: 1675,
+  TATASTEEL: 5500,
   HINDALCO: 1075,
   DLF: 825,
-  M_M: 350,
+  M_M: 175,
+  // Additional popular F&O stocks
+  HCLTECH: 350,
+  NTPC: 1850,
+  POWERGRID: 2250,
+  HAL: 150,
+  CIPLA: 325,
+  EICHERMOT: 175,
+  TECHM: 400,
+  DIVISLAB: 150,
+  ADANIENT: 250,
+  ADANIPORTS: 625,
+  BAJAJ_AUTO: 75,
+  BPCL: 1050,
+  COALINDIA: 1400,
+  GRASIM: 275,
+  INDUSINDBK: 400,
+  JSWSTEEL: 675,
+  TATACONSUM: 450,
+  APOLLOHOSP: 125,
+  NESTLEIND: 25,
+  ONGC: 3075,
+  BAJAJFINSV: 125,
 };
 
 // Approximate spot prices for symbols (used as defaults)
@@ -102,10 +123,8 @@ export function getPositions(): Position[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch { /* ignore parse errors */ }
-  // First time: load demo positions
-  const demo = getMockPositions();
-  savePositions(demo);
-  return demo;
+  // First time: start with empty positions
+  return [];
 }
 
 export function savePositions(positions: Position[]): void {

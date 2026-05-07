@@ -16,7 +16,7 @@ import {
   getLotSize, getSpotPrice, type ClosedPosition,
   LOT_SIZE_MAP, SPOT_PRICE_MAP,
 } from "@/lib/positionStore";
-import { Plus, Trash2, DollarSign, Shield, Clock, Activity, BarChart3, Download, Upload, X, Check, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, DollarSign, Shield, Clock, Activity, BarChart3, Download, Upload, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Bar } from "recharts";
 import { WhatIfSimulator } from "@/components/WhatIfSimulator";
 import { useToast } from "@/hooks/use-toast";
@@ -215,13 +215,7 @@ export default function PositionTracker() {
     toast({ title: "All positions cleared" });
   }, [toast]);
 
-  const handleLoadDemo = useCallback(() => {
-    const { getMockPositions } = require("@/lib/mockData");
-    const demo = getMockPositions();
-    savePositions(demo);
-    setPositions(demo);
-    toast({ title: "Demo positions loaded" });
-  }, [toast]);
+
 
   const handleExport = useCallback(() => {
     const data = JSON.stringify({ active: positions, closed: closedPositions, exportedAt: new Date().toISOString() }, null, 2);
@@ -234,6 +228,31 @@ export default function PositionTracker() {
     URL.revokeObjectURL(url);
     toast({ title: "Positions exported" });
   }, [positions, closedPositions, toast]);
+
+  const handleImport = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target?.result as string);
+          if (data.active && Array.isArray(data.active)) {
+            savePositions(data.active);
+            setPositions(data.active);
+          }
+          toast({ title: `Imported ${data.active?.length || 0} positions` });
+        } catch {
+          toast({ title: "Invalid file format", variant: "destructive" });
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [toast]);
 
   const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
 
@@ -253,9 +272,10 @@ export default function PositionTracker() {
           <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleExport}>
             <Download className="h-3 w-3" /> Export
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleLoadDemo}>
-            <RotateCcw className="h-3 w-3" /> Demo
+          <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={handleImport}>
+            <Upload className="h-3 w-3" /> Import
           </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 text-destructive hover:text-destructive">
@@ -351,8 +371,8 @@ export default function PositionTracker() {
       )}
 
       {/* Portfolio Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-        <Card className={stats.totalPnl >= 0 ? "border-bullish/20" : "border-bearish/20"}>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 stagger-children">
+        <Card className={`transition-all duration-200 hover:shadow-md ${stats.totalPnl >= 0 ? "border-bullish/20 hover:border-bullish/40" : "border-bearish/20 hover:border-bearish/40"}`}>
           <CardContent className="pt-3 pb-3 text-center">
             <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="h-3 w-3" /> Total P&L</p>
             <p className={`text-xl font-bold font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
@@ -361,32 +381,35 @@ export default function PositionTracker() {
             <p className={`text-[10px] font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.pnlPercent >= 0 ? "+" : ""}{stats.pnlPercent}%</p>
           </CardContent>
         </Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Net Delta</p>
           <p className={`text-lg font-bold font-mono ${stats.totalDelta >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalDelta}</p>
+          <p className="text-[8px] text-muted-foreground/60">{stats.totalDelta >= 0 ? "Net Long" : "Net Short"}</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Net Theta</p>
           <p className={`text-lg font-bold font-mono ${stats.totalTheta >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalTheta}/d</p>
+          <p className="text-[8px] text-muted-foreground/60">{stats.totalTheta >= 0 ? "Earning daily" : "Decaying daily"}</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Net Vega</p>
           <p className={`text-lg font-bold font-mono ${stats.totalVega >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalVega}</p>
+          <p className="text-[8px] text-muted-foreground/60">{stats.totalVega >= 0 ? "Long vol" : "Short vol"}</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Investment</p>
           <p className="text-lg font-bold font-mono">₹{(stats.totalInvestment / 1000).toFixed(1)}K</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Margin</p>
           <p className="text-lg font-bold font-mono">₹{(stats.totalMargin / 1000).toFixed(0)}K</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground">Win Rate</p>
           <p className={`text-lg font-bold font-mono ${stats.winRate >= 50 ? "text-bullish" : "text-bearish"}`}>{stats.winRate}%</p>
           <p className="text-[9px] text-muted-foreground">{stats.winners}W/{stats.losers}L</p>
         </CardContent></Card>
-        <Card><CardContent className="pt-3 pb-3 text-center">
+        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
           <p className="text-[9px] text-muted-foreground flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> Risk</p>
           <p className={`text-lg font-bold font-mono ${Math.abs(stats.totalDelta) > 500 ? "text-bearish" : "text-bullish"}`}>
             {Math.abs(stats.totalDelta) > 500 ? "High" : Math.abs(stats.totalDelta) > 200 ? "Med" : "Low"}
@@ -503,9 +526,7 @@ export default function PositionTracker() {
               <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowAddForm(true)}>
                 <Plus className="h-3 w-3 mr-1" /> Add Position
               </Button>
-              <Button size="sm" variant="outline" className="text-xs" onClick={handleLoadDemo}>
-                <RotateCcw className="h-3 w-3 mr-1" /> Load Demo
-              </Button>
+
             </div>
           </CardContent>
         </Card>
@@ -628,6 +649,7 @@ export default function PositionTracker() {
                     <TableHead className="text-right">Exit</TableHead>
                     <TableHead className="text-right">Lots</TableHead>
                     <TableHead className="text-right">Realized P&L</TableHead>
+                    <TableHead className="text-right">P&L%</TableHead>
                     <TableHead className="text-center">Closed On</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -645,6 +667,9 @@ export default function PositionTracker() {
                       <TableCell className="text-right">{p.lots}</TableCell>
                       <TableCell className={`text-right font-bold ${p.realizedPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
                         {p.realizedPnl >= 0 ? "+" : ""}₹{p.realizedPnl.toLocaleString("en-IN")}
+                      </TableCell>
+                      <TableCell className={`text-right ${p.realizedPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
+                        {p.entryPrice > 0 ? `${((p.exitPrice - p.entryPrice) / p.entryPrice * 100 * (p.action === "BUY" ? 1 : -1)).toFixed(1)}%` : "—"}
                       </TableCell>
                       <TableCell className="text-center text-muted-foreground">{p.exitDate}</TableCell>
                     </TableRow>

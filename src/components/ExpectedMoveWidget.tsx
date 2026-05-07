@@ -12,9 +12,22 @@ interface Props {
   compact?: boolean;
 }
 
-export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 24250.75, iv, daysToExpiry = 4, compact = false }: Props) {
-  const effectiveIV = iv || 0; // No mock VIX fallback
+export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 0, iv, daysToExpiry = 4, compact = false }: Props) {
+  const effectiveIV = iv || 0;
   const move = useMemo(() => calculateExpectedMove(spotPrice, effectiveIV, daysToExpiry), [spotPrice, effectiveIV, daysToExpiry]);
+
+  // Show placeholder if data not ready
+  if (effectiveIV === 0 || spotPrice === 0) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-center">
+          <Target className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground">{symbol} Expected Move</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-1">Waiting for VIX / spot data…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (compact) {
     return (

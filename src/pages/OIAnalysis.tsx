@@ -22,6 +22,8 @@ export default function OIAnalysis() {
   const spotPrice = liveData?.spotPrice || 0;
   const stepSize = liveData?.stepSize || 50;
   const isLive = liveData?.isLive || false;
+  const afterHours = liveData?.afterHours || false;
+  const hasData = chain.length > 0;
   const maxPain = useMemo(() => getMaxPain(chain), [chain]);
   // Live PCR computed from current chain
   const pcrData = useMemo(() => calculatePCR(chain), [chain]);
@@ -117,7 +119,9 @@ export default function OIAnalysis() {
   const totalCEOIChg = chain.reduce((s, o) => s + o.ce.oiChange, 0);
   const totalPEOIChg = chain.reduce((s, o) => s + o.pe.oiChange, 0);
 
-  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
+  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "8px 12px" };
+  const fmtK = (v: number) => `${v >= 0 ? "+" : ""}${v.toLocaleString("en-IN")}K`;
+  const fmtOI = (v: number, name: string) => [`${v.toLocaleString("en-IN")}K`, name];
 
   return (
     <div className="space-y-4">
@@ -125,14 +129,15 @@ export default function OIAnalysis() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">OI Analysis</h1>
           <div className="flex items-center gap-3">
-            <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : "border-red-500/50 text-red-400"}`}>
+            <Badge variant="outline" className={`gap-1 text-[10px] ${isLive ? "border-bullish text-bullish" : afterHours ? "border-amber-500/50 text-amber-400" : "border-red-500/50 text-red-400"}`}>
               {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isLive ? "LIVE" : "OFFLINE"}
+              {isLive ? "LIVE" : afterHours ? "CLOSED" : "OFFLINE"}
             </Badge>
-            {isLive && spotPrice > 0 && (
+            {(isLive || afterHours) && spotPrice > 0 && (
               <span className="text-xs font-mono text-muted-foreground">
                 Spot: <span className="text-foreground font-medium">{spotPrice.toLocaleString("en-IN")}</span>
                 {maxPain > 0 && <> · Max Pain: <span className="text-warning font-medium">{maxPain.toLocaleString("en-IN")}</span></>}
+                {afterHours && <span className="text-amber-400/60 ml-1">(Last Close)</span>}
               </span>
             )}
             <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Heatmap</p>
@@ -155,16 +160,57 @@ export default function OIAnalysis() {
         </div>
       </div>
 
-      {/* Loading / Empty State */}
-      {!isLive && !isLoading && (
+      {/* After-Hours Banner */}
+      {afterHours && hasData && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <p className="text-xs font-medium">Market Closed — Showing last available OI data from closing session</p>
+        </div>
+      )}
+
+      {/* Loading / Empty State — professional skeleton with market info */}
+      {!hasData && !isLoading && (
         <Card>
-          <CardContent className="py-12 text-center">
-            <WifiOff className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">No Live Data Available</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">Market may be closed or proxy is unreachable. Data auto-refreshes every 3 seconds when live.</p>
-            <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={() => refetch()}>
-              <RefreshCw className="h-3 w-3" /> Retry
-            </Button>
+          <CardContent className="py-8 space-y-5">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-muted/50 mb-3">
+                <WifiOff className="h-7 w-7 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-semibold text-muted-foreground">Waiting for Option Chain Data</p>
+              <p className="text-xs text-muted-foreground/60 mt-1.5 max-w-md mx-auto">
+                Data refreshes automatically during market hours. The proxy server must be running on port 4002.
+              </p>
+            </div>
+            {/* Animated skeleton chart */}
+            <div className="flex items-end justify-center gap-1.5 h-[100px] px-8">
+              {[35, 60, 45, 80, 55, 70, 40, 65, 50, 75, 38, 62, 48, 72, 42].map((h, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-t-sm animate-pulse"
+                  style={{
+                    height: `${h}%`,
+                    backgroundColor: i < 7 ? 'hsl(var(--bearish) / 0.15)' : 'hsl(var(--bullish) / 0.15)',
+                    animationDelay: `${i * 80}ms`,
+                  }}
+                />
+              ))}
+            </div>
+            {/* Market hours info */}
+            <div className="flex justify-center gap-6 text-[10px] text-muted-foreground/50">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-bullish/40" />
+                NSE: 09:15 — 15:30 IST
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                Auto-refresh: Every 3s
+              </div>
+            </div>
+            <div className="text-center">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => refetch()}>
+                <RefreshCw className="h-3 w-3" /> Retry Now
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -292,7 +338,7 @@ export default function OIAnalysis() {
       {/* Heatmap + S/R side panels */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-          <OIHeatmap chain={chain} spotPrice={spotPrice} />
+          <OIHeatmap chain={chain} spotPrice={spotPrice} stepSize={stepSize} />
         </div>
         <SupportResistance chain={chain} spotPrice={spotPrice} />
       </div>
@@ -331,7 +377,7 @@ export default function OIAnalysis() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
                     <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}K`, ""]} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => fmtOI(v, name)} />
                     <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
                     <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
                     <Bar dataKey="ceDeltaOI" fill="hsl(142 71% 45%)" opacity={0.7} name="CE Delta×OI" radius={[2, 2, 0, 0]} />
@@ -415,9 +461,9 @@ export default function OIAnalysis() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
                     <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => fmtOI(v, name)} />
                     <ReferenceLine x={maxPain} stroke="hsl(38 92% 50%)" strokeDasharray="5 5" label={{ value: "Max Pain", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
-                    <ReferenceLine x={Math.round(spotPrice / 50) * 50} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
+                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
                     <Bar dataKey="callOI" fill="hsl(142 71% 45%)" opacity={0.8} name="Call OI" radius={[2, 2, 0, 0]} />
                     <Bar dataKey="putOI" fill="hsl(0 84% 60%)" opacity={0.8} name="Put OI" radius={[2, 2, 0, 0]} />
                   </BarChart>

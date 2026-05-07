@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useLiveIndices, useMarketStatus, useExpiryList, useAllIndices } from "@/hooks/useMarketData";
+import { getSpotPrice } from "@/lib/positionStore";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
@@ -60,7 +61,7 @@ export default function Index() {
   const indicativeNifty = marketStatusResult?.indicativeNifty;
   
   // Live VIX value for Expected Move calculations
-  const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 13.5;
+  const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
 
   const nearestExpiries = useMemo(() => {
     const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
@@ -135,13 +136,13 @@ export default function Index() {
         <div className="grid lg:grid-cols-3 gap-3">
           <ExpectedMoveWidget
             symbol="NIFTY"
-            spotPrice={indices[0]?.ltp || 24250.75}
+            spotPrice={indices[0]?.ltp || getSpotPrice("NIFTY")}
             iv={liveVix}
             daysToExpiry={getDTE("NIFTY")}
           />
           <ExpectedMoveWidget
             symbol="BANKNIFTY"
-            spotPrice={indices[1]?.ltp || 51850.40}
+            spotPrice={indices[1]?.ltp || getSpotPrice("BANKNIFTY")}
             iv={liveVix * 1.15}
             daysToExpiry={getDTE("BANKNIFTY")}
           />

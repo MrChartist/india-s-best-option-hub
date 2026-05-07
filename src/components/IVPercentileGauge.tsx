@@ -143,7 +143,7 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
                     <XAxis dataKey="strike" tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["dataMin - 2", "dataMax + 2"]} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(1)}%`, ""]} />
-                    <ReferenceLine x={Math.round(spotPrice / (chain.length > 1 ? Math.abs(chain[1].strikePrice - chain[0].strikePrice) : 50)) * (chain.length > 1 ? Math.abs(chain[1].strikePrice - chain[0].strikePrice) : 50)} stroke="hsl(var(--primary))" strokeDasharray="3 3" label={{ value: "ATM", fill: "hsl(var(--primary))", fontSize: 9 }} />
+                    <ReferenceLine x={Math.round(spotPrice / (chain.length > 1 ? Math.abs(chain[1].strikePrice - chain[0].strikePrice) : 50)) * (chain.length > 1 ? Math.abs(chain[1].strikePrice - chain[0].strikePrice) : 50)} stroke="hsl(var(--primary))" strokeDasharray="3 3" label={{ value: "ATM", fill: "hsl(var(--primary))", fontSize: 9, position: "top" }} />
                     <Line type="monotone" dataKey="callIV" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} name="Call IV" />
                     <Line type="monotone" dataKey="putIV" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="Put IV" />
                     <Area type="monotone" dataKey="avgIV" stroke="hsl(var(--primary))" fill="url(#ivSmileGrad)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Avg IV" />

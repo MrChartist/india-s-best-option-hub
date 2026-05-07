@@ -48,6 +48,11 @@ const NSE_BASE = "https://www.nseindia.com";
 
 const cache = new Map();
 
+// Last-known-good cache — persists valid data for 18h (across market close)
+// This ensures after-hours users still see the last available option chain, PCR, max pain etc.
+const lastGoodCache = new Map();
+const LAST_GOOD_TTL = 18 * 60 * 60 * 1000; // 18 hours
+
 function getCached(key) {
   const entry = cache.get(key);
   if (entry && Date.now() < entry.expiry) return entry.data;
@@ -57,10 +62,21 @@ function getCached(key) {
 
 function setCache(key, data, ttlMs) {
   cache.set(key, { data, expiry: Date.now() + ttlMs });
-  if (cache.size > 100) {
+  if (cache.size > 200) {
     const oldest = cache.keys().next().value;
     if (oldest) cache.delete(oldest);
   }
+}
+
+function setLastGood(key, data) {
+  lastGoodCache.set(key, { data, timestamp: Date.now() });
+}
+
+function getLastGood(key) {
+  const entry = lastGoodCache.get(key);
+  if (entry && Date.now() - entry.timestamp < LAST_GOOD_TTL) return entry;
+  if (entry) lastGoodCache.delete(key);
+  return null;
 }
 
 // ══════════════════════════════════════════════
@@ -126,43 +142,108 @@ async function handleDhanProxy(params, userClientId, userAccessToken) {
     case "option-chain": {
       const underlying = UNDERLYING_MAP[symbol];
       if (!underlying) throw new Error(`Unknown symbol: ${symbol}. Supported: ${Object.keys(UNDERLYING_MAP).join(", ")}`);
+      const lastGoodKey = `lastgood:oc:${symbol}:${expiry || "nearest"}`;
 
-      let expiryDate = expiry;
-      if (!expiryDate) {
-        const expiryListKey = `dhan:expiry-list:${symbol}:`;
-        let expiryList = getCached(expiryListKey);
-        if (!expiryList) {
-          expiryList = await dhanFetch("/optionchain/expirylist", {
-            UnderlyingScrip: underlying.underlyingScrip,
-            UnderlyingSeg: underlying.expirySegment,
-          }, "POST", userClientId, userAccessToken);
-          setCache(expiryListKey, expiryList, 60000);
-          await new Promise(r => setTimeout(r, 3500));
+      try {
+        let expiryDate = expiry;
+        if (!expiryDate) {
+          try {
+            const expiryListKey = `dhan:expiry-list:${symbol}:`;
+            let expiryList = getCached(expiryListKey);
+            if (!expiryList) {
+              expiryList = await dhanFetch("/optionchain/expirylist", {
+                UnderlyingScrip: underlying.underlyingScrip,
+                UnderlyingSeg: underlying.expirySegment,
+              }, "POST", userClientId, userAccessToken);
+              setCache(expiryListKey, expiryList, 300000);
+            }
+            if (expiryList?.data?.length > 0) expiryDate = expiryList.data[0];
+          } catch (expiryErr) {
+            // Expiry list failed — will try OC without specific expiry
+            console.log(`  ⚠️ Expiry list fetch failed for ${symbol}: ${expiryErr.message}`);
+          }
         }
-        if (expiryList?.data?.length > 0) expiryDate = expiryList.data[0];
+
+        const body = {
+          UnderlyingScrip: underlying.underlyingScrip,
+          UnderlyingSeg: underlying.expirySegment,
+        };
+        if (expiryDate) body.ExpiryDate = expiryDate;
+
+        let result;
+        try {
+          result = await dhanFetch("/optionchain", body, "POST", userClientId, userAccessToken);
+        } catch (ocErr) {
+          // If "Invalid Expiry Date" error, retry without expiry
+          if (ocErr.message.includes("Invalid Expiry") && expiryDate) {
+            console.log(`  🔄 Retrying OC for ${symbol} without expiry date...`);
+            const retryBody = { UnderlyingScrip: underlying.underlyingScrip, UnderlyingSeg: underlying.expirySegment };
+            result = await dhanFetch("/optionchain", retryBody, "POST", userClientId, userAccessToken);
+          } else {
+            throw ocErr;
+          }
+        }
+        
+        // Check if chain has actual data (not empty)
+        const hasData = result?.data?.oc && Object.keys(result.data.oc).length > 0;
+        if (hasData) {
+          // Save to last-good cache for after-hours serving
+          setLastGood(lastGoodKey, result);
+          setCache(cacheKey, result, 5000);
+          return { data: result, cacheHit: false };
+        }
+        
+        // Dhan returned empty — check last-good cache
+        const lastGood = getLastGood(lastGoodKey);
+        if (lastGood) {
+          console.log(`  📦 Serving last-good OC for ${symbol} (cached ${Math.round((Date.now() - lastGood.timestamp) / 60000)}min ago)`);
+          const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
+          setCache(cacheKey, afterHoursResult, 30000);
+          return { data: afterHoursResult, cacheHit: false };
+        }
+        
+        // No last-good — return the empty result (not a 500!)
+        setCache(cacheKey, result, 30000); // Cache empty result for 30s to avoid hammering
+        return { data: result, cacheHit: false };
+      } catch (e) {
+        // Dhan API failed — try last-good cache
+        const lastGood = getLastGood(lastGoodKey);
+        if (lastGood) {
+          console.log(`  📦 Dhan error, serving last-good OC for ${symbol}: ${e.message}`);
+          const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
+          return { data: afterHoursResult, cacheHit: false };
+        }
+        // No cache — return clean empty response instead of 500
+        console.log(`  ⚠️ OC unavailable for ${symbol} (no cache): ${e.message}`);
+        const emptyResult = { status: "success", data: { oc: {} }, afterHours: true };
+        setCache(cacheKey, emptyResult, 60000); // Cache for 1min to avoid hammering
+        return { data: emptyResult, cacheHit: false };
       }
-
-      const body = {
-        UnderlyingScrip: underlying.underlyingScrip,
-        UnderlyingSeg: underlying.expirySegment,
-      };
-      if (expiryDate) body.ExpiryDate = expiryDate;
-
-      const result = await dhanFetch("/optionchain", body, "POST", userClientId, userAccessToken);
-      setCache(cacheKey, result, 3500);
-      return { data: result, cacheHit: false };
     }
 
     case "expiry-list": {
       const underlying = UNDERLYING_MAP[symbol];
       if (!underlying) throw new Error(`Unknown symbol: ${symbol}`);
+      const lastGoodKey = `lastgood:expiry:${symbol}`;
 
-      const result = await dhanFetch("/optionchain/expirylist", {
-        UnderlyingScrip: underlying.underlyingScrip,
-        UnderlyingSeg: underlying.expirySegment,
-      }, "POST", userClientId, userAccessToken);
-      setCache(cacheKey, result, 60000);
-      return { data: result, cacheHit: false };
+      try {
+        const result = await dhanFetch("/optionchain/expirylist", {
+          UnderlyingScrip: underlying.underlyingScrip,
+          UnderlyingSeg: underlying.expirySegment,
+        }, "POST", userClientId, userAccessToken);
+        if (result?.data?.length > 0) {
+          setLastGood(lastGoodKey, result);
+        }
+        setCache(cacheKey, result, 300000); // 5min cache for expiry list
+        return { data: result, cacheHit: false };
+      } catch (e) {
+        const lastGood = getLastGood(lastGoodKey);
+        if (lastGood) {
+          console.log(`  📦 Serving last-good expiry list for ${symbol}: ${e.message}`);
+          return { data: lastGood.data, cacheHit: false };
+        }
+        throw e;
+      }
     }
 
     case "ltp": {
@@ -256,7 +337,7 @@ async function handleDhanProxy(params, userClientId, userAccessToken) {
     }
 
     case "historical": {
-      // Fetch intraday historical candle data
+      // Fetch intraday or daily historical candle data
       const secId = params.get("securityId");
       const exchSeg = params.get("exchangeSegment") || "IDX_I";
       const instrument = params.get("instrument") || "INDEX";
@@ -278,19 +359,28 @@ async function handleDhanProxy(params, userClientId, userAccessToken) {
       const cachedHist = getCached(historicalCacheKey);
       if (cachedHist) return { data: cachedHist, cacheHit: true };
 
+      // "D" = Daily candles → /charts/historical (no interval param needed)
+      // Anything else ("1","5","15","60") = intraday → /charts/intraday
+      const isDailyCandle = interval === "D";
+      const apiPath = isDailyCandle ? "/charts/historical" : "/charts/intraday";
+
       const body = {
         securityId: secId,
         exchangeSegment: exchSeg,
         instrument,
         fromDate: from,
         toDate: to,
-        interval,
         expiryCode: 0,
         oi: exchSeg === "NSE_FNO",
       };
+      // Only add interval for intraday calls
+      if (!isDailyCandle) {
+        body.interval = interval;
+      }
 
-      const result = await dhanFetch("/charts/intraday", body, "POST", userClientId, userAccessToken);
-      setCache(historicalCacheKey, result, 60000); // 1min cache
+      console.log(`  📊 Fetching ${isDailyCandle ? "daily" : "intraday"} chart: ${secId} (${from} → ${to}), interval=${interval}`);
+      const result = await dhanFetch(apiPath, body, "POST", userClientId, userAccessToken);
+      setCache(historicalCacheKey, result, isDailyCandle ? 300000 : 60000); // 5min cache for daily, 1min for intraday
       return { data: result, cacheHit: false };
     }
 
