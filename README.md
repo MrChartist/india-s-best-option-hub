@@ -15,7 +15,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Pages Guide](#-pages-guide) · [Roadmap](#-current-status--roadmap) · [Contributing](#-contributing)
+[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
 
 </div>
 
@@ -25,11 +25,13 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 >
 > Core features are stable and production-ready. Some advanced broker integrations (Zerodha, Angel One, Upstox) have UI support but are pending backend relay implementation — contributions welcome! See the [Roadmap](#-current-status--roadmap) for what's next.
 >
+> Runs locally on your own machine. No hosting, no cloud database, and no required broker key for the basic dashboard experience.
+>
 > **Fork it, build on it, make it yours!** MIT licensed. If something doesn't make sense, use Claude/ChatGPT/Gemini to inspect the code, understand the flow, and iterate safely.
 
 ---
 
-## 📸 Live Screenshots
+## Preview
 
 <details open>
 <summary><strong>🌙 Dark Mode — Market Dashboard</strong></summary>
@@ -42,6 +44,13 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 <summary><strong>☀️ Light Mode — Dashboard</strong></summary>
 
 ![Dashboard Light Mode](docs/screenshots/dashboard-light.png)
+
+</details>
+
+<details>
+<summary><strong>Polished Compact Navigation</strong></summary>
+
+![Mr. Chartist compact navigation rail](docs/screenshots/dashboard-collapsed-navbar.png)
 
 </details>
 
@@ -75,14 +84,6 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 
 ---
 
-## Preview
-
-![Mr. Chartist dashboard with polished sidebar](docs/screenshots/dashboard-light.png)
-
-![Mr. Chartist compact navigation rail](docs/screenshots/dashboard-collapsed-navbar.png)
-
----
-
 ## 🧠 What Is This?
 
 This is a **free, browser-based Options & Futures analytics terminal** for the Indian stock market (NSE).
@@ -97,7 +98,37 @@ This is a **free, browser-based Options & Futures analytics terminal** for the I
 - 📈 **Options traders** who want professional tools without paying ₹2000+/month
 - 🎓 **Beginners** learning about option chains, OI analysis, and Greeks
 - 💻 **Developers** who want to build on top of a solid F&O analytics platform
-- 🧪 **Vibe coders** who want a real-world project to hack on with AI tools
+- 🧪 **Builders and learners** who want a real-world project to study, customize, and improve
+
+---
+
+## Start Here (No Coding Experience Needed)
+
+You only need three things: **Node.js**, this project folder, and a browser. The app runs on your own computer, so you do not need to buy hosting or deploy anything.
+
+### Windows PC
+
+1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+2. Download this project as a ZIP from GitHub and extract it, or clone it with Git.
+3. Open the extracted project folder.
+4. Click the folder address bar, type `cmd`, and press **Enter**. A terminal opens inside the project.
+5. Run `npm install`.
+6. Run `npm run dev`.
+7. Open `http://localhost:4001` in Chrome, Edge, or Brave.
+
+### Mac
+
+1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+2. Download this project as a ZIP from GitHub and unzip it, or clone it with Git.
+3. Open **Terminal**.
+4. Type `cd `, drag the project folder into Terminal, and press **Enter**.
+5. Run `npm install`.
+6. Run `npm run dev`.
+7. Open `http://localhost:4001` in Safari, Chrome, or Brave.
+
+Keep the terminal window open while using the dashboard. To stop the app, click the terminal and press `Ctrl+C`.
+
+You can use the basic dashboard without broker credentials. Add a free Dhan API key only if you want the best option-chain, Greeks, and live tick experience.
 
 ---
 
@@ -189,6 +220,14 @@ This starts **two servers simultaneously**:
 **Open your browser and go to:** `http://localhost:4001`
 
 🎉 **That's it!** You should see the dashboard loading. During market hours (Mon–Fri, 9:15 AM – 3:30 PM IST), live data from TradingView and NSE will populate automatically — no API key needed for basic data.
+
+### What Works Without API Keys
+
+| Works immediately | Needs optional Dhan key |
+|-------------------|-------------------------|
+| Dashboard overview, index cards, watchlist, sector flow, scanners, and many fallback data widgets | Full Dhan option chain, Greeks, expiry metadata, and live WebSocket ticks |
+| Local settings, local watchlist, browser storage, and theme preferences | Highest-quality real-time derivatives data |
+| Yahoo Finance historical candle downloads | Broker-specific authenticated endpoints |
 
 ### Step 4 (Optional): Add Dhan API for Premium Data
 
@@ -635,27 +674,9 @@ If you're new to web development or this codebase, here's how to navigate:
 
 ### Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Browser (React)                  │
-│                                                     │
-│  Pages → Hooks (useMarketData) → API (marketApi)   │
-│             ↓                        ↓              │
-│     WebSocket Client          fetch() calls         │
-│         (ws://)               (http://)             │
-└─────────────┬──────────────────────┬────────────────┘
-              │                      │
-              ▼                      ▼
-┌─────────────────────────────────────────────────────┐
-│              Proxy Server (Node.js :4002)            │
-│                                                     │
-│  WebSocket Relay ← Dhan WS (binary)    HTTP Routes  │
-│  (JSON broadcast)                       ↓     ↓    │
-│                                    Dhan  NSE  TV    │
-│                                    API   API  Scan  │
-│                           ┌─ Cache Layer (Map) ──┐  │
-└─────────────────────────────────────────────────────┘
-```
+![How Mr. Chartist Terminal Works](docs/screenshots/architecture-white-mrchartist.png)
+
+The terminal is intentionally local-first: the React app runs at `http://localhost:4001`, the local proxy runs at `http://localhost:4002`, and your broker credentials stay on your own machine.
 
 ---
 
