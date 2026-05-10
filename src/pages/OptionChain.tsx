@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { StockChart } from "@/components/StockChart";
+import { getActiveBroker, getBrokerInfo } from "@/lib/brokerConfig";
 import { toast } from "sonner";
 
 // ── Symbol categories for organized browsing ──
@@ -682,19 +683,23 @@ export default function OptionChain() {
       )}
 
       {/* Empty State: No data and not loading */}
-      {!hasData && !afterHours && data !== undefined && (
+      {!hasData && !afterHours && data !== undefined && (() => {
+        const ab = getActiveBroker();
+        const abName = (ab && getBrokerInfo(ab.brokerId)?.name) || "broker";
+        return (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground border border-dashed border-border/50 rounded-lg bg-card/30">
           <WifiOff className="h-10 w-10 mb-3 opacity-40 animate-pulse" />
           <p className="text-[15px] font-semibold text-foreground">Unable to load Option Chain</p>
           <p className="text-xs mt-1.5 max-w-sm text-center leading-relaxed">
-            Check that the proxy server is running on port <code className="font-mono text-primary/70 bg-primary/10 px-1 rounded">4002</code> and Dhan credentials are configured in <code className="font-mono text-primary/70 bg-primary/10 px-1 rounded">.env</code>
+            Check that the proxy is running on port <code className="font-mono text-primary/70 bg-primary/10 px-1 rounded">4002</code>, that <strong>{abName}</strong> credentials are valid, and that the broker is set as Active in <code className="font-mono text-primary/70 bg-primary/10 px-1 rounded">/broker-settings</code>.
           </p>
           <Button variant="outline" size="sm" className="mt-5 gap-1.5 hover:text-primary hover:border-primary/50 transition-colors" onClick={() => refetch()}>
             <RefreshCw className="h-3.5 w-3.5" />
             Retry Connection
           </Button>
         </div>
-      )}
+        );
+      })()}
 
       {/* Strike Scroller for "By Strike" view */}
       {viewMode === "strike" && allStrikes.length > 0 && (

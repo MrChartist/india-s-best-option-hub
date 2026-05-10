@@ -265,12 +265,32 @@ The Broker Settings page supports entering API keys for 7 Indian brokers:
 | Broker | Status |
 |--------|--------|
 | **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket) |
-| **Zerodha (Kite)** | 🔧 UI ready, backend integration coming soon |
+| **Zerodha (Kite)** | ✅ Integrated via Kite Connect v3 — Option Chain composed from /quote, Greeks computed via Black-Scholes, WebSocket ticks |
 | **Angel One (SmartAPI)** | 🔧 UI ready, backend integration coming soon |
 | **Upstox** | 🔧 UI ready, backend integration coming soon |
 | **Fyers** | 🔧 UI ready, backend integration coming soon |
 | **5paisa** | 🔧 UI ready, backend integration coming soon |
 | **Alice Blue** | 🔧 UI ready, backend integration coming soon |
+
+#### Setting up Zerodha (Kite Connect v3)
+
+1. Register a Connect app at <https://developers.kite.trade/apps>
+2. **Important:** Set the app's redirect URL to `http://localhost:4002/api/kite/callback`
+3. Copy `API Key` and `API Secret` from the app dashboard
+4. Open Broker Settings, paste them under "Zerodha (Kite)", click **Save Keys**
+5. Click **Login with Kite** — you'll be redirected to Zerodha to authenticate, then bounced back with an `access_token` automatically saved
+6. Set Zerodha as the active broker
+
+Kite's `access_token` expires every day at ~06:00 IST. Click **Refresh Token** each morning to re-login.
+
+#### Adding a new broker
+
+The proxy uses an adapter pattern in `brokers/<id>/`. To add another broker:
+
+1. Implement the `BrokerAdapter` contract from [brokers/types.mjs](brokers/types.mjs) — exporting `handleRequest(endpoint, params, credentials, ctx)` and optionally `openWebSocket(credentials, callbacks)`
+2. Register the adapter in [brokers/registry.mjs](brokers/registry.mjs)
+3. Add the broker definition to `BROKERS` in [src/lib/brokerConfig.ts](src/lib/brokerConfig.ts) — declarative `fields[]` drives the credentials UI
+4. The frontend (`marketApi.ts`, `websocketClient.ts`) is already broker-agnostic — no changes needed
 
 ---
 

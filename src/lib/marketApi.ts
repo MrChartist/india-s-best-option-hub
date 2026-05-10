@@ -4,28 +4,44 @@ import { getActiveBroker } from "./brokerConfig";
 // Local proxy base URL — override via VITE_PROXY_URL if deploying proxy elsewhere
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
 
-// Direct fetch to local proxy with optional user credentials
-async function fetchDhanProxy(endpoint: string, params?: Record<string, string>): Promise<any> {
-  const qp = new URLSearchParams({ endpoint, ...params });
-  const url = `${PROXY_BASE}/api/dhan-proxy?${qp.toString()}`;
+// ── Broker-agnostic proxy fetch ──
+//
+// The proxy router picks an adapter via the `broker` query param + the
+// `x-broker-id` / `x-broker-credentials` headers. Each adapter normalizes its
+// native response into the unified shapes consumed below.
+//
+// Credentials are sent as base64(JSON) so the field set is broker-defined
+// (Dhan: clientId/accessToken, Kite: apiKey/accessToken, etc).
 
-  // Inject user's Dhan credentials if available
+function buildBrokerHeaders(): { headers: Record<string, string>; brokerId: string } {
   const headers: Record<string, string> = {};
   const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
+  const brokerId = activeBroker?.brokerId || "dhan";
+  headers["x-broker-id"] = brokerId;
+  if (activeBroker?.values && Object.keys(activeBroker.values).length > 0) {
+    try {
+      headers["x-broker-credentials"] = btoa(JSON.stringify(activeBroker.values));
+    } catch {
+      // btoa fails on non-Latin1 chars; should never happen for API keys/tokens
+    }
   }
+  return { headers, brokerId };
+}
+
+async function fetchBrokerProxy(endpoint: string, params?: Record<string, string>): Promise<any> {
+  const { headers, brokerId } = buildBrokerHeaders();
+  const qp = new URLSearchParams({ broker: brokerId, endpoint, ...params });
+  const url = `${PROXY_BASE}/api/broker-proxy?${qp.toString()}`;
 
   const res = await fetch(url, { headers });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Dhan proxy error ${res.status}: ${errText}`);
+    throw new Error(`Broker proxy error ${res.status}: ${errText}`);
   }
   return res.json();
 }
 
-// NSE proxy for indices & market status
+// NSE proxy for indices & market status (broker-agnostic, fallback)
 async function fetchNSEProxy(endpoint: string, symbol?: string): Promise<any> {
   const params = new URLSearchParams({ endpoint });
   if (symbol) params.set("symbol", symbol);
@@ -38,59 +54,51 @@ async function fetchNSEProxy(endpoint: string, symbol?: string): Promise<any> {
   return res.json();
 }
 
-// ── Parse Dhan Option Chain Response ──
+// ── Unified Option Chain Response (matches brokers/types.mjs) ──
+
+export interface UnifiedChainResponse {
+  source: string;
+  symbol: string;
+  expiry: string | null;
+  spotPrice: number;
+  chain: OptionData[];
+  totalCEOI: number;
+  totalPEOI: number;
+  afterHours: boolean;
+  cachedAt: number | null;
+}
+
+// ── Legacy Dhan parser (kept for backward compatibility with existing unit tests) ──
 
 interface DhanOptionChainData {
   data: {
-    oc: Record<string, {
-      ce?: DhanOptionLeg;
-      pe?: DhanOptionLeg;
-    }>;
-    iv_oc?: Record<string, {
-      ce_iv?: number;
-      pe_iv?: number;
-    }>;
+    oc: Record<string, { ce?: DhanOptionLeg; pe?: DhanOptionLeg }>;
+    iv_oc?: Record<string, { ce_iv?: number; pe_iv?: number }>;
     gk_oc?: Record<string, {
       ce_delta?: number; ce_gamma?: number; ce_theta?: number; ce_vega?: number;
       pe_delta?: number; pe_gamma?: number; pe_theta?: number; pe_vega?: number;
     }>;
     last_price?: number;
-    oi_data?: Record<string, {
-      ce_oi?: number; pe_oi?: number;
-      ce_oi_chg?: number; pe_oi_chg?: number;
-    }>;
+    oi_data?: Record<string, { ce_oi?: number; pe_oi?: number; ce_oi_chg?: number; pe_oi_chg?: number }>;
   };
   status: string;
 }
 
 interface DhanOptionLeg {
-  ltp?: number;
-  last_price?: number;
-  close?: number;
-  volume?: number;
-  oi?: number;
-  oi_chg?: number;
-  previous_oi?: number;
-  iv?: number;
-  implied_volatility?: number;
-  delta?: number;
-  gamma?: number;
-  theta?: number;
-  vega?: number;
-  bid_price?: number;
-  ask_price?: number;
-  best_bid_price?: number;
-  best_ask_price?: number;
-  top_bid_price?: number;
-  top_ask_price?: number;
-  greeks?: {
-    delta?: number;
-    gamma?: number;
-    theta?: number;
-    vega?: number;
-  };
+  ltp?: number; last_price?: number; close?: number;
+  volume?: number; oi?: number; oi_chg?: number; previous_oi?: number;
+  iv?: number; implied_volatility?: number;
+  delta?: number; gamma?: number; theta?: number; vega?: number;
+  bid_price?: number; ask_price?: number;
+  best_bid_price?: number; best_ask_price?: number;
+  top_bid_price?: number; top_ask_price?: number;
+  greeks?: { delta?: number; gamma?: number; theta?: number; vega?: number };
 }
 
+/**
+ * @deprecated The proxy now returns the unified shape directly. This function
+ * is preserved for unit tests and any caller still consuming raw Dhan responses.
+ */
 export function parseDhanOptionChain(raw: DhanOptionChainData): {
   chain: OptionData[];
   spotPrice: number;
@@ -104,7 +112,7 @@ export function parseDhanOptionChain(raw: DhanOptionChainData): {
   let totalPEOI = 0;
 
   const chain: OptionData[] = Object.keys(oc)
-    .map(strikeStr => {
+    .map((strikeStr) => {
       const strike = parseFloat(strikeStr);
       const legData = oc[strikeStr];
 
@@ -113,7 +121,6 @@ export function parseDhanOptionChain(raw: DhanOptionChainData): {
       totalCEOI += ceOI;
       totalPEOI += peOI;
 
-      // Support both Dhan API v1 (flat fields) and v2 (nested greeks object)
       const ceGreeks = legData.ce?.greeks || {};
       const peGreeks = legData.pe?.greeks || {};
 
@@ -152,7 +159,7 @@ export function parseDhanOptionChain(raw: DhanOptionChainData): {
   return { chain, spotPrice, totalCEOI, totalPEOI };
 }
 
-// ── Parse NSE Indices Response (kept for Dashboard) ──
+// ── NSE Indices Response Parser ──
 
 export function parseNSEIndices(raw: any): IndexData[] {
   const indices = ["NIFTY 50", "NIFTY BANK", "NIFTY FINANCIAL SERVICES", "NIFTY MIDCAP 50"];
@@ -180,26 +187,17 @@ export function parseNSEIndices(raw: any): IndexData[] {
     }));
 }
 
-// NSE parse for backward compat
+// NSE option-chain parser (used as a fallback when broker is unavailable)
 interface NSEOptionChainResponse {
   records: {
     expiryDates: string[];
     strikePrices: number[];
-    data: Array<{
-      strikePrice: number;
-      expiryDate: string;
-      CE?: any;
-      PE?: any;
-    }>;
+    data: Array<{ strikePrice: number; expiryDate: string; CE?: any; PE?: any }>;
   };
-  filtered: {
-    CE: { totOI: number; totVol: number };
-    PE: { totOI: number; totVol: number };
-  };
+  filtered: { CE: { totOI: number; totVol: number }; PE: { totOI: number; totVol: number } };
 }
 
 export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?: string) {
-  // Guard against malformed/empty response
   if (!raw?.records?.expiryDates || !raw?.records?.data) {
     return { chain: [], spotPrice: 0, expiries: [], totalCEOI: 0, totalPEOI: 0 };
   }
@@ -241,41 +239,36 @@ export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?
 
 // ── Exported fetch functions ──
 
-// Dhan Option Chain (primary) with NSE fallback
+// Live option chain — broker-agnostic, with NSE fallback
 export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
-  // Try Dhan first
+  // Try active broker first (proxy returns already-normalized unified shape)
   try {
     const params: Record<string, string> = { symbol: symbol.toUpperCase() };
     if (expiry) params.expiry = expiry;
-    const raw = await fetchDhanProxy("option-chain", params);
-    if (raw?.status === "success" && raw?.data?.oc) {
-      const parsed = parseDhanOptionChain(raw);
-      // Also fetch expiry list
+    const unified = (await fetchBrokerProxy("option-chain", params)) as UnifiedChainResponse;
+
+    if (unified && Array.isArray(unified.chain) && unified.chain.length > 0) {
+      // Also fetch expiry list (broker-side)
       let expiries: ExpiryDate[] = [];
       try {
-        const expiryRaw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-        if (expiryRaw?.data) {
-          expiries = expiryRaw.data.map((dateStr: string) => {
-            const d = new Date(dateStr);
-            const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-            return {
-              label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-              value: dateStr,
-              daysToExpiry: days,
-            };
-          });
-        }
+        expiries = (await fetchBrokerProxy("expiry-list", { symbol: symbol.toUpperCase() })) as ExpiryDate[];
+        if (!Array.isArray(expiries)) expiries = [];
       } catch {
-        // Expiry fetch failed, continue with chain data
+        // ignore — expiry list is best-effort
       }
       return {
-        ...parsed, expiries, source: "dhan" as const,
-        afterHours: raw.afterHours || false,
-        cachedAt: raw.cachedAt || null,
+        chain: unified.chain,
+        spotPrice: unified.spotPrice,
+        totalCEOI: unified.totalCEOI,
+        totalPEOI: unified.totalPEOI,
+        expiries,
+        source: unified.source as "dhan" | "kite" | string,
+        afterHours: unified.afterHours,
+        cachedAt: unified.cachedAt,
       };
     }
   } catch (e) {
-    console.warn("Dhan option chain fetch failed, trying NSE:", e);
+    console.warn("Broker option chain fetch failed, trying NSE:", e);
   }
 
   // Fallback to NSE
@@ -289,28 +282,19 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
   }
 }
 
-// Dhan expiry list
+// Expiry list — broker-agnostic
 export async function fetchExpiryList(symbol: string): Promise<ExpiryDate[]> {
   try {
-    const raw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-    if (raw?.data) {
-      return raw.data.map((dateStr: string) => {
-        const d = new Date(dateStr);
-        const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        return {
-          label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-          value: dateStr,
-          daysToExpiry: days,
-        };
-      });
-    }
+    const result = await fetchBrokerProxy("expiry-list", { symbol: symbol.toUpperCase() });
+    if (Array.isArray(result)) return result;
+    return [];
   } catch (e) {
-    console.warn("Dhan expiry list fetch failed:", e);
+    console.warn("Broker expiry list fetch failed:", e);
+    return [];
   }
-  return [];
 }
 
-// NSE Indices (Dhan doesn't provide broad index overview the same way)
+// NSE Indices (no broker provides this view directly)
 export async function fetchLiveIndices() {
   const raw = await fetchNSEProxy("indices");
   return parseNSEIndices(raw);
@@ -347,7 +331,6 @@ export async function fetchAllIndices() {
   const raw = await fetchNSEProxy("indices");
   if (!raw?.data) return null;
 
-  // Extract VIX
   const vixEntry = raw.data.find((d: any) => d.index === "INDIA VIX");
   const vix = vixEntry ? {
     value: vixEntry.last,
@@ -357,7 +340,6 @@ export async function fetchAllIndices() {
     low: vixEntry.low || vixEntry.last,
   } : null;
 
-  // Extract sector indices
   const sectors = raw.data
     .filter((d: any) => SECTOR_INDEX_MAP[d.index])
     .map((d: any) => ({
@@ -370,7 +352,6 @@ export async function fetchAllIndices() {
       low: d.low || d.last,
     }));
 
-  // Advance/Decline from NIFTY 50
   const nifty50 = raw.data.find((d: any) => d.index === "NIFTY 50");
   const advances = nifty50?.advances || 0;
   const declines = nifty50?.declines || 0;
@@ -391,7 +372,6 @@ export interface FnOStockData {
   low: number;
   previousClose: number;
   volume: number;
-  // OI fields from NSE equity-derivatives endpoint
   totalTradedVolume?: number;
   openInterest?: number;
   oiChange?: number;
@@ -399,7 +379,6 @@ export interface FnOStockData {
 }
 
 export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
-  // Try NSE first (has OI data)
   try {
     const raw = await fetchNSEProxy("equity-derivatives");
     if (raw?.data?.length > 0) {
@@ -425,7 +404,6 @@ export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
     console.warn("NSE F&O stocks fetch failed, trying TradingView:", e);
   }
 
-  // Fallback to TradingView Scanner (no OI but great LTP/volume data)
   try {
     const tvData = await fetchTradingViewStocks();
     if (tvData.length > 0) return tvData;
@@ -443,7 +421,7 @@ export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`TV scan error: ${res.status}`);
   const data = await res.json();
-  
+
   return (data.stocks || []).map((s: any) => ({
     symbol: s.symbol || "",
     ltp: s.ltp || 0,
@@ -472,7 +450,7 @@ export async function fetchTradingViewIndices(): Promise<any[]> {
 // ── FII/DII Activity Data ──
 
 export interface FIIDIIData {
-  category: string; // "FII/FPI" or "DII"
+  category: string;
   date: string;
   buyValue: number;
   sellValue: number;
@@ -482,7 +460,7 @@ export interface FIIDIIData {
 export async function fetchFIIDII(): Promise<FIIDIIData[]> {
   const raw = await fetchNSEProxy("fii-dii");
   if (!raw?.data) return [];
-  
+
   return raw.data.map((d: any) => ({
     category: d.category || "",
     date: d.date || "",
@@ -492,18 +470,16 @@ export async function fetchFIIDII(): Promise<FIIDIIData[]> {
   }));
 }
 
-// ── Test Connection ──
+// ── Test Connection (broker-agnostic) ──
 
-export async function testDhanConnection(): Promise<{ status: string; message: string }> {
-  const headers: Record<string, string> = {};
-  const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
-  }
+export async function testBrokerConnection(): Promise<{ status: string; message: string }> {
+  const { headers } = buildBrokerHeaders();
   const res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers });
   return res.json();
 }
+
+/** @deprecated Use testBrokerConnection — kept for backward compatibility. */
+export const testDhanConnection = testBrokerConnection;
 
 export async function fetchProxyHealth(): Promise<any> {
   const res = await fetch(`${PROXY_BASE}/health`);
@@ -513,12 +489,8 @@ export async function fetchProxyHealth(): Promise<any> {
 
 // ── Instrument Master Download ──
 
-export async function fetchInstrumentMaster(): Promise<{
-  instruments: any[];
-  count: number;
-}> {
-  const result = await fetchDhanProxy("instruments");
-  return result;
+export async function fetchInstrumentMaster(): Promise<{ instruments: any[]; count: number }> {
+  return fetchBrokerProxy("instruments");
 }
 
 // ── Historical Candle Data ──
@@ -545,16 +517,10 @@ export async function fetchHistoricalCandles(
   fromDate?: string,
   toDate?: string,
 ): Promise<HistoricalCandleResponse> {
-  const params: Record<string, string> = {
-    securityId,
-    exchangeSegment,
-    instrument,
-    interval,
-  };
+  const params: Record<string, string> = { securityId, exchangeSegment, instrument, interval };
   if (fromDate) params.fromDate = fromDate;
   if (toDate) params.toDate = toDate;
-
-  return fetchDhanProxy("historical", params);
+  return fetchBrokerProxy("historical", params);
 }
 
 // ── Yahoo Finance Chart Data (free, no auth) ──

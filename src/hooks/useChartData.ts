@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { fetchHistoricalCandles, fetchYahooChart } from "@/lib/marketApi";
 
-const PROXY_BASE = "http://localhost:4002";
+const PROXY_BASE = (import.meta as any).env?.VITE_PROXY_URL || "http://localhost:4002";
 
 export interface OHLCVCandle {
   time: number; // Unix timestamp in seconds
@@ -96,9 +97,11 @@ async function resolveSecurityId(symbol: string): Promise<{ securityId: string; 
   // Check runtime cache
   if (resolvedSecurityIds[symbol]) return resolvedSecurityIds[symbol];
 
-  // Fallback: download instrument master (only for stocks not in hardcoded map)
+  // Fallback: download instrument master from Dhan (the CSV is public — no auth
+  // required regardless of which broker is active). Only invoked for stocks not
+  // in the hardcoded map.
   try {
-    const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?endpoint=instruments`, {
+    const res = await fetch(`${PROXY_BASE}/api/broker-proxy?broker=dhan&endpoint=instruments`, {
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) return null;
@@ -114,19 +117,53 @@ async function resolveSecurityId(symbol: string): Promise<{ securityId: string; 
       return resolved;
     }
   } catch {
-    // Instrument master download failed — symbol not chartable
+    // Instrument master download failed — symbol not chartable via broker.
+    // The caller will fall back to Yahoo, which doesn't need a securityId.
   }
   return null;
 }
 
 /**
- * Fetches daily/intraday OHLCV candle data from Dhan API via the proxy.
- * Uses /api/dhan-proxy?endpoint=historical
+ * Convert proxy-shaped candle arrays into OHLCVCandle[] sorted ascending.
+ * Both broker adapters and Yahoo return the same shape:
+ *   { open: [], high: [], low: [], close: [], volume: [], timestamp: [] }
+ */
+function toCandles(rawData: any): OHLCVCandle[] {
+  if (!rawData || !Array.isArray(rawData.close)) return [];
+  const opens = rawData.open || [];
+  const highs = rawData.high || [];
+  const lows = rawData.low || [];
+  const closes = rawData.close || [];
+  const volumes = rawData.volume || [];
+  const timestamps = rawData.start_Time || rawData.timestamp || [];
+
+  const candles: OHLCVCandle[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    if (closes[i] == null) continue; // skip null bars (Yahoo sometimes returns nulls)
+    const ts = timestamps[i];
+    const time = typeof ts === "string"
+      ? Math.floor(new Date(ts).getTime() / 1000)
+      : typeof ts === "number"
+        ? (ts > 1e12 ? Math.floor(ts / 1000) : ts)
+        : Math.floor(Date.now() / 1000);
+    candles.push({
+      time,
+      open: opens[i] ?? closes[i],
+      high: highs[i] ?? closes[i],
+      low: lows[i] ?? closes[i],
+      close: closes[i],
+      volume: volumes[i] ?? 0,
+    });
+  }
+  return candles.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * Fetches OHLCV candles for a symbol. Tries the active broker first, then
+ * falls back to Yahoo Finance (auth-free) so charts still render even when
+ * the broker is rate-limited / token-expired / unsubscribed.
  */
 async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
-  const resolved = await resolveSecurityId(symbol);
-  if (!resolved) return [];
-
   // Calculate date range
   const now = new Date();
   const from = new Date(now);
@@ -138,63 +175,44 @@ async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCand
     case "1Y": from.setFullYear(from.getFullYear() - 1); break;
     default: from.setMonth(from.getMonth() - 3);
   }
-
   const fromDate = `${from.toISOString().split("T")[0]} 09:15`;
   const toDate = `${now.toISOString().split("T")[0]} 15:30`;
-  
-  // Determine interval: "15" for 1W (15min candles), "60" for 1M, "D" for daily (3M+)
-  let interval = "D"; // daily candles for 3M+
+
+  // Interval: "15" for 1W (15min), "60" for 1M, "D" for ≥3M
+  let interval = "D";
   if (range === "1W") interval = "15";
   else if (range === "1M") interval = "60";
 
-  const params = new URLSearchParams({
-    endpoint: "historical",
-    securityId: resolved.securityId,
-    exchangeSegment: resolved.exchangeSegment,
-    instrument: resolved.instrument,
-    interval,
-    fromDate,
-    toDate,
-  });
-
-  const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?${params}`, {
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return [];
-
-  const json = await res.json();
-  // Dhan returns: { open: [...], high: [...], low: [...], close: [...], volume: [...], start_Time: [...] }
-  const rawData = json?.data || json;
-  
-  if (rawData && rawData.close && Array.isArray(rawData.close)) {
-    const opens = rawData.open || [];
-    const highs = rawData.high || [];
-    const lows = rawData.low || [];
-    const closes = rawData.close || [];
-    const volumes = rawData.volume || [];
-    const timestamps = rawData.start_Time || rawData.timestamp || [];
-
-    const candles: OHLCVCandle[] = [];
-    for (let i = 0; i < closes.length; i++) {
-      const ts = timestamps[i];
-      const time = typeof ts === "string"
-        ? Math.floor(new Date(ts).getTime() / 1000)
-        : typeof ts === "number"
-          ? (ts > 1e12 ? Math.floor(ts / 1000) : ts) // handle ms vs s timestamps
-          : Math.floor(Date.now() / 1000);
-      candles.push({
-        time,
-        open: opens[i] || closes[i],
-        high: highs[i] || closes[i],
-        low: lows[i] || closes[i],
-        close: closes[i],
-        volume: volumes[i] || 0,
-      });
+  // 1. Try the active broker (Dhan or Kite). resolveSecurityId returns Dhan-style
+  //    ids by default; Kite uses different tokens, so this path may miss for
+  //    non-mapped stocks. Yahoo fallback handles that case.
+  const resolved = await resolveSecurityId(symbol);
+  if (resolved) {
+    try {
+      const json = await fetchHistoricalCandles(
+        resolved.securityId,
+        resolved.exchangeSegment,
+        resolved.instrument,
+        interval,
+        fromDate,
+        toDate,
+      );
+      const candles = toCandles((json as any)?.data || json);
+      if (candles.length > 0) return candles;
+    } catch {
+      // broker failed (auth, rate-limit, etc) — fall through to Yahoo
     }
-    return candles.sort((a, b) => a.time - b.time);
   }
 
-  return [];
+  // 2. Yahoo Finance fallback — works for indices and any NSE equity (.NS suffix).
+  try {
+    const yahooFrom = from.toISOString().split("T")[0];
+    const yahooTo = now.toISOString().split("T")[0];
+    const json = await fetchYahooChart(symbol, interval, yahooFrom, yahooTo);
+    return toCandles((json as any)?.data || json);
+  } catch {
+    return [];
+  }
 }
 
 /**

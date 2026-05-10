@@ -10,7 +10,7 @@ import { AlertSystem } from "@/components/AlertSystem";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLiveIndices, useMarketStatus, useAllIndices } from "@/hooks/useMarketData";
 import { useQueryClient } from "@tanstack/react-query";
-import { getActiveBroker } from "@/lib/brokerConfig";
+import { getActiveBroker, getBrokerInfo } from "@/lib/brokerConfig";
 import { Search, Bell, Timer, RefreshCw, Wifi, WifiOff, Plane, Settings, Zap, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,9 +37,12 @@ export default function DashboardLayout() {
   const giftNifty = marketResult?.giftNifty || null;
   const liveVix = allIndicesData?.vix;
 
-  // Check broker config
+  // Check broker config — broker-agnostic: any active broker with all required fields filled
   const activeBroker = getActiveBroker();
-  const hasDhanKeys = activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken;
+  const activeBrokerInfo = activeBroker ? getBrokerInfo(activeBroker.brokerId) : undefined;
+  const hasBrokerKeys = !!activeBroker && !!activeBrokerInfo
+    && activeBrokerInfo.fields.filter((f) => f.required).every((f) => !!activeBroker.values[f.key]);
+  const activeBrokerName = activeBrokerInfo?.name || "Broker";
 
   useKeyboardShortcuts({
     onToggleSearch: () => setSearchOpen(true),
@@ -173,15 +176,15 @@ export default function DashboardLayout() {
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Dhan API Keys</span>
-                        <Badge variant="outline" className={`text-xs h-4 ${hasDhanKeys ? "border-bullish/50 text-bullish" : "border-warning/50 text-warning"}`}>
-                          {hasDhanKeys ? "Configured" : "Not Set"}
+                        <span className="text-muted-foreground">{activeBrokerName} API Keys</span>
+                        <Badge variant="outline" className={`text-xs h-4 ${hasBrokerKeys ? "border-bullish/50 text-bullish" : "border-warning/50 text-warning"}`}>
+                          {hasBrokerKeys ? "Configured" : "Not Set"}
                         </Badge>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Data Source</span>
-                        <span className="font-medium">{isLiveData ? "Dhan / NSE / TradingView" : "Offline"}</span>
+                        <span className="font-medium">{isLiveData ? `${activeBrokerName} / NSE / TradingView` : "Offline"}</span>
                       </div>
 
                       <div className="flex items-center justify-between">
@@ -190,7 +193,7 @@ export default function DashboardLayout() {
                       </div>
                     </div>
 
-                    {!hasDhanKeys && (
+                    {!hasBrokerKeys && (
                       <Button
                         variant="outline"
                         size="sm"

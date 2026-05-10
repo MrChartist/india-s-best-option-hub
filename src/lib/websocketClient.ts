@@ -1,21 +1,24 @@
 /**
- * WebSocket Client — Singleton manager for real-time Dhan market feed
- * 
+ * WebSocket Client — Singleton manager for the live broker market feed.
+ *
  * Connects to the local proxy server's WebSocket endpoint (ws://localhost:4002/ws)
- * which relays parsed Dhan tick data as JSON. Provides a pub/sub interface for
- * React components to subscribe to specific instrument updates.
- * 
+ * which relays parsed unified ticks. Provides a pub/sub interface for React
+ * components to subscribe to specific instrument updates.
+ *
  * Architecture:
- *   Dhan WS (binary) → proxy-server.mjs → this client (JSON) → React hooks
+ *   <Active Broker>'s upstream WS (binary) → proxy-server.mjs → this client (JSON) → React hooks
  */
 
-import { getActiveBroker } from "./brokerConfig";
+import { getActiveBroker, getBrokerInfo } from "./brokerConfig";
 
 // ── Types ──
 
 export interface TickData {
-  type: "ticker" | "quote" | "prevClose" | "oi" | "full" | "status";
+  type: "ticker" | "ltp" | "quote" | "prevClose" | "oi" | "full" | "status";
+  brokerId?: string;
+  // `securityId` retained for backward-compat — equivalent to `instrumentId` from the unified tick.
   securityId: number;
+  instrumentId?: number;
   symbol: string;
   exchangeSegment: string;
   ltp?: number;
@@ -28,6 +31,8 @@ export interface TickData {
   prevClose?: number;
   volume?: number;
   oi?: number;
+  bidPrice?: number;
+  askPrice?: number;
   timestamp?: number;
   // Status fields
   connected?: boolean;
@@ -37,7 +42,13 @@ export interface TickData {
 export type TickListener = (data: TickData) => void;
 export type StatusListener = (connected: boolean) => void;
 
-// ── Security ID ↔ Symbol mapping ──
+// ── App symbol ↔ broker security-id mapping ──
+//
+// We keep the historical Dhan numeric IDs as the canonical app-level keys
+// so existing components (Watchlist, IndexCards, useWebSocketIndices) keep
+// working unchanged. Kite ticks come in under their own instrument_token,
+// so we translate Kite tokens → these IDs at the relay layer (in the proxy's
+// upstream tick handler we set tick.symbol; below we map symbol → id).
 
 const SYMBOL_TO_SECURITY_ID: Record<string, number> = {
   NIFTY: 13,
@@ -61,13 +72,13 @@ class MarketWebSocket {
   private ws: WebSocket | null = null;
   private url: string;
   private tickListeners = new Map<number, Set<TickListener>>(); // securityId → listeners
-  private globalListeners = new Set<TickListener>(); // all ticks
+  private globalListeners = new Set<TickListener>();
   private statusListeners = new Set<StatusListener>();
-  private latestData = new Map<number, TickData>(); // securityId → latest merged data
+  private latestData = new Map<number, TickData>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private _connected = false;
-  private _dhanConnected = false;
+  private _upstreamConnected = false;
   private intentionalClose = false;
   private credentialsSent = false;
 
@@ -80,23 +91,24 @@ class MarketWebSocket {
     return this._connected;
   }
 
-  /** Is the Dhan WebSocket relay active (live ticks flowing)? */
+  /** Is the broker upstream WebSocket relay active (live ticks flowing)? */
+  get isUpstreamConnected(): boolean {
+    return this._upstreamConnected;
+  }
+  /** @deprecated alias kept for backward compatibility */
   get isDhanConnected(): boolean {
-    return this._dhanConnected;
+    return this._upstreamConnected;
   }
 
-  /** Get latest cached tick for a security */
   getLatest(securityId: number): TickData | undefined {
     return this.latestData.get(securityId);
   }
 
-  /** Get latest by symbol name */
   getLatestBySymbol(symbol: string): TickData | undefined {
     const id = SYMBOL_TO_SECURITY_ID[symbol];
     return id ? this.latestData.get(id) : undefined;
   }
 
-  /** Get all latest ticks */
   getAllLatest(): Map<number, TickData> {
     return this.latestData;
   }
@@ -123,7 +135,6 @@ class MarketWebSocket {
       this.reconnectDelay = 1000;
       this.notifyStatus(true);
 
-      // Send Dhan credentials from browser localStorage if available
       if (!this.credentialsSent) {
         this.sendCredentials();
       }
@@ -134,23 +145,27 @@ class MarketWebSocket {
         const data: TickData = JSON.parse(event.data);
 
         if (data.type === "status") {
-          this._dhanConnected = data.connected || false;
-          this.notifyStatus(this._dhanConnected);
+          this._upstreamConnected = data.connected || false;
+          this.notifyStatus(this._upstreamConnected);
           return;
         }
 
-        // Merge into latest cache
+        // Bridge: if proxy sent `instrumentId` (unified shape) but the app keys
+        // off `securityId`, mirror the value across.
+        if (data.instrumentId != null && data.securityId == null) {
+          // Map by symbol if we know it, otherwise pass through the raw token.
+          const idBySymbol = data.symbol ? SYMBOL_TO_SECURITY_ID[data.symbol] : undefined;
+          data.securityId = idBySymbol ?? data.instrumentId;
+        }
+
+        if (data.securityId == null) return;
+
         const existing = this.latestData.get(data.securityId) || ({} as TickData);
         const merged = { ...existing, ...data, timestamp: Date.now() };
         this.latestData.set(data.securityId, merged);
 
-        // Notify specific listeners
         const listeners = this.tickListeners.get(data.securityId);
-        if (listeners) {
-          listeners.forEach((cb) => cb(merged));
-        }
-
-        // Notify global listeners
+        if (listeners) listeners.forEach((cb) => cb(merged));
         this.globalListeners.forEach((cb) => cb(merged));
       } catch {
         // Ignore malformed messages
@@ -159,53 +174,59 @@ class MarketWebSocket {
 
     this.ws.onclose = () => {
       this._connected = false;
-      this._dhanConnected = false;
+      this._upstreamConnected = false;
       this.notifyStatus(false);
-
-      if (!this.intentionalClose) {
-        this.scheduleReconnect();
-      }
+      if (!this.intentionalClose) this.scheduleReconnect();
     };
 
     this.ws.onerror = () => {
-      // Error handler — close event will fire after this
       this._connected = false;
     };
   }
 
-  /** Send Dhan credentials to proxy for WebSocket connection */
+  /** Send active broker's credentials to the proxy so it can open the upstream WS. */
   sendCredentials(): void {
     const broker = getActiveBroker();
-    if (broker?.brokerId === "dhan" && broker.values.clientId && broker.values.accessToken) {
-      this.send({
-        type: "configure",
-        clientId: broker.values.clientId,
-        accessToken: broker.values.accessToken,
-      });
-      this.credentialsSent = true;
-      console.log("[MarketWS] Sent Dhan credentials to proxy");
+    if (!broker) return;
+    const info = getBrokerInfo(broker.brokerId);
+    if (!info) return;
+
+    // Verify all required fields are present
+    const requiredKeys = info.fields.filter((f) => f.required).map((f) => f.key);
+    const allPresent = requiredKeys.every((k) => !!broker.values[k]);
+    if (!allPresent) return;
+
+    this.send({
+      type: "configure",
+      brokerId: broker.brokerId,
+      credentials: broker.values,
+    });
+    this.credentialsSent = true;
+    console.log(`[MarketWS] Sent ${broker.brokerId} credentials to proxy`);
+  }
+
+  /** Re-send credentials (e.g. after the user switches brokers). */
+  refreshCredentials(): void {
+    this.credentialsSent = false;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.sendCredentials();
     }
   }
 
-  /** Subscribe to ticks for a specific security ID */
   subscribe(securityId: number, callback: TickListener): () => void {
     if (!this.tickListeners.has(securityId)) {
       this.tickListeners.set(securityId, new Set());
     }
     this.tickListeners.get(securityId)!.add(callback);
 
-    // Immediately deliver cached data
     const cached = this.latestData.get(securityId);
-    if (cached) {
-      setTimeout(() => callback(cached), 0);
-    }
+    if (cached) setTimeout(() => callback(cached), 0);
 
     return () => {
       this.tickListeners.get(securityId)?.delete(callback);
     };
   }
 
-  /** Subscribe to ALL ticks */
   subscribeAll(callback: TickListener): () => void {
     this.globalListeners.add(callback);
     return () => {
@@ -213,24 +234,20 @@ class MarketWebSocket {
     };
   }
 
-  /** Subscribe to connection status changes */
   onStatus(callback: StatusListener): () => void {
     this.statusListeners.add(callback);
-    // Immediately report current status
-    setTimeout(() => callback(this._dhanConnected), 0);
+    setTimeout(() => callback(this._upstreamConnected), 0);
     return () => {
       this.statusListeners.delete(callback);
     };
   }
 
-  /** Send a message to the proxy */
   private send(data: any): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
     }
   }
 
-  /** Disconnect */
   disconnect(): void {
     this.intentionalClose = true;
     if (this.reconnectTimer) {
@@ -242,7 +259,7 @@ class MarketWebSocket {
       this.ws = null;
     }
     this._connected = false;
-    this._dhanConnected = false;
+    this._upstreamConnected = false;
   }
 
   private scheduleReconnect(): void {
@@ -263,8 +280,6 @@ class MarketWebSocket {
 
 export const marketWS = new MarketWebSocket();
 
-// Auto-connect on import (safe for SSR since WebSocket check is in connect())
 if (typeof window !== "undefined") {
-  // Small delay to let the app initialize first
   setTimeout(() => marketWS.connect(), 500);
 }
