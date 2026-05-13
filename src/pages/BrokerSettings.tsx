@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +13,19 @@ import {
   removeBrokerCredentials,
   setActiveBroker,
   getActiveBroker,
+  getBrokerInfo,
   type BrokerInfo,
   type BrokerCredentials,
 } from "@/lib/brokerConfig";
-import { testDhanConnection } from "@/lib/marketApi";
+import { testBrokerConnection } from "@/lib/marketApi";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import {
   Shield, ExternalLink, Trash2, CheckCircle2, Circle, Eye, EyeOff, Info, Key, Plug, AlertTriangle,
-  Server, Zap, Globe, BarChart3, Loader2, CheckCircle, XCircle, Wifi,
+  Server, Zap, Globe, BarChart3, Loader2, CheckCircle, XCircle, Wifi, LogIn,
 } from "lucide-react";
+
+const PROXY_BASE = (import.meta as any).env?.VITE_PROXY_URL || "http://localhost:4002";
 import { DatabaseManager } from "@/components/DatabaseManager";
 import { ChartDataDownloader } from "@/components/ChartDataDownloader";
 
@@ -53,6 +56,30 @@ function BrokerCard({
     }
     onSave(broker.id, values);
     setIsEditing(false);
+  };
+
+  // Kite Connect requires a daily login (access_token expires at ~06:00 IST).
+  // Flow: save apiKey/apiSecret → redirect to Zerodha → Zerodha calls back to our
+  // proxy's /api/kite/callback (which the user must configure as the redirect URL
+  // in their Kite developer console) → callback exchanges request_token for an
+  // access_token and redirects back here with `#kite_access_token=...` in the
+  // fragment. The page-level effect in BrokerSettings catches the fragment and
+  // stores the token on this record.
+  const handleKiteLogin = () => {
+    const apiKey = values.apiKey || saved?.values?.apiKey;
+    const apiSecret = values.apiSecret || saved?.values?.apiSecret;
+    if (!apiKey || !apiSecret) {
+      toast.error("Enter API Key and API Secret first, then click Login with Kite.");
+      return;
+    }
+    onSave(broker.id, { ...(saved?.values || {}), ...values });
+
+    const returnTo = `${window.location.origin}${window.location.pathname}`;
+    // Zerodha requires a static redirect URL (set in the Kite developer console).
+    // It preserves these `redirect_params` verbatim onto the redirect, so our
+    // callback can pick up `api_secret` and `return_to`.
+    const redirectParams = `api_secret=${encodeURIComponent(apiSecret)}&return_to=${encodeURIComponent(returnTo)}`;
+    window.location.href = `${PROXY_BASE}/api/kite/login?api_key=${encodeURIComponent(apiKey)}&redirect_params=${encodeURIComponent(redirectParams)}`;
   };
 
   return (
@@ -127,6 +154,12 @@ function BrokerCard({
                 <Key className="h-3.5 w-3.5 mr-1.5" />
                 Save Keys
               </Button>
+              {broker.id === "kite" && (
+                <Button size="sm" variant="secondary" onClick={handleKiteLogin}>
+                  <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                  Login with Kite
+                </Button>
+              )}
               {saved && (
                 <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
                   Cancel
@@ -141,11 +174,17 @@ function BrokerCard({
               <span>{broker.fields.filter((f) => f.required).length} keys configured</span>
               <span className="text-2xs">• Added {new Date(saved!.addedAt).toLocaleDateString("en-IN")}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {!isActive && (
                 <Button size="sm" variant="outline" onClick={() => onSetActive(broker.id)} className="flex-1">
                   <Circle className="h-3.5 w-3.5 mr-1.5" />
                   Set Active
+                </Button>
+              )}
+              {broker.id === "kite" && (
+                <Button size="sm" variant="secondary" onClick={handleKiteLogin}>
+                  <LogIn className="h-3.5 w-3.5 mr-1.5" />
+                  Refresh Token
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
@@ -165,55 +204,63 @@ function BrokerCard({
 function ConnectionStatusPanel() {
   const { data: health } = useProxyHealth();
   const wsConnected = useWebSocketStatus();
-  const [dhanStatus, setDhanStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
-  const [dhanMessage, setDhanMessage] = useState("");
+  const activeBroker = getActiveBroker();
+  const activeInfo = activeBroker ? getBrokerInfo(activeBroker.brokerId) : undefined;
+  const brokerId = activeBroker?.brokerId || "dhan";
+  const brokerName = activeInfo?.name || "Broker";
+  const upstreams: Record<string, boolean> = (health?.websocket?.upstreams as any) || {};
+  const brokerWSConnected = upstreams[brokerId] === true;
+  const brokerConfigured = !!(health?.sources as any)?.[brokerId];
 
-  const handleTestDhan = async () => {
-    setDhanStatus("testing");
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [testMessage, setTestMessage] = useState("");
+
+  const handleTestBroker = async () => {
+    setTestStatus("testing");
     try {
-      const result = await testDhanConnection();
+      const result = await testBrokerConnection();
       if (result.status === "success") {
-        setDhanStatus("success");
-        setDhanMessage("Connected successfully");
-        toast.success("Dhan API connection verified!");
+        setTestStatus("success");
+        setTestMessage("Connected successfully");
+        toast.success(`${brokerName} API connection verified!`);
       } else {
-        setDhanStatus("error");
-        setDhanMessage(result.message || "Connection failed");
-        toast.error("Dhan connection failed: " + result.message);
+        setTestStatus("error");
+        setTestMessage(result.message || "Connection failed");
+        toast.error(`${brokerName} connection failed: ${result.message}`);
       }
     } catch (e: any) {
-      setDhanStatus("error");
-      setDhanMessage(e.message || "Network error");
+      setTestStatus("error");
+      setTestMessage(e.message || "Network error");
       toast.error("Connection test failed");
     }
   };
 
   const sources = [
     {
-      name: "Dhan API (Primary)",
+      name: `${brokerName} API (Primary)`,
       icon: <Wifi className="h-4 w-4" />,
-      status: dhanStatus === "success" ? "online" : dhanStatus === "error" ? "offline" : health?.sources?.dhan ? "online" : "unknown",
-      detail: dhanStatus === "success"
+      status: testStatus === "success" ? "online" : testStatus === "error" ? "offline" : brokerConfigured ? "online" : "unknown",
+      detail: testStatus === "success"
         ? "Primary source · Option Chain, Greeks, WebSocket"
-        : health?.sources?.dhan
-        ? "Credentials loaded from .env · Option Chain, Expiry, WebSocket"
-        : dhanMessage || "Click Test to verify — provides Option Chain, Greeks, Live Ticks",
-      color: dhanStatus === "success" || health?.sources?.dhan ? "text-emerald-500" : dhanStatus === "error" ? "text-red-500" : "text-zinc-500",
+        : brokerConfigured
+        ? "Credentials loaded · Option Chain, Expiry, WebSocket"
+        : testMessage || "Click Test to verify — provides Option Chain, Live Ticks",
+      color: testStatus === "success" || brokerConfigured ? "text-emerald-500" : testStatus === "error" ? "text-red-500" : "text-zinc-500",
     },
     {
-      name: "Dhan WebSocket",
+      name: `${brokerName} WebSocket`,
       icon: <Zap className="h-4 w-4" />,
-      status: wsConnected ? "online" : "offline",
-      detail: wsConnected
-        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached, ${health?.websocket?.instrumentsSubscribed || 0} instruments`
-        : "Requires Dhan credentials · Real-time index + VIX ticks",
-      color: wsConnected ? "text-emerald-500" : "text-zinc-500",
+      status: brokerWSConnected ? "online" : wsConnected ? "offline" : "offline",
+      detail: brokerWSConnected
+        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached`
+        : `Requires ${brokerName} credentials · Real-time index + VIX ticks`,
+      color: brokerWSConnected ? "text-emerald-500" : "text-zinc-500",
     },
     {
       name: "NSE India (Fallback)",
       icon: <Globe className="h-4 w-4" />,
       status: health?.reachable ? "online" : "offline",
-      detail: "Fallback · Indices, Sectors, A/D, Option Chain if Dhan fails",
+      detail: `Fallback · Indices, Sectors, A/D, Option Chain if ${brokerName} fails`,
       color: health?.reachable ? "text-emerald-500" : "text-red-500",
     },
     {
@@ -258,19 +305,19 @@ function ConnectionStatusPanel() {
               </div>
               <p className="text-xs text-muted-foreground truncate">{src.detail}</p>
             </div>
-            {src.name.startsWith("Dhan API") && (
+            {src.name.endsWith("(Primary)") && (
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs gap-1"
-                onClick={handleTestDhan}
-                disabled={dhanStatus === "testing"}
+                onClick={handleTestBroker}
+                disabled={testStatus === "testing"}
               >
-                {dhanStatus === "testing" ? (
+                {testStatus === "testing" ? (
                   <><Loader2 className="h-3 w-3 animate-spin" /> Testing</>
-                ) : dhanStatus === "success" ? (
+                ) : testStatus === "success" ? (
                   <><CheckCircle className="h-3 w-3 text-emerald-500" /> Connected</>
-                ) : dhanStatus === "error" ? (
+                ) : testStatus === "error" ? (
                   <><XCircle className="h-3 w-3 text-red-500" /> Retry</>
                 ) : (
                   <>Test</>
@@ -287,6 +334,32 @@ function ConnectionStatusPanel() {
 export default function BrokerSettings() {
   const [savedBrokers, setSavedBrokers] = useState(getSavedBrokers());
   const activeBroker = getActiveBroker();
+
+  // Capture Kite access_token from URL fragment after login redirect.
+  // The proxy callback redirects here with `#kite_access_token=...&kite_user_id=...`.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.includes("kite_access_token=")) return;
+
+    const fragment = new URLSearchParams(hash.replace(/^#/, ""));
+    const accessToken = fragment.get("kite_access_token");
+    const userId = fragment.get("kite_user_id");
+    if (!accessToken) return;
+
+    const existing = getSavedBrokers().find((b) => b.brokerId === "kite");
+    const merged: BrokerCredentials = {
+      brokerId: "kite",
+      values: { ...(existing?.values || {}), accessToken, ...(userId ? { userId } : {}) },
+      addedAt: existing?.addedAt || new Date().toISOString(),
+      isActive: existing?.isActive ?? false,
+    };
+    saveBrokerCredentials(merged);
+    setSavedBrokers(getSavedBrokers());
+
+    // Strip the fragment so a refresh doesn't re-import a stale token
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    toast.success("Kite access token saved!");
+  }, []);
 
   const handleSave = (brokerId: string, values: Record<string, string>) => {
     const creds: BrokerCredentials = {

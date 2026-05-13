@@ -44,17 +44,17 @@ export const BROKERS: BrokerInfo[] = [
     ],
   },
   {
-    id: "zerodha",
+    id: "kite",
     name: "Zerodha (Kite)",
     logo: "🔴",
     color: "hsl(0 84% 60%)",
-    description: "India's largest broker. Access live data via Kite Connect API with WebSocket streaming.",
+    description: "India's largest broker. Access live data via Kite Connect v3 API with WebSocket streaming. Greeks/IV computed locally via Black-Scholes.",
     docsUrl: "https://kite.trade/docs/connect/v3/",
-    features: ["Option Chain", "Live Quotes", "WebSocket Streaming", "Historical Data"],
+    features: ["Option Chain (composed)", "Live Quotes", "WebSocket Streaming", "Historical Data", "Computed Greeks"],
     fields: [
       { key: "apiKey", label: "API Key", placeholder: "Enter Kite Connect API Key", type: "text", required: true, helpText: "From Kite Developer Console → My Apps" },
-      { key: "apiSecret", label: "API Secret", placeholder: "Enter Kite Connect API Secret", type: "password", required: true, helpText: "From Kite Developer Console → My Apps" },
-      { key: "accessToken", label: "Access Token", placeholder: "Enter session Access Token", type: "password", required: true, helpText: "Generated after login flow via /session/token" },
+      { key: "apiSecret", label: "API Secret", placeholder: "Enter Kite Connect API Secret", type: "password", required: true, helpText: "Only used during the login handshake — not sent on every request" },
+      { key: "accessToken", label: "Access Token", placeholder: "Click 'Login with Kite' to generate", type: "password", required: true, helpText: "Expires every day at ~06:00 IST. Click 'Login with Kite' to refresh." },
     ],
   },
   {

@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useProxyHealth, useAllIndices, useFnOStocks, useLiveOptionChain } from "@/hooks/useMarketData";
 import { useWebSocketStatus, useWebSocketVix } from "@/hooks/useWebSocket";
 import { Globe, BarChart3, Activity, Server, Zap, Radio, Database, TrendingUp } from "lucide-react";
+import { getActiveBroker, getBrokerInfo } from "@/lib/brokerConfig";
 
 interface SourceStatus {
   name: string;
@@ -20,38 +21,46 @@ export function DataSourcesBar() {
   const wsConnected = useWebSocketStatus();
   const { vix: wsVix } = useWebSocketVix();
 
-  const dhanConfigured = health?.sources?.dhan === true;
-  const dhanWSConnected = health?.websocket?.dhanConnected === true;
+  // Active broker (chosen by user) drives the "primary broker" row.
+  const activeBroker = getActiveBroker();
+  const activeInfo = activeBroker ? getBrokerInfo(activeBroker.brokerId) : undefined;
+  const brokerId = activeBroker?.brokerId || "dhan";
+  const brokerName = activeInfo?.name || "Broker";
+
+  // Proxy health reports per-broker upstream WS connectivity in `websocket.upstreams`.
+  const upstreams: Record<string, boolean> = (health?.websocket?.upstreams as any) || {};
+  const brokerConfigured = !!(health?.sources as any)?.[brokerId];
+  const brokerWSConnected = upstreams[brokerId] === true;
   const fnoSource = (fnoData as any)?.source || "none";
   const ocSource = niftyOC?.source || "offline";
 
   const sources: SourceStatus[] = [
-    // ── DHAN (Primary — always first) ──
+    // ── Active Broker (primary) ──
     {
-      name: "Dhan API",
+      name: `${brokerName} API`,
       icon: <TrendingUp className="h-3 w-3" />,
-      status: dhanConfigured
-        ? (ocSource === "dhan" ? "live" : dhanWSConnected ? "degraded" : "offline")
+      status: brokerConfigured
+        ? (ocSource === brokerId ? "live" : brokerWSConnected ? "degraded" : "offline")
         : "offline",
-      detail: !dhanConfigured
-        ? "No credentials in .env"
-        : ocSource === "dhan"
+      detail: !brokerConfigured
+        ? "No credentials in .env or settings"
+        : ocSource === brokerId
         ? "Primary · Option Chain"
-        : dhanWSConnected
+        : brokerWSConnected
         ? "WebSocket only"
         : "Configured but no response",
       primary: true,
     },
-    // ── Dhan WebSocket ──
+    // ── Active Broker WebSocket ──
     {
-      name: "Dhan WS",
+      name: `${brokerName} WS`,
       icon: <Zap className="h-3 w-3" />,
-      status: dhanWSConnected ? "live" : dhanConfigured ? "offline" : "offline",
-      detail: dhanWSConnected
-        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached · ${health?.websocket?.instrumentsSubscribed || 0} instruments`
-        : dhanConfigured
+      status: brokerWSConnected ? "live" : "offline",
+      detail: brokerWSConnected
+        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached`
+        : brokerConfigured
         ? "Disconnected"
-        : "Requires Dhan credentials",
+        : `Requires ${brokerName} credentials`,
     },
     // ── Browser WebSocket (relay) ──
     {
@@ -74,7 +83,7 @@ export function DataSourcesBar() {
       detail: allIndices?.isLive
         ? `Indices${ocSource === "nse" ? " + Option Chain (fallback)" : " + Sectors"}`
         : ocSource === "nse"
-        ? "Option Chain (Dhan unavailable)"
+        ? `Option Chain (${brokerName} unavailable)`
         : "No data",
     },
     // ── TradingView Scanner ──
@@ -98,7 +107,7 @@ export function DataSourcesBar() {
       icon: <Activity className="h-3 w-3" />,
       status: wsVix ? "live" : allIndices?.vix ? "degraded" : "offline",
       detail: wsVix
-        ? `Dhan WS: ${wsVix.value?.toFixed(2)}`
+        ? `${brokerName} WS: ${wsVix.value?.toFixed(2)}`
         : allIndices?.vix
         ? `NSE Poll: ${allIndices.vix.value?.toFixed(2)}`
         : "No data",
