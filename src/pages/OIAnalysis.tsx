@@ -427,7 +427,7 @@ export default function OIAnalysis() {
                     <YAxis yAxisId="dist" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <ReferenceLine yAxisId="pcr" y={1} stroke="hsl(38 92% 50%)" strokeDasharray="5 5" label={{ value: "PCR=1", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
-                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
+                    <ReferenceLine yAxisId="pcr" x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
                     <Bar yAxisId="pcr" dataKey="pcr" name="PCR" radius={[2, 2, 0, 0]}>
                       {strikePCRData.map((entry, i) => (
                         <Cell key={i} fill={entry.pcr >= 1 ? "hsl(142 71% 45% / 0.7)" : "hsl(0 84% 60% / 0.7)"} />
@@ -457,7 +457,7 @@ export default function OIAnalysis() {
                     <YAxis yAxisId="oi" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis yAxisId="chg" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
+                    <ReferenceLine yAxisId="oi" x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
                     <Bar yAxisId="oi" dataKey="ceOI" fill="hsl(142 71% 45% / 0.3)" name="CE OI" radius={[2, 2, 0, 0]} />
                     <Bar yAxisId="oi" dataKey="peOI" fill="hsl(0 84% 60% / 0.3)" name="PE OI" radius={[2, 2, 0, 0]} />
                     <Line yAxisId="chg" type="monotone" dataKey="ceOIChg" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} name="CE OI Chg" />
