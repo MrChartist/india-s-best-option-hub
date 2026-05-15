@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "localhost",
     port: 4001,
+    strictPort: true,
     hmr: {
       overlay: false,
     },

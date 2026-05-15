@@ -1134,19 +1134,38 @@ localWSS.on("connection", (ws) => {
 // ── SECTION 5: HTTP Server ──
 // ══════════════════════════════════════════════
 
-// Security: Restrict CORS to the Vite dev server origin only.
-// Override via CORS_ORIGIN env var if deploying the proxy separately.
-const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:4001";
+// Security: Restrict CORS to localhost origins only.
+// This dynamically matches the request Origin against localhost (any port),
+// so it works even if Vite falls back to a different port.
+// Override via CORS_ORIGIN env var for custom deployments (e.g., a specific remote origin).
+function getCorsHeaders(reqOrigin) {
+  const allowedOrigin = process.env.CORS_ORIGIN || null;
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
-};
+  // If a fixed origin is configured via env, use it
+  if (allowedOrigin) {
+    return {
+      "Access-Control-Allow-Origin": allowedOrigin,
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
+    };
+  }
+
+  // Otherwise, dynamically allow any localhost/127.0.0.1 origin
+  const origin = reqOrigin || "";
+  const isLocal = origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
+
+  return {
+    "Access-Control-Allow-Origin": isLocal ? origin : "http://localhost:4001",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
+  };
+}
 
 const server = http.createServer(async (req, res) => {
+  const corsHeaders = getCorsHeaders(req.headers.origin);
+
   if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204, corsHeaders);
     return res.end();
   }
 
@@ -1154,7 +1173,7 @@ const server = http.createServer(async (req, res) => {
   const params = url.searchParams;
 
   res.setHeader("Content-Type", "application/json");
-  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+  Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
 
   try {
     if (url.pathname === "/api/dhan-proxy") {
