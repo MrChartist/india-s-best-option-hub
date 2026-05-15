@@ -1095,18 +1095,17 @@ localWSS.on("connection", (ws) => {
     ws.send(JSON.stringify(tickData));
   }
 
-  // Handle messages from browser (e.g., credential updates, custom subscriptions)
+  // Handle messages from browser (e.g., custom subscriptions)
+  // Security: Credentials are ONLY accepted from .env file, not from browser messages.
+  // This prevents malicious websites from injecting credentials via the WebSocket.
   ws.on("message", (msg) => {
     try {
       const parsed = JSON.parse(msg.toString());
 
       if (parsed.type === "configure") {
-        // Browser is sending Dhan credentials for WebSocket
-        const { clientId, accessToken } = parsed;
-        if (clientId && accessToken) {
-          console.log("  🔑 Received Dhan credentials from browser, connecting WebSocket...");
-          connectDhanWebSocket(clientId, accessToken);
-        }
+        // Security: Do NOT accept credentials from the browser.
+        // Credentials should be configured via .env file or Broker Settings UI → .env.
+        console.log("  ⚠️  Ignoring credential configure request from browser (security: use .env file instead)");
       }
 
       if (parsed.type === "subscribe" && parsed.instruments) {
@@ -1133,8 +1132,12 @@ localWSS.on("connection", (ws) => {
 // ── SECTION 5: HTTP Server ──
 // ══════════════════════════════════════════════
 
+// Security: Restrict CORS to the Vite dev server origin only.
+// Override via CORS_ORIGIN env var if deploying the proxy separately.
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:4001";
+
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
 };
