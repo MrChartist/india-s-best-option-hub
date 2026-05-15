@@ -1095,17 +1095,19 @@ localWSS.on("connection", (ws) => {
     ws.send(JSON.stringify(tickData));
   }
 
-  // Handle messages from browser (e.g., custom subscriptions)
-  // Security: Credentials are ONLY accepted from .env file, not from browser messages.
-  // This prevents malicious websites from injecting credentials via the WebSocket.
+  // Handle messages from browser (e.g., credential updates, custom subscriptions)
+  // Security: Only accept credentials if the WebSocket connection came from a trusted origin.
   ws.on("message", (msg) => {
     try {
       const parsed = JSON.parse(msg.toString());
 
       if (parsed.type === "configure") {
-        // Security: Do NOT accept credentials from the browser.
-        // Credentials should be configured via .env file or Broker Settings UI → .env.
-        console.log("  ⚠️  Ignoring credential configure request from browser (security: use .env file instead)");
+        // Accept credentials from browser — origin was already validated on upgrade
+        const { clientId, accessToken } = parsed;
+        if (clientId && accessToken) {
+          console.log("  🔑 Received Dhan credentials from browser, connecting WebSocket...");
+          connectDhanWebSocket(clientId, accessToken);
+        }
       }
 
       if (parsed.type === "subscribe" && parsed.instruments) {
@@ -1221,9 +1223,19 @@ const server = http.createServer(async (req, res) => {
 });
 
 // Handle WebSocket upgrade for /ws path
+// Security: Validate Origin header to prevent cross-site WebSocket hijacking
 server.on("upgrade", (request, socket, head) => {
   const url = new URL(request.url, `http://localhost:${PORT}`);
   if (url.pathname === "/ws") {
+    // Validate origin — only allow connections from trusted origins
+    const origin = request.headers.origin || "";
+    const isLocalOrigin = !origin || origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1");
+    if (!isLocalOrigin) {
+      console.warn(`  🚫 Rejected WebSocket connection from untrusted origin: ${origin}`);
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
     localWSS.handleUpgrade(request, socket, head, (ws) => {
       localWSS.emit("connection", ws, request);
     });
