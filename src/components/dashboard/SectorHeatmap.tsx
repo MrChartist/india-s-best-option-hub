@@ -50,14 +50,14 @@ export function SectorHeatmap() {
   const { data: indexData, isLoading: indexLoading } = useAllIndices();
   const { data: fnoData } = useFnOStocks();
   
-  // Primary: NSE sectoral indices
-  const nseSectors = indexData?.sectors || [];
+  // Primary: NSE sectoral indices (memoized to keep stable reference)
+  const nseSectors = useMemo(() => indexData?.sectors ?? [], [indexData]);
   const isLiveNSE = indexData?.isLive && nseSectors.length > 0;
-  
+
   // Fallback: Aggregate sectors from TradingView stock data
   const tvSectors = useMemo(() => {
     if (nseSectors.length > 0) return []; // Don't compute if NSE data available
-    const allStocks = fnoData?.allStocks || [];
+    const allStocks = fnoData?.allStocks ?? [];
     return aggregateStocksBySector(allStocks);
   }, [nseSectors, fnoData]);
 

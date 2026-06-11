@@ -60,7 +60,7 @@ export function DatabaseManager() {
   // Load stats on mount
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [loadStats]);
 
   const loadStats = useCallback(async () => {
     try {

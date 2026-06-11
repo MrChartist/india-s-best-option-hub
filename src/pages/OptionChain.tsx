@@ -18,6 +18,8 @@ import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { StockChart } from "@/components/StockChart";
 import { toast } from "sonner";
 
+const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
+
 // ── Symbol categories for organized browsing ──
 const SYMBOL_CATEGORIES: { label: string; symbols: { label: string; value: string }[] }[] = [
   {
@@ -276,14 +278,14 @@ export default function OptionChain() {
 
   const { data, isLoading, refetch } = useLiveOptionChain(symbol, selectedExpiry);
 
-  const chain = data?.chain || [];
-  const spotPrice = data?.spotPrice || 0;
-  const lotSize = data?.lotSize || 25;
-  const stepSize = data?.stepSize || 50;
-  const maxPain = data?.maxPain || 0;
-  const expiries = data?.expiries || [];
-  const isLive = data?.isLive || false;
-  const afterHours = data?.afterHours || false;
+  const chain = useMemo(() => data?.chain ?? [], [data]);
+  const expiries = useMemo(() => data?.expiries ?? [], [data]);
+  const spotPrice = data?.spotPrice ?? 0;
+  const lotSize = data?.lotSize ?? 25;
+  const stepSize = data?.stepSize ?? 50;
+  const maxPain = data?.maxPain ?? 0;
+  const isLive = data?.isLive ?? false;
+  const afterHours = data?.afterHours ?? false;
   const hasData = chain.length > 0;
 
   const atmStrike = useMemo(() => Math.round(spotPrice / stepSize) * stepSize, [spotPrice, stepSize]);
@@ -318,11 +320,11 @@ export default function OptionChain() {
     if (chain.length > 0 && atmRef.current && viewMode === "expiration") {
       setTimeout(() => atmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
     }
-  }, [chain.length > 0, viewMode]);
+  }, [chain.length, viewMode]);
 
   useEffect(() => {
     if (chain.length > 0 && !selectedStrike) setSelectedStrike(atmStrike);
-  }, [chain.length, atmStrike]);
+  }, [chain.length, atmStrike, selectedStrike]);
 
   const scrollToATM = useCallback(() => {
     if (viewMode === "expiration") {
@@ -450,7 +452,7 @@ export default function OptionChain() {
   const downloadPastOC = useCallback(async (pastExpiry: string) => {
     setIsDownloadingPast(true);
     try {
-      const res = await fetch(`http://localhost:4002/api/dhan-proxy?endpoint=option-chain&symbol=${symbol}&expiry=${pastExpiry}`, {
+      const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?endpoint=option-chain&symbol=${symbol}&expiry=${pastExpiry}`, {
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error(`API error: ${res.status}`);

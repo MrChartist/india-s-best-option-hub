@@ -38,9 +38,9 @@ export default function Watchlist() {
   const wsConnected = useWebSocketStatus();
   const [chartSymbol, setChartSymbol] = useState<string | null>(null);
 
-  const allStocks = fnoData?.allStocks || [];
-  const indices = indicesResult?.data || [];
-  const isLive = fnoData?.isLive || false;
+  const allStocks = useMemo(() => fnoData?.allStocks ?? [], [fnoData]);
+  const indices = useMemo(() => indicesResult?.data ?? [], [indicesResult]);
+  const isLive = fnoData?.isLive ?? false;
 
   // Build watchlist rows from live F&O data + indices
   const watchlistRows = useMemo(() => {

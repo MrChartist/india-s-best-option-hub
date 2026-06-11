@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface ShortcutAction {
@@ -22,7 +22,7 @@ export function useKeyboardShortcuts({
 } = {}) {
   const navigate = useNavigate();
 
-  const shortcuts: ShortcutAction[] = [
+  const shortcuts: ShortcutAction[] = useMemo(() => [
     { key: "/", description: "Open search / command palette", category: "Navigation", action: () => onToggleSearch?.() },
     { key: "1", ctrl: true, description: "Dashboard", category: "Navigation", action: () => navigate("/") },
     { key: "2", ctrl: true, description: "Option Chain", category: "Navigation", action: () => navigate("/option-chain") },
@@ -32,7 +32,7 @@ export function useKeyboardShortcuts({
     { key: "g", description: "Toggle Greeks", category: "Option Chain", action: () => onToggleGreeks?.() },
     { key: "a", alt: true, description: "Open Alerts", category: "Tools", action: () => onToggleAlerts?.() },
     { key: "Escape", description: "Close panels", category: "General", action: () => {} },
-  ];
+  ], [navigate, onToggleSearch, onToggleGreeks, onToggleAlerts]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't trigger in inputs

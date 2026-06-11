@@ -37,7 +37,7 @@ export default function StrategyBuilder() {
   const lotSize = getLotSize("NIFTY");
   const stepSize = getStepSize("NIFTY");
 
-  const presets = useMemo(() => getPresetStrategies(spotPrice, stepSize), []);
+  const presets = useMemo(() => getPresetStrategies(spotPrice, stepSize), [spotPrice, stepSize]);
   const [legs, setLegs] = useState<StrategyLeg[]>(presets[0].legs);
   const [selectedPreset, setSelectedPreset] = useState(presets[0].name);
   const selectedStrategy = presets.find(p => p.name === selectedPreset);
@@ -55,7 +55,7 @@ export default function StrategyBuilder() {
       setLegs([{ type, action, strike: s, lots: 1, premium: Math.round(premium * 100) / 100 }]);
       setSelectedPreset("");
     }
-  }, [searchParams]);
+  }, [searchParams, spotPrice, stepSize]);
 
   const handlePreset = (name: string) => {
     const p = presets.find(s => s.name === name);
@@ -85,7 +85,7 @@ export default function StrategyBuilder() {
     const center = Math.round(spotPrice / stepSize) * stepSize;
     for (let s = center - stepSize * 25; s <= center + stepSize * 25; s += stepSize / 2) range.push(s);
     return calculatePayoff(legs, lotSize, range);
-  }, [legs]);
+  }, [legs, lotSize, spotPrice, stepSize]);
 
   const stats = useMemo(() => {
     const maxProfit = Math.max(...payoffData.map(d => d.pnl));
@@ -119,7 +119,7 @@ export default function StrategyBuilder() {
       totalTheta: Math.round(totalTheta * 100) / 100,
       totalVega: Math.round(totalVega * 100) / 100,
     };
-  }, [legs, payoffData]);
+  }, [legs, payoffData, lotSize, spotPrice]);
 
   return (
     <div className="space-y-4">

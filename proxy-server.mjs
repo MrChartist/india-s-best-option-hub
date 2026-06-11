@@ -309,7 +309,7 @@ async function handleDhanProxy(params, userClientId, userAccessToken) {
       if (!secInfo) throw new Error(`Unknown index: ${symbol}`);
 
       const result = await dhanFetch("/marketfeed/ltp", {
-        NSE_FNO: [secInfo.secId],
+        [secInfo.exchSeg]: [secInfo.secId],
       }, "POST", userClientId, userAccessToken);
       setCache(cacheKey, result, 2000);
       return { data: result, cacheHit: false };

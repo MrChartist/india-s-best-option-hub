@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,12 +19,13 @@ export default function OIAnalysis() {
   const [symbol, setSymbol] = useState("NIFTY");
   const [atmZoneSize, setATMZoneSize] = useState<number>(5);
   const { data: liveData, refetch, isLoading } = useLiveOptionChain(symbol);
-  const chain = liveData?.chain || [];
-  const spotPrice = liveData?.spotPrice || 0;
-  const stepSize = liveData?.stepSize || 50;
-  const isLive = liveData?.isLive || false;
-  const afterHours = liveData?.afterHours || false;
+  const chain = useMemo(() => liveData?.chain ?? [], [liveData]);
+  const spotPrice = liveData?.spotPrice ?? 0;
+  const stepSize = liveData?.stepSize ?? 50;
+  const isLive = liveData?.isLive ?? false;
+  const afterHours = liveData?.afterHours ?? false;
   const hasData = chain.length > 0;
+  const handleRefetch = useCallback(() => refetch(), [refetch]);
   const maxPain = useMemo(() => getMaxPain(chain), [chain]);
   // Live PCR computed from current chain
   const pcrData = useMemo(() => calculatePCR(chain), [chain]);
@@ -176,7 +177,7 @@ export default function OIAnalysis() {
             </PopoverContent>
           </Popover>
 
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-background/70 transition-colors hover:border-primary/50 hover:text-primary" onClick={() => refetch()} disabled={isLoading}>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-background/70 transition-colors hover:border-primary/50 hover:text-primary" onClick={handleRefetch} disabled={isLoading}>
             {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             <span className="text-xs">Refresh</span>
           </Button>
@@ -242,7 +243,7 @@ export default function OIAnalysis() {
               </div>
             </div>
             <div className="text-center pt-2">
-              <Button variant="outline" size="sm" className="gap-1.5 hover:text-primary hover:border-primary/50 transition-colors" onClick={() => refetch()}>
+              <Button variant="outline" size="sm" className="gap-1.5 hover:text-primary hover:border-primary/50 transition-colors" onClick={handleRefetch}>
                 <RefreshCw className="h-3.5 w-3.5" /> Retry Connection
               </Button>
             </div>
