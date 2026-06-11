@@ -1,5 +1,6 @@
 import { useRef, useEffect, memo } from "react";
 import { useSparklineData } from "@/hooks/useChartData";
+import { useIsDark, getChartColors } from "@/hooks/useIsDark";
 
 interface MiniChartProps {
   symbol: string;
@@ -20,6 +21,7 @@ export const MiniChart = memo(function MiniChart({
 }: MiniChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { data: closes } = useSparklineData(symbol);
+  const isDark = useIsDark();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,9 +43,10 @@ export const MiniChart = memo(function MiniChart({
     const chartWidth = width - padding * 2;
     const chartHeight = height - padding * 2;
 
+    const colors = getChartColors(isDark);
     const isPositive = closes[closes.length - 1] >= closes[0];
-    const lineColor = isPositive ? "#22c55e" : "#ef4444";
-    const fillColor = isPositive ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.12)";
+    const lineColor = isPositive ? colors.bullish : colors.bearish;
+    const fillColor = isPositive ? `hsl(${colors.bullishRaw} / 0.15)` : `hsl(${colors.bearishRaw} / 0.12)`;
 
     // Build path
     const stepX = chartWidth / (closes.length - 1);
@@ -78,7 +81,7 @@ export const MiniChart = memo(function MiniChart({
     ctx.lineWidth = 1.2;
     ctx.lineJoin = "round";
     ctx.stroke();
-  }, [closes, width, height]);
+  }, [closes, width, height, isDark]);
 
   if (!closes || closes.length < 2) {
     return (

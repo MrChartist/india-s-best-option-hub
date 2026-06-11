@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type Time } from "lightweight-charts";
-import { useChartData, type OHLCVCandle } from "@/hooks/useChartData";
+import { useChartData } from "@/hooks/useChartData";
+import { useIsDark, getChartColors } from "@/hooks/useIsDark";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ function ChartCore({
   const [range, setRange] = useState<TimeRange>("3M");
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const { data: candles, isLoading, error } = useChartData(symbol, range);
+  const isDark = useIsDark();
 
   const buildChart = useCallback(() => {
     if (!chartContainerRef.current || !candles || candles.length === 0) return;
@@ -46,24 +48,26 @@ function ChartCore({
     }
 
     const container = chartContainerRef.current;
-    const isDark = document.documentElement.classList.contains("dark");
+    const colors = getChartColors(isDark);
+    const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
+    const crosshairColor = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
 
     const chart = createChart(container, {
       width: container.clientWidth,
       height,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: isDark ? "#a1a1aa" : "#71717a",
+        textColor: colors.text,
         fontFamily: "'Inter', 'SF Pro', system-ui, sans-serif",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" },
-        horzLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" },
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
       },
       crosshair: {
-        vertLine: { color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)", width: 1, style: 2 },
-        horzLine: { color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)", width: 1, style: 2 },
+        vertLine: { color: crosshairColor, width: 1, style: 2, labelBackgroundColor: colors.primary },
+        horzLine: { color: crosshairColor, width: 1, style: 2, labelBackgroundColor: colors.primary },
       },
       rightPriceScale: {
         borderVisible: false,
@@ -93,18 +97,19 @@ function ChartCore({
 
     if (chartType === "candle") {
       const candleSeries = chart.addSeries(CandlestickSeries, {
-        upColor: "#22c55e",
-        downColor: "#ef4444",
-        borderUpColor: "#22c55e",
-        borderDownColor: "#ef4444",
-        wickUpColor: "#22c55e",
-        wickDownColor: "#ef4444",
+        upColor: colors.bullish,
+        downColor: colors.bearish,
+        borderUpColor: colors.bullish,
+        borderDownColor: colors.bearish,
+        wickUpColor: colors.bullish,
+        wickDownColor: colors.bearish,
       });
       candleSeries.setData(formattedCandles);
     } else {
       const isPositive = candles[candles.length - 1].close >= candles[0].close;
+      const lineColor = isPositive ? colors.bullish : colors.bearish;
       const lineSeries = chart.addSeries(LineSeries, {
-        color: isPositive ? "#22c55e" : "#ef4444",
+        color: lineColor,
         lineWidth: 2,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
@@ -114,7 +119,7 @@ function ChartCore({
       );
     }
 
-    // Volume histogram
+    // Volume histogram — tinted to match the theme's bullish/bearish palette
     const volumeData = candles
       .filter((c) => c.volume && c.volume > 0)
       .map((c, i, arr) => ({
@@ -122,8 +127,8 @@ function ChartCore({
         value: c.volume!,
         color:
           i > 0 && c.close >= arr[i - 1].close
-            ? "rgba(34, 197, 94, 0.25)"
-            : "rgba(239, 68, 68, 0.2)",
+            ? `hsl(${colors.bullishRaw} / 0.25)`
+            : `hsl(${colors.bearishRaw} / 0.2)`,
       }));
 
     if (volumeData.length > 0) {
@@ -151,7 +156,7 @@ function ChartCore({
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, height, chartType, range]);
+  }, [candles, height, chartType, range, isDark]);
 
   useEffect(() => {
     const cleanup = buildChart();

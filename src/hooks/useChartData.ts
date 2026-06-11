@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-const PROXY_BASE = "http://localhost:4002";
+const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
 
 export interface OHLCVCandle {
   time: number; // Unix timestamp in seconds
@@ -119,33 +119,73 @@ async function resolveSecurityId(symbol: string): Promise<{ securityId: string; 
   return null;
 }
 
-/**
- * Fetches daily/intraday OHLCV candle data from Dhan API via the proxy.
- * Uses /api/dhan-proxy?endpoint=historical
- */
-async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
-  const resolved = await resolveSecurityId(symbol);
-  if (!resolved) return [];
+// ── Map a UI time range to candle interval + lookback days ──
+function rangeToParams(range: string): { interval: string; daysBack: number } {
+  switch (range) {
+    case "1W": return { interval: "15", daysBack: 10 };
+    case "1M": return { interval: "60", daysBack: 31 };
+    case "3M": return { interval: "D", daysBack: 92 };
+    case "6M": return { interval: "D", daysBack: 183 };
+    case "1Y": return { interval: "D", daysBack: 365 };
+    default:   return { interval: "D", daysBack: 92 };
+  }
+}
 
-  // Calculate date range
+interface ColumnarCandleData {
+  open?: number[];
+  high?: number[];
+  low?: number[];
+  close?: number[];
+  volume?: number[];
+  timestamp?: (number | string)[];
+  start_Time?: (number | string)[];
+}
+
+/**
+ * Parses the proxy's column-array candle response (shared by Dhan + Yahoo,
+ * which both return { open[], high[], low[], close[], volume[], timestamp[] }).
+ * Exported for unit testing.
+ */
+export function parseColumnarCandles(rawData: ColumnarCandleData | null | undefined): OHLCVCandle[] {
+  if (!rawData || !Array.isArray(rawData.close)) return [];
+
+  const opens = rawData.open || [];
+  const highs = rawData.high || [];
+  const lows = rawData.low || [];
+  const closes = rawData.close || [];
+  const volumes = rawData.volume || [];
+  const timestamps = rawData.start_Time || rawData.timestamp || [];
+
+  const candles: OHLCVCandle[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    if (closes[i] == null) continue; // Yahoo emits null gaps on non-trading slots
+    const ts = timestamps[i];
+    const time = typeof ts === "string"
+      ? Math.floor(new Date(ts).getTime() / 1000)
+      : typeof ts === "number"
+        ? (ts > 1e12 ? Math.floor(ts / 1000) : ts) // handle ms vs s timestamps
+        : Math.floor(Date.now() / 1000);
+    candles.push({
+      time,
+      open: opens[i] ?? closes[i],
+      high: highs[i] ?? closes[i],
+      low: lows[i] ?? closes[i],
+      close: closes[i],
+      volume: volumes[i] || 0,
+    });
+  }
+  return candles.sort((a, b) => a.time - b.time);
+}
+
+/** Primary source: Dhan historical candles (includes OI, needs broker keys). */
+async function fetchDhanHistorical(
+  resolved: { securityId: string; exchangeSegment: string; instrument: string },
+  range: string,
+): Promise<OHLCVCandle[]> {
+  const { interval, daysBack } = rangeToParams(range);
   const now = new Date();
   const from = new Date(now);
-  switch (range) {
-    case "1W": from.setDate(from.getDate() - 10); break;
-    case "1M": from.setMonth(from.getMonth() - 1); break;
-    case "3M": from.setMonth(from.getMonth() - 3); break;
-    case "6M": from.setMonth(from.getMonth() - 6); break;
-    case "1Y": from.setFullYear(from.getFullYear() - 1); break;
-    default: from.setMonth(from.getMonth() - 3);
-  }
-
-  const fromDate = `${from.toISOString().split("T")[0]} 09:15`;
-  const toDate = `${now.toISOString().split("T")[0]} 15:30`;
-  
-  // Determine interval: "15" for 1W (15min candles), "60" for 1M, "D" for daily (3M+)
-  let interval = "D"; // daily candles for 3M+
-  if (range === "1W") interval = "15";
-  else if (range === "1M") interval = "60";
+  from.setDate(from.getDate() - daysBack);
 
   const params = new URLSearchParams({
     endpoint: "historical",
@@ -153,45 +193,80 @@ async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCand
     exchangeSegment: resolved.exchangeSegment,
     instrument: resolved.instrument,
     interval,
-    fromDate,
-    toDate,
+    fromDate: `${from.toISOString().split("T")[0]} 09:15`,
+    toDate: `${now.toISOString().split("T")[0]} 15:30`,
   });
 
   const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?${params}`, {
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) return [];
-
   const json = await res.json();
-  // Dhan returns: { open: [...], high: [...], low: [...], close: [...], volume: [...], start_Time: [...] }
-  const rawData = json?.data || json;
-  
-  if (rawData && rawData.close && Array.isArray(rawData.close)) {
-    const opens = rawData.open || [];
-    const highs = rawData.high || [];
-    const lows = rawData.low || [];
-    const closes = rawData.close || [];
-    const volumes = rawData.volume || [];
-    const timestamps = rawData.start_Time || rawData.timestamp || [];
+  return parseColumnarCandles(json?.data || json);
+}
 
-    const candles: OHLCVCandle[] = [];
-    for (let i = 0; i < closes.length; i++) {
-      const ts = timestamps[i];
-      const time = typeof ts === "string"
-        ? Math.floor(new Date(ts).getTime() / 1000)
-        : typeof ts === "number"
-          ? (ts > 1e12 ? Math.floor(ts / 1000) : ts) // handle ms vs s timestamps
-          : Math.floor(Date.now() / 1000);
-      candles.push({
-        time,
-        open: opens[i] || closes[i],
-        high: highs[i] || closes[i],
-        low: lows[i] || closes[i],
-        close: closes[i],
-        volume: volumes[i] || 0,
-      });
+/**
+ * Universal fallback: Yahoo Finance candles via the proxy. Free, no auth,
+ * covers all indices + any NSE equity (.NS). This is what keeps charts alive
+ * for users who haven't configured Dhan broker keys.
+ */
+async function fetchYahooHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+  const { interval, daysBack } = rangeToParams(range);
+  const now = new Date();
+  const from = new Date(now);
+  from.setDate(from.getDate() - daysBack);
+
+  const params = new URLSearchParams({
+    symbol: symbol.toUpperCase(),
+    interval,
+    fromDate: from.toISOString().split("T")[0],
+    toDate: now.toISOString().split("T")[0],
+  });
+
+  const res = await fetch(`${PROXY_BASE}/api/yahoo-chart?${params}`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return parseColumnarCandles(json?.data || json);
+}
+
+/**
+ * Fetches OHLCV candle data with graceful degradation:
+ *   Dhan (when symbol is known + broker keys configured) → Yahoo Finance fallback.
+ * Always returns candles when the proxy is reachable, even without broker keys.
+ */
+async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+  // Try Dhan first for symbols we can resolve instantly (no 30MB CSV download).
+  const mapped = SECURITY_MAP[symbol];
+  if (mapped) {
+    try {
+      const candles = await fetchDhanHistorical(
+        { securityId: mapped.secId, exchangeSegment: mapped.exchSeg, instrument: mapped.instrument },
+        range,
+      );
+      if (candles.length > 0) return candles;
+    } catch {
+      // Dhan unavailable (no keys / rate limit) — fall through to Yahoo.
     }
-    return candles.sort((a, b) => a.time - b.time);
+  }
+
+  // Universal fallback — works for everyone, no broker keys required.
+  try {
+    const yahoo = await fetchYahooHistorical(symbol, range);
+    if (yahoo.length > 0) return yahoo;
+  } catch {
+    // Yahoo unreachable too.
+  }
+
+  // Last resort for non-mapped stocks: resolve via instrument master, then Dhan.
+  if (!mapped) {
+    try {
+      const resolved = await resolveSecurityId(symbol);
+      if (resolved) return await fetchDhanHistorical(resolved, range);
+    } catch {
+      // give up — return empty
+    }
   }
 
   return [];
