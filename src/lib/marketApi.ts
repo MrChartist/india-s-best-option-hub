@@ -61,9 +61,9 @@ function getBrokerHeaders(brokerId: string, values: Record<string, string>): Rec
     case "kotakneo":
       return { "x-kotak-api-key": values.apiKey || "", "x-kotak-access-token": values.accessToken || "", "x-kotak-sid": values.sid || "", "x-kotak-auth": values.auth || "" };
     case "aliceblue":
-      return { "x-aliceblue-user-id": values.userId || "", "x-aliceblue-session-id": values.apiKey || "" };
+      return { "x-aliceblue-user-id": values.userId || "", "x-aliceblue-session-id": values.sessionId || "" };
     case "fivepaisa":
-      return { "x-5paisa-jwt-token": values.encryptionKey || "", "x-5paisa-client-code": values.userId || "", "x-5paisa-app-key": values.appName || "" };
+      return { "x-5paisa-jwt-token": values.jwtToken || "", "x-5paisa-client-code": values.userId || "", "x-5paisa-app-key": values.appName || "" };
     case "motilal":
       return { "x-motilal-api-key": values.apiKey || "", "x-motilal-auth-token": values.authToken || "" };
     case "samco":

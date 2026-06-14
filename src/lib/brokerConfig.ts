@@ -95,10 +95,9 @@ export const BROKERS: BrokerInfo[] = [
     docsUrl: "https://www.5paisa.com/developerapi/overview",
     features: ["Option Chain", "Market Data", "Orders"],
     fields: [
-      { key: "appName", label: "App Name", placeholder: "Enter 5paisa App Name", type: "text", required: true },
-      { key: "appSource", label: "App Source", placeholder: "Enter App Source ID", type: "text", required: true },
-      { key: "userId", label: "User ID", placeholder: "Enter User ID / Client Code", type: "text", required: true },
-      { key: "encryptionKey", label: "Encryption Key", placeholder: "Enter Encryption Key", type: "password", required: true },
+      { key: "appName", label: "App Name", placeholder: "Enter 5paisa App Name", type: "text", required: true, helpText: "From 5paisa Developer Portal → My Apps" },
+      { key: "userId", label: "User ID / Client Code", placeholder: "Enter User ID / Client Code", type: "text", required: true },
+      { key: "jwtToken", label: "JWT / Bearer Token", placeholder: "Enter JWT access token", type: "password", required: true, helpText: "Generated via POST /login using your App credentials + encryption key" },
     ],
   },
   {
@@ -125,7 +124,7 @@ export const BROKERS: BrokerInfo[] = [
     features: ["Market Data", "Orders", "Portfolio", "Funds"],
     fields: [
       { key: "userId", label: "User ID", placeholder: "Enter Alice Blue User ID", type: "text", required: true },
-      { key: "apiKey", label: "API Key", placeholder: "Enter API Key", type: "password", required: true, helpText: "From Alice Blue ANT Developer Portal" },
+      { key: "sessionId", label: "Session ID", placeholder: "Enter pre-computed session ID", type: "password", required: true, helpText: "SHA256(userId + apiKey + encryptionKey) — compute via Alice Blue ANT login or Python SDK" },
     ],
   },
   {
