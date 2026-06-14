@@ -25,6 +25,88 @@ async function fetchDhanProxy(endpoint: string, params?: Record<string, string>)
   return res.json();
 }
 
+// ── Multi-broker helpers ──
+
+const BROKER_PROXY_MAP: Record<string, string> = {
+  zerodha: "/api/zerodha-proxy",
+  upstox: "/api/upstox-proxy",
+  angelone: "/api/angel-proxy",
+  fyers: "/api/fyers-proxy",
+  groww: "/api/groww-proxy",
+  shoonya: "/api/shoonya-proxy",
+  icicibreeze: "/api/icicibreeze-proxy",
+  kotakneo: "/api/kotakneo-proxy",
+  aliceblue: "/api/aliceblue-proxy",
+  fivepaisa: "/api/fivepaisa-proxy",
+  motilal: "/api/motilal-proxy",
+  samco: "/api/samco-proxy",
+};
+
+function getBrokerHeaders(brokerId: string, values: Record<string, string>): Record<string, string> {
+  switch (brokerId) {
+    case "zerodha":
+      return { "x-zerodha-api-key": values.apiKey || "", "x-zerodha-access-token": values.accessToken || "" };
+    case "upstox":
+      return { "x-upstox-access-token": values.accessToken || "" };
+    case "angelone":
+      return { "x-angel-api-key": values.apiKey || "", "x-angel-jwt-token": values.accessToken || "" };
+    case "fyers":
+      return { "x-fyers-app-id": values.appId || "", "x-fyers-access-token": values.accessToken || "" };
+    case "groww":
+      return { "x-groww-access-token": values.accessToken || "" };
+    case "shoonya":
+      return { "x-shoonya-user-id": values.userId || "", "x-shoonya-session-token": values.sessionToken || "" };
+    case "icicibreeze":
+      return { "x-icici-api-key": values.apiKey || "", "x-icici-api-secret": values.apiSecret || "", "x-icici-session-token": values.sessionToken || "" };
+    case "kotakneo":
+      return { "x-kotak-api-key": values.apiKey || "", "x-kotak-access-token": values.accessToken || "", "x-kotak-sid": values.sid || "", "x-kotak-auth": values.auth || "" };
+    case "aliceblue":
+      return { "x-aliceblue-user-id": values.userId || "", "x-aliceblue-session-id": values.apiKey || "" };
+    case "fivepaisa":
+      return { "x-5paisa-jwt-token": values.encryptionKey || "", "x-5paisa-client-code": values.userId || "", "x-5paisa-app-key": values.appName || "" };
+    case "motilal":
+      return { "x-motilal-api-key": values.apiKey || "", "x-motilal-auth-token": values.authToken || "" };
+    case "samco":
+      return { "x-samco-user-id": values.userId || "", "x-samco-password": values.password || "", "x-samco-year-of-birth": values.yearOfBirth || "" };
+    default:
+      return {};
+  }
+}
+
+async function fetchActiveBrokerOptionChain(symbol: string, expiry?: string): Promise<any> {
+  const activeBroker = getActiveBroker();
+  if (!activeBroker || activeBroker.brokerId === "dhan") return null;
+
+  const proxyPath = BROKER_PROXY_MAP[activeBroker.brokerId];
+  if (!proxyPath) return null;
+
+  const headers = getBrokerHeaders(activeBroker.brokerId, activeBroker.values);
+  const qp = new URLSearchParams({ symbol: symbol.toUpperCase() });
+  if (expiry) qp.set("expiry", expiry);
+
+  const res = await fetch(`${PROXY_BASE}${proxyPath}?${qp.toString()}`, { headers });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`${activeBroker.brokerId} proxy error ${res.status}: ${errText}`);
+  }
+  const json = await res.json();
+  // Return null if broker signals no option chain data (e.g. Motilal fallback)
+  if (json?.status === "no_oc") return null;
+  return json;
+}
+
+// Test connection for any broker
+export async function testBrokerConnection(brokerId: string): Promise<{ status: string; message: string; [k: string]: any }> {
+  const activeBroker = getActiveBroker();
+  const targetBroker = activeBroker?.brokerId === brokerId ? activeBroker : null;
+  const headers: Record<string, string> = targetBroker
+    ? getBrokerHeaders(brokerId, targetBroker.values)
+    : {};
+
+  const res = await fetch(`${PROXY_BASE}/api/test-connection?broker=${brokerId}`, { headers });
+  return res.json();
+}
+
 // NSE proxy for indices & market status
 async function fetchNSEProxy(endpoint: string, symbol?: string): Promise<any> {
   const params = new URLSearchParams({ endpoint });
@@ -243,7 +325,24 @@ export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?
 
 // Dhan Option Chain (primary) with NSE fallback
 export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
-  // Try Dhan first
+  // Try active non-Dhan broker first
+  const activeBroker = getActiveBroker();
+  if (activeBroker && activeBroker.brokerId !== "dhan" && BROKER_PROXY_MAP[activeBroker.brokerId]) {
+    try {
+      const raw = await fetchActiveBrokerOptionChain(symbol, expiry);
+      if (raw?.status === "success" && raw?.data?.oc) {
+        const parsed = parseDhanOptionChain(raw);
+        return {
+          ...parsed, expiries: [], source: activeBroker.brokerId as any,
+          afterHours: false, cachedAt: null,
+        };
+      }
+    } catch (e) {
+      console.warn(`${activeBroker.brokerId} option chain failed, falling back:`, e);
+    }
+  }
+
+  // Try Dhan
   try {
     const params: Record<string, string> = { symbol: symbol.toUpperCase() };
     if (expiry) params.expiry = expiry;

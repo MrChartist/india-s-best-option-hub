@@ -16,7 +16,7 @@ import {
   type BrokerInfo,
   type BrokerCredentials,
 } from "@/lib/brokerConfig";
-import { testDhanConnection } from "@/lib/marketApi";
+import { testBrokerConnection } from "@/lib/marketApi";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import {
@@ -165,40 +165,44 @@ function BrokerCard({
 function ConnectionStatusPanel() {
   const { data: health } = useProxyHealth();
   const wsConnected = useWebSocketStatus();
-  const [dhanStatus, setDhanStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
-  const [dhanMessage, setDhanMessage] = useState("");
+  const activeBroker = getActiveBroker();
+  const [brokerStatus, setBrokerStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [brokerMessage, setBrokerMessage] = useState("");
 
-  const handleTestDhan = async () => {
-    setDhanStatus("testing");
+  const activeBrokerId = activeBroker?.brokerId || "dhan";
+
+  const handleTestBroker = async () => {
+    setBrokerStatus("testing");
     try {
-      const result = await testDhanConnection();
+      const result = await testBrokerConnection(activeBrokerId);
       if (result.status === "success") {
-        setDhanStatus("success");
-        setDhanMessage("Connected successfully");
-        toast.success("Dhan API connection verified!");
+        setBrokerStatus("success");
+        setBrokerMessage("Connected successfully");
+        toast.success(`${activeBrokerId} API connection verified!`);
       } else {
-        setDhanStatus("error");
-        setDhanMessage(result.message || "Connection failed");
-        toast.error("Dhan connection failed: " + result.message);
+        setBrokerStatus("error");
+        setBrokerMessage(result.message || "Connection failed");
+        toast.error(`${activeBrokerId} connection failed: ${result.message}`);
       }
     } catch (e: any) {
-      setDhanStatus("error");
-      setDhanMessage(e.message || "Network error");
+      setBrokerStatus("error");
+      setBrokerMessage(e.message || "Network error");
       toast.error("Connection test failed");
     }
   };
 
   const sources = [
     {
-      name: "Dhan API (Primary)",
+      name: `${activeBrokerId.charAt(0).toUpperCase() + activeBrokerId.slice(1)} API (Active)`,
       icon: <Wifi className="h-4 w-4" />,
-      status: dhanStatus === "success" ? "online" : dhanStatus === "error" ? "offline" : health?.sources?.dhan ? "online" : "unknown",
-      detail: dhanStatus === "success"
-        ? "Primary source · Option Chain, Greeks, WebSocket"
-        : health?.sources?.dhan
-        ? "Credentials loaded from .env · Option Chain, Expiry, WebSocket"
-        : dhanMessage || "Click Test to verify — provides Option Chain, Greeks, Live Ticks",
-      color: dhanStatus === "success" || health?.sources?.dhan ? "text-emerald-500" : dhanStatus === "error" ? "text-red-500" : "text-zinc-500",
+      status: brokerStatus === "success" ? "online" : brokerStatus === "error" ? "offline"
+        : (activeBrokerId === "dhan" && health?.sources?.dhan) ? "online" : "unknown",
+      detail: brokerStatus === "success"
+        ? "Primary source · Option Chain, Greeks"
+        : brokerMessage || "Click Test to verify connection",
+      color: brokerStatus === "success" || (activeBrokerId === "dhan" && health?.sources?.dhan)
+        ? "text-emerald-500" : brokerStatus === "error" ? "text-red-500" : "text-zinc-500",
+      testable: true,
     },
     {
       name: "Dhan WebSocket",
@@ -208,6 +212,7 @@ function ConnectionStatusPanel() {
         ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached, ${health?.websocket?.instrumentsSubscribed || 0} instruments`
         : "Requires Dhan credentials · Real-time index + VIX ticks",
       color: wsConnected ? "text-emerald-500" : "text-zinc-500",
+      testable: false,
     },
     {
       name: "NSE India (Fallback)",
@@ -258,19 +263,19 @@ function ConnectionStatusPanel() {
               </div>
               <p className="text-xs text-muted-foreground truncate">{src.detail}</p>
             </div>
-            {src.name.startsWith("Dhan API") && (
+            {(src as any).testable && (
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs gap-1"
-                onClick={handleTestDhan}
-                disabled={dhanStatus === "testing"}
+                onClick={handleTestBroker}
+                disabled={brokerStatus === "testing"}
               >
-                {dhanStatus === "testing" ? (
+                {brokerStatus === "testing" ? (
                   <><Loader2 className="h-3 w-3 animate-spin" /> Testing</>
-                ) : dhanStatus === "success" ? (
+                ) : brokerStatus === "success" ? (
                   <><CheckCircle className="h-3 w-3 text-emerald-500" /> Connected</>
-                ) : dhanStatus === "error" ? (
+                ) : brokerStatus === "error" ? (
                   <><XCircle className="h-3 w-3 text-red-500" /> Retry</>
                 ) : (
                   <>Test</>
