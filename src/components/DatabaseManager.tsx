@@ -57,11 +57,6 @@ export function DatabaseManager() {
   });
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Load stats on mount
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
   const loadStats = useCallback(async () => {
     try {
       const s = await getDatabaseStats();
@@ -70,6 +65,11 @@ export function DatabaseManager() {
       console.warn("Failed to load DB stats:", err);
     }
   }, []);
+
+  // Load stats on mount
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const handleUpdateDatabase = async () => {
     setIsUpdating(true);
