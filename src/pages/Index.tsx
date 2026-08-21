@@ -111,7 +111,7 @@ export default function Index() {
         {/* ═══ INDEX CARDS ═══ */}
         <SectionHeader
           title="Live Indices"
-          subtitle="Click any card to view its option chain"
+          subtitle="'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                        \n                                            \n                                            find erros andlets solve this"
           icon={<TrendingUp className="h-4 w-4" />}
           tooltip="Real-time spot prices for major indices. The mini-chart shows today's intraday movement. Click to open option chain."
         />
