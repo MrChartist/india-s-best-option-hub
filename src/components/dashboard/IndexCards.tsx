@@ -17,6 +17,7 @@ interface IndexData {
   high: number;
   low: number;
   prevClose: number;
+  indices?: any[];
 }
 
 interface Props {
