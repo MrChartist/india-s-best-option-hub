@@ -45,7 +45,7 @@ export function AlertSystem({ open, onOpenChange }: AlertSystemProps) {
   const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
 
   // Derive live spot from indices data
-  const liveSpot = allIndicesData?.indices?.[0]?.ltp || allIndicesData?.vix?.value ? (allIndicesData as any)?.indices?.[0]?.ltp : 0;
+  const liveSpot = (allIndicesData as any)?.indices?.[0]?.ltp || ((allIndicesData as any)?.vix?.value ? (allIndicesData as any)?.indices?.[0]?.ltp : 0);
 
   // Alert data from live market stats
   // VIX serves as IV proxy; PCR derived from VIX level heuristic when chain is unavailable

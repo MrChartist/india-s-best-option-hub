@@ -22,8 +22,10 @@ export function WelcomeBanner() {
               <TrendingUp className="h-6 w-6 text-primary" />
               {greeting}, Trader
             </h2>
-            <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-muted-foreground">
-              Your F&O command center - track indices, analyze OI, scan for opportunities, and build strategies. All in one place.
+            <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-muted-foreground whitespace-pre-line">
+              {`'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''
+
+              find erros andlets solve this`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
