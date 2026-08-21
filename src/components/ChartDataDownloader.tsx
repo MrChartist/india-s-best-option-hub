@@ -224,7 +224,7 @@ export function ChartDataDownloader() {
               toDate,
             );
             const dd = dhanResult?.data || dhanResult;
-            if (dd?.close && Array.isArray(dd.close) && dd.close.length > 0) {
+            if (dd && 'close' in dd && Array.isArray(dd.close) && dd.close.length > 0) {
               rawData = dd;
               source = "dhan";
             }
