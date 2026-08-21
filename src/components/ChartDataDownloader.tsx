@@ -204,7 +204,7 @@ export function ChartDataDownloader() {
             toDate,
           );
           const yd = yahooResult?.data || yahooResult;
-          if (yd?.close && Array.isArray(yd.close) && yd.close.filter((v: any) => v != null).length > 0) {
+          if (yd && 'close' in yd && Array.isArray(yd.close) && yd.close.filter((v: any) => v != null).length > 0) {
             rawData = yd;
             source = "yahoo";
           }
