@@ -422,51 +422,10 @@ export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
         }));
     }
   } catch (e) {
-    console.warn("NSE F&O stocks fetch failed, trying TradingView:", e);
-  }
-
-  // Fallback to TradingView Scanner (no OI but great LTP/volume data)
-  try {
-    const tvData = await fetchTradingViewStocks();
-    if (tvData.length > 0) return tvData;
-  } catch (e) {
-    console.warn("TradingView stocks fetch also failed:", e);
+    console.warn("NSE F&O stocks fetch failed:", e);
   }
 
   return [];
-}
-
-// ── TradingView Scanner API ──
-
-export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
-  const url = `${PROXY_BASE}/api/tv-scan?type=stocks`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TV scan error: ${res.status}`);
-  const data = await res.json();
-  
-  return (data.stocks || []).map((s: any) => ({
-    symbol: s.symbol || "",
-    ltp: s.ltp || 0,
-    change: s.changeAbs || 0,
-    changePercent: s.changePercent || 0,
-    open: s.open || 0,
-    high: s.high || 0,
-    low: s.low || 0,
-    previousClose: (s.ltp || 0) - (s.changeAbs || 0),
-    volume: s.volume || 0,
-    totalTradedVolume: s.volume || 0,
-    openInterest: 0,
-    oiChange: 0,
-    sector: s.sector || "",
-  }));
-}
-
-export async function fetchTradingViewIndices(): Promise<any[]> {
-  const url = `${PROXY_BASE}/api/tv-scan?type=indices`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TV indices error: ${res.status}`);
-  const data = await res.json();
-  return data.stocks || [];
 }
 
 // ── FII/DII Activity Data ──

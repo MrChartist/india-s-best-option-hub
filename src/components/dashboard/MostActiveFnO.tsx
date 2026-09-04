@@ -43,7 +43,7 @@ export function MostActiveFnO() {
           </span>
           {isLive && (
             <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto gap-1">
-              {source === "nse" ? "NSE LIVE" : "TRADINGVIEW"}
+              NSE LIVE
             </Badge>
           )}
           {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-auto text-muted-foreground" />}

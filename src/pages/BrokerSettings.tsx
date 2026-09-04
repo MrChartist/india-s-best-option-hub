@@ -217,10 +217,10 @@ function ConnectionStatusPanel() {
       color: health?.reachable ? "text-emerald-500" : "text-red-500",
     },
     {
-      name: "TradingView Scanner",
+      name: "Yahoo Finance",
       icon: <BarChart3 className="h-4 w-4" />,
       status: "online",
-      detail: "No auth needed · 100+ F&O stocks LTP, Volume, Sectors",
+      detail: "No auth needed · 15-min delayed historical/intraday charts",
       color: "text-emerald-500",
     },
     {

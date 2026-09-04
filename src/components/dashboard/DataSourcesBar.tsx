@@ -22,7 +22,6 @@ export function DataSourcesBar() {
 
   const dhanConfigured = health?.sources?.dhan === true;
   const dhanWSConnected = health?.websocket?.dhanConnected === true;
-  const fnoSource = (fnoData as any)?.source || "none";
   const ocSource = niftyOC?.source || "offline";
 
   const sources: SourceStatus[] = [
@@ -77,19 +76,13 @@ export function DataSourcesBar() {
         ? "Option Chain (Dhan unavailable)"
         : "No data",
     },
-    // ── TradingView Scanner ──
+    // ── F&O Stocks (NSE) ──
     {
-      name: "TradingView",
+      name: "F&O Stocks",
       icon: <BarChart3 className="h-3 w-3" />,
-      status: fnoSource === "tradingview"
-        ? "live"
-        : fnoData?.isLive
-        ? "degraded"
-        : "offline",
-      detail: fnoSource === "tradingview"
-        ? `${fnoData?.allStocks?.length || 0} F&O stocks (no OI)`
-        : fnoData?.isLive
-        ? `NSE primary · ${fnoData.allStocks?.length || 0} stocks`
+      status: fnoData?.isLive ? "live" : "offline",
+      detail: fnoData?.isLive
+        ? `NSE · ${fnoData.allStocks?.length || 0} stocks`
         : "Standby",
     },
     // ── VIX (composite) ──

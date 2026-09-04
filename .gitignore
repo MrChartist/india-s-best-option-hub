@@ -44,3 +44,4 @@ coverage/
 .gemini/
 .agents/
 _agents/
+.gstack/

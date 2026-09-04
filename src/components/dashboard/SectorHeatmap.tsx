@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAllIndices, useFnOStocks } from "@/hooks/useMarketData";
 import { BarChart3, Loader2 } from "lucide-react";
 
-// Aggregate TradingView stock data into sectors
+// Aggregate NSE F&O stock data into sectors
 function aggregateStocksBySector(stocks: any[]): { name: string; change: number; count: number }[] {
   const sectorMap = new Map<string, { total: number; count: number }>();
   
@@ -54,15 +54,15 @@ export function SectorHeatmap() {
   const nseSectors = useMemo(() => indexData?.sectors ?? [], [indexData]);
   const isLiveNSE = indexData?.isLive && nseSectors.length > 0;
 
-  // Fallback: Aggregate sectors from TradingView stock data
-  const tvSectors = useMemo(() => {
-    if (nseSectors.length > 0) return []; // Don't compute if NSE data available
+  // Fallback: Aggregate sectors from NSE F&O stock data
+  const aggregatedSectors = useMemo(() => {
+    if (nseSectors.length > 0) return []; // Don't compute if NSE index sectors are available
     const allStocks = fnoData?.allStocks ?? [];
     return aggregateStocksBySector(allStocks);
   }, [nseSectors, fnoData]);
 
-  const sectors = isLiveNSE ? nseSectors : tvSectors;
-  const source = isLiveNSE ? "NSE" : tvSectors.length > 0 ? "TradingView" : "";
+  const sectors = isLiveNSE ? nseSectors : aggregatedSectors;
+  const source = isLiveNSE ? "NSE" : aggregatedSectors.length > 0 ? "NSE" : "";
 
   if (sectors.length === 0 && !indexLoading) {
     return (

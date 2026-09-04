@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Clock, Github, Terminal } from "lucide-react";
+import { Activity, Clock, Code2, Terminal } from "lucide-react";
 import { useLiveIndices, useMarketStatus } from "../hooks/useMarketData";
 
 export const StatusFooter = () => {
@@ -55,12 +55,12 @@ export const StatusFooter = () => {
         </div>
 
         <a
-          href="https://github.com/rohit/sahi"
+          href="https://github.com/MrChartist/india-s-best-option-hub"
           target="_blank"
           rel="noopener noreferrer"
           className="hidden items-center gap-1.5 border-l border-border pl-4 transition-colors hover:text-primary sm:flex"
         >
-          <Github size={12} />
+          <Code2 size={12} />
           <span>Star on GitHub</span>
         </a>
       </div>

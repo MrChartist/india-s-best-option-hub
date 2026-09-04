@@ -28,7 +28,7 @@ export function MarketBreadth() {
   const bullishSectors = sectors.filter((s: any) => s.change > 0).length;
   const bearishSectors = sectors.filter((s: any) => s.change < 0).length;
 
-  // F&O stock analysis from TradingView/NSE
+  // F&O stock analysis from NSE
   const allStocks = fnoData?.allStocks || [];
   const stocksUp = allStocks.filter(s => s.changePercent > 0).length;
   const stocksDown = allStocks.filter(s => s.changePercent < 0).length;
@@ -172,7 +172,7 @@ export function MarketBreadth() {
         </CardContent>
       </Card>
 
-      {/* F&O Breadth (from TradingView/NSE stocks) */}
+      {/* F&O Breadth (from NSE stocks) */}
       <Card className="hover:shadow-card-hover transition-all duration-300">
         <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
           <CardTitle className="text-base flex items-center gap-2">

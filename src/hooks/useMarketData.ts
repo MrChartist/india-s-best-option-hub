@@ -304,8 +304,7 @@ export function useFnOStocks() {
               ...s, oi: s.openInterest || 0, oiChange: s.oiChange || 0,
               oiInterpretation: getOIInterpretation(s.changePercent, s.oiChange || 0),
             }));
-            const hasOI = stocks.some(s => (s.openInterest || 0) > 0);
-            const source = hasOI ? "nse" as const : "tradingview" as const;
+            const source = "nse" as const;
             return { gainers, losers, mostActive, allStocks: stocks, isLive: true, source };
           }
         } catch (e) { markProxyOffline(); console.warn("F&O stocks fetch failed:", e); }

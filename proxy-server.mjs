@@ -630,104 +630,6 @@ async function handleNSEProxy(params) {
 }
 
 // ══════════════════════════════════════════════
-// ── SECTION 3b: TradingView Scanner ──
-// ══════════════════════════════════════════════
-
-const TRADINGVIEW_SCAN_URL = "https://scanner.tradingview.com/india/scan";
-
-// Top F&O stocks for TradingView scanning
-const FNO_TICKERS = [
-  "RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","HINDUNILVR","SBIN","BHARTIARTL",
-  "ITC","KOTAKBANK","LT","AXISBANK","ASIANPAINT","MARUTI","TATAMOTORS","SUNPHARMA",
-  "TITAN","WIPRO","ULTRACEMCO","BAJFINANCE","HCLTECH","NTPC","POWERGRID","ONGC",
-  "ADANIENT","ADANIPORTS","COALINDIA","DRREDDY","NESTLEIND","CIPLA","BAJAJFINSV",
-  "GRASIM","JSWSTEEL","BRITANNIA","TECHM","INDUSINDBK","HINDALCO","M&M","APOLLOHOSP",
-  "EICHERMOT","DIVISLAB","BPCL","HEROMOTOCO","TATASTEEL","SBILIFE","HDFCLIFE",
-  "SHRIRAMFIN","TRENT","BAJAJ-AUTO","BANKBARODA","PNB","CANBK","IDFCFIRSTB",
-  "FEDERALBNK","BANDHANBNK","RBLBANK","AUBANK","MANAPPURAM","MUTHOOTFIN",
-  "CHOLAFIN","LICHSGFIN","CANFINHOME","RECLTD","PFC","HAL","BEL","BHEL",
-  "IRCTC","ZOMATO","PAYTM","DLF","GODREJPROP","OBEROIRLTY","VEDL","JINDALSTEL",
-  "SAIL","NMDC","IOC","GAIL","TATAPOWER","SIEMENS","ABB","VOLTAS","HAVELLS",
-  "POLYCAB","LTIM","MPHASIS","COFORGE","PERSISTENT","TORNTPHARM","LUPIN",
-  "AUROPHARMA","BIOCON","GODREJCP","DABUR","MARICO","COLPAL","MCX","INDIGO",
-  "TVSMOTOR","MRF","ASHOKLEY","ESCORTS","DIXON","CROMPTON","JUBLFOOD","SUNTV",
-].map(s => `NSE:${s}`);
-
-const INDEX_TICKERS = ["NSE:NIFTY","NSE:BANKNIFTY","NSE:CNXFINANCE","BSE:SENSEX"];
-
-async function handleTradingViewScan(params) {
-  const scanType = params.get("type") || "stocks"; // "stocks" or "indices"
-  const cacheKey = `tv:scan:${scanType}`;
-
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
-
-  const isIndices = scanType === "indices";
-  const tickers = isIndices ? INDEX_TICKERS : FNO_TICKERS;
-
-  const body = {
-    symbols: { tickers },
-    columns: [
-      "name", "description", "close", "change", "change_abs",
-      "volume", "open", "high", "low", "Perf.W", "Perf.1M",
-      "market_cap_basic", "average_volume_10d_calc",
-      ...(isIndices ? [] : ["sector"]),
-    ],
-  };
-
-  const res = await fetch(TRADINGVIEW_SCAN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Referer: "https://www.tradingview.com/",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`TradingView scan error [${res.status}]: ${errText}`);
-  }
-
-  const rawData = await res.json();
-  
-  // Parse TradingView response into clean format
-  const stocks = (rawData.data || []).map(item => {
-    const d = item.d || [];
-    const cols = body.columns;
-    const obj = {};
-    cols.forEach((col, i) => { obj[col] = d[i]; });
-    
-    // Extract exchange:symbol from s (e.g. "NSE:RELIANCE")
-    const [exchange, symbol] = (item.s || "").split(":");
-    
-    return {
-      symbol: symbol || obj.name || "",
-      name: obj.description || symbol || "",
-      exchange: exchange || "NSE",
-      ltp: obj.close || 0,
-      change: obj.change || 0,
-      changeAbs: obj.change_abs || 0,
-      changePercent: obj.change || 0,
-      volume: obj.volume || 0,
-      open: obj.open || 0,
-      high: obj.high || 0,
-      low: obj.low || 0,
-      weekChange: obj["Perf.W"] || 0,
-      monthChange: obj["Perf.1M"] || 0,
-      marketCap: obj.market_cap_basic || 0,
-      avgVolume10d: obj.average_volume_10d_calc || 0,
-      sector: obj.sector || "",
-    };
-  });
-
-  console.log(`  📊 TradingView ${scanType}: ${stocks.length} results`);
-  setCache(cacheKey, { stocks, totalCount: rawData.totalCount, timestamp: Date.now() }, 15000); // 15s cache
-  return { data: { stocks, totalCount: rawData.totalCount, timestamp: Date.now() }, cacheHit: false };
-}
-
-// ══════════════════════════════════════════════
 // ── SECTION 3c: Yahoo Finance Historical Charts ──
 // ══════════════════════════════════════════════
 
@@ -1164,11 +1066,6 @@ const server = http.createServer(async (req, res) => {
       res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
       res.writeHead(200);
       res.end(JSON.stringify(data));
-    } else if (url.pathname === "/api/tv-scan") {
-      const { data, cacheHit } = await handleTradingViewScan(params);
-      res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-      res.writeHead(200);
-      res.end(JSON.stringify(data));
     } else if (url.pathname === "/api/yahoo-chart") {
       const { data, cacheHit } = await handleYahooChart(params);
       res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
@@ -1201,14 +1098,13 @@ const server = http.createServer(async (req, res) => {
         },
         sources: {
           dhan: !!process.env.DHAN_CLIENT_ID,
-          tradingview: true,
           nse: true,
           yahoo: true,
         },
       }));
     } else {
       res.writeHead(404);
-      res.end(JSON.stringify({ error: "Not found. Use /api/dhan-proxy, /api/nse-proxy, /api/tv-scan, /api/yahoo-chart, or /ws" }));
+      res.end(JSON.stringify({ error: "Not found. Use /api/dhan-proxy, /api/nse-proxy, /api/yahoo-chart, or /ws" }));
     }
   } catch (err) {
     console.error(`[Proxy Error] ${url.pathname}:`, err.message);
@@ -1236,10 +1132,9 @@ server.listen(PORT, () => {
   console.log(`  ├─ WebSocket:  ws://localhost:${PORT}/ws`);
   console.log(`  ├─ Health:     http://localhost:${PORT}/health`);
   console.log(`  ├─ Dhan (1°):  http://localhost:${PORT}/api/dhan-proxy?endpoint=option-chain&symbol=NIFTY`);
-  console.log(`  ├─ NSE  (2°):  http://localhost:${PORT}/api/nse-proxy?endpoint=indices`);
-  console.log(`  └─ TV Scanner: http://localhost:${PORT}/api/tv-scan?type=stocks`);
+  console.log(`  └─ NSE  (2°):  http://localhost:${PORT}/api/nse-proxy?endpoint=indices`);
   console.log("");
-  console.log("  Data Priority: Dhan → NSE → TradingView");
+  console.log("  Data Priority: Dhan → NSE → Yahoo (15-min delayed)");
   console.log("  Dhan credentials:", process.env.DHAN_CLIENT_ID ? "✅ Loaded from .env" : "⚠️  Not set (configure in .env or Broker Settings)");
   console.log("");
 
