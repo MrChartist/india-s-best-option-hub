@@ -62,17 +62,21 @@ export function SectorHeatmap() {
   }, [nseSectors, fnoData]);
 
   const sectors = isLiveNSE ? nseSectors : aggregatedSectors;
-  const source = isLiveNSE ? "NSE" : aggregatedSectors.length > 0 ? "NSE" : "";
+  // Label the two data paths differently: nseSectors are the official NSE
+  // sectoral index values, while aggregatedSectors is a client-side average
+  // of individual F&O stock changes grouped by sector — a reasonable fallback,
+  // but not the same figure, and badging both "NSE" misrepresented the source.
+  const source = isLiveNSE ? "NSE" : aggregatedSectors.length > 0 ? "F&O Agg" : "";
 
   if (sectors.length === 0 && !indexLoading) {
     return (
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> Sector Performance
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" /> Sector Performance
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4">
+        <CardContent>
           <ShimmerTiles />
           <p className="text-center text-xs text-muted-foreground/60 mt-3">Sector data loads during market hours from NSE</p>
         </CardContent>
@@ -85,10 +89,10 @@ export function SectorHeatmap() {
   const worstChange = sectors.length > 0 ? Math.min(...sectors.map((s: any) => s.change)) : 0;
 
   return (
-    <Card className="hover:shadow-card-hover transition-all duration-300">
-      <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-        <CardTitle className="text-base flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> Sector Performance
+    <Card className="hover:shadow-card-hover transition-all duration-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" /> Sector Performance
           {source && (
             <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto">
               {source}
@@ -97,7 +101,7 @@ export function SectorHeatmap() {
           {indexLoading && <Loader2 className="h-4 w-4 animate-spin ml-auto text-muted-foreground" />}
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-5 pb-4">
+      <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
           {sectors.map((sector: any) => {
             const pos = sector.change >= 0;
@@ -107,9 +111,9 @@ export function SectorHeatmap() {
             return (
               <div
                 key={sector.name}
-                className={`rounded-lg p-2.5 text-center transition-all duration-200 hover:scale-105 cursor-default border ${
-                  isBest ? "border-bullish/30 shadow-sm shadow-bullish/10" :
-                  isWorst ? "border-bearish/30 shadow-sm shadow-bearish/10" :
+                className={`rounded-lg p-2.5 text-center transition-colors duration-200 cursor-default border ${
+                  isBest ? "border-bullish/30" :
+                  isWorst ? "border-bearish/30" :
                   "border-transparent hover:border-border/30"
                 }`}
                 style={{
@@ -120,7 +124,7 @@ export function SectorHeatmap() {
                 title={`${sector.name}: ${pos ? "+" : ""}${sector.change.toFixed(2)}% (${sector.count} stocks)`}
               >
                 <p className="text-xs font-semibold truncate mb-1 text-foreground/90">{sector.name}</p>
-                <p className={`text-base font-bold font-mono tracking-tight ${pos ? "text-bullish drop-shadow-[0_0_3px_rgba(0,255,100,0.3)]" : "text-bearish drop-shadow-[0_0_3px_rgba(255,50,50,0.3)]"}`}>
+                <p className={`text-base font-semibold font-mono tracking-tight ${pos ? "text-bullish" : "text-bearish"}`}>
                   {pos ? "+" : ""}{sector.change.toFixed(2)}%
                 </p>
                 {sector.count && (
@@ -128,7 +132,7 @@ export function SectorHeatmap() {
                 )}
                 {/* Best/Worst label */}
                 {(isBest || isWorst) && (
-                  <span className={`text-xs font-bold uppercase tracking-wider mt-1 inline-block ${isBest ? "text-bullish drop-shadow-sm" : "text-bearish drop-shadow-sm"}`}>
+                  <span className={`text-xs font-semibold uppercase tracking-wider mt-1 inline-block ${isBest ? "text-bullish" : "text-bearish"}`}>
                     {isBest ? "★ BEST" : "★ WORST"}
                   </span>
                 )}

@@ -21,6 +21,13 @@ interface Level {
 
 export function SupportResistance({ chain, spotPrice }: SupportResistanceProps) {
   const levels = useMemo(() => {
+    // Guard against empty chains and a not-yet-loaded spot price. Without this,
+    // spotPrice === 0 (e.g. mid-fetch) would make every strike satisfy
+    // `strikePrice > spotPrice`, misclassifying the entire chain as "resistance"
+    // with zero support levels — a materially wrong read for a live trading view.
+    if (chain.length === 0 || spotPrice <= 0) {
+      return { resistance: [] as Level[], support: [] as Level[] };
+    }
     const maxCEOI = Math.max(...chain.map(o => o.ce.oi));
     const maxPEOI = Math.max(...chain.map(o => o.pe.oi));
 
@@ -68,16 +75,16 @@ export function SupportResistance({ chain, spotPrice }: SupportResistanceProps) 
   );
 
   return (
-    <Card className="overflow-hidden border-border/80 bg-card/95">
-      <CardHeader className="border-b border-border/70 bg-muted/25 px-4 py-3">
+    <Card className="overflow-hidden">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <Target className="h-4 w-4" /> Support & Resistance (from OI)
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 p-4">
+      <CardContent className="space-y-3">
         <div>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <Badge variant="outline" className="text-[11px] h-4 text-bearish border-bearish/30">
+            <Badge variant="outline" className="text-xs h-4 text-bearish border-bearish/30">
               <Shield className="h-2.5 w-2.5 mr-0.5" /> Resistance
             </Badge>
           </div>
@@ -86,12 +93,12 @@ export function SupportResistance({ chain, spotPrice }: SupportResistanceProps) 
 
         <div className="rounded-md border border-primary/15 bg-primary/10 px-2 py-2 text-center">
           <p className="text-xs text-muted-foreground">Spot Price</p>
-          <p className="text-sm font-bold font-mono">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+          <p className="text-sm font-semibold font-mono">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
         </div>
 
         <div>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <Badge variant="outline" className="text-[11px] h-4 text-bullish border-bullish/30">
+            <Badge variant="outline" className="text-xs h-4 text-bullish border-bullish/30">
               <Shield className="h-2.5 w-2.5 mr-0.5" /> Support
             </Badge>
           </div>

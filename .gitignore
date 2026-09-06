@@ -9,6 +9,8 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
 # Editor & IDE
 .vscode/*
@@ -39,9 +41,22 @@ coverage/
 # Proxy server cache
 .cache/
 
+# SQLite databases (local dev state)
+*.db
+*.db-shm
+*.db-wal
+
+# Stray tool logs / backups
+.codex-*.log
+.codex-logs/
+_backups/
+
 # Lovable / AI tool artifacts
 .lovable/
 .gemini/
 .agents/
 _agents/
 .gstack/
+.codegraph/
+.superpowers/
+.dev-restart.log

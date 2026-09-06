@@ -1,5 +1,16 @@
 // GEX (Gamma Exposure) calculation engine + mock data generators
 // GEX = Gamma × OI × Contract Multiplier × Spot² × 0.01
+//
+// IMPORTANT — real vs mock, so this doesn't get accidentally wired into a live view:
+//   REAL (operates on live chain data passed in by the caller):
+//     calculateGEX, getGEXSummary, calculateExpectedMove
+//   MOCK (synthetic/seeded-random — no live 52-week IV history source exists yet):
+//     generateIVRankData, generateMultiSymbolIVRank
+// As of this pass, calculateGEX/getGEXSummary are not imported anywhere in the app
+// (dead code) — OIAnalysis.tsx/OIHeatmap.tsx compute PCR/OI/IV analytics from live
+// chain data via src/lib/oiUtils.ts instead, so they are NOT accidentally reading
+// GEX mock data. generateIVRankData/generateMultiSymbolIVRank are consumed by
+// IVRankWidget.tsx, which is a separate widget outside this pass's scope.
 
 export interface GEXByStrike {
   strike: number;

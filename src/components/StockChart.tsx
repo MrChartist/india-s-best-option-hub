@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type Time } from "lightweight-charts";
 import { useChartData } from "@/hooks/useChartData";
 import { useIsDark, getChartColors } from "@/hooks/useIsDark";
@@ -37,6 +38,19 @@ function ChartCore({
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const { data: candles, isLoading, error } = useChartData(symbol, range);
   const isDark = useIsDark();
+  const queryClient = useQueryClient();
+
+  // useChartData has no refetchInterval, so once loaded the chart would
+  // otherwise never pick up new candles while this view stays open — a
+  // stale-price bug for a live trading terminal. Periodically invalidate
+  // the query so it's refetched in the background; interval is cleared on
+  // unmount / symbol / range change to avoid leaking timers.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["chart-data", symbol, range] });
+    }, 60000);
+    return () => window.clearInterval(id);
+  }, [symbol, range, queryClient]);
 
   const buildChart = useCallback(() => {
     if (!chartContainerRef.current || !candles || candles.length === 0) return;
@@ -75,7 +89,10 @@ function ChartCore({
       },
       timeScale: {
         borderVisible: false,
-        timeVisible: range === "1W",
+        // 1W (15-min) and 1M (60-min) ranges use intraday candles — show the
+        // time-of-day, not just the date, otherwise multiple same-day bars
+        // are indistinguishable on the axis/crosshair.
+        timeVisible: range === "1W" || range === "1M",
         secondsVisible: false,
         rightOffset: 3,
         minBarSpacing: range === "1W" ? 3 : 4,
@@ -215,7 +232,7 @@ function ChartCore({
               </span>
               <Badge
                 variant="outline"
-                className={`text-[11px] font-mono ${priceChange >= 0 ? "text-bullish border-bullish/30" : "text-bearish border-bearish/30"}`}
+                className={`text-xs font-mono ${priceChange >= 0 ? "text-bullish border-bullish/30" : "text-bearish border-bearish/30"}`}
               >
                 {priceChange >= 0 ? "+" : ""}
                 {priceChange.toFixed(2)}%
@@ -288,7 +305,7 @@ export function StockChart({
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" />
           {symbol} — Price Chart

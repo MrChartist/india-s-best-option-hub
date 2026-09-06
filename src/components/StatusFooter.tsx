@@ -15,7 +15,7 @@ export const StatusFooter = () => {
   }, []);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 flex h-9 items-center justify-between gap-2 overflow-hidden border-t border-border/80 bg-background/95 px-3 text-[11px] font-mono text-muted-foreground backdrop-blur-md sm:px-4">
+    <footer className="fixed bottom-0 left-0 right-0 z-50 flex h-9 items-center justify-between gap-2 overflow-hidden border-t border-border/80 bg-background/95 px-3 text-xs font-mono text-muted-foreground backdrop-blur-md sm:px-4">
       <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <div className="flex shrink-0 items-center gap-1.5 text-primary">
           <Terminal size={12} />
@@ -39,13 +39,13 @@ export const StatusFooter = () => {
       <div className="flex shrink-0 items-center gap-2 sm:gap-6">
         <div className="hidden items-center gap-3 md:flex">
           <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px]">Ctrl K</kbd> Search
+            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">Ctrl K</kbd> Search
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px]">R</kbd> Refresh
+            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">R</kbd> Refresh
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px]">1-6</kbd> Navigate
+            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">1-6</kbd> Navigate
           </span>
         </div>
 

@@ -90,14 +90,14 @@ export function FuturesVIX() {
   return (
     <div className="grid lg:grid-cols-3 gap-3">
       <div className="lg:col-span-2">
-        <Card className="hover:shadow-card-hover transition-all duration-300">
-          <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> Index Performance
+        <Card className="hover:shadow-card-hover transition-all duration-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" /> Index Performance
               {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto gap-1"><Radio className="h-3 w-3 animate-pulse" />LIVE</Badge>}
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-5 pb-4">
+          <CardContent>
             <div className="h-[160px] mb-3">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={indexChangeChart} layout="vertical" barSize={18}>
@@ -133,7 +133,7 @@ export function FuturesVIX() {
                     <TableCell className="text-right py-2 text-muted-foreground">{f.open.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right py-2 text-bullish/80">{f.high.toLocaleString("en-IN")}</TableCell>
                     <TableCell className="text-right py-2 text-bearish/80">{f.low.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className={`text-right font-medium py-2 ${f.changePercent >= 0 ? "text-bullish drop-shadow-[0_0_5px_rgba(0,255,100,0.3)]" : "text-bearish drop-shadow-[0_0_5px_rgba(255,50,50,0.3)]"}`}>
+                    <TableCell className={`text-right font-medium py-2 ${f.changePercent >= 0 ? "text-bullish" : "text-bearish"}`}>
                       {f.changePercent >= 0 ? "+" : ""}{f.changePercent.toFixed(2)}%
                     </TableCell>
                   </TableRow>
@@ -144,11 +144,11 @@ export function FuturesVIX() {
         </Card>
       </div>
 
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-warning/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="h-5 w-5 text-warning drop-shadow-[0_0_8px_rgba(255,165,0,0.5)]" /> India VIX
-            {vix && <span className={`ml-auto text-lg font-mono font-bold ${vix.changePercent >= 0 ? "text-bearish drop-shadow-[0_0_5px_rgba(255,50,50,0.3)]" : "text-bullish drop-shadow-[0_0_5px_rgba(0,255,100,0.3)]"}`}>
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-warning" /> India VIX
+            {vix && <span className={`ml-auto text-lg font-mono font-semibold ${vix.changePercent >= 0 ? "text-bearish" : "text-bullish"}`}>
               {vix.value.toFixed(2)}
             </span>}
             {hasVixChartData && (
@@ -158,21 +158,21 @@ export function FuturesVIX() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4">
+        <CardContent>
           {/* Live VIX stats */}
           {vix && (
             <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-white/5">
+              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
                 <p className="text-xs text-muted-foreground mb-0.5">Current</p>
-                <p className="text-base font-bold font-mono">{vix.value.toFixed(2)}</p>
+                <p className="text-base font-semibold font-mono">{vix.value.toFixed(2)}</p>
               </div>
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-white/5">
+              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
                 <p className="text-xs text-muted-foreground mb-0.5">High</p>
-                <p className="text-base font-bold font-mono text-bearish">{vix.high.toFixed(2)}</p>
+                <p className="text-base font-semibold font-mono text-bearish">{vix.high.toFixed(2)}</p>
               </div>
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-white/5">
+              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
                 <p className="text-xs text-muted-foreground mb-0.5">Low</p>
-                <p className="text-base font-bold font-mono text-bullish">{vix.low.toFixed(2)}</p>
+                <p className="text-base font-semibold font-mono text-bullish">{vix.low.toFixed(2)}</p>
               </div>
             </div>
           )}
@@ -204,13 +204,13 @@ export function FuturesVIX() {
           <div className="mt-4 space-y-2">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Index Snapshot</p>
             {liveFuturesData.slice(0, 4).map((f, i) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-md bg-accent/30 border border-white/5">
+              <div key={i} className="flex items-center justify-between p-2 rounded-md bg-accent/30 border border-border/70">
                 <span className="text-xs font-semibold">{f.symbol}</span>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-mono text-muted-foreground">
                     {f.spotPrice.toLocaleString("en-IN")}
                   </span>
-                  <span className={`text-xs font-mono px-2 py-0.5 rounded font-bold ${f.changePercent >= 0 ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded font-semibold ${f.changePercent >= 0 ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
                     {f.changePercent >= 0 ? "+" : ""}{f.changePercent.toFixed(2)}%
                   </span>
                 </div>

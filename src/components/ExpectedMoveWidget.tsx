@@ -14,13 +14,18 @@ interface Props {
 
 export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 0, iv, daysToExpiry = 4, compact = false }: Props) {
   const effectiveIV = iv || 0;
-  const move = useMemo(() => calculateExpectedMove(spotPrice, effectiveIV, daysToExpiry), [spotPrice, effectiveIV, daysToExpiry]);
+  // Callers can legitimately pass daysToExpiry=0 on expiry day (e.g. Index.tsx's
+  // getDTE parses "0d 5h" as 0). At DTE=0, expectedMove collapses to exactly 0,
+  // which makes rangeWidth below 0 too and turns every range-bar percentage into
+  // NaN (division by zero) — floor it to a small positive value instead.
+  const effectiveDTE = Math.max(daysToExpiry, 0.25);
+  const move = useMemo(() => calculateExpectedMove(spotPrice, effectiveIV, effectiveDTE), [spotPrice, effectiveIV, effectiveDTE]);
 
   // Show placeholder if data not ready
   if (effectiveIV === 0 || spotPrice === 0) {
     return (
       <Card>
-        <CardContent className="py-6 text-center">
+        <CardContent className="p-4 py-6 text-center">
           <Target className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-xs text-muted-foreground">{symbol} Expected Move</p>
           <p className="text-xs text-muted-foreground/60 mt-1">Waiting for VIX / spot data…</p>
@@ -32,12 +37,12 @@ export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 0, iv, daysTo
   if (compact) {
     return (
       <Card>
-        <CardContent className="pt-3 pb-3">
+        <CardContent className="p-4">
           <div className="flex items-center gap-1.5 mb-1">
             <Target className="h-3.5 w-3.5 text-primary" />
             <p className="text-xs text-muted-foreground">Expected Move ({daysToExpiry}D)</p>
           </div>
-          <p className="text-lg font-bold font-mono text-primary">±{move.expectedMove.toFixed(0)}</p>
+          <p className="text-lg font-semibold font-mono text-primary">±{move.expectedMove.toFixed(0)}</p>
           <p className="text-xs text-muted-foreground font-mono">
             {move.lowerBound1SD.toLocaleString("en-IN")} — {move.upperBound1SD.toLocaleString("en-IN")}
           </p>
@@ -46,36 +51,39 @@ export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 0, iv, daysTo
     );
   }
 
-  const rangeWidth = move.upperBound2SD - move.lowerBound2SD;
+  // Defensive fallback: rangeWidth is 0 only in the degenerate case where
+  // expectedMove itself is 0 (e.g. iv rounds to 0), which would otherwise turn
+  // every percentage below into NaN and silently break the range-bar layout.
+  const rangeWidth = (move.upperBound2SD - move.lowerBound2SD) || 1;
   const spotPct = ((spotPrice - move.lowerBound2SD) / rangeWidth) * 100;
   const lower1Pct = ((move.lowerBound1SD - move.lowerBound2SD) / rangeWidth) * 100;
   const upper1Pct = ((move.upperBound1SD - move.lowerBound2SD) / rangeWidth) * 100;
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4 text-primary" />
           Expected Move — {symbol}
-          <Badge variant="outline" className="text-[11px] ml-auto">{daysToExpiry}D to Expiry</Badge>
+          <Badge variant="outline" className="text-xs ml-auto">{daysToExpiry}D to Expiry</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Main stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-2 rounded-lg bg-accent/30">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wider">±1σ Move</p>
-            <p className="text-xl font-bold font-mono text-primary">±{move.expectedMove.toFixed(0)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">±1σ Move</p>
+            <p className="text-xl font-semibold font-mono text-primary">±{move.expectedMove.toFixed(0)}</p>
             <p className="text-xs text-muted-foreground font-mono">({move.expectedMovePercent.toFixed(2)}%)</p>
           </div>
           <div className="text-center p-2 rounded-lg bg-accent/30">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wider">ATM Straddle</p>
-            <p className="text-xl font-bold font-mono">₹{move.straddlePrice.toFixed(0)}</p>
-            <p className="text-xs text-muted-foreground font-mono">Market implied</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">ATM Straddle</p>
+            <p className="text-xl font-semibold font-mono">₹{move.straddlePrice.toFixed(0)}</p>
+            <p className="text-xs text-muted-foreground font-mono">Est. from IV</p>
           </div>
           <div className="text-center p-2 rounded-lg bg-accent/30">
-            <p className="text-[11px] text-muted-foreground uppercase tracking-wider">IV Used</p>
-            <p className="text-xl font-bold font-mono">{effectiveIV.toFixed(1)}%</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">IV Used</p>
+            <p className="text-xl font-semibold font-mono">{effectiveIV.toFixed(1)}%</p>
             <p className="text-xs text-muted-foreground font-mono">Annualized</p>
           </div>
         </div>
@@ -107,11 +115,11 @@ export function ExpectedMoveWidget({ symbol = "NIFTY", spotPrice = 0, iv, daysTo
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="p-2 rounded bg-primary/5 border border-primary/10">
             <span className="text-muted-foreground">1σ Range (68%): </span>
-            <span className="font-mono font-bold">{move.lowerBound1SD.toLocaleString("en-IN")} — {move.upperBound1SD.toLocaleString("en-IN")}</span>
+            <span className="font-mono font-semibold">{move.lowerBound1SD.toLocaleString("en-IN")} — {move.upperBound1SD.toLocaleString("en-IN")}</span>
           </div>
           <div className="p-2 rounded bg-accent/50">
             <span className="text-muted-foreground">2σ Range (95%): </span>
-            <span className="font-mono font-bold">{move.lowerBound2SD.toLocaleString("en-IN")} — {move.upperBound2SD.toLocaleString("en-IN")}</span>
+            <span className="font-mono font-semibold">{move.lowerBound2SD.toLocaleString("en-IN")} — {move.upperBound2SD.toLocaleString("en-IN")}</span>
           </div>
         </div>
       </CardContent>

@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, CartesianGrid } from "recharts";
 import { Gauge, TrendingUp, TrendingDown, Activity } from "lucide-react";
-import { getATMIV, getIVPercentileFromChain, getIVSkew, calculatePCR } from "@/lib/oiUtils";
+import { getIVPercentileFromChain, getIVSkew, calculatePCR } from "@/lib/oiUtils";
 import type { OptionData } from "@/lib/mockData";
 
 interface Props {
@@ -14,10 +14,9 @@ interface Props {
 }
 
 export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
-  // Calculate current ATM IV from live chain
-  const atmData = useMemo(() => getATMIV(chain, spotPrice), [chain, spotPrice]);
-
-  // IV percentile from cross-strike IV distribution (live data)
+  // IV percentile from cross-strike IV distribution (live data). Note: this also
+  // derives ATM IV internally (getIVMetrics.atmIV below), so a separate getATMIV()
+  // call here was dead/duplicate work — removed.
   const ivMetrics = useMemo(() => getIVPercentileFromChain(chain, spotPrice), [chain, spotPrice]);
 
   // IV Skew data for smile chart
@@ -61,16 +60,16 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
       {/* IV Percentile Gauge + IV Smile Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Gauge className="h-4 w-4 text-primary" /> IV Percentile
-              <Badge variant="outline" className="text-xs h-4 ml-auto">Cross-Strike</Badge>
+              <Badge variant="outline" className="text-xs h-5 ml-auto">Cross-Strike</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Gauge visual */}
             <div className="relative">
-              <div className="flex justify-between text-[11px] text-muted-foreground font-mono mb-1">
+              <div className="flex justify-between text-xs text-muted-foreground font-mono mb-1">
                 <span>0%</span>
                 <span>25%</span>
                 <span>50%</span>
@@ -84,7 +83,7 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
                 />
               </div>
               <div className="flex justify-center mt-2">
-                <span className={`text-3xl font-bold font-mono ${ivZone.color}`}>{ivMetrics.percentile}%</span>
+                <span className={`text-3xl font-semibold font-mono ${ivZone.color}`}>{ivMetrics.percentile}%</span>
               </div>
               <div className={`text-center mt-1 px-3 py-1 rounded-md ${ivZone.bg}`}>
                 <span className={`text-xs font-semibold ${ivZone.color}`}>{ivZone.label}</span>
@@ -95,26 +94,26 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
             {/* IV Stats */}
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 rounded-md bg-accent/30 text-center">
-                <p className="text-[11px] text-muted-foreground">ATM IV</p>
-                <p className="text-lg font-bold font-mono">{ivMetrics.atmIV.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">ATM IV</p>
+                <p className="text-lg font-semibold font-mono">{ivMetrics.atmIV.toFixed(1)}%</p>
               </div>
               <div className="p-2 rounded-md bg-accent/30 text-center">
-                <p className="text-[11px] text-muted-foreground">IV Rank</p>
-                <p className="text-lg font-bold font-mono">{ivMetrics.rank}%</p>
+                <p className="text-xs text-muted-foreground">IV Rank</p>
+                <p className="text-lg font-semibold font-mono">{ivMetrics.rank}%</p>
               </div>
               <div className="p-2 rounded-md bg-accent/30 text-center">
-                <p className="text-[11px] text-muted-foreground">Min IV</p>
-                <p className="text-sm font-bold font-mono text-bullish">{ivMetrics.min}%</p>
+                <p className="text-xs text-muted-foreground">Min IV</p>
+                <p className="text-sm font-semibold font-mono text-bullish">{ivMetrics.min}%</p>
               </div>
               <div className="p-2 rounded-md bg-accent/30 text-center">
-                <p className="text-[11px] text-muted-foreground">Max IV</p>
-                <p className="text-sm font-bold font-mono text-bearish">{ivMetrics.max}%</p>
+                <p className="text-xs text-muted-foreground">Max IV</p>
+                <p className="text-sm font-semibold font-mono text-bearish">{ivMetrics.max}%</p>
               </div>
             </div>
 
             <div className="p-2 rounded-md bg-accent/30 text-center">
-              <p className="text-[11px] text-muted-foreground">Mean IV (All Strikes)</p>
-              <p className="text-sm font-bold font-mono">{ivMetrics.mean}%</p>
+              <p className="text-xs text-muted-foreground">Mean IV (All Strikes)</p>
+              <p className="text-sm font-semibold font-mono">{ivMetrics.mean}%</p>
               <Progress value={ivMetrics.rank} className="mt-1 h-1.5" />
             </div>
           </CardContent>
@@ -122,10 +121,10 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
 
         {/* IV Smile/Skew Chart (from live chain data) */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" /> {symbol} IV Smile / Skew
-              <Badge variant="outline" className="text-xs h-4 ml-auto text-bullish border-bullish/30">LIVE</Badge>
+              <Badge variant="outline" className="text-xs h-5 ml-auto text-bullish border-bullish/30">LIVE</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -161,7 +160,7 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
 
       {/* PCR Gauge */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <TrendingUp className="h-4 w-4" /> Put-Call Ratio
@@ -181,7 +180,7 @@ export function IVPercentileGauge({ chain, spotPrice, symbol }: Props) {
               style={{ left: `${Math.min(Math.max((currentPCR / 2) * 100, 2), 98)}%`, transform: "translateX(-50%)" }}
             />
           </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground font-mono mt-1">
+          <div className="flex justify-between text-xs text-muted-foreground font-mono mt-1">
             <span>0.0 (Strong Bearish)</span>
             <span>0.7</span>
             <span>1.0 (Neutral)</span>

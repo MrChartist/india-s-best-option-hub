@@ -252,6 +252,7 @@ export const countCandles = () => countItems("candles");
 export const setMetadata = (key: string, value: string) =>
   putItem("metadata", { key, value, updatedAt: Date.now() } as DatabaseMetadata);
 export const getMetadata = (key: string) => getItem<DatabaseMetadata>("metadata", key);
+export const clearMetadata = () => clearStore("metadata");
 
 // ── Database Stats ──
 
@@ -287,5 +288,8 @@ export async function getDatabaseStats(): Promise<DatabaseStats> {
 // ── Clear entire database ──
 
 export async function clearAllData(): Promise<void> {
-  await Promise.all([clearInstruments(), clearPrices(), clearCandles()]);
+  // Previously left the "metadata" store (lastInstrumentUpdate/lastPriceUpdate/
+  // lastCandleUpdate) untouched, so after a full clear the UI showed a "—" count
+  // next to a stale "last updated" date instead of "Never".
+  await Promise.all([clearInstruments(), clearPrices(), clearCandles(), clearMetadata()]);
 }

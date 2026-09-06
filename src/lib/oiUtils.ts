@@ -107,11 +107,15 @@ export interface ATMZoneData {
 
 export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
   const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const halfRange = Math.floor(numStrikes / 2);
-  const zoneStrikes = chain.filter(o => {
-    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
-    return strikeDist <= halfRange;
-  });
+  // Select the N strikes nearest to ATM by actual distance rather than a fixed
+  // +/-halfRange window — the old range-based filter used Math.floor(numStrikes / 2)
+  // on each side, which for an even numStrikes (e.g. the "10 Strikes" toggle) included
+  // 2*floor(10/2)+1 = 11 strikes instead of 10, silently mismatching the UI label and
+  // also breaking if the chain has any gaps in the strike grid.
+  const zoneStrikes = [...chain]
+    .sort((a, b) => Math.abs(a.strikePrice - atmStrike) - Math.abs(b.strikePrice - atmStrike))
+    .slice(0, numStrikes)
+    .sort((a, b) => a.strikePrice - b.strikePrice);
 
   const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
   const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
@@ -119,7 +123,7 @@ export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepS
   const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
 
   return {
-    strikes: numStrikes,
+    strikes: zoneStrikes.length,
     totalCEOI,
     totalPEOI,
     pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,

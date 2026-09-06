@@ -45,8 +45,8 @@ const App = () => (
             <Route path="/strategy-builder" element={<PageSuspense><StrategyBuilder /></PageSuspense>} />
             <Route path="/position-tracker" element={<PageSuspense><PositionTracker /></PageSuspense>} />
             <Route path="/broker-settings" element={<PageSuspense><BrokerSettings /></PageSuspense>} />
+            <Route path="*" element={<PageSuspense><NotFound /></PageSuspense>} />
           </Route>
-          <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

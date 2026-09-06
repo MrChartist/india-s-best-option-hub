@@ -178,11 +178,6 @@
     font-size: 0.875rem;
     letter-spacing: 0;
   }
-  [data-sidebar] [class*="text-xs"] {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-  }
 
   /* Refined scrollbars */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -392,10 +387,6 @@
     background: linear-gradient(90deg, transparent 25%, hsl(var(--muted-foreground) / 0.05) 50%, transparent 75%);
     background-size: 200% 100%;
     animation: shimmer 2s ease-in-out infinite;
-  }
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
   }
 
   /* OI bar transition */

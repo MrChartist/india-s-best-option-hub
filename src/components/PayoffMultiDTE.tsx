@@ -49,7 +49,9 @@ export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpir
   const dteOptions = useMemo(() => {
     const opts = [
       { label: "T+0 (Today)", days: daysToExpiry, key: "t0", color: "hsl(var(--primary))" },
-      { label: `T+${Math.min(3, daysToExpiry - 1)} Days`, days: Math.max(1, daysToExpiry - 3), key: "t3", color: "hsl(var(--warning))" },
+      // Clamp at 0 — without it, a position expiring today/tomorrow produced
+      // a negative number in the label (e.g. "T+-1 Days").
+      { label: `T+${Math.max(0, Math.min(3, daysToExpiry - 1))} Days`, days: Math.max(1, daysToExpiry - 3), key: "t3", color: "hsl(var(--warning))" },
       { label: "At Expiry", days: 0, key: "expiry", color: "hsl(var(--bearish))" },
     ];
     return opts;
@@ -97,37 +99,49 @@ export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpir
       return (prev < 0 && d.expiry >= 0) || (prev >= 0 && d.expiry < 0);
     }).map(d => d.spot);
 
-    const t0Data = payoffData.map(d => d.t0);
-    const currentPnl = t0Data[Math.floor(t0Data.length / 2)] || 0;
+    // Compute "Current P&L" at the *exact* live spot price rather than
+    // picking the nearest point on the sampled grid — the grid is centered
+    // on spotPrice rounded to the nearest stepSize, so the old lookup could
+    // be off by up to half a step (material for a near-the-money leg).
+    const r = 0.065;
+    const baseIV = 0.14 + ivOverride / 100;
+    const T0 = daysToExpiry / 365;
+    let currentPnl = 0;
+    for (const leg of legs) {
+      const mult = (leg.action === "BUY" ? 1 : -1) * leg.lots * lotSize;
+      const price = bsPrice(spotPrice, leg.strike, T0, r, baseIV, leg.type);
+      currentPnl += (price - leg.premium) * mult;
+    }
+    currentPnl = Math.round(currentPnl);
 
     return { maxProfit, maxLoss, breakevens, currentPnl };
-  }, [payoffData]);
+  }, [payoffData, legs, spotPrice, lotSize, daysToExpiry, ivOverride]);
 
   const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" /> Multi-DTE Payoff Curve
           </CardTitle>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-primary rounded" />
               <Label className="text-xs">
                 <Switch checked={showT0} onCheckedChange={setShowT0} className="mr-1 scale-75" />
                 T+0
               </Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-warning rounded" />
               <Label className="text-xs">
                 <Switch checked={showT3} onCheckedChange={setShowT3} className="mr-1 scale-75" />
                 T+3
               </Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-bearish rounded" />
               <Label className="text-xs">
                 <Switch checked={showExpiry} onCheckedChange={setShowExpiry} className="mr-1 scale-75" />
@@ -140,7 +154,7 @@ export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpir
       <CardContent className="space-y-4">
         {/* IV Override Slider */}
         <div className="flex items-center gap-4 px-2">
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Percent className="h-3.5 w-3.5 text-muted-foreground" />
             <Label className="text-xs text-muted-foreground whitespace-nowrap">IV Change:</Label>
           </div>
@@ -185,23 +199,23 @@ export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpir
         </div>
 
         {/* Key Stats */}
-        <div className="grid grid-cols-4 gap-2">
-          <div className="p-2 rounded-md bg-accent/30 text-center">
-            <p className="text-[11px] text-muted-foreground">Current P&L (T+0)</p>
-            <p className={`text-sm font-bold font-mono ${stats.currentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="p-3 rounded-md bg-accent/30 text-center">
+            <p className="text-xs text-muted-foreground">Current P&L (T+0)</p>
+            <p className={`text-sm font-semibold font-mono ${stats.currentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
               ₹{stats.currentPnl.toLocaleString("en-IN")}
             </p>
           </div>
-          <div className="p-2 rounded-md bg-bullish/5 text-center">
-            <p className="text-[11px] text-muted-foreground">Max Profit</p>
-            <p className="text-sm font-bold font-mono text-bullish">₹{stats.maxProfit.toLocaleString("en-IN")}</p>
+          <div className="p-3 rounded-md bg-bullish/5 text-center">
+            <p className="text-xs text-muted-foreground">Max Profit</p>
+            <p className="text-sm font-semibold font-mono text-bullish">₹{stats.maxProfit.toLocaleString("en-IN")}</p>
           </div>
-          <div className="p-2 rounded-md bg-bearish/5 text-center">
-            <p className="text-[11px] text-muted-foreground">Max Loss</p>
-            <p className="text-sm font-bold font-mono text-bearish">₹{stats.maxLoss.toLocaleString("en-IN")}</p>
+          <div className="p-3 rounded-md bg-bearish/5 text-center">
+            <p className="text-xs text-muted-foreground">Max Loss</p>
+            <p className="text-sm font-semibold font-mono text-bearish">₹{stats.maxLoss.toLocaleString("en-IN")}</p>
           </div>
-          <div className="p-2 rounded-md bg-accent/30 text-center">
-            <p className="text-[11px] text-muted-foreground">Breakevens</p>
+          <div className="p-3 rounded-md bg-accent/30 text-center">
+            <p className="text-xs text-muted-foreground">Breakevens</p>
             <p className="text-xs font-mono">{stats.breakevens.length > 0 ? stats.breakevens.map(b => b.toLocaleString("en-IN")).join(", ") : "—"}</p>
           </div>
         </div>

@@ -15,10 +15,10 @@ export function TopMovers() {
 
   return (
     <div className="grid lg:grid-cols-2 gap-3">
-      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-bullish/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ArrowUpRight className="h-5 w-5 text-bullish drop-shadow-[0_0_8px_rgba(0,255,100,0.5)]" /> Top Gainers
+      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowUpRight className="h-5 w-5 text-bullish" /> Top Gainers
             <span className="text-xs text-muted-foreground font-normal">({gainers.length})</span>
             {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto">LIVE</Badge>}
             {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-auto text-muted-foreground" />}
@@ -44,18 +44,18 @@ export function TopMovers() {
                 >
                   <TableCell className="font-medium font-sans py-2 px-4">
                     <div className="flex items-center gap-1.5">
-                      <ArrowUpRight className="h-4 w-4 text-bullish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-[0_0_5px_rgba(0,255,100,0.5)]" />
+                      <ArrowUpRight className="h-4 w-4 text-bullish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                       {s.symbol}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right py-2 text-foreground">{s.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right py-2 text-foreground">{(s.ltp ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right py-2">
-                    <span className="bg-bullish/10 text-bullish px-2 py-1 rounded-md text-xs shadow-[inset_0_0_10px_rgba(0,255,100,0.1)] font-medium">+{s.changePercent.toFixed(2)}%</span>
+                    <span className="bg-bullish/10 text-bullish px-2 py-1 rounded-md text-xs font-medium">+{(s.changePercent ?? 0).toFixed(2)}%</span>
                   </TableCell>
                   <TableCell className="py-1.5 text-center">
-                    <div className="inline-block drop-shadow-[0_0_3px_rgba(0,255,100,0.3)]"><MiniChart symbol={s.symbol} width={70} height={26} /></div>
+                    <MiniChart symbol={s.symbol} width={70} height={26} />
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground py-2 px-4">{(s.volume / 100000).toFixed(1)}L</TableCell>
+                  <TableCell className="text-right text-muted-foreground py-2 px-4">{((s.volume ?? 0) / 100000).toFixed(1)}L</TableCell>
                 </TableRow>
               ))}
               {gainers.length === 0 && !isLoading && (
@@ -66,10 +66,10 @@ export function TopMovers() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-bearish/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ArrowDownRight className="h-5 w-5 text-bearish drop-shadow-[0_0_8px_rgba(255,50,50,0.5)]" /> Top Losers
+      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowDownRight className="h-5 w-5 text-bearish" /> Top Losers
             <span className="text-xs text-muted-foreground font-normal">({losers.length})</span>
             {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bearish/30 text-bearish ml-auto">LIVE</Badge>}
           </CardTitle>
@@ -94,18 +94,18 @@ export function TopMovers() {
                 >
                   <TableCell className="font-medium font-sans py-2 px-4">
                     <div className="flex items-center gap-1.5">
-                      <ArrowDownRight className="h-4 w-4 text-bearish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-[0_0_5px_rgba(255,50,50,0.5)]" />
+                      <ArrowDownRight className="h-4 w-4 text-bearish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                       {s.symbol}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right py-2 text-foreground">{s.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell className="text-right py-2 text-foreground">{(s.ltp ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell className="text-right py-2">
-                    <span className="bg-bearish/10 text-bearish px-2 py-1 rounded-md text-xs shadow-[inset_0_0_10px_rgba(255,50,50,0.1)] font-medium">{s.changePercent.toFixed(2)}%</span>
+                    <span className="bg-bearish/10 text-bearish px-2 py-1 rounded-md text-xs font-medium">{(s.changePercent ?? 0).toFixed(2)}%</span>
                   </TableCell>
                   <TableCell className="py-1.5 text-center">
-                    <div className="inline-block drop-shadow-[0_0_3px_rgba(255,50,50,0.3)]"><MiniChart symbol={s.symbol} width={70} height={26} /></div>
+                    <MiniChart symbol={s.symbol} width={70} height={26} />
                   </TableCell>
-                  <TableCell className="text-right text-muted-foreground py-2 px-4">{(s.volume / 100000).toFixed(1)}L</TableCell>
+                  <TableCell className="text-right text-muted-foreground py-2 px-4">{((s.volume ?? 0) / 100000).toFixed(1)}L</TableCell>
                 </TableRow>
               ))}
               {losers.length === 0 && !isLoading && (

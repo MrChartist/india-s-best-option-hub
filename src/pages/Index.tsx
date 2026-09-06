@@ -50,6 +50,8 @@ export default function Index() {
   const { data: marketStatusResult } = useMarketStatus();
   const { data: niftyExpiry } = useExpiryList("NIFTY");
   const { data: bnfExpiry } = useExpiryList("BANKNIFTY");
+  const { data: finniftyExpiry } = useExpiryList("FINNIFTY");
+  const { data: midcpniftyExpiry } = useExpiryList("MIDCPNIFTY");
   const { data: allIndicesData } = useAllIndices();
   const { vix: wsVix } = useWebSocketVix();
 
@@ -63,15 +65,28 @@ export default function Index() {
   // Live VIX value for Expected Move calculations
   const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
 
+  // Look up spot price by symbol, not array position. `indices` is populated
+  // from WebSocket ticks as they arrive (see useWebSocketIndices) — right after
+  // a reconnect, or if any single symbol's tick is delayed, the array can be
+  // shorter or reordered (e.g. BANKNIFTY may tick before NIFTY), so `indices[0]`
+  // is not reliably NIFTY. Indexing by position silently fed the wrong index's
+  // spot price into the other index's Expected Move / IV Rank calculation.
+  const getIndexBySymbol = (sym: string) => indices.find((i) => i.symbol === sym);
+
   const nearestExpiries = useMemo(() => {
     const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
     const bnExpiry = bnfExpiry?.expiries?.[0]?.value || "";
+    // FINNIFTY and MIDCPNIFTY each have their own expiry calendar — fetch them
+    // directly instead of reusing NIFTY's second expiry entry (which frequently
+    // lands on the wrong date since the two contracts don't share expiry days).
+    const fnExpiry = finniftyExpiry?.expiries?.[0]?.value || "";
+    const mcExpiry = midcpniftyExpiry?.expiries?.[0]?.value || "";
     return EXPIRY_CONTRACTS.map((c) => {
       let expDate = "";
       if (c.symbol === "NIFTY") expDate = nExpiry;
       else if (c.symbol === "BANKNIFTY") expDate = bnExpiry;
-      else if (c.symbol === "FINNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
-      else if (c.symbol === "MIDCPNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
+      else if (c.symbol === "FINNIFTY") expDate = fnExpiry;
+      else if (c.symbol === "MIDCPNIFTY") expDate = mcExpiry;
       else {
         const now = new Date();
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -79,11 +94,19 @@ export default function Index() {
       }
       return { ...c, expiry: expDate, timeLeft: expDate ? getTimeToExpiry(expDate) : "N/A" };
     });
-  }, [niftyExpiry, bnfExpiry]);
+  }, [niftyExpiry, bnfExpiry, finniftyExpiry, midcpniftyExpiry]);
 
   const getDTE = (sym: string) => {
-    const match = nearestExpiries.find((c) => c.symbol === sym)?.timeLeft?.match(/(\d+)d/);
-    return match ? parseInt(match[1]) : 4;
+    const timeLeft = nearestExpiries.find((c) => c.symbol === sym)?.timeLeft;
+    if (!timeLeft || timeLeft === "N/A") return 4;
+    if (timeLeft === "Expired") return 0;
+    const dayMatch = timeLeft.match(/(\d+)d/);
+    if (dayMatch) return parseInt(dayMatch[1]);
+    // "Xh left" format means expiry is later today — 0 days to expiry, not the
+    // previous hardcoded fallback of 4 (which badly skewed Expected Move / IV
+    // Rank math on the most important day of the week for theta decay).
+    if (timeLeft.includes("h left")) return 0;
+    return 4;
   };
 
   if (indicesLoading) return <DashboardSkeleton />;
@@ -111,11 +134,11 @@ export default function Index() {
         {/* ═══ INDEX CARDS ═══ */}
         <SectionHeader
           title="Live Indices"
-          subtitle="'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                        \n                                            \n                                            find erros andlets solve this"
+          subtitle="Real-time spot prices for major indices"
           icon={<TrendingUp className="h-4 w-4" />}
           tooltip="Real-time spot prices for major indices. The mini-chart shows today's intraday movement. Click to open option chain."
         />
-        <IndexCards indices={indices} />
+        <IndexCards indices={indices} isMarketOpen={isOpen} />
 
         {/* ═══ KEY METRICS ═══ */}
         <SectionHeader
@@ -136,13 +159,13 @@ export default function Index() {
         <div className="grid lg:grid-cols-3 gap-3">
           <ExpectedMoveWidget
             symbol="NIFTY"
-            spotPrice={indices[0]?.ltp || getSpotPrice("NIFTY")}
+            spotPrice={getIndexBySymbol("NIFTY")?.ltp || getSpotPrice("NIFTY")}
             iv={liveVix}
             daysToExpiry={getDTE("NIFTY")}
           />
           <ExpectedMoveWidget
             symbol="BANKNIFTY"
-            spotPrice={indices[1]?.ltp || getSpotPrice("BANKNIFTY")}
+            spotPrice={getIndexBySymbol("BANKNIFTY")?.ltp || getSpotPrice("BANKNIFTY")}
             iv={liveVix * 1.15}
             daysToExpiry={getDTE("BANKNIFTY")}
           />

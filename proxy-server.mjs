@@ -19,6 +19,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
+import { INDEX_SECURITY_IDS, UNDERLYING_MAP, dhanFetch } from "./server/brokers/dhan.mjs";
+import { createBrokerRegistry } from "./server/brokers/registry.mjs";
 
 // ── Load .env manually (no external deps needed) ──
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -39,8 +41,19 @@ try {
 } catch { /* .env file is optional */ }
 
 const PORT = parseInt(process.env.PROXY_PORT || "4002", 10);
-const DHAN_BASE = "https://api.dhan.co/v2";
 const NSE_BASE = "https://www.nseindia.com";
+
+// This proxy is meant to run unattended through the whole market session — a
+// single unforeseen unhandled rejection/exception (e.g. from a code path that
+// isn't wrapped in try/catch) would otherwise kill the entire process and cut
+// off live data for everyone until someone notices and restarts it manually.
+// Log and keep running instead.
+process.on("unhandledRejection", (reason) => {
+  console.error("  ❌ [Unhandled Rejection]", reason instanceof Error ? reason.stack : reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("  ❌ [Uncaught Exception]", err?.stack || err);
+});
 
 // ══════════════════════════════════════════════
 // ── SECTION 1: In-Memory Cache ──
@@ -138,51 +151,6 @@ function getLastGood(key) {
 // ══════════════════════════════════════════════
 // ── SECTION 2: Dhan REST API ──
 // ══════════════════════════════════════════════
-
-const INDEX_SECURITY_IDS = {
-  NIFTY: { secId: 13, exchSeg: "IDX_I" },
-  BANKNIFTY: { secId: 25, exchSeg: "IDX_I" },
-  FINNIFTY: { secId: 27, exchSeg: "IDX_I" },
-  MIDCPNIFTY: { secId: 442, exchSeg: "IDX_I" },
-  SENSEX: { secId: 1, exchSeg: "IDX_I" },
-};
-
-const UNDERLYING_MAP = {
-  NIFTY: { underlyingScrip: 13, expirySegment: "NSE_FNO", ocSegment: "IDX_I" },
-  BANKNIFTY: { underlyingScrip: 25, expirySegment: "NSE_FNO", ocSegment: "IDX_I" },
-  FINNIFTY: { underlyingScrip: 27, expirySegment: "NSE_FNO", ocSegment: "IDX_I" },
-  MIDCPNIFTY: { underlyingScrip: 442, expirySegment: "NSE_FNO", ocSegment: "IDX_I" },
-};
-
-async function dhanFetch(path, body, method = "POST", customClientId, customAccessToken) {
-  const clientId = customClientId || process.env.DHAN_CLIENT_ID;
-  const accessToken = customAccessToken || process.env.DHAN_ACCESS_TOKEN;
-
-  if (!clientId || !accessToken) {
-    throw new Error("DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.");
-  }
-
-  const url = `${DHAN_BASE}${path}`;
-  const options = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "access-token": accessToken,
-      "client-id": clientId,
-    },
-  };
-
-  if (body && method === "POST") {
-    options.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Dhan API error [${res.status}]: ${errText}`);
-  }
-  return res.json();
-}
 
 async function handleDhanProxy(params, userClientId, userAccessToken) {
   const endpoint = params.get("endpoint");
@@ -870,14 +838,31 @@ let dhanWSConnected = false;
 let dhanWSCredentials = { clientId: null, accessToken: null };
 
 function connectDhanWebSocket(clientId, accessToken) {
-  if (dhanWS && dhanWS.readyState === WebSocket.OPEN) {
-    console.log("  ℹ️  Dhan WebSocket already connected");
+  if (dhanWS && (dhanWS.readyState === WebSocket.OPEN || dhanWS.readyState === WebSocket.CONNECTING)) {
+    console.log("  ℹ️  Dhan WebSocket already connected/connecting");
     return;
   }
 
   if (!clientId || !accessToken) {
     console.log("  ⚠️  No Dhan credentials for WebSocket — skipping");
     return;
+  }
+
+  // Tear down any stale socket (e.g. one still in CLOSING state) before
+  // replacing the module-level reference. Without this, an orphaned socket
+  // keeps its "open"/"message"/"close" listeners attached and can still fire
+  // them against the shared dhanWS/dhanWSConnected globals later, fighting
+  // with whatever connection `dhanWS` now actually points to.
+  if (dhanWS) {
+    dhanWS.removeAllListeners();
+    try { dhanWS.terminate(); } catch { /* already closed */ }
+  }
+
+  // A fresh connect attempt (manual "configure" from the browser, or a retry)
+  // supersedes any pending scheduled reconnect.
+  if (dhanWSReconnectTimer) {
+    clearTimeout(dhanWSReconnectTimer);
+    dhanWSReconnectTimer = null;
   }
 
   dhanWSCredentials = { clientId, accessToken };
@@ -1032,18 +1017,135 @@ localWSS.on("connection", (ws) => {
 });
 
 // ══════════════════════════════════════════════
+// ── SECTION 4b: Generic Multi-Broker Proxy ──
+// ══════════════════════════════════════════════
+// Dispatches option-chain/expiry-list/ltp requests to whichever broker module
+// the user has connected (see server/brokers/registry.mjs for the contract).
+// /api/dhan-proxy above stays untouched as the original, richer Dhan-specific
+// path; this generic path is what other brokers (and Dhan, via broker=dhan)
+// use so newly-added brokers get the same cache/last-good-fallback treatment.
+
+const brokerRegistry = createBrokerRegistry();
+
+async function handleBrokerProxy(brokerId, params, creds) {
+  const mod = brokerRegistry.get(brokerId);
+  const endpoint = params.get("endpoint");
+  const symbol = (params.get("symbol") || "NIFTY").toUpperCase();
+  const expiry = params.get("expiry");
+  const credsMarker = creds ? Object.values(creds).join("|").slice(0, 16) : "shared";
+  const cacheKey = `broker:${brokerId}:${credsMarker}:${endpoint}:${symbol}:${expiry || ""}`;
+  const lastGoodKey = `lastgood:broker:${brokerId}:${endpoint}:${symbol}:${expiry || ""}`;
+
+  const cached = getCached(cacheKey);
+  if (cached) return { data: cached, cacheHit: true };
+
+  try {
+    let result;
+    switch (endpoint) {
+      case "expiry-list":
+        result = await mod.fetchExpiryList(creds, symbol);
+        break;
+      case "option-chain": {
+        let expiryDate = expiry;
+        if (!expiryDate) {
+          try {
+            const expiryList = await mod.fetchExpiryList(creds, symbol);
+            if (expiryList?.data?.length > 0) expiryDate = expiryList.data[0];
+          } catch { /* proceed without a specific expiry — some brokers default to nearest */ }
+        }
+        result = await mod.fetchOptionChain(creds, symbol, expiryDate);
+        break;
+      }
+      case "ltp":
+        result = await mod.fetchLTP(creds, symbol);
+        break;
+      default:
+        throw new Error(`Unknown endpoint: ${endpoint}. Use: option-chain, expiry-list, ltp`);
+    }
+
+    const hasData = endpoint === "option-chain"
+      ? !!(result?.data?.oc && Object.keys(result.data.oc).length > 0)
+      : true;
+
+    if (hasData) {
+      setLastGood(lastGoodKey, result);
+      setCache(cacheKey, result, endpoint === "expiry-list" ? 300000 : 5000);
+      return { data: result, cacheHit: false };
+    }
+
+    const lastGood = getLastGood(lastGoodKey);
+    if (lastGood) {
+      const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
+      setCache(cacheKey, afterHoursResult, 30000);
+      return { data: afterHoursResult, cacheHit: false };
+    }
+
+    setCache(cacheKey, result, 30000);
+    return { data: result, cacheHit: false };
+  } catch (e) {
+    const lastGood = getLastGood(lastGoodKey);
+    if (lastGood) {
+      console.log(`  📦 ${brokerId} error, serving last-good ${endpoint} for ${symbol}: ${e.message}`);
+      const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
+      return { data: afterHoursResult, cacheHit: false };
+    }
+    console.log(`  ⚠️ ${brokerId} ${endpoint} unavailable for ${symbol} (no cache): ${e.message}`);
+    const emptyResult = endpoint === "option-chain"
+      ? { status: "error", data: { oc: {} }, message: e.message }
+      : { status: "error", data: [], message: e.message };
+    setCache(cacheKey, emptyResult, 60000);
+    return { data: emptyResult, cacheHit: false };
+  }
+}
+
+/** Decode the base64-JSON x-broker-credentials header into the raw `values` object, or null. */
+function decodeBrokerCreds(req) {
+  const header = req.headers["x-broker-credentials"];
+  if (!header) return null;
+  try {
+    return JSON.parse(Buffer.from(header, "base64").toString("utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════
 // ── SECTION 5: HTTP Server ──
 // ══════════════════════════════════════════════
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
-};
+// Reflect the Origin only when it matches localhost/LAN (dev + Vite's `host:
+// 0.0.0.0` LAN testing) or the production domain. A bare "*" here would let
+// ANY webpage open in the user's browser call this proxy — which holds live
+// broker sessions/credentials and forwards them to Dhan — from any tab, a
+// classic "localhost drive-by" attack against locally-running dev servers.
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https?:\/\/localhost(:\d+)?$/i,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
+  /^https?:\/\/\[::1\](:\d+)?$/i,
+  /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^https:\/\/([a-z0-9-]+\.)*mrchartist\.com$/i,
+];
+
+function corsHeadersFor(req) {
+  const origin = req.headers.origin;
+  const allowed = !!origin && ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin));
+  const headers = {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token, x-broker-credentials",
+    Vary: "Origin",
+  };
+  // Non-browser clients (curl, health checks, server-to-server) send no Origin
+  // header at all — CORS doesn't apply to them either way, so "*" is harmless.
+  if (!origin || allowed) headers["Access-Control-Allow-Origin"] = origin || "*";
+  return headers;
+}
 
 const server = http.createServer(async (req, res) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204, corsHeaders);
     return res.end();
   }
 
@@ -1051,7 +1153,7 @@ const server = http.createServer(async (req, res) => {
   const params = url.searchParams;
 
   res.setHeader("Content-Type", "application/json");
-  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+  Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
 
   try {
     if (url.pathname === "/api/dhan-proxy") {
@@ -1085,6 +1187,30 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200); // 200 so frontend can read the error
         res.end(JSON.stringify({ status: "error", message: err.message }));
       }
+    } else if (url.pathname === "/api/broker-proxy") {
+      const brokerId = params.get("broker") || "dhan";
+      if (!brokerRegistry.has(brokerId)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Unknown broker: ${brokerId}. Supported: ${brokerRegistry.list().join(", ")}` }));
+      } else {
+        const creds = decodeBrokerCreds(req);
+        const { data, cacheHit } = await handleBrokerProxy(brokerId, params, creds);
+        res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
+        res.writeHead(200);
+        res.end(JSON.stringify(data));
+      }
+    } else if (url.pathname === "/api/broker-test-connection") {
+      const brokerId = params.get("broker") || "dhan";
+      if (!brokerRegistry.has(brokerId)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Unknown broker: ${brokerId}. Supported: ${brokerRegistry.list().join(", ")}` }));
+      } else {
+        const creds = decodeBrokerCreds(req);
+        const mod = brokerRegistry.get(brokerId);
+        const result = await mod.testConnection(creds || {});
+        res.writeHead(200);
+        res.end(JSON.stringify(result));
+      }
     } else if (url.pathname === "/health") {
       res.writeHead(200);
       res.end(JSON.stringify({
@@ -1101,10 +1227,11 @@ const server = http.createServer(async (req, res) => {
           nse: true,
           yahoo: true,
         },
+        brokers: brokerRegistry.list(),
       }));
     } else {
       res.writeHead(404);
-      res.end(JSON.stringify({ error: "Not found. Use /api/dhan-proxy, /api/nse-proxy, /api/yahoo-chart, or /ws" }));
+      res.end(JSON.stringify({ error: "Not found. Use /api/dhan-proxy, /api/broker-proxy, /api/nse-proxy, /api/yahoo-chart, or /ws" }));
     }
   } catch (err) {
     console.error(`[Proxy Error] ${url.pathname}:`, err.message);

@@ -9,7 +9,7 @@ export function InfoTooltip({ text }: Props) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button className="ml-1 inline-flex items-center text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+        <button type="button" className="ml-1 inline-flex items-center text-muted-foreground/50 hover:text-muted-foreground transition-colors">
           <Info className="h-3 w-3" />
         </button>
       </TooltipTrigger>

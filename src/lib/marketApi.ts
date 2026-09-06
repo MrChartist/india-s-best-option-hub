@@ -25,6 +25,42 @@ async function fetchDhanProxy(endpoint: string, params?: Record<string, string>)
   return res.json();
 }
 
+// UTF-8 safe base64 encode for credential headers (plain btoa breaks on non-Latin1 chars)
+function encodeCredsHeader(values: Record<string, string>): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(values));
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+}
+
+// Generic multi-broker proxy — dispatches to whichever broker module the user has connected.
+// Sends that broker's saved credentials only when it's the currently active broker.
+async function fetchBrokerProxy(brokerId: string, endpoint: string, params?: Record<string, string>): Promise<any> {
+  const qp = new URLSearchParams({ broker: brokerId, endpoint, ...params });
+  const url = `${PROXY_BASE}/api/broker-proxy?${qp.toString()}`;
+
+  const headers: Record<string, string> = {};
+  const activeBroker = getActiveBroker();
+  if (activeBroker?.brokerId === brokerId) {
+    headers["x-broker-credentials"] = encodeCredsHeader(activeBroker.values);
+  }
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Broker proxy error ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
+/** Test a broker connection with arbitrary (possibly unsaved) credential values — used by Broker Settings. */
+export async function testBrokerConnection(brokerId: string, values: Record<string, string>): Promise<{ status: string; message: string }> {
+  const qp = new URLSearchParams({ broker: brokerId });
+  const headers: Record<string, string> = { "x-broker-credentials": encodeCredsHeader(values) };
+  const res = await fetch(`${PROXY_BASE}/api/broker-test-connection?${qp.toString()}`, { headers });
+  return res.json();
+}
+
 // NSE proxy for indices & market status
 async function fetchNSEProxy(endpoint: string, symbol?: string): Promise<any> {
   const params = new URLSearchParams({ endpoint });
@@ -242,40 +278,50 @@ export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?
 // ── Exported fetch functions ──
 
 // Dhan Option Chain (primary) with NSE fallback
+function toExpiryDates(dateStrs: string[]): ExpiryDate[] {
+  return dateStrs.map((dateStr) => {
+    const d = new Date(dateStr);
+    const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    return {
+      label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+      value: dateStr,
+      daysToExpiry: days,
+    };
+  });
+}
+
 export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
-  // Try Dhan first
+  // If the user has an active non-Dhan broker connected, route through it instead —
+  // that's the whole point of connecting your own broker.
+  const activeBroker = getActiveBroker();
+  const brokerId = activeBroker && activeBroker.brokerId !== "dhan" ? activeBroker.brokerId : "dhan";
+
   try {
     const params: Record<string, string> = { symbol: symbol.toUpperCase() };
     if (expiry) params.expiry = expiry;
-    const raw = await fetchDhanProxy("option-chain", params);
+    const raw = brokerId === "dhan"
+      ? await fetchDhanProxy("option-chain", params)
+      : await fetchBrokerProxy(brokerId, "option-chain", params);
+
     if (raw?.status === "success" && raw?.data?.oc) {
-      const parsed = parseDhanOptionChain(raw);
-      // Also fetch expiry list
+      const parsed = parseDhanOptionChain(raw); // every broker module normalizes to this same shape
       let expiries: ExpiryDate[] = [];
       try {
-        const expiryRaw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-        if (expiryRaw?.data) {
-          expiries = expiryRaw.data.map((dateStr: string) => {
-            const d = new Date(dateStr);
-            const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-            return {
-              label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-              value: dateStr,
-              daysToExpiry: days,
-            };
-          });
-        }
+        const expiryRaw = brokerId === "dhan"
+          ? await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() })
+          : await fetchBrokerProxy(brokerId, "expiry-list", { symbol: symbol.toUpperCase() });
+        if (expiryRaw?.data) expiries = toExpiryDates(expiryRaw.data);
       } catch {
         // Expiry fetch failed, continue with chain data
       }
       return {
-        ...parsed, expiries, source: "dhan" as const,
+        ...parsed, expiries, source: brokerId,
         afterHours: raw.afterHours || false,
         cachedAt: raw.cachedAt || null,
       };
     }
   } catch (e) {
-    console.warn("Dhan option chain fetch failed, trying NSE:", e);
+    console.warn(`${brokerId} option chain fetch failed, trying NSE:`, e);
   }
 
   // Fallback to NSE
@@ -289,23 +335,17 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
   }
 }
 
-// Dhan expiry list
+// Expiry list from whichever broker is active (Dhan by default)
 export async function fetchExpiryList(symbol: string): Promise<ExpiryDate[]> {
+  const activeBroker = getActiveBroker();
+  const brokerId = activeBroker && activeBroker.brokerId !== "dhan" ? activeBroker.brokerId : "dhan";
   try {
-    const raw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-    if (raw?.data) {
-      return raw.data.map((dateStr: string) => {
-        const d = new Date(dateStr);
-        const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        return {
-          label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-          value: dateStr,
-          daysToExpiry: days,
-        };
-      });
-    }
+    const raw = brokerId === "dhan"
+      ? await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() })
+      : await fetchBrokerProxy(brokerId, "expiry-list", { symbol: symbol.toUpperCase() });
+    if (raw?.data) return toExpiryDates(raw.data);
   } catch (e) {
-    console.warn("Dhan expiry list fetch failed:", e);
+    console.warn(`${brokerId} expiry list fetch failed:`, e);
   }
   return [];
 }

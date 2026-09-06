@@ -252,13 +252,13 @@ export function DatabaseManager() {
     : progress.phase === "done" ? 100 : 0;
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-transparent">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
           Market Database
           {stats && stats.instruments > 0 && (
-            <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-bullish/30 text-bullish gap-1">
+            <Badge variant="outline" className="text-xs h-5 px-1.5 border-bullish/30 text-bullish gap-1.5">
               <Radio className="h-2 w-2" />
               {stats.instruments.toLocaleString()} instruments
             </Badge>
@@ -297,7 +297,7 @@ export function DatabaseManager() {
 
         {/* Progress Bar */}
         {progress.phase !== "idle" && (
-          <div className="space-y-2 p-3 rounded-lg bg-card border">
+          <div className="space-y-2 p-3 rounded-lg bg-card border border-border/70">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium flex items-center gap-1.5">
                 {progress.phase === "done" ? (
@@ -379,16 +379,18 @@ export function DatabaseManager() {
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub: string }) {
   return (
-    <div className="p-2.5 rounded-lg bg-card border">
-      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
-        {icon}
-        <span className="text-xs font-medium">{label}</span>
-      </div>
-      <p className="text-sm font-bold font-mono">{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-        <Clock className="h-2.5 w-2.5" />
-        {sub}
-      </p>
-    </div>
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+          {icon}
+          <span className="text-xs font-medium">{label}</span>
+        </div>
+        <p className="text-sm font-semibold font-mono">{value}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+          <Clock className="h-2.5 w-2.5" />
+          {sub}
+        </p>
+      </CardContent>
+    </Card>
   );
 }

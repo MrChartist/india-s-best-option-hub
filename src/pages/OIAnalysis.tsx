@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,23 @@ export default function OIAnalysis() {
   const afterHours = liveData?.afterHours ?? false;
   const hasData = chain.length > 0;
   const handleRefetch = useCallback(() => refetch(), [refetch]);
+
+  // "R" refresh shortcut — the popover below advertises it, so make it real. Skipped
+  // while typing in an input/select/textarea, and the listener is removed on unmount
+  // to avoid leaking a window-level handler across symbol/page changes.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleRefetch();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleRefetch]);
+
   const maxPain = useMemo(() => getMaxPain(chain), [chain]);
   // Live PCR computed from current chain
   const pcrData = useMemo(() => calculatePCR(chain), [chain]);
@@ -59,16 +76,11 @@ export default function OIAnalysis() {
     }));
   }, [chain]);
 
-  const multiExpiryData = useMemo(() => {
-    const baseChain = chain.filter(o => o.ce.oi > 50000 || o.pe.oi > 50000);
-    return baseChain.map(o => ({
-      strike: o.strikePrice,
-      ceOI_weekly: Math.round(o.ce.oi / 1000),
-      peOI_weekly: Math.round(o.pe.oi / 1000),
-      ceOI_monthly: Math.round(o.ce.oi * 0.6 / 1000),
-      peOI_monthly: Math.round(o.pe.oi * 0.7 / 1000),
-    }));
-  }, [chain]);
+  // NOTE: a "multi-expiry" tab used to live here, but it fabricated its "monthly" OI by
+  // multiplying the CURRENT (single) expiry's OI by arbitrary constants (0.6 / 0.7) —
+  // it was never real second-expiry data. The <MultiExpiryOI /> component rendered
+  // below fetches genuine weekly/next/monthly chains via useLiveOptionChain, so the
+  // fake tab was removed rather than fixed in place (see OIAnalysis.tsx render section).
 
   // ── NEW: Delta OI ──
   const deltaOIData = useMemo(() => getDeltaOI(chain, spotPrice, stepSize), [chain, spotPrice, stepSize]);
@@ -97,15 +109,22 @@ export default function OIAnalysis() {
   }, [chain]);
 
   const oiInterpretation = useMemo(() => {
+    // Classic Long/Short Buildup vs Covering/Unwinding needs the DIRECTION of the
+    // option's premium change (up vs down) as a second signal alongside OI change.
+    // The previous version used `o.ce.ltp > 0` as that signal — but ltp is the
+    // absolute last-traded premium (e.g. 45.50), which is virtually always > 0 for
+    // any strike with real trading activity. That collapsed the 4-way matrix down to
+    // just 2 outcomes ("Short Buildup"/"Short Covering" for calls, "Long Buildup"/
+    // "Long Unwinding" for puts) regardless of what was actually happening — a
+    // materially wrong signal for a feature literally named "OI Buildup Interpretation".
+    // We don't have premium-change data available here (no prevLtp/ltpChange on
+    // OptionLegData), so rather than fake precision we report only what the OI change
+    // itself honestly tells us: rising OI = writing, falling OI = unwinding.
     return chain
       .filter(o => o.ce.oi > 100000 || o.pe.oi > 100000)
       .map(o => {
-        const ceInterp = o.ce.oiChange > 0
-          ? (o.ce.ltp > 0 ? "Short Buildup" : "Long Buildup")
-          : (o.ce.ltp > 0 ? "Short Covering" : "Long Unwinding");
-        const peInterp = o.pe.oiChange > 0
-          ? (o.pe.ltp > 0 ? "Long Buildup" : "Short Buildup")
-          : (o.pe.ltp > 0 ? "Long Unwinding" : "Short Covering");
+        const ceInterp = o.ce.oiChange > 0 ? "Call Writing" : "Call Unwinding";
+        const peInterp = o.pe.oiChange > 0 ? "Put Writing" : "Put Unwinding";
         return { strike: o.strikePrice, ceOI: o.ce.oi, ceOIChg: o.ce.oiChange, ceInterp, peOI: o.pe.oi, peOIChg: o.pe.oiChange, peInterp };
       })
       .sort((a, b) => Math.abs(b.ceOIChg) + Math.abs(b.peOIChg) - Math.abs(a.ceOIChg) - Math.abs(a.peOIChg))
@@ -124,8 +143,9 @@ export default function OIAnalysis() {
   const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", padding: "8px 12px" };
   const fmtK = (v: number) => `${v >= 0 ? "+" : ""}${v.toLocaleString("en-IN")}K`;
   const fmtOI = (v: number, name: string) => [`${v.toLocaleString("en-IN")}K`, name];
-  const moduleCardClass = "overflow-hidden border-border/80 bg-card/95";
-  const moduleHeaderClass = "border-b border-border/70 bg-muted/25 px-4 py-3";
+  // CardHeader now defaults to the hairline treatment (border-b + bg-muted/25 + px-5 pt-4 pb-3) —
+  // module cards only need overflow-hidden so the header background clips to the rounded corners.
+  const moduleCardClass = "overflow-hidden";
   const metricCards = [
     { label: "Max Pain", value: maxPain.toLocaleString("en-IN"), valueClass: "text-warning", accentClass: "bg-warning" },
     { label: "PCR (OI)", value: pcr.toFixed(2), valueClass: pcr > 1 ? "text-bullish" : "text-bearish", accentClass: pcr > 1 ? "bg-bullish" : "bg-bearish" },
@@ -139,64 +159,63 @@ export default function OIAnalysis() {
     <div className="space-y-4">
       <div className="rounded-lg border border-border/80 bg-card/90 px-4 py-3 shadow-card">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[1.55rem] font-semibold leading-tight text-foreground">OI Analysis</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2.5">
-            <Badge variant="outline" className={`gap-1 text-xs ${isLive ? "border-bullish text-bullish" : afterHours ? "border-amber-500/50 text-amber-400" : "border-red-500/50 text-red-400"}`}>
-              {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isLive ? "LIVE" : afterHours ? "CLOSED" : "OFFLINE"}
-            </Badge>
-            {(isLive || afterHours) && spotPrice > 0 && (
-              <span className="text-xs font-mono text-muted-foreground">
-                Spot: <span className="text-foreground font-medium">{spotPrice.toLocaleString("en-IN")}</span>
-                {maxPain > 0 && <> · Max Pain: <span className="text-warning font-medium">{maxPain.toLocaleString("en-IN")}</span></>}
-                {afterHours && <span className="text-amber-400/60 ml-1">(Last Close)</span>}
-              </span>
-            )}
-            <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Heatmap</p>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">OI Analysis</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className={`gap-1 text-xs ${isLive ? "border-bullish text-bullish" : afterHours ? "border-warning/50 text-warning" : "border-destructive/50 text-destructive"}`}>
+                {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                {isLive ? "LIVE" : afterHours ? "CLOSED" : "OFFLINE"}
+              </Badge>
+              {(isLive || afterHours) && spotPrice > 0 && (
+                <span className="text-xs font-mono text-muted-foreground">
+                  Spot: <span className="text-foreground font-medium">{spotPrice.toLocaleString("en-IN")}</span>
+                  {maxPain > 0 && <> · Max Pain: <span className="text-warning font-medium">{maxPain.toLocaleString("en-IN")}</span></>}
+                  {afterHours && <span className="text-warning/60 ml-1">(Last Close)</span>}
+                </span>
+              )}
+              <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Heatmap</p>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          {/* Shortcuts Info */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary" title="Keyboard Shortcuts">
-                <kbd className="rounded border border-border/60 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold shadow-sm">?</kbd>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-4" align="end">
-              <p className="text-[11px] font-bold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
-                <Keyboard className="h-3.5 w-3.5" />
-                Keyboard Shortcuts
-              </p>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center"><span className="text-muted-foreground">Focus Search</span><kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">⌘K</kbd></div>
-                <div className="flex justify-between items-center"><span className="text-muted-foreground">Refresh Data</span><kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">R</kbd></div>
-                <div className="flex justify-between items-center"><span className="text-muted-foreground">Next Tab</span><kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">Tab</kbd></div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            {/* Shortcuts Info */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary" title="Keyboard Shortcuts">
+                  <kbd className="rounded border border-border/60 bg-background/80 px-1.5 py-0.5 font-mono text-xs font-semibold shadow-sm">?</kbd>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-4" align="end">
+                <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <Keyboard className="h-3.5 w-3.5" />
+                  Keyboard Shortcuts
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center"><span className="text-muted-foreground">Refresh Data</span><kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">R</kbd></div>
+                  <div className="flex justify-between items-center"><span className="text-muted-foreground">Command Palette</span><kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono">/</kbd></div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-background/70 transition-colors hover:border-primary/50 hover:text-primary" onClick={handleRefetch} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            <span className="text-xs">Refresh</span>
-          </Button>
-          <Select value={symbol} onValueChange={setSymbol}>
-            <SelectTrigger className="h-8 w-[150px] bg-background/70 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="NIFTY">NIFTY</SelectItem>
-              <SelectItem value="BANKNIFTY">BANKNIFTY</SelectItem>
-              <SelectItem value="FINNIFTY">FINNIFTY</SelectItem>
-              <SelectItem value="MIDCPNIFTY">MIDCPNIFTY</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 bg-background/70 transition-colors hover:border-primary/50 hover:text-primary" onClick={handleRefetch} disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              <span className="text-xs">Refresh</span>
+            </Button>
+            <Select value={symbol} onValueChange={setSymbol}>
+              <SelectTrigger className="h-8 w-[150px] bg-background/70 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NIFTY">NIFTY</SelectItem>
+                <SelectItem value="BANKNIFTY">BANKNIFTY</SelectItem>
+                <SelectItem value="FINNIFTY">FINNIFTY</SelectItem>
+                <SelectItem value="MIDCPNIFTY">MIDCPNIFTY</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       {/* After-Hours Banner */}
       {afterHours && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning">
           <WifiOff className="h-4 w-4 shrink-0" />
           <p className="text-xs font-medium">
             Market Closed — {hasData ? "Showing last available OI data from closing session" : "No cached data available. Data will populate when market opens."}
@@ -212,7 +231,7 @@ export default function OIAnalysis() {
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-muted/50 mb-3 animate-pulse">
                 <WifiOff className="h-7 w-7 text-muted-foreground/40" />
               </div>
-              <p className="text-[15px] font-semibold text-foreground">Waiting for OI Analysis Data</p>
+              <p className="text-base font-semibold text-foreground">Waiting for OI Analysis Data</p>
               <p className="text-xs text-muted-foreground mt-1.5 max-w-md mx-auto leading-relaxed">
                 Data refreshes automatically during market hours. Check that the proxy server is running on port <code className="font-mono text-primary/70 bg-primary/10 px-1 rounded">4002</code>.
               </p>
@@ -263,10 +282,10 @@ export default function OIAnalysis() {
       {/* Key Metrics */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {metricCards.map((metric) => (
-          <Card key={metric.label} className="group overflow-hidden border-border/80 bg-card/95">
-            <CardContent className="relative p-3">
+          <Card key={metric.label} className="overflow-hidden">
+            <CardContent className="relative p-4">
               <div className={`absolute inset-x-0 top-0 h-0.5 ${metric.accentClass}`} />
-              <p className="text-[11px] font-medium uppercase text-muted-foreground">{metric.label}</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{metric.label}</p>
               <p className={`mt-1 font-mono text-lg font-semibold leading-none tabular-nums ${metric.valueClass}`}>{metric.value}</p>
             </CardContent>
           </Card>
@@ -275,7 +294,7 @@ export default function OIAnalysis() {
 
       {/* ── NEW: ATM Zone Dashboard ── */}
       <Card className={moduleCardClass}>
-        <CardHeader className={moduleHeaderClass}>
+        <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">ATM Zone Analysis ({activeATMZone.strikes} Strikes)</CardTitle>
             <div className="flex rounded-md border border-border/60 bg-background/70 p-0.5">
@@ -291,30 +310,30 @@ export default function OIAnalysis() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent>
           <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
             <div className="rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">Zone PCR</p>
-              <p className={`text-lg font-bold font-mono ${activeATMZone.pcr > 1 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.pcr}</p>
+              <p className="text-xs text-muted-foreground">Zone PCR</p>
+              <p className={`text-lg font-semibold font-mono ${activeATMZone.pcr > 1 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.pcr}</p>
             </div>
             <div className="rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">CE OI</p>
-              <p className="text-sm font-bold font-mono">{(activeATMZone.totalCEOI / 100000).toFixed(1)}L</p>
+              <p className="text-xs text-muted-foreground">CE OI</p>
+              <p className="text-sm font-semibold font-mono">{(activeATMZone.totalCEOI / 100000).toFixed(1)}L</p>
             </div>
             <div className="rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">PE OI</p>
-              <p className="text-sm font-bold font-mono">{(activeATMZone.totalPEOI / 100000).toFixed(1)}L</p>
+              <p className="text-xs text-muted-foreground">PE OI</p>
+              <p className="text-sm font-semibold font-mono">{(activeATMZone.totalPEOI / 100000).toFixed(1)}L</p>
             </div>
             <div className="rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">CE OI Chg%</p>
-              <p className={`text-sm font-bold font-mono ${activeATMZone.ceOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.ceOIChgPercent >= 0 ? "+" : ""}{activeATMZone.ceOIChgPercent}%</p>
+              <p className="text-xs text-muted-foreground">CE OI Chg%</p>
+              <p className={`text-sm font-semibold font-mono ${activeATMZone.ceOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.ceOIChgPercent >= 0 ? "+" : ""}{activeATMZone.ceOIChgPercent}%</p>
             </div>
             <div className="rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">PE OI Chg%</p>
-              <p className={`text-sm font-bold font-mono ${activeATMZone.peOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.peOIChgPercent >= 0 ? "+" : ""}{activeATMZone.peOIChgPercent}%</p>
+              <p className="text-xs text-muted-foreground">PE OI Chg%</p>
+              <p className={`text-sm font-semibold font-mono ${activeATMZone.peOIChgPercent >= 0 ? "text-bullish" : "text-bearish"}`}>{activeATMZone.peOIChgPercent >= 0 ? "+" : ""}{activeATMZone.peOIChgPercent}%</p>
             </div>
             <div className="col-span-3 rounded-md border border-border/60 bg-background/65 p-2 text-center">
-              <p className="text-[11px] text-muted-foreground">Strike-wise PCR in Zone</p>
+              <p className="text-xs text-muted-foreground">Strike-wise PCR in Zone</p>
               <div className="mt-1 flex flex-wrap justify-center gap-1">
                 {activeATMZone.strikeData.map(s => (
                   <div key={s.strike} className={`px-1.5 py-0.5 rounded text-xs font-mono ${s.pcr > 1 ? "bg-bullish/15 text-bullish" : "bg-bearish/15 text-bearish"}`}>
@@ -340,7 +359,7 @@ export default function OIAnalysis() {
             </TableHeader>
             <TableBody>
               {activeATMZone.strikeData.map(s => (
-                <TableRow key={s.strike} className="font-mono text-[11px] hover:bg-muted/30">
+                <TableRow key={s.strike} className="font-mono text-xs hover:bg-muted/30">
                   <TableCell className="font-bold">{s.strike.toLocaleString("en-IN")}</TableCell>
                   <TableCell className="text-right">{(s.ceOI / 1000).toFixed(0)}K</TableCell>
                   <TableCell className="text-right">{(s.peOI / 1000).toFixed(0)}K</TableCell>
@@ -377,7 +396,6 @@ export default function OIAnalysis() {
           <TabsTrigger value="oi-correlation" className="text-xs py-1.5 px-3">OI Correlation</TabsTrigger>
           <TabsTrigger value="oi-dist" className="text-xs py-1.5 px-3">OI Distribution</TabsTrigger>
           <TabsTrigger value="oi-change" className="text-xs py-1.5 px-3">OI Change</TabsTrigger>
-          <TabsTrigger value="multi-expiry" className="text-xs py-1.5 px-3">Multi-Expiry</TabsTrigger>
           <TabsTrigger value="iv-smile" className="text-xs py-1.5 px-3">IV Smile</TabsTrigger>
           <TabsTrigger value="pcr-trend" className="text-xs py-1.5 px-3">PCR Trend</TabsTrigger>
           <TabsTrigger value="oi-interp" className="text-xs py-1.5 px-3">OI Interpretation</TabsTrigger>
@@ -387,7 +405,7 @@ export default function OIAnalysis() {
         {/* ── NEW: Delta OI Tab ── */}
         <TabsContent value="delta-oi">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}>
+            <CardHeader>
               <CardTitle className="text-sm">Delta OI (OI × Delta) by Strike</CardTitle>
               <p className="text-xs text-muted-foreground">Shows directional exposure per strike. Net positive = bullish pressure, negative = bearish.</p>
             </CardHeader>
@@ -414,7 +432,7 @@ export default function OIAnalysis() {
         {/* ── NEW: Strike-wise PCR Tab ── */}
         <TabsContent value="strike-pcr">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}>
+            <CardHeader>
               <CardTitle className="text-sm">Individual Strike-wise PCR</CardTitle>
               <p className="text-xs text-muted-foreground">PCR &gt; 1 = Put heavy (bullish support), PCR &lt; 1 = Call heavy (resistance).</p>
             </CardHeader>
@@ -445,7 +463,7 @@ export default function OIAnalysis() {
         {/* ── NEW: OI Correlation Tab ── */}
         <TabsContent value="oi-correlation">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}>
+            <CardHeader>
               <CardTitle className="text-sm">OI vs OI Change vs Volume Correlation</CardTitle>
               <p className="text-xs text-muted-foreground">Bars = OI, Line = OI Change, Dots = Volume spikes. Identifies active vs passive strikes.</p>
             </CardHeader>
@@ -474,7 +492,7 @@ export default function OIAnalysis() {
 
         <TabsContent value="oi-dist">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">Call vs Put OI by Strike (in '000s)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Call vs Put OI by Strike (in '000s)</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -496,7 +514,7 @@ export default function OIAnalysis() {
 
         <TabsContent value="oi-change">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">Change in OI by Strike (in '000s)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Change in OI by Strike (in '000s)</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -523,32 +541,9 @@ export default function OIAnalysis() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="multi-expiry">
-          <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">Multi-Expiry OI Comparison (Weekly vs Monthly)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={multiExpiryData} barGap={0} barCategoryGap="15%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                    <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine x={Math.round(spotPrice / 50) * 50} stroke="hsl(210 100% 52%)" strokeDasharray="3 3" />
-                    <Bar dataKey="ceOI_weekly" fill="hsl(142 71% 45%)" opacity={0.9} name="CE Weekly" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="ceOI_monthly" fill="hsl(142 71% 45% / 0.4)" name="CE Monthly" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="peOI_weekly" fill="hsl(0 84% 60%)" opacity={0.9} name="PE Weekly" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="peOI_monthly" fill="hsl(0 84% 60% / 0.4)" name="PE Monthly" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="iv-smile">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">IV Smile / Skew Curve</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">IV Smile / Skew Curve</CardTitle></CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -557,7 +552,7 @@ export default function OIAnalysis() {
                     <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} label={{ value: "IV %", angle: -90, position: "insideLeft", fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
                     <Tooltip contentStyle={tooltipStyle} />
-                    <ReferenceLine x={Math.round(spotPrice / 50) * 50} stroke="hsl(210 100% 52%)" strokeDasharray="5 5" label={{ value: "ATM", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
+                    <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(210 100% 52%)" strokeDasharray="5 5" label={{ value: "ATM", fill: "hsl(210 100% 52%)", fontSize: 9 }} />
                     <Line type="monotone" dataKey="callIV" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} name="Call IV" />
                     <Line type="monotone" dataKey="putIV" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="Put IV" />
                     <Line type="monotone" dataKey="avgIV" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Avg IV" />
@@ -572,10 +567,10 @@ export default function OIAnalysis() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* PCR Gauges */}
             <Card className={moduleCardClass}>
-              <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">Put-Call Ratio (OI)</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">Put-Call Ratio (OI)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
-                  <p className={`text-4xl font-bold font-mono ${pcrData.signalColor}`}>{pcrData.pcrOI.toFixed(2)}</p>
+                  <p className={`text-4xl font-semibold font-mono ${pcrData.signalColor}`}>{pcrData.pcrOI.toFixed(2)}</p>
                   <Badge variant="outline" className={`mt-2 ${pcrData.signalColor}`}>{pcrData.signal}</Badge>
                 </div>
                 <div className="relative h-3 rounded-full bg-gradient-to-r from-bearish/30 via-warning/30 to-bullish/30 overflow-hidden">
@@ -584,7 +579,7 @@ export default function OIAnalysis() {
                     style={{ left: `${Math.min(Math.max((pcrData.pcrOI / 2) * 100, 2), 98)}%`, transform: "translateX(-50%)" }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
+                <div className="flex justify-between text-xs text-muted-foreground font-mono">
                   <span>0.0 (Bearish)</span>
                   <span>1.0</span>
                   <span>2.0 (Bullish)</span>
@@ -592,12 +587,12 @@ export default function OIAnalysis() {
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <div className="p-2 rounded-md bg-accent/30 text-center">
-                    <p className="text-[11px] text-muted-foreground">OI PCR</p>
-                    <p className="text-lg font-bold font-mono">{pcrData.pcrOI.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">OI PCR</p>
+                    <p className="text-lg font-semibold font-mono">{pcrData.pcrOI.toFixed(2)}</p>
                   </div>
                   <div className="p-2 rounded-md bg-accent/30 text-center">
-                    <p className="text-[11px] text-muted-foreground">Vol PCR</p>
-                    <p className="text-lg font-bold font-mono">{pcrData.pcrVolume.toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">Vol PCR</p>
+                    <p className="text-lg font-semibold font-mono">{pcrData.pcrVolume.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -605,28 +600,28 @@ export default function OIAnalysis() {
 
             {/* OI Breakdown */}
             <Card className={`${moduleCardClass} lg:col-span-2`}>
-              <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">Open Interest Breakdown</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">Open Interest Breakdown</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold text-bearish">CALL OI (Writers = Resistance)</h4>
                     <div className="p-3 rounded-md bg-bearish/5 border border-bearish/10">
-                      <p className="text-2xl font-bold font-mono text-bearish">{(pcrData.totalCEOI / 100000).toFixed(1)}L</p>
+                      <p className="text-2xl font-semibold font-mono text-bearish">{(pcrData.totalCEOI / 100000).toFixed(1)}L</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Total CE Open Interest</p>
                     </div>
                     <div className="p-3 rounded-md bg-accent/30">
-                      <p className="text-lg font-bold font-mono">{(pcrData.totalCEVol / 100000).toFixed(1)}L</p>
+                      <p className="text-lg font-semibold font-mono">{(pcrData.totalCEVol / 100000).toFixed(1)}L</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Total CE Volume</p>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold text-bullish">PUT OI (Writers = Support)</h4>
                     <div className="p-3 rounded-md bg-bullish/5 border border-bullish/10">
-                      <p className="text-2xl font-bold font-mono text-bullish">{(pcrData.totalPEOI / 100000).toFixed(1)}L</p>
+                      <p className="text-2xl font-semibold font-mono text-bullish">{(pcrData.totalPEOI / 100000).toFixed(1)}L</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Total PE Open Interest</p>
                     </div>
                     <div className="p-3 rounded-md bg-accent/30">
-                      <p className="text-lg font-bold font-mono">{(pcrData.totalPEVol / 100000).toFixed(1)}L</p>
+                      <p className="text-lg font-semibold font-mono">{(pcrData.totalPEVol / 100000).toFixed(1)}L</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Total PE Volume</p>
                     </div>
                   </div>
@@ -650,7 +645,7 @@ export default function OIAnalysis() {
 
         <TabsContent value="oi-interp">
           <Card className={moduleCardClass}>
-            <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm">OI Buildup Interpretation (Top 10 Active Strikes)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">OI Buildup Interpretation (Top 10 Active Strikes)</CardTitle></CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -673,7 +668,7 @@ export default function OIAnalysis() {
                         {row.ceOIChg >= 0 ? "+" : ""}{(row.ceOIChg / 1000).toFixed(1)}K
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[11px] ${row.ceInterp.includes("Short") ? "text-bearish" : "text-bullish"}`}>
+                        <Badge variant="outline" className={`text-xs h-4 ${row.ceInterp === "Call Writing" ? "text-bearish" : "text-bullish"}`}>
                           {row.ceInterp}
                         </Badge>
                       </TableCell>
@@ -682,7 +677,7 @@ export default function OIAnalysis() {
                         {row.peOIChg >= 0 ? "+" : ""}{(row.peOIChg / 1000).toFixed(1)}K
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[11px] ${row.peInterp.includes("Long") ? "text-bullish" : "text-bearish"}`}>
+                        <Badge variant="outline" className={`text-xs h-4 ${row.peInterp === "Put Writing" ? "text-bullish" : "text-bearish"}`}>
                           {row.peInterp}
                         </Badge>
                       </TableCell>
@@ -697,7 +692,7 @@ export default function OIAnalysis() {
         <TabsContent value="top-oi">
           <div className="grid md:grid-cols-2 gap-4">
             <Card className={moduleCardClass}>
-              <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm text-bullish">Top 5 Call OI (Resistance)</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm text-bullish">Top 5 Call OI (Resistance)</CardTitle></CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader><TableRow className="text-xs">
@@ -718,7 +713,7 @@ export default function OIAnalysis() {
               </CardContent>
             </Card>
             <Card className={moduleCardClass}>
-              <CardHeader className={moduleHeaderClass}><CardTitle className="text-sm text-bearish">Top 5 Put OI (Support)</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm text-bearish">Top 5 Put OI (Support)</CardTitle></CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader><TableRow className="text-xs">

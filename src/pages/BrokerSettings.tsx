@@ -16,9 +16,10 @@ import {
   type BrokerInfo,
   type BrokerCredentials,
 } from "@/lib/brokerConfig";
-import { testDhanConnection } from "@/lib/marketApi";
+import { testDhanConnection, testBrokerConnection } from "@/lib/marketApi";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Shield, ExternalLink, Trash2, CheckCircle2, Circle, Eye, EyeOff, Info, Key, Plug, AlertTriangle,
   Server, Zap, Globe, BarChart3, Loader2, CheckCircle, XCircle, Wifi,
@@ -44,6 +45,8 @@ function BrokerCard({
   const [values, setValues] = useState<Record<string, string>>(saved?.values || {});
   const [showFields, setShowFields] = useState<Record<string, boolean>>({});
   const [isEditing, setIsEditing] = useState(!saved);
+  const [testState, setTestState] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [testMessage, setTestMessage] = useState("");
 
   const handleSave = () => {
     const missing = broker.fields.filter((f) => f.required && !values[f.key]?.trim());
@@ -55,14 +58,39 @@ function BrokerCard({
     setIsEditing(false);
   };
 
+  const handleTest = async () => {
+    const missing = broker.fields.filter((f) => f.required && !values[f.key]?.trim());
+    if (missing.length > 0) {
+      toast.error(`Please fill: ${missing.map((f) => f.label).join(", ")}`);
+      return;
+    }
+    setTestState("testing");
+    try {
+      const result = await testBrokerConnection(broker.id, values);
+      if (result.status === "success") {
+        setTestState("success");
+        setTestMessage(result.message || "Connected");
+        toast.success(`${broker.name}: ${result.message || "connection verified"}`);
+      } else {
+        setTestState("error");
+        setTestMessage(result.message || "Connection failed");
+        toast.error(`${broker.name}: ${result.message || "connection failed"}`);
+      }
+    } catch (e: any) {
+      setTestState("error");
+      setTestMessage(e.message || "Network error");
+      toast.error(`${broker.name}: connection test failed`);
+    }
+  };
+
   return (
-    <Card className={`transition-all duration-200 ${isActive ? "ring-2 ring-primary shadow-lg" : "hover:shadow-md"}`}>
-      <CardHeader className="pb-3">
+    <Card className={`transition-all duration-200 ${isActive ? "ring-1 ring-primary/60" : "hover:shadow-card-hover"}`}>
+      <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-2xl">{broker.logo}</span>
             <div>
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2">
                 {broker.name}
                 {saved && (
                   <Badge variant={isActive ? "default" : "secondary"} className="text-2xs">
@@ -92,7 +120,7 @@ function BrokerCard({
           <>
             {broker.fields.map((field) => (
               <div key={field.key} className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1">
+                <Label className="text-xs flex items-center gap-1.5">
                   {field.label}
                   {field.required && <span className="text-destructive">*</span>}
                 </Label>
@@ -115,7 +143,7 @@ function BrokerCard({
                   )}
                 </div>
                 {field.helpText && (
-                  <p className="text-2xs text-muted-foreground flex items-center gap-1">
+                  <p className="text-2xs text-muted-foreground flex items-center gap-1.5">
                     <Info className="h-3 w-3 shrink-0" />
                     {field.helpText}
                   </p>
@@ -127,17 +155,33 @@ function BrokerCard({
                 <Key className="h-3.5 w-3.5 mr-1.5" />
                 Save Keys
               </Button>
+              <Button size="sm" variant="outline" onClick={handleTest} disabled={testState === "testing"}>
+                {testState === "testing" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Test"}
+              </Button>
               {saved && (
-                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setValues(saved.values || {});
+                    setIsEditing(false);
+                  }}
+                >
                   Cancel
                 </Button>
               )}
             </div>
+            {testState !== "idle" && testState !== "testing" && (
+              <p className={`text-2xs flex items-center gap-1.5 ${testState === "success" ? "text-bullish" : "text-bearish"}`}>
+                {testState === "success" ? <CheckCircle className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+                {testMessage}
+              </p>
+            )}
           </>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <CheckCircle2 className="h-4 w-4 text-bullish" />
               <span>{broker.fields.filter((f) => f.required).length} keys configured</span>
               <span className="text-2xs">• Added {new Date(saved!.addedAt).toLocaleDateString("en-IN")}</span>
             </div>
@@ -148,6 +192,17 @@ function BrokerCard({
                   Set Active
                 </Button>
               )}
+              <Button size="sm" variant="outline" onClick={handleTest} disabled={testState === "testing"}>
+                {testState === "testing" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : testState === "success" ? (
+                  <CheckCircle className="h-3.5 w-3.5 text-bullish" />
+                ) : testState === "error" ? (
+                  <XCircle className="h-3.5 w-3.5 text-bearish" />
+                ) : (
+                  "Test"
+                )}
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
                 Edit
               </Button>
@@ -155,6 +210,12 @@ function BrokerCard({
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
+            {testState !== "idle" && testState !== "testing" && (
+              <p className={`text-2xs flex items-center gap-1.5 ${testState === "success" ? "text-bullish" : "text-bearish"}`}>
+                {testState === "success" ? <CheckCircle className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+                {testMessage}
+              </p>
+            )}
           </div>
         )}
       </CardContent>
@@ -198,7 +259,7 @@ function ConnectionStatusPanel() {
         : health?.sources?.dhan
         ? "Credentials loaded from .env · Option Chain, Expiry, WebSocket"
         : dhanMessage || "Click Test to verify — provides Option Chain, Greeks, Live Ticks",
-      color: dhanStatus === "success" || health?.sources?.dhan ? "text-emerald-500" : dhanStatus === "error" ? "text-red-500" : "text-zinc-500",
+      color: dhanStatus === "success" || health?.sources?.dhan ? "text-bullish" : dhanStatus === "error" ? "text-bearish" : "text-muted-foreground",
     },
     {
       name: "Dhan WebSocket",
@@ -207,34 +268,34 @@ function ConnectionStatusPanel() {
       detail: wsConnected
         ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached, ${health?.websocket?.instrumentsSubscribed || 0} instruments`
         : "Requires Dhan credentials · Real-time index + VIX ticks",
-      color: wsConnected ? "text-emerald-500" : "text-zinc-500",
+      color: wsConnected ? "text-bullish" : "text-muted-foreground",
     },
     {
       name: "NSE India (Fallback)",
       icon: <Globe className="h-4 w-4" />,
       status: health?.reachable ? "online" : "offline",
       detail: "Fallback · Indices, Sectors, A/D, Option Chain if Dhan fails",
-      color: health?.reachable ? "text-emerald-500" : "text-red-500",
+      color: health?.reachable ? "text-bullish" : "text-bearish",
     },
     {
       name: "Yahoo Finance",
       icon: <BarChart3 className="h-4 w-4" />,
       status: "online",
       detail: "No auth needed · 15-min delayed historical/intraday charts",
-      color: "text-emerald-500",
+      color: "text-bullish",
     },
     {
       name: "Proxy Server",
       icon: <Server className="h-4 w-4" />,
       status: health?.reachable ? "online" : "offline",
       detail: health?.reachable ? `Uptime: ${Math.floor((health.uptime || 0) / 60)}min · Routes all API traffic` : "Not reachable — run: npm run dev",
-      color: health?.reachable ? "text-emerald-500" : "text-red-500",
+      color: health?.reachable ? "text-bullish" : "text-bearish",
     },
   ];
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <Wifi className="h-4 w-4 text-primary" />
           Connection Status
@@ -252,8 +313,8 @@ function ConnectionStatusPanel() {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-medium">{src.name}</span>
                 <div className={`h-1.5 w-1.5 rounded-full ${
-                  src.status === "online" ? "bg-emerald-500" :
-                  src.status === "offline" ? "bg-red-500" : "bg-zinc-500"
+                  src.status === "online" ? "bg-bullish" :
+                  src.status === "offline" ? "bg-bearish" : "bg-muted-foreground"
                 }`} />
               </div>
               <p className="text-xs text-muted-foreground truncate">{src.detail}</p>
@@ -269,9 +330,9 @@ function ConnectionStatusPanel() {
                 {dhanStatus === "testing" ? (
                   <><Loader2 className="h-3 w-3 animate-spin" /> Testing</>
                 ) : dhanStatus === "success" ? (
-                  <><CheckCircle className="h-3 w-3 text-emerald-500" /> Connected</>
+                  <><CheckCircle className="h-3 w-3 text-bullish" /> Connected</>
                 ) : dhanStatus === "error" ? (
-                  <><XCircle className="h-3 w-3 text-red-500" /> Retry</>
+                  <><XCircle className="h-3 w-3 text-bearish" /> Retry</>
                 ) : (
                   <>Test</>
                 )}
@@ -287,28 +348,45 @@ function ConnectionStatusPanel() {
 export default function BrokerSettings() {
   const [savedBrokers, setSavedBrokers] = useState(getSavedBrokers());
   const activeBroker = getActiveBroker();
+  const queryClient = useQueryClient();
 
   const handleSave = (brokerId: string, values: Record<string, string>) => {
+    // Preserve the existing entry's isActive/addedAt when editing an already-saved
+    // broker — previously every save unconditionally recomputed isActive from
+    // `savedBrokers.length === 0`, which silently deactivated the currently-active
+    // broker (and reset its "Added" date) whenever it wasn't the very first one saved.
+    const existing = savedBrokers.find((b) => b.brokerId === brokerId);
     const creds: BrokerCredentials = {
       brokerId,
       values,
-      addedAt: new Date().toISOString(),
-      isActive: savedBrokers.length === 0, // first broker is auto-active
+      addedAt: existing?.addedAt ?? new Date().toISOString(),
+      isActive: existing ? existing.isActive : savedBrokers.length === 0, // first broker is auto-active
     };
     saveBrokerCredentials(creds);
     setSavedBrokers(getSavedBrokers());
+    // Credentials may have changed for the active broker (e.g. a refreshed access
+    // token) — invalidate cached market data so it refetches under the new values
+    // instead of continuing to show data fetched under the stale credentials.
+    queryClient.invalidateQueries();
     toast.success(`${BROKERS.find((b) => b.id === brokerId)?.name} keys saved securely`);
   };
 
   const handleRemove = (brokerId: string) => {
     removeBrokerCredentials(brokerId);
     setSavedBrokers(getSavedBrokers());
+    // Removing the active broker changes which credentials (if any) back subsequent
+    // API calls — invalidate so pages don't keep showing data fetched under it.
+    queryClient.invalidateQueries();
     toast.info("Broker keys removed");
   };
 
   const handleSetActive = (brokerId: string) => {
     setActiveBroker(brokerId);
     setSavedBrokers(getSavedBrokers());
+    // Option chain / expiry / quote queries are keyed by symbol only, not by broker,
+    // so without this, switching the active broker left every page showing data
+    // fetched under the previous broker's credentials until an unrelated refetch.
+    queryClient.invalidateQueries();
     toast.success(`${BROKERS.find((b) => b.id === brokerId)?.name} is now active`);
   };
 
@@ -317,10 +395,10 @@ export default function BrokerSettings() {
   const connectedBrokers = BROKERS.filter((b) => connectedIds.includes(b.id));
 
   return (
-    <div className="space-y-6 p-1">
+    <div className="space-y-3">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
           <Plug className="h-6 w-6 text-primary" />
           Broker API Settings
         </h1>
@@ -330,9 +408,9 @@ export default function BrokerSettings() {
       </div>
 
       {/* Security Notice */}
-      <Card className="border-amber-500/30 bg-amber-500/5">
+      <Card className="border-warning/30 bg-warning/5">
         <CardContent className="flex items-start gap-3 py-3">
-          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-foreground">Security Notice</p>
             <p className="text-muted-foreground text-xs mt-0.5">
@@ -409,7 +487,7 @@ export default function BrokerSettings() {
 
       {/* How It Works */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader>
           <CardTitle className="text-sm">How It Works</CardTitle>
         </CardHeader>
         <CardContent>
@@ -420,7 +498,7 @@ export default function BrokerSettings() {
               { step: "3", title: "Live Data Flows", desc: "Option chain, LTP, Greeks, and OI update in real-time" },
             ].map((s) => (
               <div key={s.step} className="flex gap-3">
-                <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
                   {s.step}
                 </div>
                 <div>

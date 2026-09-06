@@ -49,7 +49,7 @@ export function MultiExpiryOI({ symbol }: Props) {
     const filtered = strikes.filter(s => Math.abs(s - atm) <= stepSize * 15);
 
     return filtered.map(strike => {
-      const row: any = { strike };
+      const row: Record<string, number> = { strike };
       chains.forEach((c, idx) => {
         if (!selectedExpiries.includes(idx) || !c) return;
         const opt = c.chain.find(o => o.strikePrice === strike);
@@ -136,6 +136,24 @@ export function MultiExpiryOI({ symbol }: Props) {
   ];
 
   const expiryLabels = expiries.slice(0, 3).map((e, i) => e.label || `Expiry ${i + 1}`);
+
+  // Whether each of the first 3 expiries is the calendar month's monthly contract —
+  // i.e. the LAST expiry chronologically within its month among all fetched expiries —
+  // vs a weekly one. Previously these were hardcoded by array position (idx 0 =
+  // "Weekly", idx 2 = "Monthly"), which is wrong for symbols with weekly expiries:
+  // the 3rd upcoming date is usually just the 3rd weekly, not the monthly contract.
+  const expiryTags = useMemo(() => {
+    return expiries.slice(0, 3).map((exp) => {
+      const d = new Date(exp.value);
+      if (isNaN(d.getTime())) return "";
+      const sameMonth = expiries.filter((e) => {
+        const ed = new Date(e.value);
+        return !isNaN(ed.getTime()) && ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
+      });
+      const isMonthly = sameMonth.length > 0 && sameMonth.every((e) => new Date(e.value).getTime() <= d.getTime());
+      return isMonthly ? "Monthly" : "Weekly";
+    });
+  }, [expiries]);
   const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
 
   const toggleExpiry = (idx: number) => {
@@ -148,7 +166,7 @@ export function MultiExpiryOI({ symbol }: Props) {
     <div className="space-y-4">
       {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {expiryLabels.map((label, idx) => (
             <button
               key={idx}
@@ -160,9 +178,7 @@ export function MultiExpiryOI({ symbol }: Props) {
               }`}
             >
               {label}
-              {idx === 0 && <span className="ml-1 text-[11px] opacity-60">(Weekly)</span>}
-              {idx === 1 && <span className="ml-1 text-[11px] opacity-60">(Next)</span>}
-              {idx === 2 && <span className="ml-1 text-[11px] opacity-60">(Monthly)</span>}
+              {expiryTags[idx] && <span className="ml-1 text-xs opacity-60">({expiryTags[idx]})</span>}
             </button>
           ))}
         </div>
@@ -174,7 +190,7 @@ export function MultiExpiryOI({ symbol }: Props) {
 
       {/* Chart */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
             Multi-Expiry OI {showOIChange ? "Change" : "Distribution"}
@@ -213,7 +229,7 @@ export function MultiExpiryOI({ symbol }: Props) {
       {/* Buildup/Unwinding Signals */}
       {buildupAnalysis.length > 0 && (
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" />
               OI Buildup / Unwinding Signals
@@ -246,7 +262,7 @@ export function MultiExpiryOI({ symbol }: Props) {
                       <span className="text-xs font-bold font-mono">{signal.strike.toLocaleString("en-IN")}</span>
                       <Badge
                         variant="outline"
-                        className={`text-[11px] h-4 ${
+                        className={`text-xs h-4 ${
                           signal.type === "bullish" ? "text-bullish border-bullish/30" :
                           signal.type === "bearish" ? "text-bearish border-bearish/30" : ""
                         }`}

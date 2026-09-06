@@ -30,9 +30,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <Card className="border-destructive/30 bg-destructive/5 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,0,0.05),transparent_70%)]" />
-          <CardContent className="py-12 text-center space-y-4 relative z-10">
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="py-12 text-center space-y-4">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/20 mb-2">
               <Bug className="h-7 w-7 text-destructive" />
             </div>
@@ -44,7 +43,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
             {this.state.error && (
               <div className="mt-4 p-3 bg-background/50 border border-border/50 rounded-md max-w-md mx-auto overflow-x-auto text-left">
-                <p className="text-[11px] font-mono text-destructive/80 leading-relaxed break-all">
+                <p className="text-xs font-mono text-destructive/80 leading-relaxed break-all">
                   {this.state.error.message}
                 </p>
               </div>
