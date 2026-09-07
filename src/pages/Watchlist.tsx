@@ -101,6 +101,10 @@ export default function Watchlist() {
       });
   }, [watchedSymbols, allStocks, indices, search]);
 
+  // Rows with real live data — used for aggregate stats so unresolved/placeholder
+  // symbols (ltp === 0) don't skew the up/down count or average % change.
+  const liveWatchlistRows = useMemo(() => watchlistRows.filter((w) => w.ltp > 0), [watchlistRows]);
+
   // All available F&O symbols for autocomplete
   const availableSymbols = useMemo(() => {
     return allStocks
@@ -126,13 +130,13 @@ export default function Watchlist() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
             Watchlist
             {isLive && (
-              <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-bullish/30 text-bullish">
+              <Badge variant="outline" className="text-xs h-5 px-1.5 border-bullish/30 text-bullish">
                 <Radio className="h-2 w-2 mr-1 animate-pulse" />
                 LIVE
               </Badge>
@@ -160,7 +164,7 @@ export default function Watchlist() {
               <option key={sym} value={sym} />
             ))}
           </datalist>
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={addToWatchlist}>
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={addToWatchlist}>
             <Plus className="h-3 w-3" /> Add
           </Button>
         </div>
@@ -197,7 +201,7 @@ export default function Watchlist() {
                   const dayRange = w.high - w.low;
                   const dayPos = dayRange > 0 ? ((w.ltp - w.low) / dayRange) * 100 : 50;
                   return (
-                  <TableRow key={w.symbol} className={`text-[11px] font-mono transition-all duration-150 group border-l-2 ${w.changePercent >= 0 ? "hover:bg-bullish/[0.03] border-transparent hover:border-bullish/50" : "hover:bg-bearish/[0.03] border-transparent hover:border-bearish/50"}`}>
+                  <TableRow key={w.symbol} className={`text-xs font-mono transition-all duration-150 group border-l-2 ${w.changePercent >= 0 ? "hover:bg-bullish/[0.03] border-transparent hover:border-bullish/50" : "hover:bg-bearish/[0.03] border-transparent hover:border-bearish/50"}`}>
                     <TableCell>
                       <Star
                         className="h-3 w-3 text-warning fill-warning cursor-pointer hover:opacity-60 transition-opacity"
@@ -270,7 +274,7 @@ export default function Watchlist() {
                 })}
                 {watchlistRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground text-sm">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground text-sm">
                       {search ? "No symbols match your filter" : "Add symbols to your watchlist to track them here"}
                     </TableCell>
                   </TableRow>
@@ -283,16 +287,16 @@ export default function Watchlist() {
                     <TableCell />
                     <TableCell />
                     <TableCell className="text-right text-xs py-2">
-                      <span className="text-bullish">{watchlistRows.filter(w => (w.changePercent || 0) >= 0).length}↑</span>
+                      <span className="text-bullish">{liveWatchlistRows.filter(w => (w.changePercent || 0) >= 0).length}↑</span>
                       {" / "}
-                      <span className="text-bearish">{watchlistRows.filter(w => (w.changePercent || 0) < 0).length}↓</span>
+                      <span className="text-bearish">{liveWatchlistRows.filter(w => (w.changePercent || 0) < 0).length}↓</span>
                     </TableCell>
                     <TableCell className={`text-right text-xs font-mono py-2 ${
-                      (watchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(watchlistRows.length, 1)) >= 0 ? "text-bullish" : "text-bearish"
+                      (liveWatchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(liveWatchlistRows.length, 1)) >= 0 ? "text-bullish" : "text-bearish"
                     }`}>
-                      Avg: {((watchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(watchlistRows.length, 1))).toFixed(2)}%
+                      Avg: {((liveWatchlistRows.reduce((s, w) => s + (w.changePercent || 0), 0) / Math.max(liveWatchlistRows.length, 1))).toFixed(2)}%
                     </TableCell>
-                    <TableCell colSpan={7} />
+                    <TableCell colSpan={8} />
                   </TableRow>
                 )}
               </TableBody>

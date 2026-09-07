@@ -129,22 +129,20 @@ function MetricCard({ icon, label, value, valueColor, sub, subColor, progress, i
   trendDirection?: "up" | "down" | "flat";
 }) {
   return (
-    <Card className="min-h-[104px] transition-all duration-200 hover:shadow-card-hover hover:border-primary/20 relative overflow-hidden group">
-      {/* Subtle neon glow effect inside card on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <CardContent className="pt-4 pb-4 px-4">
+    <Card className="min-h-[104px] transition-all duration-200 hover:shadow-card-hover hover:border-primary/20">
+      <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-2 text-muted-foreground">
           {icon}
-          <p className="text-[11px] font-semibold uppercase tracking-[0.04em]">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider">{label}</p>
           {isLive && <Radio className="h-3 w-3 text-bullish animate-pulse ml-auto" />}
           {badge && (
-            <span className={`text-xs font-bold tracking-wider uppercase ml-auto flex items-center gap-1 ${badge === "CLOSED" ? "text-amber-500/90" : "text-primary/80"}`}>
+            <span className={`text-xs font-semibold tracking-wider uppercase ml-auto flex items-center gap-1 ${badge === "CLOSED" ? "text-warning" : "text-primary/80"}`}>
               {badge === "CLOSED" ? <Moon className="h-3 w-3" /> : <Database className="h-3 w-3" />}{badge}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <p className={`text-[21px] font-bold font-mono leading-none ${valueColor || "text-foreground"}`}>{value}</p>
+          <p className={`text-xl font-semibold font-mono leading-none ${valueColor || "text-foreground"}`}>{value}</p>
           {/* VIX trend arrow */}
           {trendDirection && (
             <span className={`${trendDirection === "up" ? "text-bearish" : trendDirection === "down" ? "text-bullish" : "text-muted-foreground"}`}>

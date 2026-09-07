@@ -9,10 +9,10 @@ interface Props {
 
 export function SectionHeader({ title, subtitle, icon, tooltip }: Props) {
   return (
-    <div className="flex items-center gap-2.5 pt-5 pb-2">
+    <div className="flex items-center gap-2 pt-5 pb-2">
       {icon && <span className="text-primary">{icon}</span>}
       <div className="flex min-w-0 items-center gap-2">
-        <h2 className="text-[17px] font-bold leading-tight text-foreground">{title}</h2>
+        <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground">{title}</h2>
         {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       {subtitle && (

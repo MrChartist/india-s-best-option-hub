@@ -34,13 +34,13 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
   };
 
   return (
-    <Card className="overflow-hidden border-border/80 bg-card/95">
-      <CardHeader className="border-b border-border/70 bg-muted/25 px-4 py-3">
+    <Card className="overflow-hidden">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <Flame className="h-4 w-4" /> OI Heatmap
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-4">
+      <CardContent>
         <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
           <span>← Low OI</span>
           <div className="h-2.5 flex-1 rounded-full border border-border/40" style={{ background: "linear-gradient(90deg, hsl(142 71% 45% / 0.1), hsl(142 71% 45% / 0.9))" }} />
@@ -49,9 +49,9 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
 
         <div className="grid grid-cols-[1fr_60px_1fr] gap-0.5">
           {/* Header */}
-          <div className="text-center text-[11px] font-medium text-bullish pb-1">CALL OI</div>
-          <div className="text-center text-[11px] font-medium pb-1">STRIKE</div>
-          <div className="text-center text-[11px] font-medium text-bearish pb-1">PUT OI</div>
+          <div className="text-center text-xs font-medium text-bullish pb-1">CALL OI</div>
+          <div className="text-center text-xs font-medium pb-1">STRIKE</div>
+          <div className="text-center text-xs font-medium text-bearish pb-1">PUT OI</div>
 
           {heatmapData.map(d => (
             <Fragment key={d.strike}>
@@ -61,7 +61,7 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
                     className="flex h-5 cursor-default items-center justify-end rounded-sm pr-1.5 transition-all hover:ring-1 hover:ring-foreground/20"
                     style={{ backgroundColor: getColor(d.ceIntensity, "call") }}
                   >
-                    <span className="text-[11px] font-mono">{(d.ceOI / 1000).toFixed(0)}K</span>
+                    <span className="text-xs font-mono">{(d.ceOI / 1000).toFixed(0)}K</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
@@ -73,7 +73,7 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
               </Tooltip>
 
               <div
-                className={`flex h-5 items-center justify-center rounded-sm text-[11px] font-mono font-bold ${d.isATM ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "text-muted-foreground"}`}
+                className={`flex h-5 items-center justify-center rounded-sm text-xs font-mono font-bold ${d.isATM ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "text-muted-foreground"}`}
               >
                 {d.strike}
               </div>
@@ -84,7 +84,7 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
                     className="flex h-5 cursor-default items-center rounded-sm pl-1.5 transition-all hover:ring-1 hover:ring-foreground/20"
                     style={{ backgroundColor: getColor(d.peIntensity, "put") }}
                   >
-                    <span className="text-[11px] font-mono">{(d.peOI / 1000).toFixed(0)}K</span>
+                    <span className="text-xs font-mono">{(d.peOI / 1000).toFixed(0)}K</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">

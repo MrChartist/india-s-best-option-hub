@@ -12,11 +12,9 @@ interface ShortcutAction {
 }
 
 export function useKeyboardShortcuts({
-  onToggleGreeks,
   onToggleSearch,
   onToggleAlerts,
 }: {
-  onToggleGreeks?: () => void;
   onToggleSearch?: () => void;
   onToggleAlerts?: () => void;
 } = {}) {
@@ -27,12 +25,15 @@ export function useKeyboardShortcuts({
     { key: "1", ctrl: true, description: "Dashboard", category: "Navigation", action: () => navigate("/") },
     { key: "2", ctrl: true, description: "Option Chain", category: "Navigation", action: () => navigate("/option-chain") },
     { key: "3", ctrl: true, description: "OI Analysis", category: "Navigation", action: () => navigate("/oi-analysis") },
-    { key: "4", ctrl: true, description: "Greeks Calculator", category: "Navigation", action: () => navigate("/greeks") },
-    { key: "5", ctrl: true, description: "Strategy Builder", category: "Navigation", action: () => navigate("/strategy") },
-    { key: "g", description: "Toggle Greeks", category: "Option Chain", action: () => onToggleGreeks?.() },
+    { key: "4", ctrl: true, description: "Watchlist", category: "Navigation", action: () => navigate("/watchlist") },
+    { key: "5", ctrl: true, description: "Strategy Builder", category: "Navigation", action: () => navigate("/strategy-builder") },
+    { key: "6", ctrl: true, description: "Position Tracker", category: "Navigation", action: () => navigate("/position-tracker") },
+    { key: "7", ctrl: true, description: "Futures Scanner", category: "Navigation", action: () => navigate("/scanner") },
+    { key: "8", ctrl: true, description: "Orders", category: "Navigation", action: () => navigate("/orders") },
+    { key: "9", ctrl: true, description: "1Cliq Trade", category: "Navigation", action: () => navigate("/one-cliq") },
     { key: "a", alt: true, description: "Open Alerts", category: "Tools", action: () => onToggleAlerts?.() },
     { key: "Escape", description: "Close panels", category: "General", action: () => {} },
-  ], [navigate, onToggleSearch, onToggleGreeks, onToggleAlerts]);
+  ], [navigate, onToggleSearch, onToggleAlerts]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Don't trigger in inputs
@@ -42,8 +43,11 @@ export function useKeyboardShortcuts({
     for (const s of shortcuts) {
       const ctrlMatch = s.ctrl ? (e.ctrlKey || e.metaKey) : !(e.ctrlKey || e.metaKey);
       const altMatch = s.alt ? e.altKey : !e.altKey;
-      const shiftMatch = s.shift ? e.shiftKey : true;
-      
+      // Strict equality, matching ctrl/alt above. With the old `: true` a
+      // shortcut declaring no shift still fired on Ctrl+Shift+1, so chorded
+      // bindings elsewhere in the app could not coexist with these.
+      const shiftMatch = s.shift ? e.shiftKey : !e.shiftKey;
+
       if (e.key === s.key && ctrlMatch && altMatch && shiftMatch) {
         e.preventDefault();
         s.action();

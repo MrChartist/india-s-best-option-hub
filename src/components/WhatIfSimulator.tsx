@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sliders, Clock, Percent, Activity } from "lucide-react";
 import type { Position } from "@/lib/mockData";
-import { getSpotPrice } from "@/lib/positionStore";
+import { getSpotPrice, parseExpiryDate, daysToExpiry } from "@/lib/positionStore";
 
 interface Props {
   positions: Position[];
@@ -49,23 +49,25 @@ function deriveBaseSpot(positions: Position[]): number {
   return getSpotPrice(topSymbol);
 }
 
-// Derive DTE from expiry strings
+// Derive DTE from expiry strings — picks the *nearest* valid expiry across
+// all legs (a multi-expiry calendar/diagonal book previously just used
+// whichever leg happened to appear first in the array). Parsing now goes
+// through the shared parseExpiryDate() helper, which resolves a missing year
+// against today's date instead of a value that used to be hardcoded to a
+// single fixed year (silently wrong for any expiry once that year passed).
 function deriveDTE(positions: Position[]): number {
   if (positions.length === 0) return 7;
 
-  // Try to parse the nearest expiry
-  for (const p of positions) {
-    if (p.expiry) {
-      // Try parsing "27 Mar", "27 Mar 2026", etc.
-      const parsed = new Date(p.expiry + (p.expiry.match(/\d{4}/) ? "" : " 2026"));
-      if (!isNaN(parsed.getTime())) {
-        const days = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        if (days > 0 && days < 90) return days;
-      }
-    }
-  }
+  const now = new Date();
+  // Use parseExpiryDate only to filter out unparseable/empty expiry strings,
+  // then delegate the actual day-count to the shared daysToExpiry() helper —
+  // duplicating that arithmetic here previously risked the two drifting apart.
+  const candidateDays = positions
+    .filter(p => p.expiry && parseExpiryDate(p.expiry, now) !== null)
+    .map(p => daysToExpiry(p.expiry, 7, now))
+    .filter(days => days > 0 && days < 90);
 
-  return 7; // default
+  return candidateDays.length > 0 ? Math.min(...candidateDays) : 7;
 }
 
 export function WhatIfSimulator({ positions }: Props) {
@@ -106,7 +108,7 @@ export function WhatIfSimulator({ positions }: Props) {
   if (positions.length === 0) {
     return (
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
           </CardTitle>
@@ -120,16 +122,16 @@ export function WhatIfSimulator({ positions }: Props) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
-          <Badge variant="outline" className="text-[11px] font-mono">Base: {baseSpot.toLocaleString("en-IN")} | {baseDTE} DTE</Badge>
+          <Badge variant="outline" className="text-xs font-mono">Base: {baseSpot.toLocaleString("en-IN")} | {baseDTE} DTE</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Quick Scenario Presets */}
         <div className="flex flex-wrap gap-1.5">
-          <span className="text-[11px] text-muted-foreground self-center mr-1">Presets:</span>
+          <span className="text-xs text-muted-foreground self-center mr-1">Presets:</span>
           {[
             { label: "📊 Budget Day", spot: 0, iv: 5, days: 0 },
             { label: "🗳️ Election", spot: 3, iv: 8, days: 0 },
@@ -141,7 +143,7 @@ export function WhatIfSimulator({ positions }: Props) {
           ].map(preset => (
             <button
               key={preset.label}
-              className="text-[11px] px-2 py-1 rounded-md bg-accent/50 hover:bg-accent border border-transparent hover:border-border/50 transition-all duration-150 font-medium"
+              className="text-xs px-2 py-1 rounded-md bg-accent/50 hover:bg-accent border border-transparent hover:border-border/50 transition-all duration-150 font-medium"
               onClick={() => { setSpotChange(preset.spot); setIvChange(preset.iv); setDaysForward(preset.days); }}
             >
               {preset.label}
@@ -153,7 +155,7 @@ export function WhatIfSimulator({ positions }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-accent/30">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
+              <Label className="text-xs flex items-center gap-1.5">
                 <Activity className="h-3 w-3" /> Spot Change
               </Label>
               <Badge variant="outline" className={`text-xs font-mono ${spotChange > 0 ? "text-bullish" : spotChange < 0 ? "text-bearish" : ""}`}>
@@ -167,14 +169,14 @@ export function WhatIfSimulator({ positions }: Props) {
               max={5}
               step={0.25}
             />
-            <p className="text-[11px] text-muted-foreground font-mono text-center">
+            <p className="text-xs text-muted-foreground font-mono text-center">
               {baseSpot.toLocaleString("en-IN")} → {(baseSpot * (1 + spotChange / 100)).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
             </p>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
+              <Label className="text-xs flex items-center gap-1.5">
                 <Percent className="h-3 w-3" /> IV Change
               </Label>
               <Badge variant="outline" className={`text-xs font-mono ${ivChange > 0 ? "text-bearish" : ivChange < 0 ? "text-bullish" : ""}`}>
@@ -192,7 +194,7 @@ export function WhatIfSimulator({ positions }: Props) {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
+              <Label className="text-xs flex items-center gap-1.5">
                 <Clock className="h-3 w-3" /> Days Forward
               </Label>
               <Badge variant="outline" className="text-xs font-mono">
@@ -206,7 +208,7 @@ export function WhatIfSimulator({ positions }: Props) {
               max={Math.max(baseDTE, 1)}
               step={1}
             />
-            <p className="text-[11px] text-muted-foreground font-mono text-center">
+            <p className="text-xs text-muted-foreground font-mono text-center">
               {Math.max(0, baseDTE - daysForward)} DTE remaining
             </p>
           </div>
@@ -215,20 +217,20 @@ export function WhatIfSimulator({ positions }: Props) {
         {/* Summary */}
         <div className="grid grid-cols-3 gap-3">
           <div className={`p-3 rounded-md text-center ${totalCurrentPnl >= 0 ? "bg-bullish/5" : "bg-bearish/5"}`}>
-            <p className="text-[11px] text-muted-foreground">Current P&L</p>
-            <p className={`text-lg font-bold font-mono ${totalCurrentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
+            <p className="text-xs text-muted-foreground">Current P&L</p>
+            <p className={`text-lg font-semibold font-mono ${totalCurrentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
               ₹{totalCurrentPnl.toLocaleString("en-IN")}
             </p>
           </div>
           <div className={`p-3 rounded-md text-center ${totalSimPnl >= 0 ? "bg-bullish/5" : "bg-bearish/5"}`}>
-            <p className="text-[11px] text-muted-foreground">Simulated P&L</p>
-            <p className={`text-lg font-bold font-mono ${totalSimPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
+            <p className="text-xs text-muted-foreground">Simulated P&L</p>
+            <p className={`text-lg font-semibold font-mono ${totalSimPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
               ₹{totalSimPnl.toLocaleString("en-IN")}
             </p>
           </div>
           <div className={`p-3 rounded-md text-center ${totalPnlChange >= 0 ? "bg-bullish/10" : "bg-bearish/10"}`}>
-            <p className="text-[11px] text-muted-foreground">P&L Impact</p>
-            <p className={`text-lg font-bold font-mono ${totalPnlChange >= 0 ? "text-bullish" : "text-bearish"}`}>
+            <p className="text-xs text-muted-foreground">P&L Impact</p>
+            <p className={`text-lg font-semibold font-mono ${totalPnlChange >= 0 ? "text-bullish" : "text-bearish"}`}>
               {totalPnlChange >= 0 ? "+" : ""}₹{totalPnlChange.toLocaleString("en-IN")}
             </p>
           </div>
@@ -249,10 +251,10 @@ export function WhatIfSimulator({ positions }: Props) {
           </TableHeader>
           <TableBody>
             {simulation.map(pos => (
-              <TableRow key={pos.id} className="text-[11px] font-mono">
+              <TableRow key={pos.id} className="text-xs font-mono">
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <Badge variant={pos.action === "BUY" ? "default" : "destructive"} className="text-xs h-3.5 px-1">{pos.action}</Badge>
+                    <Badge variant={pos.action === "BUY" ? "default" : "destructive"} className="text-xs h-4 px-1.5">{pos.action}</Badge>
                     <span className="font-sans text-xs">{pos.symbol} {pos.strike} {pos.type}</span>
                   </div>
                 </TableCell>

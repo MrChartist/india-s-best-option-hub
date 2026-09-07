@@ -59,7 +59,9 @@ export interface AlertCondition {
 }
 
 interface AlertCheckData {
-  spotPrice?: number;
+  // Per-symbol live LTP — a "price" alert on BANKNIFTY must check BANKNIFTY's
+  // own price, not whatever single spot value happens to be in scope.
+  spotBySymbol?: Record<string, number>;
   vix?: number;
   pcr?: number;
   atmIV?: number;
@@ -80,7 +82,7 @@ export function checkAlerts(
 
     let currentValue: number | undefined;
     switch (alert.type) {
-      case "price": currentValue = data.spotPrice; break;
+      case "price": currentValue = data.spotBySymbol?.[alert.symbol]; break;
       case "vix": currentValue = data.vix; break;
       case "pcr": currentValue = data.pcr; break;
       case "iv_spike": currentValue = data.atmIV; break;

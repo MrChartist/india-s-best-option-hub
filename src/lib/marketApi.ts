@@ -1,5 +1,6 @@
 import type { OptionData, ExpiryDate, IndexData } from "./mockData";
 import { getActiveBroker } from "./brokerConfig";
+import type { FuturesQuoteRow, RolloverRow } from "./futuresUtils";
 
 // Local proxy base URL — override via VITE_PROXY_URL if deploying proxy elsewhere
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
@@ -22,6 +23,42 @@ async function fetchDhanProxy(endpoint: string, params?: Record<string, string>)
     const errText = await res.text();
     throw new Error(`Dhan proxy error ${res.status}: ${errText}`);
   }
+  return res.json();
+}
+
+// UTF-8 safe base64 encode for credential headers (plain btoa breaks on non-Latin1 chars)
+function encodeCredsHeader(values: Record<string, string>): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(values));
+  let binary = "";
+  bytes.forEach((b) => { binary += String.fromCharCode(b); });
+  return btoa(binary);
+}
+
+// Generic multi-broker proxy — dispatches to whichever broker module the user has connected.
+// Sends that broker's saved credentials only when it's the currently active broker.
+async function fetchBrokerProxy(brokerId: string, endpoint: string, params?: Record<string, string>): Promise<any> {
+  const qp = new URLSearchParams({ broker: brokerId, endpoint, ...params });
+  const url = `${PROXY_BASE}/api/broker-proxy?${qp.toString()}`;
+
+  const headers: Record<string, string> = {};
+  const activeBroker = getActiveBroker();
+  if (activeBroker?.brokerId === brokerId) {
+    headers["x-broker-credentials"] = encodeCredsHeader(activeBroker.values);
+  }
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Broker proxy error ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
+/** Test a broker connection with arbitrary (possibly unsaved) credential values — used by Broker Settings. */
+export async function testBrokerConnection(brokerId: string, values: Record<string, string>): Promise<{ status: string; message: string }> {
+  const qp = new URLSearchParams({ broker: brokerId });
+  const headers: Record<string, string> = { "x-broker-credentials": encodeCredsHeader(values) };
+  const res = await fetch(`${PROXY_BASE}/api/broker-test-connection?${qp.toString()}`, { headers });
   return res.json();
 }
 
@@ -64,6 +101,7 @@ interface DhanOptionChainData {
 }
 
 interface DhanOptionLeg {
+  security_id?: number | string;
   ltp?: number;
   last_price?: number;
   close?: number;
@@ -131,6 +169,8 @@ export function parseDhanOptionChain(raw: DhanOptionChainData): {
           vega: ceGreeks.vega || legData.ce?.vega || 0,
           bidPrice: legData.ce?.top_bid_price || legData.ce?.best_bid_price || legData.ce?.bid_price || 0,
           askPrice: legData.ce?.top_ask_price || legData.ce?.best_ask_price || legData.ce?.ask_price || 0,
+          securityId: legData.ce?.security_id !== undefined ? String(legData.ce.security_id) : undefined,
+          exchangeSegment: legData.ce?.security_id !== undefined ? "NSE_FNO" : undefined,
         },
         pe: {
           ltp: legData.pe?.last_price || legData.pe?.ltp || 0,
@@ -144,6 +184,8 @@ export function parseDhanOptionChain(raw: DhanOptionChainData): {
           vega: peGreeks.vega || legData.pe?.vega || 0,
           bidPrice: legData.pe?.top_bid_price || legData.pe?.best_bid_price || legData.pe?.bid_price || 0,
           askPrice: legData.pe?.top_ask_price || legData.pe?.best_ask_price || legData.pe?.ask_price || 0,
+          securityId: legData.pe?.security_id !== undefined ? String(legData.pe.security_id) : undefined,
+          exchangeSegment: legData.pe?.security_id !== undefined ? "NSE_FNO" : undefined,
         },
       };
     })
@@ -242,40 +284,50 @@ export function parseNSEOptionChain(raw: NSEOptionChainResponse, selectedExpiry?
 // ── Exported fetch functions ──
 
 // Dhan Option Chain (primary) with NSE fallback
+function toExpiryDates(dateStrs: string[]): ExpiryDate[] {
+  return dateStrs.map((dateStr) => {
+    const d = new Date(dateStr);
+    const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    return {
+      label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+      value: dateStr,
+      daysToExpiry: days,
+    };
+  });
+}
+
 export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
-  // Try Dhan first
+  // If the user has an active non-Dhan broker connected, route through it instead —
+  // that's the whole point of connecting your own broker.
+  const activeBroker = getActiveBroker();
+  const brokerId = activeBroker && activeBroker.brokerId !== "dhan" ? activeBroker.brokerId : "dhan";
+
   try {
     const params: Record<string, string> = { symbol: symbol.toUpperCase() };
     if (expiry) params.expiry = expiry;
-    const raw = await fetchDhanProxy("option-chain", params);
+    const raw = brokerId === "dhan"
+      ? await fetchDhanProxy("option-chain", params)
+      : await fetchBrokerProxy(brokerId, "option-chain", params);
+
     if (raw?.status === "success" && raw?.data?.oc) {
-      const parsed = parseDhanOptionChain(raw);
-      // Also fetch expiry list
+      const parsed = parseDhanOptionChain(raw); // every broker module normalizes to this same shape
       let expiries: ExpiryDate[] = [];
       try {
-        const expiryRaw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-        if (expiryRaw?.data) {
-          expiries = expiryRaw.data.map((dateStr: string) => {
-            const d = new Date(dateStr);
-            const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-            return {
-              label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-              value: dateStr,
-              daysToExpiry: days,
-            };
-          });
-        }
+        const expiryRaw = brokerId === "dhan"
+          ? await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() })
+          : await fetchBrokerProxy(brokerId, "expiry-list", { symbol: symbol.toUpperCase() });
+        if (expiryRaw?.data) expiries = toExpiryDates(expiryRaw.data);
       } catch {
         // Expiry fetch failed, continue with chain data
       }
       return {
-        ...parsed, expiries, source: "dhan" as const,
+        ...parsed, expiries, source: brokerId,
         afterHours: raw.afterHours || false,
         cachedAt: raw.cachedAt || null,
       };
     }
   } catch (e) {
-    console.warn("Dhan option chain fetch failed, trying NSE:", e);
+    console.warn(`${brokerId} option chain fetch failed, trying NSE:`, e);
   }
 
   // Fallback to NSE
@@ -289,23 +341,32 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string) {
   }
 }
 
-// Dhan expiry list
+// Expiry list from whichever broker is active (Dhan by default)
 export async function fetchExpiryList(symbol: string): Promise<ExpiryDate[]> {
+  const activeBroker = getActiveBroker();
+  const brokerId = activeBroker && activeBroker.brokerId !== "dhan" ? activeBroker.brokerId : "dhan";
+  try {
+    const raw = brokerId === "dhan"
+      ? await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() })
+      : await fetchBrokerProxy(brokerId, "expiry-list", { symbol: symbol.toUpperCase() });
+    if (raw?.data) return toExpiryDates(raw.data);
+  } catch (e) {
+    console.warn(`${brokerId} expiry list fetch failed:`, e);
+  }
+  return [];
+}
+
+// MCX commodity expiry (CRUDEOIL, GOLD, SILVER, NATURALGAS, ...) — always via
+// Dhan regardless of the user's active broker. No other connected broker module
+// resolves commodity contracts, and Dhan's side of this reads a public
+// instrument file rather than an authenticated endpoint (same "always Dhan"
+// precedent as fetchFuturesQuotes for dashboard-wide data).
+export async function fetchCommodityExpiryList(symbol: string): Promise<ExpiryDate[]> {
   try {
     const raw = await fetchDhanProxy("expiry-list", { symbol: symbol.toUpperCase() });
-    if (raw?.data) {
-      return raw.data.map((dateStr: string) => {
-        const d = new Date(dateStr);
-        const days = Math.max(0, Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        return {
-          label: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-          value: dateStr,
-          daysToExpiry: days,
-        };
-      });
-    }
+    if (raw?.data) return toExpiryDates(raw.data);
   } catch (e) {
-    console.warn("Dhan expiry list fetch failed:", e);
+    console.warn(`Commodity expiry list fetch failed for ${symbol}:`, e);
   }
   return [];
 }
@@ -422,51 +483,31 @@ export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
         }));
     }
   } catch (e) {
-    console.warn("NSE F&O stocks fetch failed, trying TradingView:", e);
-  }
-
-  // Fallback to TradingView Scanner (no OI but great LTP/volume data)
-  try {
-    const tvData = await fetchTradingViewStocks();
-    if (tvData.length > 0) return tvData;
-  } catch (e) {
-    console.warn("TradingView stocks fetch also failed:", e);
+    console.warn("NSE F&O stocks fetch failed:", e);
   }
 
   return [];
 }
 
-// ── TradingView Scanner API ──
+// ── Stock/Index Futures (Scanner) ──
+// Always Dhan+NSE regardless of the active broker — see proxy-server.mjs's
+// futures-quotes case for why this is a deliberate exception to the
+// active-broker routing used elsewhere in this file.
 
-export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
-  const url = `${PROXY_BASE}/api/tv-scan?type=stocks`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TV scan error: ${res.status}`);
-  const data = await res.json();
-  
-  return (data.stocks || []).map((s: any) => ({
-    symbol: s.symbol || "",
-    ltp: s.ltp || 0,
-    change: s.changeAbs || 0,
-    changePercent: s.changePercent || 0,
-    open: s.open || 0,
-    high: s.high || 0,
-    low: s.low || 0,
-    previousClose: (s.ltp || 0) - (s.changeAbs || 0),
-    volume: s.volume || 0,
-    totalTradedVolume: s.volume || 0,
-    openInterest: 0,
-    oiChange: 0,
-    sector: s.sector || "",
-  }));
+export async function fetchFuturesQuotes(symbols: string[]): Promise<FuturesQuoteRow[]> {
+  if (symbols.length === 0) return [];
+  // proxy-server.mjs's /api/dhan-proxy route sends its internal { data } field's
+  // value directly as the HTTP body — for this endpoint that value is already the
+  // array itself, not a { data: [...] } envelope. `raw?.data` here was always
+  // undefined (arrays have no .data), so this silently returned [] every time.
+  const raw = await fetchDhanProxy("futures-quotes", { symbols: symbols.join(",") });
+  return Array.isArray(raw) ? raw : [];
 }
 
-export async function fetchTradingViewIndices(): Promise<any[]> {
-  const url = `${PROXY_BASE}/api/tv-scan?type=indices`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TV indices error: ${res.status}`);
-  const data = await res.json();
-  return data.stocks || [];
+export async function fetchRolloverData(symbols: string[]): Promise<RolloverRow[]> {
+  if (symbols.length === 0) return [];
+  const raw = await fetchDhanProxy("rollover", { symbols: symbols.join(",") });
+  return Array.isArray(raw) ? raw : [];
 }
 
 // ── FII/DII Activity Data ──
@@ -491,6 +532,32 @@ export async function fetchFIIDII(): Promise<FIIDIIData[]> {
     netValue: parseFloat(d.netValue?.replace(/,/g, "")) || 0,
   }));
 }
+
+// ── Global Market Cues ──
+
+export interface GlobalCue {
+  price: number;
+  previousClose: number | null;
+  change: number | null;
+  changePercent: number | null;
+  marketTime: number | null;
+}
+
+export type GlobalCuesData = Partial<Record<"DOW" | "NASDAQ" | "SPX500" | "NIKKEI" | "HANGSENG" | "CRUDE_WTI" | "DXY", GlobalCue>>;
+
+export async function fetchGlobalCues(): Promise<GlobalCuesData> {
+  const res = await fetch(`${PROXY_BASE}/api/global-cues`);
+  if (!res.ok) throw new Error(`Global cues fetch failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Order Placement (Dhan only — real money) — split out to dhanOrderApi.ts,
+// which crossed 300 lines once this section landed alongside the
+// futures/FII-DII/global-cues additions above. Re-exported so every existing
+// `import { placeOrder, fetchOrders, cancelOrder } from "@/lib/marketApi"`
+// (and the PlaceOrderParams/DhanOrderResult types) keeps working unchanged. ──
+export { placeOrder, fetchOrders, cancelOrder } from "./dhanOrderApi";
+export type { PlaceOrderParams, DhanOrderResult } from "./dhanOrderApi";
 
 // ── Test Connection ──
 

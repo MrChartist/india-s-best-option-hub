@@ -16,6 +16,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 
+// Sidebar collapse state is persisted to a cookie by ui/sidebar.tsx, but SidebarProvider's
+// `defaultOpen` always defaulted to `true` — read it back here so the sidebar doesn't
+// snap back to expanded on every page reload.
+function getInitialSidebarOpen(): boolean {
+  if (typeof document === "undefined") return true;
+  const match = document.cookie.match(/(?:^|;\s*)sidebar:state=(true|false)/);
+  return match ? match[1] === "true" : true;
+}
+
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +34,7 @@ export default function DashboardLayout() {
   const [timeToExpiry, setTimeToExpiry] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [now, setNow] = useState<Date>(new Date());
 
   // Live data hooks
   const { data: indicesResult } = useLiveIndices();
@@ -67,9 +77,23 @@ export default function DashboardLayout() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleQuickRefresh]);
 
+  // Keyboard shortcut: Ctrl/Cmd+K opens the command palette (the header + footer both
+  // advertise this hint, but nothing previously listened for it).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
+      setNow(now);
       const target = new Date(now);
       target.setHours(15, 30, 0, 0);
       const dayOfWeek = now.getDay();
@@ -88,10 +112,8 @@ export default function DashboardLayout() {
     return () => clearInterval(interval);
   }, []);
 
-  const now = new Date();
-
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={getInitialSidebarOpen()}>
       <div className="min-h-screen flex w-full bg-background relative overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--primary)/0.035)_0%,transparent_22rem),linear-gradient(90deg,hsl(var(--primary)/0.025)_0%,transparent_36rem)] pointer-events-none" />
         <div className="bg-noise" />
@@ -181,7 +203,7 @@ export default function DashboardLayout() {
 
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Data Source</span>
-                        <span className="font-medium">{isLiveData ? "Dhan / NSE / TradingView" : "Offline"}</span>
+                        <span className="font-medium">{isLiveData ? "Dhan / NSE" : "Offline"}</span>
                       </div>
 
                       <div className="flex items-center justify-between">

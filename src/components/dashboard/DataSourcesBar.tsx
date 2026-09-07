@@ -22,7 +22,6 @@ export function DataSourcesBar() {
 
   const dhanConfigured = health?.sources?.dhan === true;
   const dhanWSConnected = health?.websocket?.dhanConnected === true;
-  const fnoSource = (fnoData as any)?.source || "none";
   const ocSource = niftyOC?.source || "offline";
 
   const sources: SourceStatus[] = [
@@ -77,19 +76,13 @@ export function DataSourcesBar() {
         ? "Option Chain (Dhan unavailable)"
         : "No data",
     },
-    // ── TradingView Scanner ──
+    // ── F&O Stocks (NSE) ──
     {
-      name: "TradingView",
+      name: "F&O Stocks",
       icon: <BarChart3 className="h-3 w-3" />,
-      status: fnoSource === "tradingview"
-        ? "live"
-        : fnoData?.isLive
-        ? "degraded"
-        : "offline",
-      detail: fnoSource === "tradingview"
-        ? `${fnoData?.allStocks?.length || 0} F&O stocks (no OI)`
-        : fnoData?.isLive
-        ? `NSE primary · ${fnoData.allStocks?.length || 0} stocks`
+      status: fnoData?.isLive ? "live" : "offline",
+      detail: fnoData?.isLive
+        ? `NSE · ${fnoData.allStocks?.length || 0} stocks`
         : "Standby",
     },
     // ── VIX (composite) ──
@@ -110,17 +103,17 @@ export function DataSourcesBar() {
 
   const statusColor = (s: SourceStatus["status"]) => {
     switch (s) {
-      case "live": return "bg-emerald-500";
-      case "degraded": return "bg-amber-500";
-      case "offline": return "bg-red-500";
+      case "live": return "bg-bullish";
+      case "degraded": return "bg-warning";
+      case "offline": return "bg-bearish";
     }
   };
 
   const statusTextColor = (s: SourceStatus["status"]) => {
     switch (s) {
-      case "live": return "text-emerald-400";
-      case "degraded": return "text-amber-400";
-      case "offline": return "text-red-400";
+      case "live": return "text-bullish";
+      case "degraded": return "text-warning";
+      case "offline": return "text-bearish";
     }
   };
 
@@ -133,10 +126,10 @@ export function DataSourcesBar() {
   };
 
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-card/60 border border-border/50 backdrop-blur-sm overflow-x-auto">
+    <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-card/60 border border-border/70 backdrop-blur-sm overflow-x-auto">
       {/* Overall status indicator */}
       <div className="flex items-center gap-1.5 mr-2 pr-2 border-r border-border/30 shrink-0">
-        <div className={`h-2 w-2 rounded-full ${liveCount >= 4 ? "bg-emerald-500 animate-pulse" : liveCount >= 2 ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
+        <div className={`h-2 w-2 rounded-full ${liveCount >= 4 ? "bg-bullish animate-pulse" : liveCount >= 2 ? "bg-warning animate-pulse" : "bg-bearish"}`} />
         <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
           {liveCount}/{totalCount} Sources
         </span>
@@ -147,12 +140,12 @@ export function DataSourcesBar() {
         <Tooltip key={src.name}>
           <TooltipTrigger asChild>
             <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium cursor-default transition-all duration-200 shrink-0 ${
-              src.primary 
+              src.primary
                 ? src.status === "live"
-                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                  ? "bg-bullish/10 border border-bullish/20 text-bullish"
                   : src.status === "degraded"
-                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-400"
-                  : "bg-red-500/5 border border-red-500/10 text-red-400"
+                  ? "bg-warning/10 border border-warning/20 text-warning"
+                  : "bg-bearish/5 border border-bearish/10 text-bearish"
                 : `${statusTextColor(src.status)} hover:bg-accent/30`
             }`}>
               <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusColor(src.status)} ${src.status === "live" ? "animate-pulse" : ""}`} />

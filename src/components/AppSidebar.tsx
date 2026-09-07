@@ -1,4 +1,4 @@
-import { BarChart3, Briefcase, LayoutDashboard, Layers, Moon, Settings, Star, Sun, TableProperties } from "lucide-react";
+import { BarChart3, Briefcase, LayoutDashboard, Layers, ListOrdered, Moon, Radar, Settings, Star, Sun, TableProperties, Zap } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -9,6 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarHeader,
   SidebarSeparator,
   SidebarFooter,
@@ -20,13 +23,24 @@ import { cn } from "@/lib/utils";
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, shortcut: "1" },
   { title: "Option Chain", url: "/option-chain", icon: TableProperties, shortcut: "2" },
-  { title: "OI Analysis", url: "/oi-analysis", icon: BarChart3, shortcut: "3" },
+  {
+    title: "OI Analysis", url: "/oi-analysis", icon: BarChart3, shortcut: "3",
+    subItems: [
+      { title: "Overview", url: "/oi-analysis", end: true },
+      { title: "Trending OI", url: "/oi-analysis/trending-oi" },
+      { title: "Strike Analysis", url: "/oi-analysis/strike-analysis" },
+      { title: "Delta Tracker", url: "/oi-analysis/delta-tracker" },
+    ],
+  },
   { title: "Watchlist", url: "/watchlist", icon: Star, shortcut: "4" },
+  { title: "Scanner", url: "/scanner", icon: Radar, shortcut: "7" },
 ];
 
 const tradingItems = [
+  { title: "1Cliq Trade", url: "/one-cliq", icon: Zap, shortcut: "9" },
   { title: "Strategy Builder", url: "/strategy-builder", icon: Layers, shortcut: "5" },
   { title: "Position Tracker", url: "/position-tracker", icon: Briefcase, shortcut: "6" },
+  { title: "Orders", url: "/orders", icon: ListOrdered, shortcut: "8" },
 ];
 
 const settingItems = [
@@ -38,7 +52,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { isDark, toggle: toggleTheme } = useTheme();
 
-  const renderNavItems = (items: { title: string; url: string; icon: typeof LayoutDashboard; shortcut?: string }[]) =>
+  const renderNavItems = (items: { title: string; url: string; icon: typeof LayoutDashboard; shortcut?: string; subItems?: { title: string; url: string; end?: boolean }[] }[]) =>
     items.map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "!size-10 !p-0 rounded-xl" : undefined}>
@@ -47,7 +61,7 @@ export function AppSidebar() {
             end={item.url === "/"}
             title={collapsed ? item.title : undefined}
             className={cn(
-              "group relative flex items-center gap-2.5 text-sm font-medium transition-all duration-200",
+              "group relative flex items-center gap-1.5 text-sm font-medium transition-all duration-200",
               collapsed
                 ? "!size-10 justify-center rounded-xl p-0 text-white/70 hover:bg-white/10 hover:text-white hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
                 : "h-9 rounded-lg px-2.5 text-sidebar-foreground/85 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
@@ -70,6 +84,25 @@ export function AppSidebar() {
             )}
           </NavLink>
         </SidebarMenuButton>
+
+        {!collapsed && item.subItems && (
+          <SidebarMenuSub>
+            {item.subItems.map((sub) => (
+              <SidebarMenuSubItem key={sub.url}>
+                <SidebarMenuSubButton asChild>
+                  <NavLink
+                    to={sub.url}
+                    end={sub.end}
+                    className="text-sidebar-foreground/65 transition-colors hover:text-sidebar-accent-foreground"
+                    activeClassName="!text-primary font-medium"
+                  >
+                    {sub.title}
+                  </NavLink>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        )}
       </SidebarMenuItem>
     ));
 
@@ -77,7 +110,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className={cn("border-b border-sidebar-border/80 px-4 py-4", collapsed && "items-center border-white/10 px-0 py-3")}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center gap-0")}>
-          <div className={cn("group relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-[#071018] shadow-glow-sm", collapsed && "h-10 w-10 rounded-xl border-primary/30")}>
+          <div className={cn("group relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-[#071018]", collapsed && "h-10 w-10 rounded-xl border-primary/30")}>
             <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.2),transparent_72%)] opacity-95 transition-opacity duration-500" />
             
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10" aria-hidden="true">
@@ -89,14 +122,14 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <h1 className="text-[15px] font-bold text-foreground leading-none">Mr. Chartist</h1>
-              <p className="text-[11px] text-muted-foreground/75 mt-1 tracking-[0.14em] font-semibold uppercase">Options Terminal</p>
+              <h1 className="text-base font-semibold text-foreground leading-none">Mr. <span className="font-serif italic font-medium">Chartist</span></h1>
+              <p className="text-xs text-muted-foreground/75 mt-1 tracking-[0.14em] font-semibold uppercase">Options Terminal</p>
             </div>
           )}
         </div>
         {collapsed && (
           <div className="mt-1 text-center leading-none">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-primary">MR</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-primary">MR</p>
             <p className="mt-1 text-[6px] font-semibold uppercase tracking-[0.1em] text-white/38">Chartist</p>
           </div>
         )}
@@ -114,7 +147,7 @@ export function AppSidebar() {
         ) : (
           <>
             <SidebarGroup>
-              <SidebarGroupLabel className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Markets</SidebarGroupLabel>
+              <SidebarGroupLabel className="mb-1.5 px-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Markets</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-0.5">{renderNavItems(mainItems)}</SidebarMenu>
               </SidebarGroupContent>
@@ -123,7 +156,7 @@ export function AppSidebar() {
             <SidebarSeparator className="my-2 opacity-35" />
 
             <SidebarGroup>
-              <SidebarGroupLabel className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Trading Tools</SidebarGroupLabel>
+              <SidebarGroupLabel className="mb-1.5 px-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Trading Tools</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-0.5">{renderNavItems(tradingItems)}</SidebarMenu>
               </SidebarGroupContent>
@@ -132,7 +165,7 @@ export function AppSidebar() {
             <SidebarSeparator className="my-2 opacity-35" />
 
             <SidebarGroup>
-              <SidebarGroupLabel className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Settings</SidebarGroupLabel>
+              <SidebarGroupLabel className="mb-1.5 px-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">Settings</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-0.5">{renderNavItems(settingItems)}</SidebarMenu>
               </SidebarGroupContent>
@@ -145,7 +178,7 @@ export function AppSidebar() {
         <button
           onClick={toggleTheme}
           className={cn(
-            "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-sidebar-foreground/85 transition-all duration-200 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+            "group flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-sidebar-foreground/85 transition-all duration-200 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
             collapsed && "h-10 w-10 justify-center rounded-xl px-0 py-0 text-white/65 hover:bg-white/10 hover:text-white",
           )}
           title={collapsed ? (isDark ? "Light Mode" : "Dark Mode") : undefined}
@@ -156,8 +189,8 @@ export function AppSidebar() {
         {collapsed && <span className="font-mono text-[8px] font-semibold text-white/28">v1</span>}
         {!collapsed && (
           <div className="mx-1 mt-2 flex items-center justify-between rounded-md border border-primary/15 bg-primary/5 px-3 py-2">
-             <span className="text-xs font-bold text-primary tracking-wider">PRO</span>
-             <span className="text-[10px] text-primary/65 uppercase tracking-widest font-mono">v1.0.0</span>
+             <span className="text-xs font-semibold text-primary tracking-wider">PRO</span>
+             <span className="text-xs text-primary/65 uppercase tracking-widest font-mono">v1.0.0</span>
           </div>
         )}
       </SidebarFooter>

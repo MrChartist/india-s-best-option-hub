@@ -107,11 +107,15 @@ export interface ATMZoneData {
 
 export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
   const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const halfRange = Math.floor(numStrikes / 2);
-  const zoneStrikes = chain.filter(o => {
-    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
-    return strikeDist <= halfRange;
-  });
+  // Select the N strikes nearest to ATM by actual distance rather than a fixed
+  // +/-halfRange window — the old range-based filter used Math.floor(numStrikes / 2)
+  // on each side, which for an even numStrikes (e.g. the "10 Strikes" toggle) included
+  // 2*floor(10/2)+1 = 11 strikes instead of 10, silently mismatching the UI label and
+  // also breaking if the chain has any gaps in the strike grid.
+  const zoneStrikes = [...chain]
+    .sort((a, b) => Math.abs(a.strikePrice - atmStrike) - Math.abs(b.strikePrice - atmStrike))
+    .slice(0, numStrikes)
+    .sort((a, b) => a.strikePrice - b.strikePrice);
 
   const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
   const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
@@ -119,7 +123,7 @@ export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepS
   const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
 
   return {
-    strikes: numStrikes,
+    strikes: zoneStrikes.length,
     totalCEOI,
     totalPEOI,
     pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,
@@ -157,63 +161,13 @@ export function getATMIV(chain: OptionData[], spotPrice: number): { atmIV: numbe
 }
 
 /**
- * Calculate IV percentile from current chain's IV distribution across strikes
- * (uses cross-strike IV distribution as a proxy for historical percentile)
+ * Classify a PCR ratio into a trading signal + Tailwind color class.
+ * Shared by calculatePCR and getWeightedPCR so the ladder stays in one place.
  */
-export function getIVPercentileFromChain(chain: OptionData[], spotPrice: number): {
-  percentile: number;
-  rank: number;
-  min: number;
-  max: number;
-  mean: number;
-  atmIV: number;
-} {
-  if (chain.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV: 0 };
-
-  const { atmIV } = getATMIV(chain, spotPrice);
-  
-  // Use all strike IVs for distribution
-  const allIVs = chain
-    .flatMap(o => [o.ce.iv, o.pe.iv])
-    .filter(iv => iv > 0);
-  
-  if (allIVs.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV };
-
-  const sorted = [...allIVs].sort((a, b) => a - b);
-  const below = sorted.filter(v => v < atmIV).length;
-  const percentile = Math.round((below / sorted.length) * 100);
-  const min = Math.min(...allIVs);
-  const max = Math.max(...allIVs);
-  const mean = allIVs.reduce((s, v) => s + v, 0) / allIVs.length;
-  const rank = max > min ? Math.round(((atmIV - min) / (max - min)) * 100) : 50;
-
-  return {
-    percentile,
-    rank,
-    min: Math.round(min * 100) / 100,
-    max: Math.round(max * 100) / 100,
-    mean: Math.round(mean * 100) / 100,
-    atmIV: Math.round(atmIV * 100) / 100,
-  };
-}
-
-/**
- * IV Skew data for IV smile chart
- */
-export function getIVSkew(chain: OptionData[]): {
-  strike: number;
-  callIV: number;
-  putIV: number;
-  avgIV: number;
-}[] {
-  return chain
-    .filter(o => o.ce.iv > 0 || o.pe.iv > 0)
-    .map(o => ({
-      strike: o.strikePrice,
-      callIV: o.ce.iv,
-      putIV: o.pe.iv,
-      avgIV: (o.ce.iv + o.pe.iv) / 2,
-    }));
+function classifyPCRSignal(pcrOI: number): { signal: string; signalColor: string } {
+  const signal = pcrOI > 1.3 ? "Strong Bullish" : pcrOI > 1.0 ? "Bullish" : pcrOI > 0.7 ? "Neutral" : pcrOI > 0.5 ? "Bearish" : "Strong Bearish";
+  const signalColor = pcrOI > 1.0 ? "text-bullish" : pcrOI > 0.7 ? "text-warning" : "text-bearish";
+  return { signal, signalColor };
 }
 
 /**
@@ -233,12 +187,48 @@ export function calculatePCR(chain: OptionData[]): {
   const totalPEOI = chain.reduce((s, o) => s + o.pe.oi, 0);
   const totalCEVol = chain.reduce((s, o) => s + o.ce.volume, 0);
   const totalPEVol = chain.reduce((s, o) => s + o.pe.volume, 0);
-  
+
   const pcrOI = totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0;
   const pcrVolume = totalCEVol > 0 ? Math.round((totalPEVol / totalCEVol) * 100) / 100 : 0;
-  
-  const signal = pcrOI > 1.3 ? "Strong Bullish" : pcrOI > 1.0 ? "Bullish" : pcrOI > 0.7 ? "Neutral" : pcrOI > 0.5 ? "Bearish" : "Strong Bearish";
-  const signalColor = pcrOI > 1.0 ? "text-bullish" : pcrOI > 0.7 ? "text-warning" : "text-bearish";
+
+  const { signal, signalColor } = classifyPCRSignal(pcrOI);
 
   return { pcrOI, pcrVolume, totalCEOI, totalPEOI, totalCEVol, totalPEVol, signal, signalColor };
+}
+
+// ── Weighted PCR (ATM-proximity weighted) ──
+
+export interface WeightedPCRData {
+  weightedPcrOI: number;
+  plainPcrOI: number;
+  weightedTotalCEOI: number;
+  weightedTotalPEOI: number;
+  signal: string;
+  signalColor: string;
+}
+
+export function getWeightedPCR(chain: OptionData[], spotPrice: number, stepSize: number): WeightedPCRData {
+  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
+
+  const totalCEOI = chain.reduce((s, o) => s + o.ce.oi, 0);
+  const totalPEOI = chain.reduce((s, o) => s + o.pe.oi, 0);
+  const plainPcrOI = totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0;
+
+  // Near-ATM OI drives near-term price action while deep OTM/ITM OI is mostly
+  // stale hedging noise, so weight decays smoothly with distance instead of a hard cutoff.
+  let weightedTotalCEOI = 0;
+  let weightedTotalPEOI = 0;
+  for (const o of chain) {
+    const stepsFromATM = Math.abs(o.strikePrice - atmStrike) / stepSize;
+    const weight = 1 / (1 + stepsFromATM);
+    weightedTotalCEOI += o.ce.oi * weight;
+    weightedTotalPEOI += o.pe.oi * weight;
+  }
+  weightedTotalCEOI = Math.round(weightedTotalCEOI);
+  weightedTotalPEOI = Math.round(weightedTotalPEOI);
+
+  const weightedPcrOI = weightedTotalCEOI > 0 ? Math.round((weightedTotalPEOI / weightedTotalCEOI) * 100) / 100 : 0;
+  const { signal, signalColor } = classifyPCRSignal(weightedPcrOI);
+
+  return { weightedPcrOI, plainPcrOI, weightedTotalCEOI, weightedTotalPEOI, signal, signalColor };
 }

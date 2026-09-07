@@ -22,6 +22,10 @@ interface IndexData {
 
 interface Props {
   indices: IndexData[];
+  /** True when NSE is officially in session. Used for the "Closed" badge —
+   *  deliberately NOT derived from websocket connection status, since a brief
+   *  WS drop during live market hours must not be mislabeled as "market closed". */
+  isMarketOpen?: boolean;
 }
 
 // Map index symbols to their Dhan security IDs
@@ -32,14 +36,21 @@ const SYMBOL_SEC_MAP: Record<string, string> = {
   MIDCPNIFTY: "442",
 };
 
-export function IndexCards({ indices }: Props) {
+export function IndexCards({ indices, isMarketOpen }: Props) {
   const navigate = useNavigate();
   const wsConnected = useWebSocketStatus();
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       {indices.map((index, idx) => (
-        <IndexCard key={index.symbol} index={index} idx={idx} isLive={wsConnected} onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)} />
+        <IndexCard
+          key={index.symbol}
+          index={index}
+          idx={idx}
+          isLive={wsConnected}
+          isMarketOpen={isMarketOpen}
+          onClick={() => navigate(`/option-chain?symbol=${index.symbol}`)}
+        />
       ))}
     </div>
   );
@@ -63,13 +74,27 @@ function SparklinePlaceholder({ isPositive }: { isPositive: boolean }) {
   );
 }
 
-function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: number; isLive?: boolean; onClick: () => void }) {
-  const isPositive = index.change >= 0;
+function IndexCard({ index, idx, isLive, isMarketOpen, onClick }: { index: IndexData; idx: number; isLive?: boolean; isMarketOpen?: boolean; onClick: () => void }) {
+  // Defensive fallbacks: `index` can come straight from a live WebSocket tick
+  // or a partially-merged polling record. ltp/change/changePercent don't carry
+  // fallbacks upstream, so a malformed tick with a missing field used to throw
+  // (undefined.toFixed / undefined.toLocaleString) and — since there's a single
+  // ErrorBoundary around the whole dashboard — take down every other widget too.
+  const ltp = index.ltp ?? 0;
+  const change = index.change ?? 0;
+  const changePercent = index.changePercent ?? 0;
+  const open = index.open ?? ltp;
+  const high = index.high ?? ltp;
+  const low = index.low ?? ltp;
+
+  const isPositive = change >= 0;
   const [storedCandles, setStoredCandles] = useState<{ price: number }[] | null>(null);
   const [dbChecked, setDbChecked] = useState(false);
 
-  // Detect after-hours: if market data exists but websocket is disconnected
-  const isAfterHours = !isLive && index.ltp > 0;
+  // "Closed" badge reflects the actual NSE market session, not websocket
+  // connectivity — a brief WS reconnect during market hours must not read as
+  // "market closed" while REST polling is still delivering live prices.
+  const isAfterHours = isMarketOpen === false && ltp > 0;
 
   // Try to load stored candle data from IndexedDB
   useEffect(() => {
@@ -98,36 +123,34 @@ function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: num
   const hasChart = intraday.length > 2;
 
   // Day range calculation
-  const dayRange = index.high - index.low;
-  const dayRangePosition = dayRange > 0 ? ((index.ltp - index.low) / dayRange) * 100 : 50;
+  const dayRange = high - low;
+  const dayRangePosition = dayRange > 0 ? ((ltp - low) / dayRange) * 100 : 50;
 
   return (
-    <Card className="cursor-pointer group min-h-[178px] hover:border-primary/20 transition-all duration-200 hover:shadow-card-hover relative overflow-hidden" onClick={onClick}>
-      {/* Subtle background glow on hover */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <CardContent className="px-4 pt-4 pb-4">
+    <Card className="cursor-pointer min-h-[178px] hover:border-primary/20 transition-all duration-200 hover:shadow-card-hover" onClick={onClick}>
+      <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
-              <p className="max-w-[180px] text-[11px] leading-tight text-muted-foreground font-semibold uppercase tracking-[0.04em]">{index.name}</p>
+              <p className="max-w-[180px] text-xs leading-tight text-muted-foreground font-semibold uppercase tracking-wider">{index.name}</p>
               {isLive && <Radio className="h-3 w-3 text-bullish animate-pulse" />}
               {isAfterHours && (
-                <span className="flex items-center gap-1 text-xs font-bold text-amber-500/90 uppercase tracking-wider">
+                <span className="flex items-center gap-1 text-xs font-semibold text-warning uppercase tracking-wider">
                   <Moon className="h-3 w-3" />Closed
                 </span>
               )}
             </div>
-            <p className="text-[25px] font-bold font-mono tabular-nums leading-none transition-colors duration-300">
-              {index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            <p className="text-xl font-semibold font-mono tabular-nums leading-none">
+              {ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className={`flex flex-col items-end gap-1`}>
-            <div className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md shadow-sm ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
+            <div className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
               {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-              {isPositive ? "+" : ""}{index.changePercent.toFixed(2)}%
+              {isPositive ? "+" : ""}{changePercent.toFixed(2)}%
             </div>
             <span className={`text-xs font-mono tabular-nums font-medium ${isPositive ? "text-bullish/80" : "text-bearish/80"}`}>
-              {isPositive ? "+" : ""}{index.change.toFixed(2)}
+              {isPositive ? "+" : ""}{change.toFixed(2)}
             </span>
           </div>
         </div>
@@ -154,9 +177,9 @@ function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: num
         {/* OHLV Row + Day Range Bar */}
         <div className="space-y-1.5 mt-1">
           <div className="flex justify-between text-2xs text-muted-foreground font-mono tabular-nums">
-            <span>O: {index.open.toLocaleString("en-IN")}</span>
-            <span>H: {index.high.toLocaleString("en-IN")}</span>
-            <span>L: {index.low.toLocaleString("en-IN")}</span>
+            <span>O: {open.toLocaleString("en-IN")}</span>
+            <span>H: {high.toLocaleString("en-IN")}</span>
+            <span>L: {low.toLocaleString("en-IN")}</span>
           </div>
           {/* Day range progress bar */}
           {dayRange > 0 && (

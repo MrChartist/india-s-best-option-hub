@@ -34,7 +34,14 @@ export function TickerTape({ indices, giftNifty }: Props) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
       {indices.map((idx) => {
-        const pos = idx.change >= 0;
+        // Defensive fallbacks: a live tick or partially-merged polling record
+        // can arrive with a field missing; without a guard here that used to
+        // throw on undefined.toLocaleString()/toFixed() and — since a single
+        // ErrorBoundary wraps the whole dashboard — crash every other widget.
+        const ltp = idx.ltp ?? 0;
+        const change = idx.change ?? 0;
+        const changePercent = idx.changePercent ?? 0;
+        const pos = change >= 0;
         return (
           <div
             key={idx.symbol}
@@ -42,9 +49,9 @@ export function TickerTape({ indices, giftNifty }: Props) {
             onClick={() => navigate(`/option-chain?symbol=${idx.symbol}`)}
           >
             <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">{idx.symbol}</span>
-            <span className="text-sm font-bold font-mono tabular-nums">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm font-semibold font-mono tabular-nums">{ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
             <span className={`text-2xs font-mono tabular-nums font-medium ${pos ? "text-bullish" : "text-bearish"}`}>
-              {pos ? "▲" : "▼"} {Math.abs(idx.changePercent).toFixed(2)}%
+              {pos ? "▲" : "▼"} {Math.abs(changePercent).toFixed(2)}%
             </span>
             {wsConnected && <Radio className="h-2 w-2 text-bullish animate-pulse" />}
           </div>
@@ -52,7 +59,7 @@ export function TickerTape({ indices, giftNifty }: Props) {
       })}
       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shrink-0 ${vixIsLive ? "bg-card border-warning/20" : "bg-card border-border"}`}>
         <span className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">VIX</span>
-        <span className="text-sm font-bold font-mono tabular-nums">{vixValue.toFixed(2)}</span>
+        <span className="text-sm font-semibold font-mono tabular-nums">{vixValue.toFixed(2)}</span>
         <span className={`text-2xs font-mono tabular-nums font-medium ${vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
           {vixChange < 0 ? "▼" : "▲"} {Math.abs(vixChange).toFixed(2)}%
         </span>
@@ -62,7 +69,7 @@ export function TickerTape({ indices, giftNifty }: Props) {
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/15 shrink-0">
           <Plane className="h-3.5 w-3.5 text-primary" />
           <span className="text-2xs font-medium text-primary uppercase tracking-wider">GIFT</span>
-          <span className="text-sm font-bold font-mono tabular-nums">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+          <span className="text-sm font-semibold font-mono tabular-nums">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
           <span className={`text-2xs font-mono tabular-nums font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
             {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
           </span>

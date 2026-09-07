@@ -33,37 +33,37 @@ export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }:
   return (
     <div className="grid lg:grid-cols-3 gap-3">
       {/* GIFT Nifty */}
-      <Card className="border-primary/20 hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Plane className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> GIFT Nifty (SGX)
+      <Card className="border-primary/20 hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plane className="h-5 w-5 text-primary" /> GIFT Nifty (SGX)
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4 pt-2">
+        <CardContent className="pt-2">
           {giftNifty && giftNifty.lastPrice > 0 ? (
             <div className="space-y-3">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-bold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
+                <span className="text-3xl font-semibold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
                 <span className={`text-base font-mono font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
                   {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-2.5 rounded-md bg-accent/50 border border-white/5">
+                <div className="p-2.5 rounded-md bg-accent/50 border border-border/70">
                   <p className="text-muted-foreground uppercase tracking-wider mb-0.5">Contracts</p>
-                  <p className="font-mono font-bold text-sm">{giftNifty.contractsTraded?.toLocaleString("en-IN") || "—"}</p>
+                  <p className="font-mono font-semibold text-sm">{giftNifty.contractsTraded?.toLocaleString("en-IN") || "—"}</p>
                 </div>
-                <div className="p-2.5 rounded-md bg-accent/50 border border-white/5">
+                <div className="p-2.5 rounded-md bg-accent/50 border border-border/70">
                   <p className="text-muted-foreground uppercase tracking-wider mb-0.5">Expiry</p>
-                  <p className="font-mono font-bold text-sm">{giftNifty.expiry || "—"}</p>
+                  <p className="font-mono font-semibold text-sm">{giftNifty.expiry || "—"}</p>
                 </div>
               </div>
               {indicativeNifty && (
-                <div className="p-2.5 rounded-md bg-accent/30 text-xs border border-white/5 flex flex-wrap gap-x-3 gap-y-1 items-center">
+                <div className="p-2.5 rounded-md bg-accent/30 text-xs border border-border/70 flex flex-wrap gap-x-3 gap-y-1 items-center">
                   <span className="text-muted-foreground">Nifty Close: </span>
-                  <span className="font-mono font-bold">{indicativeNifty.value.toLocaleString("en-IN")}</span>
+                  <span className="font-mono font-semibold">{indicativeNifty.value.toLocaleString("en-IN")}</span>
                   <span className="text-muted-foreground ml-auto">Gap: </span>
-                  <span className={`font-mono font-bold text-sm ${(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "text-bullish drop-shadow-[0_0_5px_rgba(0,255,100,0.3)]" : "text-bearish drop-shadow-[0_0_5px_rgba(255,50,50,0.3)]"}`}>
+                  <span className={`font-mono font-semibold text-sm ${(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "text-bullish" : "text-bearish"}`}>
                     {(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "+" : ""}{(giftNifty.lastPrice - indicativeNifty.value).toFixed(0)} pts
                   </span>
                 </div>
@@ -77,10 +77,10 @@ export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }:
       </Card>
 
       {/* NSE Expiry */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-warning/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-warning drop-shadow-[0_0_8px_rgba(255,165,0,0.5)]" /> NSE F&O Expiry
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-warning" /> NSE F&O Expiry
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 pb-1">
@@ -104,7 +104,7 @@ export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }:
                     <TableCell className="py-2">{c.lotSize}</TableCell>
                     <TableCell className="text-right text-muted-foreground py-2">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
                     <TableCell className="text-right py-2 px-5">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium shadow-sm ${isUrgent ? "bg-bearish/15 text-bearish font-bold shadow-[inset_0_0_8px_rgba(255,50,50,0.2)]" : "bg-warning/10 text-warning"}`}>{c.timeLeft}</span>
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${isUrgent ? "bg-bearish/15 text-bearish font-semibold" : "bg-warning/10 text-warning"}`}>{c.timeLeft}</span>
                     </TableCell>
                   </TableRow>
                 );
@@ -115,10 +115,10 @@ export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }:
       </Card>
 
       {/* MCX Expiry */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-warning/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-warning drop-shadow-[0_0_8px_rgba(255,165,0,0.5)]" /> MCX Commodity Expiry
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-warning" /> MCX Commodity Expiry
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 pb-1">
@@ -140,7 +140,7 @@ export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }:
                   <TableCell className="py-2">{c.lotSize}</TableCell>
                   <TableCell className="text-right text-muted-foreground py-2">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
                   <TableCell className="text-right py-2 px-5">
-                    <span className="px-2 py-1 rounded-md text-xs bg-accent/80 text-muted-foreground font-medium shadow-sm">{c.timeLeft}</span>
+                    <span className="px-2 py-1 rounded-md text-xs bg-accent/80 text-muted-foreground font-medium">{c.timeLeft}</span>
                   </TableCell>
                 </TableRow>
               ))}

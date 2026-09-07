@@ -28,7 +28,7 @@ export function MarketBreadth() {
   const bullishSectors = sectors.filter((s: any) => s.change > 0).length;
   const bearishSectors = sectors.filter((s: any) => s.change < 0).length;
 
-  // F&O stock analysis from TradingView/NSE
+  // F&O stock analysis from NSE
   const allStocks = fnoData?.allStocks || [];
   const stocksUp = allStocks.filter(s => s.changePercent > 0).length;
   const stocksDown = allStocks.filter(s => s.changePercent < 0).length;
@@ -53,9 +53,9 @@ export function MarketBreadth() {
 
     if (!isLive && totalStocks === 0) {
       return (
-        <Card className="hover:shadow-card-hover transition-all duration-300">
+        <Card className="hover:shadow-card-hover transition-all duration-200">
           <CardContent className="py-8 text-center">
-            <Activity className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+            <Activity className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
             <p className="text-base font-semibold text-muted-foreground">Market breadth data unavailable</p>
             <p className="text-xs text-muted-foreground/60 mt-1">Loads during market hours</p>
           </CardContent>
@@ -66,21 +66,21 @@ export function MarketBreadth() {
   return (
     <div className="grid lg:grid-cols-4 gap-3">
       {/* Market Sentiment Gauge */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Gauge className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> Market Sentiment
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gauge className="h-5 w-5 text-primary" /> Market Sentiment
             {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto">LIVE</Badge>}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4 space-y-4">
+        <CardContent className="space-y-4">
           <div className="text-center">
-            <p className={`text-4xl font-bold font-mono drop-shadow-md ${sentimentColor}`}>{sentimentScore}</p>
-            <p className={`text-sm font-bold tracking-wide uppercase mt-1 ${sentimentColor}`}>{sentimentLabel}</p>
+            <p className={`text-4xl font-semibold font-mono ${sentimentColor}`}>{sentimentScore}</p>
+            <p className={`text-sm font-semibold tracking-wide uppercase mt-1 ${sentimentColor}`}>{sentimentLabel}</p>
           </div>
-          <div className="relative h-4 rounded-full bg-gradient-to-r from-bearish/40 via-warning/40 to-bullish/40 overflow-hidden shadow-inner">
+          <div className="relative h-4 rounded-full bg-gradient-to-r from-bearish/40 via-warning/40 to-bullish/40 overflow-hidden">
             <div
-              className="absolute top-0 h-full w-2 bg-foreground rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all duration-500"
+              className="absolute top-0 h-full w-2 bg-foreground rounded-full transition-all duration-500"
               style={{ left: `${sentimentScore}%`, transform: "translateX(-50%)" }}
             />
           </div>
@@ -93,28 +93,28 @@ export function MarketBreadth() {
       </Card>
 
       {/* Advance/Decline */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> Advance / Decline
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" /> Advance / Decline
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4 space-y-4">
+        <CardContent className="space-y-4">
           <div className="flex items-end justify-between">
             <div>
               <div className="flex items-center gap-1.5 text-bullish">
                 <ArrowUpRight className="h-5 w-5" />
-                <span className="text-3xl font-bold font-mono drop-shadow-[0_0_5px_rgba(0,255,100,0.3)]">{advances}</span>
+                <span className="text-3xl font-semibold font-mono">{advances}</span>
               </div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Advances</p>
             </div>
             <div className="text-center pb-1">
-              <span className="text-base font-bold font-mono text-muted-foreground">{unchanged}</span>
+              <span className="text-base font-semibold font-mono text-muted-foreground">{unchanged}</span>
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Unchanged</p>
             </div>
             <div className="text-right">
               <div className="flex items-center gap-1.5 text-bearish justify-end">
-                <span className="text-3xl font-bold font-mono drop-shadow-[0_0_5px_rgba(255,50,50,0.3)]">{declines}</span>
+                <span className="text-3xl font-semibold font-mono">{declines}</span>
                 <ArrowDownRight className="h-5 w-5" />
               </div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Declines</p>
@@ -122,13 +122,13 @@ export function MarketBreadth() {
           </div>
           {total > 0 && (
             <>
-              <div className="flex h-3 rounded-full overflow-hidden gap-0.5 shadow-inner">
+              <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
                 <div className="bg-bullish/90 transition-all" style={{ width: `${(advances / total) * 100}%` }} />
                 <div className="bg-muted-foreground/30" style={{ width: `${(unchanged / total) * 100}%` }} />
                 <div className="bg-bearish/90 transition-all" style={{ width: `${(declines / total) * 100}%` }} />
               </div>
               <p className="text-xs text-muted-foreground text-center font-medium">
-                A/D Ratio: <span className={`font-mono font-bold text-sm ml-1 ${advances > declines ? "text-bullish drop-shadow-[0_0_3px_rgba(0,255,100,0.3)]" : "text-bearish drop-shadow-[0_0_3px_rgba(255,50,50,0.3)]"}`}>
+                A/D Ratio: <span className={`font-mono font-semibold text-sm ml-1 ${advances > declines ? "text-bullish" : "text-bearish"}`}>
                   {declines > 0 ? (advances / declines).toFixed(2) : "∞"}
                 </span>
               </p>
@@ -138,33 +138,33 @@ export function MarketBreadth() {
       </Card>
 
       {/* VIX Status */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-warning/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Activity className="h-5 w-5 text-warning drop-shadow-[0_0_8px_rgba(255,165,0,0.5)]" /> VIX Status
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-warning" /> VIX Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4 space-y-4">
+        <CardContent className="space-y-4">
           <div className="text-center">
-            <p className={`text-4xl font-bold font-mono drop-shadow-md ${vix && vix > 20 ? "text-bearish" : vix && vix < 13 ? "text-bullish" : "text-warning"}`}>
+            <p className={`text-4xl font-semibold font-mono ${vix && vix > 20 ? "text-bearish" : vix && vix < 13 ? "text-bullish" : "text-warning"}`}>
               {vix !== null ? vix.toFixed(2) : "—"}
             </p>
             {vixChange !== null && (
-              <p className={`text-sm font-bold font-mono mt-1 ${vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
+              <p className={`text-sm font-semibold font-mono mt-1 ${vixChange < 0 ? "text-bullish" : "text-bearish"}`}>
                 {vixChange >= 0 ? "+" : ""}{vixChange.toFixed(2)}%
               </p>
             )}
           </div>
           <div className="space-y-2.5 text-xs">
-            <div className="flex justify-between items-center p-2 rounded bg-accent/30 border border-white/5">
+            <div className="flex justify-between items-center p-2 rounded bg-accent/30 border border-border/70">
               <span className="text-muted-foreground font-medium uppercase tracking-wider">Regime</span>
-              <span className={`font-bold text-sm ${vix && vix > 20 ? "text-bearish" : vix && vix < 13 ? "text-bullish" : "text-warning"}`}>
+              <span className={`font-semibold text-sm ${vix && vix > 20 ? "text-bearish" : vix && vix < 13 ? "text-bullish" : "text-warning"}`}>
                 {vix ? (vix > 25 ? "Extreme Fear" : vix > 20 ? "High Vol" : vix > 15 ? "Normal" : vix > 12 ? "Low Vol" : "Complacency") : "—"}
               </span>
             </div>
-            <div className="flex justify-between items-center p-2 rounded bg-accent/30 border border-white/5">
+            <div className="flex justify-between items-center p-2 rounded bg-accent/30 border border-border/70">
               <span className="text-muted-foreground font-medium uppercase tracking-wider">Option Strategy</span>
-              <span className="font-bold text-sm text-foreground/90">
+              <span className="font-semibold text-sm text-foreground/90">
                 {vix ? (vix > 20 ? "Iron Condors" : vix < 13 ? "Buy Straddles" : "Neutral") : "—"}
               </span>
             </div>
@@ -172,42 +172,42 @@ export function MarketBreadth() {
         </CardContent>
       </Card>
 
-      {/* F&O Breadth (from TradingView/NSE stocks) */}
-      <Card className="hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]" /> F&O Breadth
+      {/* F&O Breadth (from NSE stocks) */}
+      <Card className="hover:shadow-card-hover transition-all duration-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" /> F&O Breadth
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-4 space-y-4">
+        <CardContent className="space-y-4">
           {totalStocks > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-bullish/5 border border-bullish/10 text-center shadow-sm">
-                  <p className="text-3xl font-bold font-mono text-bullish drop-shadow-[0_0_5px_rgba(0,255,100,0.3)]">{stocksUp}</p>
+                <div className="p-3 rounded-lg bg-bullish/5 border border-bullish/10 text-center">
+                  <p className="text-3xl font-semibold font-mono text-bullish">{stocksUp}</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Stocks Up</p>
                 </div>
-                <div className="p-3 rounded-lg bg-bearish/5 border border-bearish/10 text-center shadow-sm">
-                  <p className="text-3xl font-bold font-mono text-bearish drop-shadow-[0_0_5px_rgba(255,50,50,0.3)]">{stocksDown}</p>
+                <div className="p-3 rounded-lg bg-bearish/5 border border-bearish/10 text-center">
+                  <p className="text-3xl font-semibold font-mono text-bearish">{stocksDown}</p>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Stocks Down</p>
                 </div>
               </div>
-              <Progress 
-                value={(stocksUp / totalStocks) * 100} 
-                className="h-3 shadow-inner" 
+              <Progress
+                value={(stocksUp / totalStocks) * 100}
+                className="h-3"
               />
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between items-center p-1.5">
                   <span className="text-muted-foreground font-medium">Sectors Bullish</span>
-                  <span className="text-bullish font-bold text-sm">{bullishSectors}</span>
+                  <span className="text-bullish font-semibold text-sm">{bullishSectors}</span>
                 </div>
                 <div className="flex justify-between items-center p-1.5 bg-accent/20 rounded">
                   <span className="text-muted-foreground font-medium">Sectors Bearish</span>
-                  <span className="text-bearish font-bold text-sm">{bearishSectors}</span>
+                  <span className="text-bearish font-semibold text-sm">{bearishSectors}</span>
                 </div>
                 <div className="flex justify-between items-center p-1.5">
                   <span className="text-muted-foreground font-medium">F&O Stocks Tracked</span>
-                  <span className="font-bold text-sm">{totalStocks}</span>
+                  <span className="font-semibold text-sm">{totalStocks}</span>
                 </div>
               </div>
             </>

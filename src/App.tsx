@@ -11,10 +11,17 @@ import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 // Route-based code splitting for optimal initial load
 const Index = lazy(() => import("./pages/Index"));
 const OptionChain = lazy(() => import("./pages/OptionChain"));
-const OIAnalysis = lazy(() => import("./pages/OIAnalysis"));
+const OIAnalysisLayout = lazy(() => import("./pages/oi-analysis/OIAnalysisLayout"));
+const OIOverview = lazy(() => import("./pages/oi-analysis/OIOverview"));
+const OITrendingOI = lazy(() => import("./pages/oi-analysis/OITrendingOI"));
+const OIStrikeAnalysis = lazy(() => import("./pages/oi-analysis/OIStrikeAnalysis"));
+const OIDeltaTracker = lazy(() => import("./pages/oi-analysis/OIDeltaTracker"));
 const Watchlist = lazy(() => import("./pages/Watchlist"));
+const Scanner = lazy(() => import("./pages/Scanner"));
 const StrategyBuilder = lazy(() => import("./pages/StrategyBuilder"));
 const PositionTracker = lazy(() => import("./pages/PositionTracker"));
+const Orders = lazy(() => import("./pages/Orders"));
+const OneCliqTerminal = lazy(() => import("./features/one-cliq/OneCliqTerminal"));
 const BrokerSettings = lazy(() => import("./pages/BrokerSettings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -40,13 +47,21 @@ const App = () => (
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<PageSuspense><Index /></PageSuspense>} />
             <Route path="/option-chain" element={<PageSuspense><OptionChain /></PageSuspense>} />
-            <Route path="/oi-analysis" element={<PageSuspense><OIAnalysis /></PageSuspense>} />
+            <Route path="/oi-analysis" element={<PageSuspense><OIAnalysisLayout /></PageSuspense>}>
+              <Route index element={<OIOverview />} />
+              <Route path="trending-oi" element={<OITrendingOI />} />
+              <Route path="strike-analysis" element={<OIStrikeAnalysis />} />
+              <Route path="delta-tracker" element={<OIDeltaTracker />} />
+            </Route>
             <Route path="/watchlist" element={<PageSuspense><Watchlist /></PageSuspense>} />
+            <Route path="/scanner" element={<PageSuspense><Scanner /></PageSuspense>} />
             <Route path="/strategy-builder" element={<PageSuspense><StrategyBuilder /></PageSuspense>} />
             <Route path="/position-tracker" element={<PageSuspense><PositionTracker /></PageSuspense>} />
+            <Route path="/orders" element={<PageSuspense><Orders /></PageSuspense>} />
+            <Route path="/one-cliq" element={<PageSuspense><OneCliqTerminal /></PageSuspense>} />
             <Route path="/broker-settings" element={<PageSuspense><BrokerSettings /></PageSuspense>} />
+            <Route path="*" element={<PageSuspense><NotFound /></PageSuspense>} />
           </Route>
-          <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

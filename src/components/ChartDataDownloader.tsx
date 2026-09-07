@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { fetchHistoricalCandles, fetchYahooChart } from "@/lib/marketApi";
 import {
-  saveCandleHistory, setMetadata,
+  saveCandleHistory, setMetadata, getCandleHistory,
   type CandleHistory, type CandleData,
 } from "@/lib/localDatabase";
 
@@ -108,7 +108,9 @@ export function ChartDataDownloader() {
   const [search, setSearch] = useState("");
   const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set(ALL_SYMBOLS.map(s => s.symbol)));
   const [timeframe, setTimeframe] = useState("3M");
-  const [interval, setInterval] = useState("D");
+  // Named candleInterval (not `interval`) to avoid shadowing the global
+  // window.setInterval — a real footgun in a file that manages timed loops.
+  const [candleInterval, setCandleInterval] = useState("D");
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DownloadResult[]>([]);
@@ -164,10 +166,22 @@ export function ChartDataDownloader() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${symbol}_${timeframe}_${interval}.csv`;
+    a.download = `${symbol}_${timeframe}_${candleInterval}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [timeframe, interval]);
+  }, [timeframe, candleInterval]);
+
+  // Export a single already-downloaded symbol by reading it back out of
+  // IndexedDB (the download loop only keeps counts in `results`, not the
+  // actual candles, so export has to re-fetch from storage).
+  const exportSymbolCSV = useCallback(async (sym: { symbol: string; securityId: string }) => {
+    const history = await getCandleHistory(sym.securityId, `${candleInterval}_${timeframe}`);
+    if (!history?.candles?.length) {
+      toast.error(`No stored data for ${sym.symbol} — download it first`);
+      return;
+    }
+    exportCSV(sym.symbol, history.candles);
+  }, [candleInterval, timeframe, exportCSV]);
 
   // Batch download
   const handleDownload = async () => {
@@ -183,7 +197,7 @@ export function ChartDataDownloader() {
 
     const { fromDate, toDate } = getDateRange();
     // Send "D" as-is — the proxy will route to /charts/historical for daily candles
-    const dhanInterval = interval;
+    const dhanInterval = candleInterval;
     const newResults: DownloadResult[] = [];
 
     for (let i = 0; i < symbols.length; i++) {
@@ -258,7 +272,7 @@ export function ChartDataDownloader() {
             securityId: sym.securityId,
             symbol: sym.symbol,
             exchangeSegment: sym.segment,
-            interval: `${interval}_${timeframe}`,
+            interval: `${candleInterval}_${timeframe}`,
             candles,
             lastUpdated: Date.now(),
           };
@@ -289,14 +303,42 @@ export function ChartDataDownloader() {
     setCurrentSymbol("");
   };
 
-  // Export all results as combined CSV
-  const handleExportAll = () => {
+  // Export all successfully-downloaded symbols as one combined CSV, reading
+  // each symbol's candles back out of IndexedDB (they aren't kept in memory
+  // after the download loop finishes).
+  const handleExportAll = async () => {
     const successResults = results.filter(r => r.status === "done");
     if (successResults.length === 0) {
       toast.error("No data to export. Run download first.");
       return;
     }
-    toast.info(`Export requires downloading from IndexedDB — use per-symbol export for now.`);
+
+    const header = "Symbol,Date,Time,Open,High,Low,Close,Volume\n";
+    const chunks = await Promise.all(successResults.map(async (r) => {
+      const sym = ALL_SYMBOLS.find(s => s.symbol === r.symbol);
+      if (!sym) return "";
+      const history = await getCandleHistory(sym.securityId, `${candleInterval}_${timeframe}`);
+      if (!history?.candles?.length) return "";
+      return history.candles.map(c => {
+        const d = new Date(c.timestamp);
+        return `${sym.symbol},${d.toLocaleDateString("en-IN")},${d.toLocaleTimeString("en-IN", { hour12: false })},${c.open},${c.high},${c.low},${c.close},${c.volume}`;
+      }).join("\n");
+    }));
+
+    const rows = chunks.filter(Boolean).join("\n");
+    if (!rows) {
+      toast.error("Stored data not found — try downloading again.");
+      return;
+    }
+
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fno_data_${timeframe}_${candleInterval}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${successResults.length} symbols to CSV`);
   };
 
   const progressPct = isDownloading ? (currentIndex / Math.max(selectedCount, 1)) * 100 : 0;
@@ -304,12 +346,12 @@ export function ChartDataDownloader() {
   const errorCount = results.filter(r => r.status === "error").length;
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-transparent">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
           <CandlestickChart className="h-5 w-5 text-primary" />
           Chart Data Downloader
-          <Badge variant="outline" className="text-[11px] h-5 px-1.5 ml-auto">
+          <Badge variant="outline" className="text-xs h-5 px-1.5 ml-auto">
             {selectedCount}/{totalSymbols} selected
           </Badge>
         </CardTitle>
@@ -322,7 +364,7 @@ export function ChartDataDownloader() {
         {/* ── Timeframe & Interval Selectors ── */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Clock className="h-3 w-3" /> Timeframe (Date Range)
             </Label>
             <Select value={timeframe} onValueChange={setTimeframe} disabled={isDownloading}>
@@ -337,10 +379,10 @@ export function ChartDataDownloader() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
               <BarChart3 className="h-3 w-3" /> Candle Interval
             </Label>
-            <Select value={interval} onValueChange={setInterval} disabled={isDownloading}>
+            <Select value={candleInterval} onValueChange={setCandleInterval} disabled={isDownloading}>
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -366,18 +408,18 @@ export function ChartDataDownloader() {
                 disabled={isDownloading}
               />
             </div>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={selectAll} disabled={isDownloading}>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={selectAll} disabled={isDownloading}>
               <CheckSquare className="h-3 w-3" /> All
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={selectIndices} disabled={isDownloading}>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={selectIndices} disabled={isDownloading}>
               <TrendingUp className="h-3 w-3" /> Indices
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={deselectAll} disabled={isDownloading}>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={deselectAll} disabled={isDownloading}>
               <Square className="h-3 w-3" /> None
             </Button>
           </div>
 
-          <ScrollArea className="h-[180px] rounded-md border p-2">
+          <ScrollArea className="h-[180px] rounded-md border border-border/70 p-2">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
               {filteredSymbols.map(sym => {
                 const result = results.find(r => r.symbol === sym.symbol);
@@ -390,26 +432,38 @@ export function ChartDataDownloader() {
                   : null;
 
                 return (
-                  <label
+                  <div
                     key={sym.symbol}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] cursor-pointer transition-colors border ${
-                      selectedSymbols.has(sym.symbol) 
-                        ? "bg-primary/5 border-primary/20 text-foreground" 
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors border ${
+                      selectedSymbols.has(sym.symbol)
+                        ? "bg-primary/5 border-primary/20 text-foreground"
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     } ${currentSymbol === sym.symbol ? "ring-1 ring-primary" : ""}`}
                   >
-                    <Checkbox
-                      checked={selectedSymbols.has(sym.symbol)}
-                      onCheckedChange={() => toggleSymbol(sym.symbol)}
-                      disabled={isDownloading}
-                      className="h-3 w-3"
-                    />
-                    <span className="font-mono font-medium truncate">{sym.symbol}</span>
-                    {sym.category === "Index" && (
-                      <Badge variant="outline" className="text-[11px] h-3 px-1 shrink-0">IDX</Badge>
+                    <label className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
+                      <Checkbox
+                        checked={selectedSymbols.has(sym.symbol)}
+                        onCheckedChange={() => toggleSymbol(sym.symbol)}
+                        disabled={isDownloading}
+                        className="h-3 w-3"
+                      />
+                      <span className="font-mono font-medium truncate">{sym.symbol}</span>
+                      {sym.category === "Index" && (
+                        <Badge variant="outline" className="text-xs h-4 px-1 shrink-0">IDX</Badge>
+                      )}
+                      {statusIcon}
+                    </label>
+                    {result?.status === "done" && (
+                      <button
+                        type="button"
+                        title={`Export ${sym.symbol} as CSV`}
+                        onClick={() => exportSymbolCSV(sym)}
+                        className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <FileDown className="h-3 w-3" />
+                      </button>
                     )}
-                    {statusIcon}
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -418,7 +472,7 @@ export function ChartDataDownloader() {
 
         {/* ── Progress ── */}
         {isDownloading && (
-          <div className="space-y-2 p-3 rounded-lg bg-card border animate-in fade-in">
+          <div className="space-y-2 p-3 rounded-lg bg-card border border-border/70 animate-in fade-in">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium flex items-center gap-1.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -429,15 +483,23 @@ export function ChartDataDownloader() {
               </span>
             </div>
             <Progress value={progressPct} className="h-1.5" />
-            <p className="text-xs text-muted-foreground">
-              ✅ {doneCount} done · ❌ {errorCount} failed · ⏳ {selectedCount - currentIndex} remaining
-            </p>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 text-bullish">
+                <CheckCircle2 className="h-3 w-3" /> {doneCount} done
+              </span>
+              <span className="flex items-center gap-1 text-bearish">
+                <XCircle className="h-3 w-3" /> {errorCount} failed
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> {selectedCount - currentIndex} remaining
+              </span>
+            </div>
           </div>
         )}
 
         {/* ── Results Summary ── */}
         {!isDownloading && results.length > 0 && (
-          <div className="space-y-2 p-3 rounded-lg bg-card border">
+          <div className="space-y-2 p-3 rounded-lg bg-card border border-border/70">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-bullish" />
@@ -451,6 +513,11 @@ export function ChartDataDownloader() {
               <div className="text-xs text-bearish">
                 Failed: {results.filter(r => r.status === "error").map(r => r.symbol).join(", ")}
               </div>
+            )}
+            {doneCount > 0 && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full" onClick={handleExportAll}>
+                <FileDown className="h-3 w-3" /> Export All as CSV
+              </Button>
             )}
           </div>
         )}
@@ -471,7 +538,7 @@ export function ChartDataDownloader() {
             ) : (
               <>
                 <Download className="h-3.5 w-3.5" />
-                Download {selectedCount} Symbols ({timeframe} / {INTERVALS.find(i => i.value === interval)?.label})
+                Download {selectedCount} Symbols ({timeframe} / {INTERVALS.find(i => i.value === candleInterval)?.label})
               </>
             )}
           </Button>
@@ -484,7 +551,7 @@ export function ChartDataDownloader() {
             {[
               { icon: <Database className="h-2.5 w-2.5" />, text: "Stored in IndexedDB (offline access)" },
               { icon: <CandlestickChart className="h-2.5 w-2.5" />, text: `${TIMEFRAMES.find(t => t.value === timeframe)?.label} of OHLCV candles` },
-              { icon: <BarChart3 className="h-2.5 w-2.5" />, text: `${INTERVALS.find(i => i.value === interval)?.label} interval candles` },
+              { icon: <BarChart3 className="h-2.5 w-2.5" />, text: `${INTERVALS.find(i => i.value === candleInterval)?.label} interval candles` },
               { icon: <FileDown className="h-2.5 w-2.5" />, text: "Export individual symbols as CSV" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">

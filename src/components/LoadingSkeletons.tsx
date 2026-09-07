@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function DashboardSkeleton() {
   return (
@@ -10,7 +10,7 @@ export function DashboardSkeleton() {
           <Skeleton className="h-7 w-48 bg-primary/10" />
           <Skeleton className="h-4 w-72" />
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex gap-2">
           <Skeleton className="h-8 w-16 rounded-full" />
           <Skeleton className="h-8 w-24 rounded-full bg-primary/10" />
         </div>
@@ -27,7 +27,7 @@ export function DashboardSkeleton() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map(i => (
           <Card key={i} className="border-border/50 bg-card/30">
-            <CardContent className="pt-4 pb-3 space-y-3">
+            <CardContent className="p-4 space-y-3">
               <div className="flex justify-between">
                 <div className="space-y-1.5">
                   <Skeleton className="h-3 w-20" />
@@ -50,7 +50,7 @@ export function DashboardSkeleton() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {[1, 2, 3, 4, 5, 6].map(i => (
           <Card key={i} className="border-border/50 bg-card/30">
-            <CardContent className="pt-3 pb-3 space-y-2">
+            <CardContent className="p-4 space-y-2">
               <Skeleton className="h-3 w-16" />
               <Skeleton className="h-6 w-20" />
               <Skeleton className="h-3 w-12" />
@@ -87,7 +87,7 @@ export function ChartSkeleton({ height = 200 }: { height?: number }) {
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent -translate-x-[100%] animate-[shimmer_2s_infinite]" />
       <div className="absolute inset-0 flex flex-col items-center justify-center opacity-50">
         <div className="h-8 w-8 mb-3 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-        <p className="text-[11px] font-semibold text-muted-foreground tracking-widest uppercase">Loading Chart...</p>
+        <p className="text-xs font-semibold text-muted-foreground tracking-widest uppercase">Loading Chart...</p>
       </div>
     </div>
   );

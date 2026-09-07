@@ -23,9 +23,9 @@ export function MostActiveFnO() {
 
   if (mostActive.length === 0 && !isLoading) {
     return (
-      <Card className="hover:shadow-card-hover transition-all duration-300">
+      <Card className="hover:shadow-card-hover transition-all duration-200">
         <CardContent className="py-8 text-center">
-          <Zap className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2 drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]" />
+          <Zap className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
           <p className="text-base font-semibold text-muted-foreground">No active F&O data available</p>
           <p className="text-xs text-muted-foreground/60 mt-1">Data loads during market hours</p>
         </CardContent>
@@ -34,16 +34,16 @@ export function MostActiveFnO() {
   }
 
   return (
-    <Card className="hover:shadow-card-hover transition-all duration-300">
-      <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-warning/5 to-transparent">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Zap className="h-5 w-5 text-warning drop-shadow-[0_0_8px_rgba(255,165,0,0.5)]" /> Most Active F&O
+    <Card className="hover:shadow-card-hover transition-all duration-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Zap className="h-5 w-5 text-warning" /> Most Active F&O
           <span className="text-xs text-muted-foreground font-normal ml-1">
             ({mostActive.length} stocks)
           </span>
           {isLive && (
             <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto gap-1">
-              {source === "nse" ? "NSE LIVE" : "TRADINGVIEW"}
+              NSE LIVE
             </Badge>
           )}
           {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-auto text-muted-foreground" />}
@@ -84,15 +84,18 @@ export function MostActiveFnO() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right py-2 text-foreground font-semibold">
-                    {stock.ltp?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(stock.ltp ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </TableCell>
-                  <TableCell className={`text-right py-2 font-bold ${chgPct >= 0 ? "text-bullish drop-shadow-[0_0_3px_rgba(0,255,100,0.2)]" : "text-bearish drop-shadow-[0_0_3px_rgba(255,50,50,0.2)]"}`}>
+                  <TableCell className={`text-right py-2 font-semibold ${chgPct >= 0 ? "text-bullish" : "text-bearish"}`}>
                     {chgPct >= 0 ? "+" : ""}{chgPct.toFixed(2)}%
                   </TableCell>
                   <TableCell className="text-right py-2 text-muted-foreground">
-                    {stock.volume >= 10000000 ? `${(stock.volume / 10000000).toFixed(1)}Cr` :
-                     stock.volume >= 100000 ? `${(stock.volume / 100000).toFixed(1)}L` :
-                     `${(stock.volume / 1000).toFixed(0)}K`}
+                    {(() => {
+                      const vol = stock.volume ?? 0;
+                      if (vol >= 10000000) return `${(vol / 10000000).toFixed(1)}Cr`;
+                      if (vol >= 100000) return `${(vol / 100000).toFixed(1)}L`;
+                      return `${(vol / 1000).toFixed(0)}K`;
+                    })()}
                   </TableCell>
                   {hasOI && (
                     <TableCell className="text-right py-2 font-medium">

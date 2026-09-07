@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -9,7 +8,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, Search, TrendingUp, TrendingDown, Keyboard } from "lucide-react";
+import { LayoutDashboard, TableProperties, BarChart3, Star, Layers, Briefcase, Settings, Search, TrendingUp, TrendingDown, Keyboard, Radar, ListOrdered } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
 
 // Static F&O stock list for command palette navigation (no prices needed)
@@ -41,18 +40,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandEmpty>No results found.</CommandEmpty>
 
         <CommandGroup heading="Pages">
-          <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+1</span></CommandItem>
-          <CommandItem onSelect={() => go("/option-chain")}><TableProperties className="mr-2 h-4 w-4" /> Option Chain <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+2</span></CommandItem>
-          <CommandItem onSelect={() => go("/oi-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> OI Analysis <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+3</span></CommandItem>
-          <CommandItem onSelect={() => go("/greeks")}><Calculator className="mr-2 h-4 w-4" /> Greeks Calculator <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+4</span></CommandItem>
-          <CommandItem onSelect={() => go("/strategy")}><Layers className="mr-2 h-4 w-4" /> Strategy Builder <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+5</span></CommandItem>
+          <CommandItem value="Dashboard" onSelect={() => go("/")}><LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+1</span></CommandItem>
+          <CommandItem value="Option Chain" onSelect={() => go("/option-chain")}><TableProperties className="mr-2 h-4 w-4" /> Option Chain <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+2</span></CommandItem>
+          <CommandItem value="OI Analysis" onSelect={() => go("/oi-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> OI Analysis <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+3</span></CommandItem>
+          <CommandItem value="Trending OI" onSelect={() => go("/oi-analysis/trending-oi")}><BarChart3 className="mr-2 h-4 w-4" /> Trending OI</CommandItem>
+          <CommandItem value="Strike Analysis" onSelect={() => go("/oi-analysis/strike-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> Strike Analysis</CommandItem>
+          <CommandItem value="Delta Tracker" onSelect={() => go("/oi-analysis/delta-tracker")}><BarChart3 className="mr-2 h-4 w-4" /> Delta Tracker</CommandItem>
+          <CommandItem value="Watchlist" onSelect={() => go("/watchlist")}><Star className="mr-2 h-4 w-4" /> Watchlist</CommandItem>
+          <CommandItem value="Scanner" onSelect={() => go("/scanner")}><Radar className="mr-2 h-4 w-4" /> Futures Scanner <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+7</span></CommandItem>
+          <CommandItem value="Strategy Builder" onSelect={() => go("/strategy-builder")}><Layers className="mr-2 h-4 w-4" /> Strategy Builder</CommandItem>
+          <CommandItem value="Position Tracker" onSelect={() => go("/position-tracker")}><Briefcase className="mr-2 h-4 w-4" /> Position Tracker</CommandItem>
+          <CommandItem value="Orders" onSelect={() => go("/orders")}><ListOrdered className="mr-2 h-4 w-4" /> Orders <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+8</span></CommandItem>
+          <CommandItem value="Broker API Keys" onSelect={() => go("/broker-settings")}><Settings className="mr-2 h-4 w-4" /> Broker API Keys</CommandItem>
         </CommandGroup>
 
         <CommandSeparator />
 
         <CommandGroup heading="Indices">
           {indices.length > 0 ? indices.map((idx: any) => (
-            <CommandItem key={idx.symbol} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
+            <CommandItem key={idx.symbol} value={idx.symbol} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
               {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
               {idx.name}
               <span className="ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
@@ -83,7 +89,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandSeparator />
 
         <CommandGroup heading="Keyboard Shortcuts">
-          <CommandItem disabled><Keyboard className="mr-2 h-4 w-4" /> / — Search &nbsp;|&nbsp; G — Greeks &nbsp;|&nbsp; Ctrl+1-5 — Navigate &nbsp;|&nbsp; Esc — Close</CommandItem>
+          <CommandItem disabled><Keyboard className="mr-2 h-4 w-4" /> Ctrl+K / — Search &nbsp;|&nbsp; Ctrl+1-3 — Navigate &nbsp;|&nbsp; Alt+A — Alerts &nbsp;|&nbsp; Esc — Close</CommandItem>
         </CommandGroup>
       </CommandList>
     </CommandDialog>
