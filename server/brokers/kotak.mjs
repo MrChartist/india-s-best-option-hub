@@ -27,6 +27,33 @@ import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 export const id = "kotak";
 export const credentialFields = ["accessToken", "mobileNumber", "ucc", "totpSecret", "mpin"];
 
+/**
+ * Capabilities descriptor — informational only. placeOrder is intentionally
+ * NOT implemented for Kotak Neo in this pass; it stays read-only (market
+ * data/quotes) until order code is written and held to the same
+ * verification bar as fyersOrders.mjs/zerodhaOrders.mjs.
+ *
+ * Sourced from web search only — a direct fetch of the GitHub issue this
+ * came from 404'd this session, so NOTHING below was independently
+ * re-confirmed against a live page. Treat this as the LEAST verified of the
+ * five capability descriptors added in this pass. Secondary sources describe
+ * Kotak Neo's own SDK docs as listing product codes CNC/NRML/MIS/CO/BO/MTF
+ * and validity values DAY/IOC/GTC/EOS/GTD, while separately noting that
+ * BO/CO/GTC/EOS/GTD are "no longer supported by the exchange but still
+ * silently accepted" by the API — exactly the false-promise trap this
+ * descriptor exists to prevent, which is why they're marked false here
+ * despite appearing in the product/validity enums.
+ */
+export const capabilities = {
+  bracket: false, // Reported (not independently re-fetched) as accepted by the API but no longer honoured by the exchange.
+  cover: false, // Same caveat as bracket.
+  ioc: false, // NEEDS VERIFICATION — reported as a currently-supported validity value, but not independently fetched this session; default false until confirmed directly against Kotak's own docs.
+  mtf: false, // NEEDS VERIFICATION — reported as a currently-supported product code, but not independently fetched this session.
+  nativeMarketProtection: false, // NEEDS VERIFICATION — no equivalent field found in what was reviewed.
+  maxLegQty: null, // NEEDS VERIFICATION — no broker-specific per-order qty cap found; the NSE exchange-wide freeze quantity (spec §8 slicing) is the only confirmed ceiling. Do not read null as "unlimited".
+  products: ["CNC", "NRML", "MIS"], // Universal Indian-broker vocabulary; MTF was reported (see above) but excluded here pending independent verification.
+};
+
 export async function testConnection(creds = {}) {
   try {
     const session = await getSession(creds);

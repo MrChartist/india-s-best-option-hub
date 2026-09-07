@@ -24,6 +24,12 @@ import {
   distinctExpiriesAscending,
 } from "./zerodhaInstruments.mjs";
 
+// Order placement (real money) — see zerodhaOrders.mjs for what's confirmed
+// against Kite Connect's official docs vs. NEEDS VERIFICATION. Re-exported
+// here so registry.get("zerodha") matches the module contract documented in
+// registry.mjs, same as every other exported function in this file.
+export { capabilities, buildOrderBody, placeOrder, getOrders, getOrderStatus, cancelOrder } from "./zerodhaOrders.mjs";
+
 export const id = "zerodha";
 export const credentialFields = ["apiKey", "apiSecret", "accessToken"];
 

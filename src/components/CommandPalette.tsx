@@ -8,7 +8,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { LayoutDashboard, TableProperties, BarChart3, Star, Layers, Briefcase, Settings, Search, TrendingUp, TrendingDown, Keyboard } from "lucide-react";
+import { LayoutDashboard, TableProperties, BarChart3, Star, Layers, Briefcase, Settings, Search, TrendingUp, TrendingDown, Keyboard, Radar, ListOrdered } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
 
 // Static F&O stock list for command palette navigation (no prices needed)
@@ -43,9 +43,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           <CommandItem value="Dashboard" onSelect={() => go("/")}><LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+1</span></CommandItem>
           <CommandItem value="Option Chain" onSelect={() => go("/option-chain")}><TableProperties className="mr-2 h-4 w-4" /> Option Chain <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+2</span></CommandItem>
           <CommandItem value="OI Analysis" onSelect={() => go("/oi-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> OI Analysis <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+3</span></CommandItem>
+          <CommandItem value="Trending OI" onSelect={() => go("/oi-analysis/trending-oi")}><BarChart3 className="mr-2 h-4 w-4" /> Trending OI</CommandItem>
+          <CommandItem value="Strike Analysis" onSelect={() => go("/oi-analysis/strike-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> Strike Analysis</CommandItem>
+          <CommandItem value="Delta Tracker" onSelect={() => go("/oi-analysis/delta-tracker")}><BarChart3 className="mr-2 h-4 w-4" /> Delta Tracker</CommandItem>
           <CommandItem value="Watchlist" onSelect={() => go("/watchlist")}><Star className="mr-2 h-4 w-4" /> Watchlist</CommandItem>
+          <CommandItem value="Scanner" onSelect={() => go("/scanner")}><Radar className="mr-2 h-4 w-4" /> Futures Scanner <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+7</span></CommandItem>
           <CommandItem value="Strategy Builder" onSelect={() => go("/strategy-builder")}><Layers className="mr-2 h-4 w-4" /> Strategy Builder</CommandItem>
           <CommandItem value="Position Tracker" onSelect={() => go("/position-tracker")}><Briefcase className="mr-2 h-4 w-4" /> Position Tracker</CommandItem>
+          <CommandItem value="Orders" onSelect={() => go("/orders")}><ListOrdered className="mr-2 h-4 w-4" /> Orders <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+8</span></CommandItem>
           <CommandItem value="Broker API Keys" onSelect={() => go("/broker-settings")}><Settings className="mr-2 h-4 w-4" /> Broker API Keys</CommandItem>
         </CommandGroup>
 

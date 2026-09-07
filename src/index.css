@@ -1,106 +1,112 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:opsz,wght@14..32,400..800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* ── LIGHT MODE ── */
+  /* ── LIGHT MODE — Deep Slate Editorial ── */
   :root {
-    --background: 210 30% 96%;
-    --foreground: 222 35% 9%;
+    --background: 180 16% 96%;
+    --foreground: 193 25% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 35% 9%;
+    --card-foreground: 193 25% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 35% 9%;
+    --popover-foreground: 193 25% 11%;
 
-    --primary: 184 82% 32%;
+    --primary: 173 49% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 27% 93%;
-    --secondary-foreground: 222 24% 24%;
+    --secondary: 180 19% 93%;
+    --secondary-foreground: 193 25% 11%;
 
-    --muted: 214 30% 94%;
-    --muted-foreground: 218 15% 40%;
+    --muted: 180 19% 93%;
+    --muted-foreground: 194 11% 40%;
 
-    --accent: 190 42% 91%;
-    --accent-foreground: 190 64% 20%;
+    --accent: 172 30% 89%;
+    --accent-foreground: 173 49% 24%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 6 63% 46%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 24% 85%;
-    --input: 214 24% 85%;
-    --ring: 184 82% 32%;
+    --border: 180 15% 88%;
+    --input: 180 15% 88%;
+    --ring: 173 49% 36%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 210 35% 97%;
-    --sidebar-foreground: 218 20% 32%;
-    --sidebar-primary: 184 82% 32%;
+    --sidebar-background: 180 21% 95%;
+    --sidebar-foreground: 193 14% 32%;
+    --sidebar-primary: 173 49% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 190 52% 90%;
-    --sidebar-accent-foreground: 190 64% 19%;
-    --sidebar-border: 214 26% 84%;
-    --sidebar-ring: 184 82% 32%;
+    --sidebar-accent: 172 30% 89%;
+    --sidebar-accent-foreground: 173 49% 24%;
+    --sidebar-border: 180 15% 88%;
+    --sidebar-ring: 173 49% 36%;
 
-    --bullish: 152 60% 32%;
+    --bullish: 146 44% 33%;
     --bullish-foreground: 0 0% 100%;
-    --bearish: 0 68% 46%;
+    --bearish: 10 56% 42%;
     --bearish-foreground: 0 0% 100%;
-    --warning: 38 92% 42%;
-    --warning-foreground: 0 0% 0%;
-    --chart-grid: 214 24% 88%;
+    --warning: 32 63% 45%;
+    --warning-foreground: 0 0% 100%;
+    --chart-grid: 180 17% 92%;
+
+    --level-poc: 199 89% 48%;
+    --level-value-area: 217 91% 60%;
+    --level-iv-band: 271 81% 56%;
   }
 
-  /* ── DARK MODE — Ultra-Premium Obsidian ── */
+  /* ── DARK MODE — Deep Slate Editorial ── */
   .dark {
-    --background: 210 18% 5%;
-    --foreground: 210 20% 94%;
+    --background: 200 24% 7%;
+    --foreground: 197 18% 92%;
 
-    --card: 210 16% 8%;
-    --card-foreground: 210 20% 94%;
+    --card: 196 23% 9%;
+    --card-foreground: 197 18% 92%;
 
-    --popover: 210 16% 8%;
-    --popover-foreground: 210 20% 94%;
+    --popover: 196 23% 9%;
+    --popover-foreground: 197 18% 92%;
 
-    --primary: 189 93% 48%;
-    --primary-foreground: 0 0% 0%;
+    --primary: 174 40% 51%;
+    --primary-foreground: 200 24% 7%;
 
-    --secondary: 210 13% 12%;
-    --secondary-foreground: 210 18% 88%;
+    --secondary: 199 29% 13%;
+    --secondary-foreground: 197 18% 92%;
 
-    --muted: 210 13% 13%;
-    --muted-foreground: 214 11% 70%;
+    --muted: 201 31% 13%;
+    --muted-foreground: 196 10% 59%;
 
-    --accent: 206 45% 13%;
-    --accent-foreground: 190 92% 58%;
+    --accent: 183 34% 13%;
+    --accent-foreground: 174 55% 59%;
 
-    --destructive: 0 100% 60%;
+    --destructive: 6 59% 59%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 13% 17%;
-    --input: 210 13% 17%;
-    --ring: 189 93% 48%;
+    --border: 196 18% 16%;
+    --input: 196 18% 16%;
+    --ring: 174 40% 51%;
 
-    --sidebar-background: 210 20% 5%;
-    --sidebar-foreground: 214 12% 80%;
-    --sidebar-primary: 189 93% 48%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 210 16% 10%;
-    --sidebar-accent-foreground: 210 20% 94%;
-    --sidebar-border: 210 13% 12%;
-    --sidebar-ring: 189 93% 48%;
+    --sidebar-background: 203 27% 6%;
+    --sidebar-foreground: 194 13% 67%;
+    --sidebar-primary: 174 40% 51%;
+    --sidebar-primary-foreground: 200 24% 7%;
+    --sidebar-accent: 199 29% 13%;
+    --sidebar-accent-foreground: 197 18% 92%;
+    --sidebar-border: 196 18% 16%;
+    --sidebar-ring: 174 40% 51%;
 
-    --bullish: 145 100% 45%;
+    --bullish: 147 33% 53%;
     --bullish-foreground: 0 0% 0%;
-    --bearish: 0 100% 60%;
-    --bearish-foreground: 0 0% 100%;
-    --warning: 35 100% 55%;
+    --bearish: 6 59% 59%;
+    --bearish-foreground: 0 0% 0%;
+    --warning: 37 74% 57%;
     --warning-foreground: 0 0% 0%;
-    --chart-grid: 210 12% 15%;
+    --chart-grid: 194 20% 13%;
+
+    --level-poc: 199 89% 60%;
+    --level-value-area: 217 91% 68%;
+    --level-iv-band: 271 81% 68%;
   }
 }
 
@@ -120,8 +126,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: 'Instrument Sans Variable', system-ui, -apple-system, sans-serif;
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -130,7 +135,7 @@
   }
 
   .font-mono {
-    font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+    font-family: 'IBM Plex Mono', 'SF Mono', 'Menlo', monospace;
     font-feature-settings: "liga" 0;
   }
 

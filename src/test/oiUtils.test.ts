@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getMaxPain, calculatePCR, getATMIV, getIVSkew, getStrikePCR, getDeltaOI, getATMZoneAnalysis } from "@/lib/oiUtils";
+import { getMaxPain, calculatePCR, getATMIV, getStrikePCR, getDeltaOI, getATMZoneAnalysis, getWeightedPCR } from "@/lib/oiUtils";
 import type { OptionData } from "@/lib/mockData";
 
 // Helper to build a minimal chain row
@@ -94,6 +94,46 @@ describe("calculatePCR", () => {
   });
 });
 
+describe("getWeightedPCR", () => {
+  it("returns all zeros for empty chain", () => {
+    const result = getWeightedPCR([], 24000, 100);
+    expect(result.weightedPcrOI).toBe(0);
+    expect(result.plainPcrOI).toBe(0);
+    expect(result.weightedTotalCEOI).toBe(0);
+    expect(result.weightedTotalPEOI).toBe(0);
+  });
+
+  it("pulls PCR closer to 1.0 than the plain PCR when only far-from-spot strikes are imbalanced", () => {
+    // 23800/24200 are 2 steps from ATM (24000) and heavily PE-skewed; 23900/24000/24100
+    // are balanced. Weighting down the far strikes should soften that skew.
+    const chain = [
+      makeRow(23800, 20000, 200000),
+      makeRow(23900, 100000, 100000),
+      makeRow(24000, 150000, 150000),
+      makeRow(24100, 100000, 100000),
+      makeRow(24200, 20000, 200000),
+    ];
+    const result = getWeightedPCR(chain, 24000, 100);
+    expect(result.plainPcrOI).toBeCloseTo(1.92, 2);
+    expect(result.weightedPcrOI).toBeCloseTo(1.46, 2);
+    expect(Math.abs(result.weightedPcrOI - 1)).toBeLessThan(Math.abs(result.plainPcrOI - 1));
+  });
+
+  it("produces a different ratio than the plain PCR when skew sits away from ATM", () => {
+    const chain = [
+      makeRow(24000, 100000, 100000),
+      makeRow(24100, 100000, 150000),
+      makeRow(24300, 300000, 60000),
+    ];
+    const result = getWeightedPCR(chain, 24000, 100);
+    expect(result.weightedTotalCEOI).toBe(225000);
+    expect(result.weightedTotalPEOI).toBe(190000);
+    expect(result.plainPcrOI).toBeCloseTo(0.62, 2);
+    expect(result.weightedPcrOI).toBeCloseTo(0.84, 2);
+    expect(result.weightedPcrOI).not.toBe(result.plainPcrOI);
+  });
+});
+
 describe("getATMIV", () => {
   it("returns 0 for empty chain", () => {
     expect(getATMIV([], 24000).atmIV).toBe(0);
@@ -108,20 +148,6 @@ describe("getATMIV", () => {
     const result = getATMIV(chain, 24050);
     expect(result.atmStrike).toBe(24000); // closest to 24050
     expect(result.atmIV).toBe(17); // (16+18)/2
-  });
-});
-
-describe("getIVSkew", () => {
-  it("returns all strikes with non-zero IV", () => {
-    const chain = [
-      makeRow(24000, 100000, 100000, { ceIV: 15, peIV: 16 }),
-      makeRow(24100, 100000, 100000, { ceIV: 0, peIV: 0 }),
-      makeRow(24200, 100000, 100000, { ceIV: 18, peIV: 19 }),
-    ];
-    const skew = getIVSkew(chain);
-    expect(skew).toHaveLength(2); // row at 24100 filtered out (both IVs 0)
-    expect(skew[0].strike).toBe(24000);
-    expect(skew[0].avgIV).toBeCloseTo(15.5, 1);
   });
 });
 

@@ -23,7 +23,7 @@ export function MarketHeader({ isLive, isOpen, marketStatus }: Props) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Market Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Market <span className="font-serif italic font-medium">Dashboard</span></h1>
         <p className="text-xs text-muted-foreground">
           {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", year: "numeric" })}
         </p>

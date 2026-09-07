@@ -16,6 +16,33 @@
  *   // Leg = { last_price, oi, oi_chg?, volume, iv, delta, gamma, theta, vega, bid_price, ask_price }
  *   // (iv as a percentage e.g. 14.2, not 0.142 — matches Dhan's convention, the app's reference schema)
  *
+ *   Optional (only implement if the broker's API genuinely supports it — the
+ *   generic /api/broker-proxy path checks for this before calling it, no broker
+ *   is required to have it):
+ *   async fetchFuturesQuotes(creds, symbols: string[]) -> {
+ *     status: "success",
+ *     data: Array<{
+ *       symbol, instrumentType: "FUTSTK"|"FUTIDX", expiryDate, lotSize,
+ *       futuresLtp, priceChangePercent, oi, oiChangePercent, volume, buildupSignal
+ *     }>
+ *   }
+ *
+ *   Order placement (optional, real money). Implemented today for: Dhan
+ *   (server/lib/dhanOrders.mjs, static-IP whitelisted, the only one exercised
+ *   against a live account); the Noren-family brokers — flattrade, shoonya,
+ *   tradesmart, zebu — via the shared server/brokers/oms-noren.mjs; and the
+ *   OAuth brokers Zerodha and Fyers (zerodhaOrders.mjs / fyersOrders.mjs).
+ *   All of these are structurally complete and covered by pure-function
+ *   tests (body-building, capability gating), NOT yet verified against a
+ *   live order on their respective brokers. Alice Blue, 5paisa and Kotak Neo
+ *   ship only a read-only capabilities descriptor (placeOrder intentionally
+ *   absent) pending that same verification bar. Every other broker remains
+ *   read-only (market data/quotes) with no order code at all:
+ *   async placeOrder(creds, order) -> { orderId: string, orderStatus: string }
+ *   async getOrders(creds) -> Array<order>
+ *   async getOrderStatus(creds, orderId) -> order
+ *   async cancelOrder(creds, orderId) -> { orderId: string, orderStatus: string }
+ *
  * `symbol` is one of: NIFTY | BANKNIFTY | FINNIFTY | MIDCPNIFTY | SENSEX
  * `creds` is the raw `values` object the user saved in Broker Settings for that broker
  * (field names match brokerConfig.ts, e.g. { apiKey, apiSecret, accessToken }).

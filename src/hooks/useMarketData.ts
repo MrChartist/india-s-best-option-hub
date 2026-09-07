@@ -12,18 +12,13 @@ import {
   getDatabaseStats,
   type PriceSnapshot,
 } from "@/lib/localDatabase";
+import { markProxyOnline, markProxyOffline, shouldTryProxy, resetProxyStatus } from "./proxyStatus";
 
-// ── Shared state: tracks whether proxy is reachable ──
-let proxyStatus: "unknown" | "online" | "offline" = "unknown";
-let proxyCheckTime = 0;
-
-function markProxyOnline() { proxyStatus = "online"; proxyCheckTime = Date.now(); }
-function markProxyOffline() { proxyStatus = "offline"; proxyCheckTime = Date.now(); }
-function shouldTryProxy(): boolean {
-  if (proxyStatus === "unknown") return true;
-  if (proxyStatus === "online") return true;
-  return Date.now() - proxyCheckTime > 30000;
-}
+// The futures scanner / FII-DII / rollover / global-cues / commodity-expiry
+// hooks live in useMarketScanners.ts (split out once useMarketData.ts crossed
+// 300 lines) — re-exported here so every existing
+// `import { useFuturesScanner, ... } from "@/hooks/useMarketData"` is unaffected.
+export { useCommodityExpiry, useFuturesScanner, useFIIDII, useRolloverData, useGlobalCues } from "./useMarketScanners";
 
 // ── Local database cache singleton ──
 let cachedPrices: PriceSnapshot[] | null = null;
@@ -176,9 +171,10 @@ export function useMarketStatus() {
 
 // ── Hook: Live Option Chain ──
 // Returns live data during market hours, or cached "last close" data after hours
-export function useLiveOptionChain(symbol: string, expiry?: string) {
+export function useLiveOptionChain(symbol: string, expiry?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: ["live-option-chain", symbol, expiry],
+    enabled,
     queryFn: async () => {
       if (shouldTryProxy()) {
         try {
@@ -398,7 +394,7 @@ function getOIInterpretation(changePercent: number, oiChange: number): string {
   return "Neutral";
 }
 
-export function resetProxyStatus() { proxyStatus = "unknown"; proxyCheckTime = 0; }
+export { resetProxyStatus };
 
 /**
  * Invalidate the local price cache so next fetch

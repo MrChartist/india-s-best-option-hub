@@ -17,6 +17,11 @@ import { Label } from "@/components/ui/label";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { StockChart } from "@/components/StockChart";
 import { calculateGreeks } from "@/lib/mockData";
+import { createPosition, savePositions, getPositions } from "@/lib/positionStore";
+import { isLiveTradingEnabled } from "@/lib/brokerConfig";
+import { placeOrder } from "@/lib/marketApi";
+import { armLive } from "@/lib/liveArm";
+import { TradeConfirmDialog, type PendingTrade } from "@/components/TradeConfirmDialog";
 import { toast } from "sonner";
 
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
@@ -324,6 +329,83 @@ export default function OptionChain() {
   const afterHours = data?.afterHours ?? false;
   const hasData = chain.length > 0;
 
+  // Quick trade — immediate fill (paper) or a real order (live), as opposed to
+  // `quickTrade` above which plans a trade in Strategy Builder. Paper vs live
+  // is decided per-click (see handleContextAction) and carried on the pending
+  // trade's mode, not on component state, so a paper click never accidentally
+  // resolves against a live-mode confirm handler or vice versa.
+  const [pendingTrade, setPendingTrade] = useState<PendingTrade | null>(null);
+  const [tradeMode, setTradeMode] = useState<"paper" | "live">("paper");
+  const [placingTrade, setPlacingTrade] = useState(false);
+
+  const handleQuickFill = useCallback((strike: number, optionType: "CE" | "PE", action: "BUY" | "SELL", price: number) => {
+    setTradeMode("paper");
+    setPendingTrade({ symbol, strike, optionType, action, lots: 1, price, lotSize });
+  }, [symbol, lotSize]);
+
+  const handleLiveOrderClick = useCallback((strike: number, optionType: "CE" | "PE", action: "BUY" | "SELL", price: number, securityId?: string, exchangeSegment?: string) => {
+    if (!securityId) {
+      toast.info("Live order unavailable for this row (no Dhan security ID — likely showing NSE fallback data). Falling back to paper.", { duration: 5000 });
+      handleQuickFill(strike, optionType, action, price);
+      return;
+    }
+    setTradeMode("live");
+    setPendingTrade({ symbol, strike, optionType, action, lots: 1, price, lotSize, securityId, exchangeSegment });
+  }, [symbol, lotSize, handleQuickFill]);
+
+  const handleConfirmTrade = useCallback(async () => {
+    if (!pendingTrade) return;
+    setPlacingTrade(true);
+    try {
+      if (tradeMode === "live") {
+        // The token is what makes this call type-check at all — see liveArm.ts.
+        // requireOneClick is false: this path already showed a confirm dialog.
+        const { token, message } = armLive(false);
+        if (!token) throw new Error(message || "Live trading gate refused this order.");
+
+        const result = await placeOrder({
+          transactionType: pendingTrade.action,
+          exchangeSegment: pendingTrade.exchangeSegment || "NSE_FNO",
+          productType: "INTRADAY",
+          orderType: "LIMIT",
+          validity: "DAY",
+          securityId: pendingTrade.securityId!,
+          lots: pendingTrade.lots,
+          price: pendingTrade.price,
+        }, token);
+        // Report the size the SERVER resolved, not what this page assumed — the
+        // two can differ when the local lot-size table is stale.
+        const sizeNote = result.quantity ? ` · qty ${result.quantity} (lot ${result.resolvedLotSize})` : "";
+        toast.success(`Order placed: ${result.orderId} (${result.orderStatus})${sizeNote}`, {
+          description: `${pendingTrade.action} ${pendingTrade.symbol} ${pendingTrade.strike} ${pendingTrade.optionType}`,
+          action: { label: "View Orders", onClick: () => navigate("/orders") },
+        });
+      } else {
+        const position = createPosition({
+          symbol: pendingTrade.symbol,
+          type: pendingTrade.optionType,
+          action: pendingTrade.action,
+          strike: pendingTrade.strike,
+          entryPrice: pendingTrade.price,
+          lots: pendingTrade.lots,
+          lotSize: pendingTrade.lotSize,
+          expiry: selectedExpiry || expiries[0]?.value || "",
+        });
+        savePositions([...getPositions(), position]);
+        toast.success(`Paper position added: ${pendingTrade.action} ${pendingTrade.symbol} ${pendingTrade.strike} ${pendingTrade.optionType}`, {
+          description: "View it in Position Tracker.",
+          action: { label: "View", onClick: () => navigate("/position-tracker") },
+        });
+      }
+    } catch (e) {
+      // Dhan's real rejection message (e.g. the static-IP block) surfaces here verbatim.
+      toast.error(`${tradeMode === "live" ? "Order failed" : "Could not add paper position"}: ${(e as Error).message}`, { duration: 8000 });
+    } finally {
+      setPlacingTrade(false);
+      setPendingTrade(null);
+    }
+  }, [pendingTrade, tradeMode, selectedExpiry, expiries, navigate]);
+
   const atmStrike = useMemo(() => Math.round(spotPrice / stepSize) * stepSize, [spotPrice, stepSize]);
   const totalCEOI = chain.reduce((s, o) => s + o.ce.oi, 0);
   const totalPEOI = chain.reduce((s, o) => s + o.pe.oi, 0);
@@ -370,10 +452,14 @@ export default function OptionChain() {
     }
   }, [viewMode, atmStrike]);
 
-  const handleContextAction = (strike: number, type: "CE" | "PE", action: string, premium?: number) => {
+  const handleContextAction = (strike: number, type: "CE" | "PE", action: string, premium?: number, securityId?: string, exchangeSegment?: string) => {
     switch (action) {
       case "buy": quickTrade(strike, type, "BUY", premium); break;
       case "sell": quickTrade(strike, type, "SELL", premium); break;
+      case "quickfill-buy": handleQuickFill(strike, type, "BUY", premium ?? 0); break;
+      case "quickfill-sell": handleQuickFill(strike, type, "SELL", premium ?? 0); break;
+      case "liveorder-buy": handleLiveOrderClick(strike, type, "BUY", premium ?? 0, securityId, exchangeSegment); break;
+      case "liveorder-sell": handleLiveOrderClick(strike, type, "SELL", premium ?? 0, securityId, exchangeSegment); break;
       case "straddle":
         toast.success(`Added ${strike} Straddle to Strategy Builder`);
         quickTrade(strike, "CE", "BUY", premium);
@@ -406,53 +492,42 @@ export default function OptionChain() {
     };
   }), [chain, spotPrice, currentDTE]);
 
-  // "By Strike" view: show one strike across all expiries
+  // "By Strike" view: the same strike across the nearest real expiries. Only
+  // fetched once this tab is actually open (enabled gate below) — mirrors the
+  // multi-expiry-fetch approach MultiExpiryOI.tsx already uses for OI overlays,
+  // just pivoted to one strike's row instead of OI-by-strike.
+  const strikeViewActive = viewMode === "strike";
+  const { data: byStrikeChain0 } = useLiveOptionChain(symbol, expiries[0]?.value, strikeViewActive && !!expiries[0]);
+  const { data: byStrikeChain1 } = useLiveOptionChain(symbol, expiries[1]?.value, strikeViewActive && !!expiries[1]);
+  const { data: byStrikeChain2 } = useLiveOptionChain(symbol, expiries[2]?.value, strikeViewActive && !!expiries[2]);
+  const { data: byStrikeChain3 } = useLiveOptionChain(symbol, expiries[3]?.value, strikeViewActive && !!expiries[3]);
+
   const byStrikeData = useMemo(() => {
     if (!selectedStrike) return [];
-    const row = enrichedChain.find(r => r.strikePrice === selectedStrike);
-    if (!row) return [];
-    // For now show current expiry data; in production would fetch all expiries
-    // SIMULATED: Using factor-based approximation until multi-expiry API is integrated
-    return expiries.map((exp, i) => {
-      const factor = 1 + i * 0.08; // simulate different expiry prices
-      return {
+    const chainsByExpiry = [byStrikeChain0, byStrikeChain1, byStrikeChain2, byStrikeChain3];
+    return expiries.slice(0, 4).flatMap((exp, i) => {
+      const expiryChain = chainsByExpiry[i];
+      const row = expiryChain?.chain.find(r => r.strikePrice === selectedStrike);
+      if (!expiryChain || !row) return [];
+      const rowSpot = expiryChain.spotPrice || spotPrice;
+      return [{
         expiry: exp.label,
         daysToExpiry: exp.daysToExpiry,
         ce: {
-          ltp: Math.round(row.ce.ltp * factor * 100) / 100,
-          iv: row.ce.iv + i * 1.2,
-          delta: Math.max(0.01, row.ce.delta - i * 0.05),
-          gamma: row.ce.gamma,
-          theta: row.ce.theta * (1 + i * 0.3),
-          vega: row.ce.vega * (1 + i * 0.2),
-          rho: computeRho(spotPrice, selectedStrike, exp.daysToExpiry, row.ce.iv + i * 1.2, "call"),
-          volume: Math.round(row.ce.volume * (1 - i * 0.3)),
-          oi: row.ce.oi,
-          oiChange: row.ce.oiChange,
-          bid: Math.round(row.ce.ltp * factor * 0.98 * 100) / 100,
-          ask: Math.round(row.ce.ltp * factor * 1.02 * 100) / 100,
-          intrinsic: Math.max(spotPrice - selectedStrike, 0),
-          timeValue: Math.max(row.ce.ltp * factor - Math.max(spotPrice - selectedStrike, 0), 0),
+          ...row.ce,
+          intrinsic: Math.max(rowSpot - selectedStrike, 0),
+          timeValue: Math.max(row.ce.ltp - Math.max(rowSpot - selectedStrike, 0), 0),
+          rho: computeRho(rowSpot, selectedStrike, exp.daysToExpiry, row.ce.iv, "call"),
         },
         pe: {
-          ltp: Math.round(row.pe.ltp * factor * 100) / 100,
-          iv: row.pe.iv + i * 1.5,
-          delta: Math.min(-0.01, row.pe.delta + i * 0.04),
-          gamma: row.pe.gamma,
-          theta: row.pe.theta * (1 + i * 0.3),
-          vega: row.pe.vega * (1 + i * 0.2),
-          rho: computeRho(spotPrice, selectedStrike, exp.daysToExpiry, row.pe.iv + i * 1.5, "put"),
-          volume: Math.round(row.pe.volume * (1 - i * 0.25)),
-          oi: row.pe.oi,
-          oiChange: row.pe.oiChange,
-          bid: Math.round(row.pe.ltp * factor * 0.98 * 100) / 100,
-          ask: Math.round(row.pe.ltp * factor * 1.02 * 100) / 100,
-          intrinsic: Math.max(selectedStrike - spotPrice, 0),
-          timeValue: Math.max(row.pe.ltp * factor - Math.max(selectedStrike - spotPrice, 0), 0),
+          ...row.pe,
+          intrinsic: Math.max(selectedStrike - rowSpot, 0),
+          timeValue: Math.max(row.pe.ltp - Math.max(selectedStrike - rowSpot, 0), 0),
+          rho: computeRho(rowSpot, selectedStrike, exp.daysToExpiry, row.pe.iv, "put"),
         },
-      };
+      }];
     });
-  }, [selectedStrike, enrichedChain, expiries, spotPrice]);
+  }, [selectedStrike, expiries, byStrikeChain0, byStrikeChain1, byStrikeChain2, byStrikeChain3, spotPrice]);
 
   const allStrikes = enrichedChain.map(r => r.strikePrice);
 
@@ -703,7 +778,15 @@ export default function OptionChain() {
 
       {/* Price Chart (collapsible) */}
       {showChart && (
-        <StockChart symbol={symbol} inline height={280} />
+        <StockChart
+          symbol={symbol}
+          inline
+          height={280}
+          chain={chain}
+          spotPrice={spotPrice}
+          lotSize={lotSize}
+          daysToExpiry={currentDTE}
+        />
       )}
 
       {/* Expiry selector */}
@@ -1043,15 +1126,35 @@ export default function OptionChain() {
                           <ContextMenuSub>
                             <ContextMenuSubTrigger className="gap-2"><TrendingUp className="h-3.5 w-3.5 text-primary" /> Buy</ContextMenuSubTrigger>
                             <ContextMenuSubContent>
-                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "buy", row.ce.ltp)} className="text-xs">Buy CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
-                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "buy", row.pe.ltp)} className="text-xs">Buy PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "buy", row.ce.ltp)} className="text-xs">Plan in Strategy Builder: CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "buy", row.pe.ltp)} className="text-xs">Plan in Strategy Builder: PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "quickfill-buy", row.ce.ltp)} className="text-xs">Quick Fill (Paper): CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "quickfill-buy", row.pe.ltp)} className="text-xs">Quick Fill (Paper): PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              {isLiveTradingEnabled() && (
+                                <>
+                                  <ContextMenuSeparator />
+                                  <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "liveorder-buy", row.ce.ltp, row.ce.securityId, row.ce.exchangeSegment)} className="text-xs text-bearish">⚠ LIVE Order: CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                                  <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "liveorder-buy", row.pe.ltp, row.pe.securityId, row.pe.exchangeSegment)} className="text-xs text-bearish">⚠ LIVE Order: PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                                </>
+                              )}
                             </ContextMenuSubContent>
                           </ContextMenuSub>
                           <ContextMenuSub>
                             <ContextMenuSubTrigger className="gap-2"><TrendingDown className="h-3.5 w-3.5 text-bearish" /> Sell</ContextMenuSubTrigger>
                             <ContextMenuSubContent>
-                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "sell", row.ce.ltp)} className="text-xs">Sell CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
-                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "sell", row.pe.ltp)} className="text-xs">Sell PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "sell", row.ce.ltp)} className="text-xs">Plan in Strategy Builder: CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "sell", row.pe.ltp)} className="text-xs">Plan in Strategy Builder: PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "quickfill-sell", row.ce.ltp)} className="text-xs">Quick Fill (Paper): CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                              <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "quickfill-sell", row.pe.ltp)} className="text-xs">Quick Fill (Paper): PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                              {isLiveTradingEnabled() && (
+                                <>
+                                  <ContextMenuSeparator />
+                                  <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "CE", "liveorder-sell", row.ce.ltp, row.ce.securityId, row.ce.exchangeSegment)} className="text-xs text-bearish">⚠ LIVE Order: CE @ ₹{row.ce.ltp.toFixed(2)}</ContextMenuItem>
+                                  <ContextMenuItem onClick={() => handleContextAction(row.strikePrice, "PE", "liveorder-sell", row.pe.ltp, row.pe.securityId, row.pe.exchangeSegment)} className="text-xs text-bearish">⚠ LIVE Order: PE @ ₹{row.pe.ltp.toFixed(2)}</ContextMenuItem>
+                                </>
+                              )}
                             </ContextMenuSubContent>
                           </ContextMenuSub>
                           <ContextMenuSeparator />
@@ -1108,12 +1211,6 @@ export default function OptionChain() {
               </div>
             ) : (
               <>
-              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-warning/20 bg-warning/5">
-                <Badge variant="outline" className="border-warning/40 text-warning gap-1">
-                  ⚠ Simulated
-                </Badge>
-                <span className="text-xs text-muted-foreground">Multi-expiry data is approximated from current expiry. Live multi-expiry API integration pending.</span>
-              </div>
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow className="text-xs border-b border-border/70">
@@ -1165,8 +1262,8 @@ export default function OptionChain() {
                       {columnConfig.gamma && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.gamma.toFixed(4)}</TableCell>}
                       {columnConfig.delta && <TableCell className="text-right py-1.5 tabular-nums font-medium">{row.ce.delta.toFixed(2)}</TableCell>}
                       {columnConfig.price && <TableCell className="text-right py-1.5 font-semibold">{row.ce.ltp.toFixed(2)}</TableCell>}
-                      {columnConfig.ask && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.ask.toFixed(2)}</TableCell>}
-                      {columnConfig.bid && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.bid.toFixed(2)}</TableCell>}
+                      {columnConfig.ask && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.askPrice.toFixed(2)}</TableCell>}
+                      {columnConfig.bid && <TableCell className="text-right py-1.5 tabular-nums">{row.ce.bidPrice.toFixed(2)}</TableCell>}
                       {columnConfig.oiChange && (
                         <TableCell className={`text-right py-1.5 tabular-nums ${row.ce.oiChange > 0 ? "text-bullish" : row.ce.oiChange < 0 ? "text-bearish" : "text-muted-foreground"}`}>
                           {row.ce.oiChange > 0 ? "+" : ""}{Math.abs(row.ce.oiChange) >= 100000 ? (row.ce.oiChange / 100000).toFixed(1) + "L" : (row.ce.oiChange / 1000).toFixed(0) + "K"}
@@ -1182,8 +1279,8 @@ export default function OptionChain() {
                           {row.pe.oiChange > 0 ? "+" : ""}{Math.abs(row.pe.oiChange) >= 100000 ? (row.pe.oiChange / 100000).toFixed(1) + "L" : (row.pe.oiChange / 1000).toFixed(0) + "K"}
                         </TableCell>
                       )}
-                      {columnConfig.bid && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.bid.toFixed(2)}</TableCell>}
-                      {columnConfig.ask && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.ask.toFixed(2)}</TableCell>}
+                      {columnConfig.bid && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.bidPrice.toFixed(2)}</TableCell>}
+                      {columnConfig.ask && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.askPrice.toFixed(2)}</TableCell>}
                       {columnConfig.price && <TableCell className="text-left py-1.5 font-semibold">{row.pe.ltp.toFixed(2)}</TableCell>}
                       {columnConfig.delta && <TableCell className="text-left py-1.5 tabular-nums font-medium">{row.pe.delta.toFixed(2)}</TableCell>}
                       {columnConfig.gamma && <TableCell className="text-left py-1.5 tabular-nums">{row.pe.gamma.toFixed(4)}</TableCell>}
@@ -1202,6 +1299,14 @@ export default function OptionChain() {
           </CardContent>
         </Card>
       )}
+
+      <TradeConfirmDialog
+        trade={pendingTrade}
+        mode={tradeMode}
+        busy={placingTrade}
+        onConfirm={handleConfirmTrade}
+        onCancel={() => setPendingTrade(null)}
+      />
     </div>
   );
 }

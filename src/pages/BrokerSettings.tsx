@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { DatabaseManager } from "@/components/DatabaseManager";
 import { ChartDataDownloader } from "@/components/ChartDataDownloader";
+import { LiveTradingToggle } from "@/components/LiveTradingToggle";
 
 function BrokerCard({
   broker,
@@ -356,7 +357,11 @@ export default function BrokerSettings() {
     // `savedBrokers.length === 0`, which silently deactivated the currently-active
     // broker (and reset its "Added" date) whenever it wasn't the very first one saved.
     const existing = savedBrokers.find((b) => b.brokerId === brokerId);
-    const creds: BrokerCredentials = {
+    const creds = {
+      // Reuse the existing accountId so editing updates that account in place.
+      // Omitting it would mint a new account and leave a stale duplicate behind,
+      // now that accounts are keyed by accountId rather than brokerId.
+      accountId: existing?.accountId,
       brokerId,
       values,
       addedAt: existing?.addedAt ?? new Date().toISOString(),
@@ -400,7 +405,7 @@ export default function BrokerSettings() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
           <Plug className="h-6 w-6 text-primary" />
-          Broker API Settings
+          Broker API <span className="font-serif italic font-medium">Settings</span>
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Connect your broker accounts for live market data and trading. Keys are stored locally in your browser.
@@ -421,6 +426,8 @@ export default function BrokerSettings() {
           </div>
         </CardContent>
       </Card>
+
+      <LiveTradingToggle />
 
       {/* Connection Status Panel */}
       <ConnectionStatusPanel />

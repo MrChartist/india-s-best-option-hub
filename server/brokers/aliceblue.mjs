@@ -22,6 +22,31 @@ import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 export const id = "aliceblue";
 export const credentialFields = ["userId", "apiKey"];
 
+/**
+ * Capabilities descriptor — informational only. placeOrder is intentionally
+ * NOT implemented for Alice Blue in this pass; it stays read-only (market
+ * data/quotes) until order code is written and held to the same
+ * verification bar as fyersOrders.mjs/zerodhaOrders.mjs.
+ *
+ * Sourced from a direct fetch of Alice Blue's own docs
+ * (ant.aliceblueonline.com/productdocumentation/orders Management/), which
+ * documents an `orderType` field with values Regular/BO/CO/AMO (order
+ * *category* — LIMIT/MARKET/SL/SLM is a separate price-type field per the
+ * same docs' appendix), a `product` field with MIS/CNC/NRML, a `ret`
+ * (validity) field showing "DAY" in the worked example and "IOC" referenced
+ * only in the appendix, and `mktProtection` + `disclosedQty` fields on the
+ * place-order request itself.
+ */
+export const capabilities = {
+  bracket: false, // "BO" is a documented orderType value, but nothing found this session confirms whether Alice Blue's Ant API currently executes it end-to-end vs. accepting-then-rejecting it. NEEDS VERIFICATION before ever enabling.
+  cover: false, // Same as bracket — "CO" is documented but its current live behaviour is unconfirmed.
+  ioc: false, // NEEDS VERIFICATION — "IOC" appears only in the docs' appendix, not in the worked place-order example (which shows "DAY").
+  mtf: false, // NEEDS VERIFICATION — no MTF product code found anywhere in Alice Blue's own docs.
+  nativeMarketProtection: true, // CONFIRMED — `mktProtection` is a real field on Alice Blue's own place-order request.
+  maxLegQty: null, // NEEDS VERIFICATION — no broker-specific per-order qty cap found; the NSE exchange-wide freeze quantity (spec §8 slicing) is the only confirmed ceiling. Do not read null as "unlimited".
+  products: ["CNC", "MIS", "NRML"], // Confirmed from the same docs page.
+};
+
 export async function testConnection(creds) {
   try {
     await getSession(creds);

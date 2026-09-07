@@ -35,6 +35,10 @@ export function getChartColors(_isDark?: boolean) {
     primary: "189 93% 48%",
     text: "215 15% 55%",
     grid: "210 12% 15%",
+    warning: "32 63% 45%",
+    levelPoc: "199 89% 48%",
+    levelValueArea: "217 91% 60%",
+    levelIvBand: "271 81% 56%",
   };
 
   if (typeof window === "undefined") {
@@ -44,8 +48,13 @@ export function getChartColors(_isDark?: boolean) {
       primary: `hsl(${fallback.primary})`,
       text: `hsl(${fallback.text})`,
       grid: `hsl(${fallback.grid})`,
+      warning: `hsl(${fallback.warning})`,
+      levelPoc: `hsl(${fallback.levelPoc})`,
+      levelValueArea: `hsl(${fallback.levelValueArea})`,
+      levelIvBand: `hsl(${fallback.levelIvBand})`,
       bullishRaw: fallback.bullish,
       bearishRaw: fallback.bearish,
+      warningRaw: fallback.warning,
     };
   }
 
@@ -54,6 +63,7 @@ export function getChartColors(_isDark?: boolean) {
 
   const bullishRaw = raw("--bullish", fallback.bullish);
   const bearishRaw = raw("--bearish", fallback.bearish);
+  const warningRaw = raw("--warning", fallback.warning);
 
   return {
     bullish: `hsl(${bullishRaw})`,
@@ -61,7 +71,12 @@ export function getChartColors(_isDark?: boolean) {
     primary: `hsl(${raw("--primary", fallback.primary)})`,
     text: `hsl(${raw("--muted-foreground", fallback.text)})`,
     grid: `hsl(${raw("--chart-grid", fallback.grid)})`,
+    warning: `hsl(${warningRaw})`,
+    levelPoc: `hsl(${raw("--level-poc", fallback.levelPoc)})`,
+    levelValueArea: `hsl(${raw("--level-value-area", fallback.levelValueArea)})`,
+    levelIvBand: `hsl(${raw("--level-iv-band", fallback.levelIvBand)})`,
     bullishRaw,
     bearishRaw,
+    warningRaw,
   };
 }

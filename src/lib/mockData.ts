@@ -30,6 +30,11 @@ export interface OptionLegData {
   vega: number;
   bidPrice: number;
   askPrice: number;
+  // Only populated when the chain came from Dhan — NSE's fallback chain has no
+  // order-routing token, only a display-formatted identifier string. Presence
+  // of securityId is exactly what gates real order placement to Dhan-sourced data.
+  securityId?: string;
+  exchangeSegment?: string;
 }
 
 export interface ExpiryDate {
@@ -150,15 +155,6 @@ export const fnoStocks = [
 ];
 
 // -- Utility --
-
-
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
 
 
 // -- Analysis Utilities (operate on live chain data) --
@@ -644,6 +640,7 @@ export interface Position {
   pnlPercent: number;
   delta: number;
   theta: number;
+  gamma: number;
   iv: number;
 }
 
@@ -695,11 +692,19 @@ export interface GreeksDecayPoint {
   totalDelta: number;
 }
 
-export function simulateGreeksDecay(positions: Position[], daysForward: number = 7): GreeksDecayPoint[] {
-
-  const rand = seededRandom(positions.length * 31);
+// Projects each position's REAL theoretical price at T+d via Black-Scholes
+// (spot and IV held constant, DTE reduced by d) — this isolates pure time
+// decay, the standard "what does theta alone do to me" question every
+// options holder asks. Previously this used an arbitrary decay-factor formula
+// plus seeded random noise, which produced a specific-looking but entirely
+// fabricated P&L path. Callers must resolve each position's current spot and
+// remaining DTE themselves (see PositionTracker.tsx) — this module has no
+// store access, to avoid a circular import back into positionStore.ts.
+export function simulateGreeksDecay(
+  positions: (Position & { spotPrice: number; daysToExpiry: number })[],
+  daysForward: number = 7
+): GreeksDecayPoint[] {
   const points: GreeksDecayPoint[] = [];
-  let cumulativeTheta = 0;
 
   for (let d = 0; d <= daysForward; d++) {
     let totalPnl = 0;
@@ -708,20 +713,22 @@ export function simulateGreeksDecay(positions: Position[], daysForward: number =
 
     for (const p of positions) {
       const mult = p.action === "BUY" ? 1 : -1;
-      const decayFactor = Math.max(0, 1 - d * 0.12 * (1 + d * 0.03));
-      const priceMove = p.currentPrice * decayFactor + (rand() - 0.5) * p.currentPrice * 0.05;
-      const pnl = (priceMove - p.entryPrice) * mult * p.lots * p.lotSize;
-      totalPnl += pnl;
-      totalTheta += p.theta * mult * p.lots * p.lotSize;
-      totalDelta += p.delta * mult * p.lots * p.lotSize;
+      const remainingDTE = Math.max(p.daysToExpiry - d, 0.001);
+      const greeks = calculateGreeks(p.spotPrice, p.strike, remainingDTE, p.iv || 14, 6.5);
+      const theoPrice = p.type === "CE" ? greeks.callPrice : greeks.putPrice;
+      const legDelta = p.type === "CE" ? greeks.delta.call : greeks.delta.put;
+      const legTheta = p.type === "CE" ? greeks.theta.call : greeks.theta.put;
+
+      totalPnl += (theoPrice - p.entryPrice) * mult * p.lots * p.lotSize;
+      totalTheta += legTheta * mult * p.lots * p.lotSize;
+      totalDelta += legDelta * mult * p.lots * p.lotSize;
     }
 
-    cumulativeTheta += totalTheta;
     points.push({
       day: d,
       label: d === 0 ? "Today" : `T+${d}`,
       totalPnl: Math.round(totalPnl),
-      totalTheta: Math.round(cumulativeTheta),
+      totalTheta: Math.round(totalTheta),
       totalDelta: Math.round(totalDelta),
     });
   }

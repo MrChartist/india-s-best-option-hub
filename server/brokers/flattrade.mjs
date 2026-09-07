@@ -30,6 +30,7 @@ import { postJData } from "./flattradeAuth.mjs";
 import { getOptionRows, distinctExpiriesAscending, resolveIndexToken } from "./flattradeInstruments.mjs";
 import { batchWithDelay } from "../lib/batch.mjs";
 import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
+import * as omsNoren from "./oms-noren.mjs";
 
 export const id = "flattrade";
 export const credentialFields = ["clientId", "apiKey", "apiSecret", "requestCode"];
@@ -173,3 +174,45 @@ export async function fetchOptionChain(creds, symbol, expiry) {
 
   return { status: "success", data: { oc, last_price: spot } };
 }
+
+// ── Order placement — shared Noren OMS glue lives in oms-noren.mjs; this
+// block is just the field map (uid comes from `clientId`, matches the uid/
+// actid this module's own postJData() already injects above) plus the
+// capability facts this repo can actually verify.
+//
+// No static IP required for Flattrade's order endpoints per the build spec
+// (1CLIQ-TRADE-SPEC.md §8) — that requirement is Dhan-specific.
+
+const NOREN_CONFIG = { label: "Flattrade", postJData, uidField: "clientId" };
+
+export const placeOrder = (creds, order, resolvedLotSize) =>
+  omsNoren.placeOrder(NOREN_CONFIG, creds, order, resolvedLotSize);
+export const getOrders = (creds) => omsNoren.getOrders(NOREN_CONFIG, creds);
+export const getOrderStatus = (creds, orderId) => omsNoren.getOrderStatus(NOREN_CONFIG, creds, orderId);
+export const cancelOrder = (creds, orderId) => omsNoren.cancelOrder(NOREN_CONFIG, creds, orderId);
+
+export const capabilities = {
+  // Noren's PlaceOrder documents product codes "B" (bracket) and "H" (cover),
+  // but SEBI's 2021 circular led most brokers to withdraw BO/CO from retail
+  // order APIs. NEEDS VERIFICATION against a live Flattrade account — nothing
+  // in this repo confirms either is still live for Flattrade specifically.
+  bracket: false,
+  cover: false,
+  // IOC is a standard `ret` validity value on the Noren OMS this broker runs
+  // (exchange-level order attribute, not broker-added) — same jData shape
+  // already confirmed for GetQuotes/Limits at the top of this file.
+  ioc: true,
+  // Margin Trade Funding isn't documented anywhere in this repo for
+  // Flattrade, and PRODUCT_CODE_MAP in oms-noren.mjs has no distinct Noren
+  // code for it. NEEDS VERIFICATION.
+  mtf: false,
+  // Whether Flattrade's own OMS exposes a configurable market-protection
+  // band beyond NSE's own default operating range is unconfirmed from any
+  // doc cited in this repo. NEEDS VERIFICATION.
+  nativeMarketProtection: false,
+  // No Flattrade-specific per-order quantity ceiling is documented in this
+  // repo below NSE's own per-symbol freeze-quantity limit. NEEDS
+  // VERIFICATION before treating this as anything but "exchange limit only".
+  maxLegQty: null,
+  products: ["CNC", "INTRADAY", "MARGIN"],
+};

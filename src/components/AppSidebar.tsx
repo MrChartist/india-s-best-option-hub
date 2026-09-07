@@ -1,4 +1,4 @@
-import { BarChart3, Briefcase, LayoutDashboard, Layers, Moon, Settings, Star, Sun, TableProperties } from "lucide-react";
+import { BarChart3, Briefcase, LayoutDashboard, Layers, ListOrdered, Moon, Radar, Settings, Star, Sun, TableProperties, Zap } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -9,6 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarHeader,
   SidebarSeparator,
   SidebarFooter,
@@ -20,13 +23,24 @@ import { cn } from "@/lib/utils";
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, shortcut: "1" },
   { title: "Option Chain", url: "/option-chain", icon: TableProperties, shortcut: "2" },
-  { title: "OI Analysis", url: "/oi-analysis", icon: BarChart3, shortcut: "3" },
+  {
+    title: "OI Analysis", url: "/oi-analysis", icon: BarChart3, shortcut: "3",
+    subItems: [
+      { title: "Overview", url: "/oi-analysis", end: true },
+      { title: "Trending OI", url: "/oi-analysis/trending-oi" },
+      { title: "Strike Analysis", url: "/oi-analysis/strike-analysis" },
+      { title: "Delta Tracker", url: "/oi-analysis/delta-tracker" },
+    ],
+  },
   { title: "Watchlist", url: "/watchlist", icon: Star, shortcut: "4" },
+  { title: "Scanner", url: "/scanner", icon: Radar, shortcut: "7" },
 ];
 
 const tradingItems = [
+  { title: "1Cliq Trade", url: "/one-cliq", icon: Zap, shortcut: "9" },
   { title: "Strategy Builder", url: "/strategy-builder", icon: Layers, shortcut: "5" },
   { title: "Position Tracker", url: "/position-tracker", icon: Briefcase, shortcut: "6" },
+  { title: "Orders", url: "/orders", icon: ListOrdered, shortcut: "8" },
 ];
 
 const settingItems = [
@@ -38,7 +52,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { isDark, toggle: toggleTheme } = useTheme();
 
-  const renderNavItems = (items: { title: string; url: string; icon: typeof LayoutDashboard; shortcut?: string }[]) =>
+  const renderNavItems = (items: { title: string; url: string; icon: typeof LayoutDashboard; shortcut?: string; subItems?: { title: string; url: string; end?: boolean }[] }[]) =>
     items.map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild tooltip={collapsed ? item.title : undefined} className={collapsed ? "!size-10 !p-0 rounded-xl" : undefined}>
@@ -70,6 +84,25 @@ export function AppSidebar() {
             )}
           </NavLink>
         </SidebarMenuButton>
+
+        {!collapsed && item.subItems && (
+          <SidebarMenuSub>
+            {item.subItems.map((sub) => (
+              <SidebarMenuSubItem key={sub.url}>
+                <SidebarMenuSubButton asChild>
+                  <NavLink
+                    to={sub.url}
+                    end={sub.end}
+                    className="text-sidebar-foreground/65 transition-colors hover:text-sidebar-accent-foreground"
+                    activeClassName="!text-primary font-medium"
+                  >
+                    {sub.title}
+                  </NavLink>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        )}
       </SidebarMenuItem>
     ));
 
@@ -89,7 +122,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <h1 className="text-base font-semibold text-foreground leading-none">Mr. Chartist</h1>
+              <h1 className="text-base font-semibold text-foreground leading-none">Mr. <span className="font-serif italic font-medium">Chartist</span></h1>
               <p className="text-xs text-muted-foreground/75 mt-1 tracking-[0.14em] font-semibold uppercase">Options Terminal</p>
             </div>
           )}

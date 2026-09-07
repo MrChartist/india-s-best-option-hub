@@ -15,7 +15,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
+[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade Terminal](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
 
 </div>
 
@@ -23,7 +23,9 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 
 > **🚀 v1.0 — Actively Maintained**
 >
-> Core features are stable and production-ready. Some advanced broker integrations (Zerodha, Angel One, Upstox) have UI support but are pending backend relay implementation — contributions welcome! See the [Roadmap](#-current-status--roadmap) for what's next.
+> Core features are stable and production-ready. 33 Indian brokers now have real backend option-chain/expiry/connection support (bring your own API key) — see the [Roadmap](#-current-status--roadmap) for what's next.
+>
+> **New: 1Cliq Trade terminal** (`/one-cliq`) — a keyboard-driven, arrow-key one-click execution terminal inspired by dedicated scalping tools, with a full arming model, spot-referenced SL/Target math, and a real fill simulator. See [1Cliq Trade Terminal](#-1cliq-trade-terminal) below.
 >
 > Runs locally on your own machine. No hosting, no cloud database, and no required broker key for the basic dashboard experience.
 >
@@ -138,14 +140,19 @@ You can use the basic dashboard without broker credentials. Add a free Dhan API 
 |---------|-------------|--------|
 | **📊 Live Dashboard** | Real-time NIFTY, BANKNIFTY prices, VIX, sector heatmap, market sentiment score | ✅ Working |
 | **⛓️ Option Chain** | Full strike-wise data — LTP, OI, OI Change, Volume, IV for every CE/PE strike | ✅ Working |
-| **📈 OI Analysis** | ATM zone, OI heatmap, support/resistance, IV/PCR modules, and 10 analysis tabs | ✅ Working |
+| **📈 OI Analysis** | ATM zone, OI heatmap, support/resistance, delta tracking, and IV/PCR modules across 4 focused pages | ✅ Working |
+| **⚡ 1Cliq Trade Terminal** | Keyboard-driven one-click execution — arrow-key order entry, spot-referenced SL/Target, arming model, fill simulator | 🧪 Beta (paper-first) |
 | **🧮 Strategy Builder** | Build Bull Call Spread, Iron Condor, Straddle — see payoff chart before you trade | ✅ Working |
 | **💼 Position Tracker** | Track your open positions with real-time P&L | ✅ Working |
+| **📋 Orders** | Live order book (Dhan) with cancel support, alongside the app's simulated paper trades | ✅ Working |
 | **⭐ Watchlist** | Save your favorite stocks for quick access | ✅ Working |
-| **🔑 Broker API Keys** | Connect your Dhan/Zerodha/Angel One account for live data (BYOK) | ✅ Working (Dhan fully connected) |
+| **📡 Futures Scanner** | Real OI buildup/covering signals, volume, basis & rollover across index + full F&O stock universe | ✅ Working |
+| **🔑 Broker API Keys** | Connect your own broker account for live data (BYOK) — 33 brokers supported | ✅ Working |
 | **📡 WebSocket Live Feed** | Real-time price ticks via Dhan WebSocket binary protocol | ✅ Working |
 | **🗄️ Local Database** | IndexedDB-based persistence for price snapshots and candle history | ✅ Working |
 | **📥 Chart Downloader** | Batch download OHLCV candles via Yahoo Finance (free, no API key) | ✅ Working |
+
+> **Live Trading is off by default everywhere.** Buy/Sell actions place simulated paper trades until you explicitly flip the "Live Trading" toggle (Broker Settings or the Option Chain header) and acknowledge a real-money warning. See [Disclaimer](#️-disclaimer).
 
 ### Dashboard Sections
 
@@ -154,13 +161,57 @@ The dashboard is packed with live data widgets:
 - **Index Cards** — NIFTY 50, BANK NIFTY, FINNIFTY, MIDCAP NIFTY with live prices & intraday sparklines
 - **Data Sources Bar** — Real-time status of all 6 data sources (Dhan API, Dhan WS, Live Feed, NSE, TradingView, VIX)
 - **Key Metrics** — PCR, VIX, Max Pain for NIFTY and BANKNIFTY
-- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry (based on IV)
-- **IV Rank Scanner** — Scans major stocks for IV Rank with buy/sell signals
+- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry, from each index's own real ATM IV
+- **Futures Buildup Scanner** — Top real Long/Short Buildup signals from the full F&O universe, linking to the full `/scanner` page
+- **FII/DII Activity** — Latest institutional cash-market net buy/sell, published by NSE after each session
 - **Top Movers** — Today's biggest gainers and losers in F&O
 - **Futures & VIX** — Premium/Discount analysis and VIX trend charts
 - **Sector Performance** — Color-coded sector heatmap showing money flow
 - **Most Active F&O** — Stocks with highest trading activity + OI interpretation
 - **Market Breadth** — Overall market health score, Advance/Decline ratio, VIX regime
+
+---
+
+## ⚡ 1Cliq Trade Terminal
+
+A dedicated, keyboard-first execution terminal at `/one-cliq` (⌘9 / Ctrl+9), inspired by the fast-execution terminals professional scalpers use — built because 1Cliq-style tools run their trailing-stop logic in the browser tab, so closing the tab or losing the connection silently kills every automation. This app's architecture is designed to move that logic server-side instead (see [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md) for the full build spec and roadmap).
+
+**The core architectural idea — the risk engine lives on the server, not in a browser tab:**
+
+```mermaid
+flowchart TD
+    WS["Dhan WebSocket<br/>binary ticks"] --> Parse["parseDhanBinaryPacket()"]
+    Parse --> Bus(["tickBus"])
+    Bus --> Risk{{"riskEngine.evaluate()<br/>spot-referenced SL / Target / trailing"}}
+    Risk -->|"trigger fires"| Order["placeOrder()<br/>real exit, server-side"]
+    Bus --> Fanout["per-client fan-out"]
+    Fanout --> Browser["🖥️ Browser<br/>view + arming client only<br/>never places a managed exit"]
+
+    style Risk fill:#0d1117,stroke:#FF6633,color:#fff
+    style Order fill:#0d1117,stroke:#ef4444,color:#fff
+    style Browser fill:#0d1117,stroke:#22d3ee,color:#fff
+```
+
+The risk engine evaluates **before** the browser fan-out, so an exit is never late because a UI tab was slow, backgrounded, or closed — the single-writer server state machine is what a closed laptop lid can't defeat. (This is the target architecture from the spec; check the phase checklist below for what's actually wired end-to-end today.)
+
+**Shipped (paper-first terminal shell):**
+- Full CE / spot / PE strip with day-range meters, arrow-key strike stepping, and lot presets
+- Complete keyboard layer — arrow keys for market orders, `+`/`-` for lot size, `F6`/`F7` for close-all/cancel-all, `O` to arm one-click, `Esc` to disarm — scoped so it never breaks the app's existing shortcuts (`/`, `⌘K`, `⌘1`–`⌘9`)
+- An explicit arming model: one-click execution requires Live Trading to be on **and** a deliberate arm action **and** the terminal to be focused, auto-disarms after 90s idle, and never persists across a reload
+- A realistic fill simulator (bid/ask-aware, slippage, latency) so paper trades feel like real order flow, not instant LTP fills
+- Honest partial-exit handling — a 25% exit that rounds to less than one lot is disabled with an explanation, never silently rounded up
+
+**Shipped (server-side risk & panic infrastructure):**
+- A real server-side risk engine (`server/lib/riskEngine.mjs`) — spot-referenced SL/Target math, a trailing-stop ratchet, and a position state machine, all running server-side with a 1s dead-man's-switch heartbeat so the calculation survives a closed browser tab. The armed-status badge in the terminal renders **only** from that server heartbeat, never optimistic client state. **Real order placement is not wired into this engine yet** — it calls an injectable stub, so this is the risk *calculation* running server-side, not yet a live exit.
+- A three-wave panic layer (`server/lib/panicLayer.mjs`) wired to real Dhan calls: `F6`/`F7` in live mode hit real `panic-close-all`/`panic-cancel-all` endpoints that fetch your actual open positions/orders from Dhan, close shorts-then-longs-then-futures with a hard barrier between waves, and only report success after re-fetching and confirming the book is actually empty.
+- A trading lock (`unlocked` / `locked-by-user` / loss-triggered states) with a 10-minute cooling-off + typed-confirmation ritual to clear a loss lock — computed server-side, not from client-supplied timers.
+- Portfolio read endpoints (`positions`, `holdings`, `funds`, `trades`, `modify-order`) added to the proxy server — not yet wired to any page's UI.
+- A basket/tranche resolution engine (`server/lib/basketEngine.mjs`) plus a "Save as Basket" button in Strategy Builder that previews which legs are live-ready before saving — resolves and reports, **does not place orders**.
+- Broader broker order support: Dhan (live-verified), the Noren family — Flattrade/Shoonya/TradeSmart/Zebu (implemented, unverified against a live account), and Zerodha/Fyers (implemented against live-verified API docs). Alice Blue/5paisa/Kotak Neo remain data-only for now.
+
+> **This build went through an adversarial correctness audit before merging**, specifically checking for the money-losing failure modes `1CLIQ-TRADE-SPEC.md` §13 calls out. The audit caught a real one — the panic-close-all/cancel-all endpoints could be made to trust a client-supplied position list instead of always re-fetching from Dhan, which would have bypassed lot-size validation entirely. **That's fixed** (the endpoints now always use the fresh broker fetch), along with two related hardening fixes to the panic layer's success reporting and the trading-lock cooling-off timer. A separate audit of the older, already-shipped order-placement path (the plain "Live Trading" toggle on Option Chain, not the 1Cliq terminal) found that path is currently non-functional due to a CORS configuration gap — which means it fails safe today, but the fix needs a proper server-side session-arming design, not a quick patch, so it's tracked as open rather than rushed.
+
+**Still not wired end-to-end:** the risk engine's SL/Target exits and the basket engine's deploy step don't place real orders yet — both are the calculation/resolution layer only. Treat the 1Cliq terminal as paper-only for actual execution until that lands. Track exact status in `1CLIQ-TRADE-SPEC.md`'s roadmap (§11).
 
 ---
 
@@ -260,17 +311,20 @@ The proxy server will automatically detect your Dhan credentials and connect to 
 
 ### Step 5 (Optional): Add Other Broker Keys
 
-The Broker Settings page supports entering API keys for 7 Indian brokers:
+The Broker Settings page supports entering API keys for **33 Indian brokers** — each with real backend option-chain, expiry-list, and connection-test support (see `server/brokers/registry.mjs` for the full list). Highlights:
 
 | Broker | Status |
 |--------|--------|
-| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket) |
-| **Zerodha (Kite)** | 🔧 UI ready, backend integration coming soon |
-| **Angel One (SmartAPI)** | 🔧 UI ready, backend integration coming soon |
-| **Upstox** | 🔧 UI ready, backend integration coming soon |
-| **Fyers** | 🔧 UI ready, backend integration coming soon |
-| **5paisa** | 🔧 UI ready, backend integration coming soon |
-| **Alice Blue** | 🔧 UI ready, backend integration coming soon |
+| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket, Futures Scanner) |
+| **Zerodha (Kite)** | ✅ Option chain, expiry list, LTP |
+| **Angel One (SmartAPI)** | ✅ Option chain, expiry list, LTP (auto TOTP login) |
+| **Upstox** | ✅ Option chain, expiry list, LTP |
+| **Fyers** | ✅ Option chain, expiry list, LTP |
+| **5paisa** | ✅ Option chain, expiry list, LTP |
+| **Alice Blue** | ✅ Option chain, expiry list, LTP (WebSocket quotes) |
+| **+26 more** | Zebu, Shoonya, Flattrade, Kotak, Groww, Paytm, HDFC Sky, and others — see Broker Settings for the full list |
+
+The Futures Scanner and dashboard-wide index/sector data always use Dhan → NSE regardless of your active broker, since those are bulk/multi-symbol feeds better served by a full-universe data source than any single broker's per-symbol quote API.
 
 ---
 
@@ -291,13 +345,26 @@ Priority: Dhan API (1st) → NSE India (2nd) → TradingView (3rd) → Yahoo Fin
 
 ### How the Data Flows
 
-```
-Your Browser  ←→  Local Proxy Server (:4002)  ←→  Dhan / NSE / TradingView
-      ↑                    ↑
-      │                    │
-   React App          Handles CORS,
-   (port 4001)        caching, retry,
-                       WebSocket relay
+```mermaid
+flowchart LR
+    Browser["🖥️ Your Browser<br/>React app · :4001"]
+    Proxy["🔀 Local Proxy Server<br/>CORS · caching · retry · WS relay · :4002"]
+    Dhan[("Dhan API<br/>1st priority")]
+    NSE[("NSE India<br/>2nd — fallback")]
+    TV[("TradingView<br/>3rd — fallback")]
+    YF[("Yahoo Finance<br/>charts only")]
+
+    Browser <--"HTTP requests"--> Proxy
+    Dhan =="binary WebSocket ticks"==> Proxy
+    Proxy -->|option chain, Greeks, ticks| Dhan
+    Proxy -->|indices, sectors, A/D| NSE
+    Proxy -->|F&O stock prices| TV
+    Proxy -->|OHLCV history| YF
+    Proxy =="live ticks, JSON"==> Browser
+
+    style Browser fill:#0d1117,stroke:#FF6633,color:#fff
+    style Proxy fill:#0d1117,stroke:#22d3ee,color:#fff
+    style Dhan fill:#0d1117,stroke:#6366f1,color:#fff
 ```
 
 1. Your browser sends requests to the **local proxy server** (runs on your machine)
@@ -327,6 +394,31 @@ Hover over any indicator to see detailed connection info, including tick count, 
 
 ## 📖 Pages Guide
 
+```mermaid
+flowchart LR
+    subgraph Markets["📊 Markets"]
+        direction TB
+        Dash["Dashboard<br/>⌘1"]
+        Chain["Option Chain<br/>⌘2"]
+        OI["OI Analysis ⌘3<br/><i>Overview · Trending OI<br/>Strike Analysis · Delta Tracker</i>"]
+        Watch["Watchlist<br/>⌘4"]
+        Scan["Scanner<br/>⌘7"]
+    end
+    subgraph Trading["⚡ Trading Tools"]
+        direction TB
+        OneCliq["1Cliq Trade<br/>⌘9"]
+        Strat["Strategy Builder<br/>⌘5"]
+        Pos["Position Tracker<br/>⌘6"]
+        Ord["Orders<br/>⌘8"]
+    end
+    subgraph Settings["⚙️ Settings"]
+        direction TB
+        Brk["Broker API Keys"]
+    end
+
+    style OneCliq fill:#0d1117,stroke:#FF6633,color:#fff
+```
+
 ### 1. Dashboard (`/`)
 
 The main dashboard with 10+ live data sections. Everything refreshes automatically during market hours.
@@ -351,38 +443,44 @@ Full option chain for any F&O symbol — NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY,
 
 ### 3. OI Analysis (`/oi-analysis`)
 
-Deep analysis of Open Interest data with summary cards, ATM zone analysis, OI heatmap, support/resistance, multi-expiry context, IV/PCR modules, and 10 analysis tabs:
+Deep analysis of Open Interest data, split into four focused pages (shared header with ATM zone summary + expiry picker):
 
-| Tab | What It Shows |
-|-----|--------------|
-| **Delta OI** | Directional exposure at each strike |
-| **Strike PCR** | Put-Call ratio per strike |
-| **OI Correlation** | OI, OI change, and volume relationships |
-| **OI Distribution** | Where Call/Put writers are concentrated |
-| **OI Change** | Strike-wise change in open interest |
-| **Multi-Expiry** | Weekly vs Monthly OI comparison |
-| **IV Smile** | Implied Volatility skew across strikes |
-| **PCR Trend** | Live PCR gauge + OI breakdown |
-| **OI Interpretation** | Buildup, unwinding, short covering, and active strikes |
-| **Top Strikes** | Highest call and put OI strikes |
+| Page | Route | What It Shows |
+|------|-------|--------------|
+| **Overview** | `/oi-analysis` | Summary cards, OI heatmap, support/resistance, IV/PCR gauge |
+| **Trending OI** | `/oi-analysis/trending-oi` | OI Change, OI Distribution, and OI Interpretation (buildup/unwinding/short covering) |
+| **Strike Analysis** | `/oi-analysis/strike-analysis` | Delta OI, Strike PCR, OI Correlation, Multi-Expiry comparison, and Top Strikes — as sub-tabs |
+| **Delta Tracker** | `/oi-analysis/delta-tracker` | Live strike-wise delta exposure tracked over time |
 
-### 4. Strategy Builder (`/strategy-builder`)
+### 4. Scanner (`/scanner`)
+
+Real-time futures scanner across the full F&O stock + index universe — OI buildup/covering signals, volume, basis, and a rollover table, with search and signal filters.
+
+### 5. Strategy Builder (`/strategy-builder`)
 
 Build any options strategy and see its payoff chart before trading.
 
 **Pre-built strategies:** Bull Call Spread, Bear Put Spread, Long Straddle, Iron Condor, Butterfly, Collar, and more.
 
-### 5. Position Tracker (`/position-tracker`)
+### 6. Position Tracker (`/position-tracker`)
 
-Track your open option positions with simulated P&L.
+Track your open option positions with simulated P&L, position sizing helper, and trade journal analytics.
 
-### 6. Watchlist (`/watchlist`)
+### 7. Orders (`/orders`)
+
+Live Dhan order book (today's orders, 15s auto-refresh) with cancel support for pending/in-transit orders.
+
+### 8. 1Cliq Trade (`/one-cliq`)
+
+The keyboard-driven one-click execution terminal — see [1Cliq Trade Terminal](#-1cliq-trade-terminal) above.
+
+### 9. Watchlist (`/watchlist`)
 
 Save your favorite F&O symbols for quick access.
 
-### 7. Broker Settings (`/broker-settings`)
+### 10. Broker Settings (`/broker-settings`)
 
-Configure your broker API credentials. See real-time connection status for all data sources. Supports 7 Indian brokers with BYOK (Bring Your Own Key) architecture.
+Configure your broker API credentials. See real-time connection status for all data sources. Supports 33 Indian brokers with BYOK (Bring Your Own Key) architecture.
 
 ---
 
@@ -396,6 +494,12 @@ Configure your broker API credentials. See real-time connection status for all d
 | `⌘4` or `Ctrl+4` | Go to Watchlist |
 | `⌘5` or `Ctrl+5` | Go to Strategy Builder |
 | `⌘6` or `Ctrl+6` | Go to Position Tracker |
+| `⌘7` or `Ctrl+7` | Go to Scanner |
+| `⌘8` or `Ctrl+8` | Go to Orders |
+| `⌘9` or `Ctrl+9` | Go to 1Cliq Trade terminal |
+| `/` | Open Command Palette |
+
+The 1Cliq Trade terminal (`/one-cliq`) layers on a full second keyboard scheme of its own — arrow keys, lot-size steps, arm/disarm, close-all/cancel-all — scoped to that route only. Press `?` inside the terminal for its cheat sheet.
 
 ---
 
@@ -420,8 +524,14 @@ Configure your broker API credentials. See real-time connection status for all d
 
 ```
 india-s-best-option-hub/
-├── proxy-server.mjs          # Local proxy server (Dhan + NSE + TradingView + WebSocket relay)
-├── .env.example              # Environment variable template  
+├── 1CLIQ-TRADE-SPEC.md       # Build spec + roadmap for the 1Cliq Trade terminal
+├── proxy-server.mjs          # Local proxy server (broker registry + NSE + TradingView + WebSocket relay + order routes)
+├── server/                   # Multi-broker backend — dependency-free .mjs modules
+│   ├── brokers/               # One module per broker (33 total) + registry.mjs (shared contract)
+│   └── lib/                   # Shared helpers — instrument/lot-size cache, market-hours clock, order guard,
+│                               # Dhan order placement, binary tick parsing, dynamic feed subscriptions,
+│                               # daily snapshots, futures utils, batching, Black-Scholes, TOTP
+├── .env.example              # Environment variable template
 ├── package.json              # Dependencies and scripts
 ├── vite.config.ts            # Vite configuration (port 4001)
 ├── tailwind.config.ts        # Tailwind CSS with custom design system
@@ -435,12 +545,21 @@ india-s-best-option-hub/
 │   ├── pages/                # Each page = one route
 │   │   ├── Index.tsx         # Dashboard (/) — 10+ widget sections
 │   │   ├── OptionChain.tsx   # Option Chain (/option-chain)
-│   │   ├── OIAnalysis.tsx    # OI Analysis (/oi-analysis) — ATM zone + 10 analysis tabs
-│   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
+│   │   ├── oi-analysis/      # OI Analysis (/oi-analysis) — layout + Overview/Trending OI/Strike Analysis/Delta Tracker
+│   │   ├── Scanner.tsx       # Futures Scanner (/scanner) — real OI buildup signals + rollover, F&O-wide
 │   │   ├── StrategyBuilder.tsx # Strategy Builder (/strategy-builder)
 │   │   ├── PositionTracker.tsx # Position Tracker (/position-tracker)
+│   │   ├── Orders.tsx        # Orders (/orders) — live Dhan order book with cancel
+│   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
 │   │   ├── BrokerSettings.tsx  # Broker Settings (/broker-settings)
 │   │   └── NotFound.tsx      # 404 page
+│   │
+│   ├── features/
+│   │   └── one-cliq/         # 1Cliq Trade terminal (/one-cliq) — feature-scoped, own components/hooks/lib
+│   │       ├── OneCliqTerminal.tsx   # Route entry / layout shell
+│   │       ├── components/           # ActionBar, ArmBanner, DayRangeMeter, LegQuoteCard, PositionsGrid, ...
+│   │       ├── hooks/                 # useArming, useLegQuote, useQuickOrder, useTerminalActions/Config/Hotkeys
+│   │       └── lib/                   # fillModel, keymap, prng, rateLimiter, tickStore, isTypingTarget
 │   │
 │   ├── components/           # Reusable UI pieces
 │   │   ├── ui/               # Base components (Button, Card, Table, Badge, etc.)
@@ -454,15 +573,22 @@ india-s-best-option-hub/
 │   │   │   ├── SectorHeatmap.tsx     # Color-coded sector performance grid
 │   │   │   ├── MostActiveFnO.tsx     # Highest activity F&O stocks
 │   │   │   ├── MarketBreadth.tsx     # Sentiment score, A/D ratio, VIX regime
-│   │   │   ├── FuturesVIX.tsx        # Futures premium/discount + VIX chart
+│   │   │   ├── FuturesVIX.tsx        # Index spot + VIX trend (honest — no fake futures data)
 │   │   │   ├── GiftNiftyExpiry.tsx   # GIFT Nifty + expiry countdown
+│   │   │   ├── GlobalMarketCues.tsx  # Overnight US/Asia cues feeding into the day's setup
+│   │   │   ├── TopBuildupSignals.tsx # Real top Long/Short Buildup names, links to /scanner
+│   │   │   ├── FIIDIIActivity.tsx    # Real FII/DII net cash-market activity
 │   │   │   ├── WelcomeBanner.tsx     # Welcome message
 │   │   │   ├── QuickTradeActions.tsx # Quick navigation cards
 │   │   │   ├── SectionHeader.tsx     # Section titles with tooltips
 │   │   │   └── InfoTooltip.tsx       # Educational tooltips
-│   │   ├── IVPercentileGauge.tsx     # IV analysis with live smile chart
-│   │   ├── IVRankWidget.tsx          # IV rank scanner (multi-symbol)
+│   │   ├── scanner/                  # Futures Scanner page pieces (table, filters, rollover)
+│   │   ├── GammaExposure.tsx         # Real GEX-by-strike chart + dealer positioning
 │   │   ├── ExpectedMoveWidget.tsx    # Expected move calculator
+│   │   ├── LiveTradingToggle.tsx     # The one real-money gate every Buy/Sell action checks
+│   │   ├── TradeConfirmDialog.tsx    # Confirm dialog for manual order placement
+│   │   ├── PositionSizeCalculator.tsx # Risk-based position sizing helper
+│   │   ├── TradeJournalAnalytics.tsx # Win-rate / P&L analytics over closed positions
 │   │   ├── DashboardLayout.tsx       # Sidebar + main content layout
 │   │   ├── AppSidebar.tsx            # Navigation sidebar with all routes
 │   │   ├── CommandPalette.tsx        # Cmd+K command palette
@@ -473,7 +599,7 @@ india-s-best-option-hub/
 │   │   └── ...                       # More specialized components
 │   │
 │   ├── hooks/                # React hooks (data fetching & state)
-│   │   ├── useMarketData.ts  # All market data hooks (option chain, indices, F&O stocks)
+│   │   ├── useMarketData.ts  # All market data hooks (option chain, indices, F&O stocks, futures scanner, FII/DII)
 │   │   ├── useWebSocket.ts   # WebSocket connection for live Dhan ticks
 │   │   ├── useLocalDatabase.ts # IndexedDB read/write hooks
 │   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
@@ -484,8 +610,15 @@ india-s-best-option-hub/
 │   │   ├── marketApi.ts      # API calls (Dhan → NSE → TradingView fallback chain)
 │   │   ├── websocketClient.ts # Browser-side WebSocket client for Dhan relay
 │   │   ├── brokerConfig.ts   # Broker definitions + localStorage key management
+│   │   ├── brokerCatalog.ts  # Static broker metadata (logos, docs links) for Broker Settings
+│   │   ├── liveArm.ts        # Structural client-side gate: placeOrder() is unconstructible without an armed token
 │   │   ├── oiUtils.ts        # OI analysis calculations (Max Pain, PCR, Delta OI)
+│   │   ├── futuresUtils.ts   # Futures row types + buildup-signal coloring (shared by Scanner + dashboard)
+│   │   ├── deltaStrikeTracking.ts # Strike-wise delta history for the Delta Tracker page
+│   │   ├── trendingOiStore.ts # OI-change history persistence for Trending OI
+│   │   ├── instrumentKeys.ts # Exchange/segment/security-id key helpers
 │   │   ├── positionStore.ts  # Position tracking with lot sizes
+│   │   ├── alertStore.ts     # Alert persistence (localStorage)
 │   │   ├── localDatabase.ts  # IndexedDB wrapper for persistent storage
 │   │   ├── mockData.ts       # TypeScript type definitions and data models
 │   │   └── utils.ts          # General utilities (cn helper)
@@ -571,14 +704,20 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 
 ### ✅ What's Working Now
 
-- Full Dashboard with 10+ live widgets
-- Option Chain (Dhan primary, NSE fallback)
-- OI Analysis with ATM zone, heatmap, support/resistance, and 10 analysis tabs
+- Full Dashboard with 10+ live widgets, including real FII/DII activity, global market cues, and a Futures Buildup Scanner summary
+- Option Chain (Dhan primary, NSE fallback), with a real (not simulated) multi-expiry "By Strike" view
+- OI Analysis split into 4 focused pages — Overview, Trending OI, Strike Analysis, Delta Tracker — with ATM zone, heatmap, support/resistance, and Gamma Exposure (GEX)
+- Futures Scanner (`/scanner`) — real OI buildup/covering signals, volume, basis, and a rollover table across index futures + the full F&O stock universe
+- **1Cliq Trade terminal (`/one-cliq`)** — keyboard-driven one-click execution shell, full arming model, spot-referenced SL/Target UI, realistic paper fill simulator (see [1Cliq Trade Terminal](#-1cliq-trade-terminal))
 - Strategy Builder with payoff diagrams
-- Position Tracker
+- Position Tracker, with a position-size calculator and trade journal analytics
+- Orders (`/orders`) — live Dhan order book with cancel
 - Watchlist
-- Dhan WebSocket live feed with binary protocol parsing
-- Proxy server with 3-source failover (Dhan → NSE → TradingView)
+- Alert system with working persistence and correct per-symbol price triggers
+- 33-broker backend (option chain, expiry list, connection test) — bring your own API key for any of them; a growing subset also support real order placement (see `server/brokers/registry.mjs`)
+- Dhan WebSocket live feed with binary protocol parsing, dynamic per-strike subscriptions
+- Server-side order guard (`server/lib/orderGuard.mjs`) re-validating every order — lot size, fat-finger ceilings, rate limits, price bands — independently of the browser
+- Proxy server with multi-source failover (broker → NSE → TradingView)
 - Data source status bar
 - Keyboard shortcuts & command palette
 - Dark/Light theme
@@ -587,23 +726,25 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 
 ### 🔧 What's Being Worked On (Next 10–30 Days)
 
-- [ ] Full integration for Zerodha, Angel One, Upstox, Fyers APIs
+- [ ] Wire the risk engine's SL/Target triggers and the basket engine's deploy step to actually place real exit/entry orders (both currently compute/resolve only, via an injectable stub — see [1Cliq Trade Terminal](#-1cliq-trade-terminal))
+- [ ] Real server-side session-arming for the plain (non-1Cliq) live order path — currently blocked by a CORS gap that fails safe but isn't the right long-term fix
+- [ ] Frontend for the new portfolio endpoints (`positions`/`holdings`/`funds`/`trades`/`modify-order`) — shipped server-side, no page consumes them yet
+- [ ] Live-account verification of the Noren-family and Zerodha/Fyers order implementations (currently implemented and unit-tested but not fired against a real funded account)
 - [ ] Historical OI change charts
-- [ ] Options Greeks calculator with real-time Greeks from Dhan
-- [ ] Multi-expiry comparison views
-- [ ] Alert system with push notifications
+- [ ] Alert system push notifications (in-app toast + sound alerts already work)
 - [ ] Advanced strategy P&L with multi-DTE scenarios
-- [ ] GEX (Gamma Exposure) analysis
-- [ ] FII/DII activity dashboard
+- [ ] Per-stock IV Rank (needs a real historical-IV data pipeline — the Scanner intentionally ships without it rather than fake a 52-week history)
 - [ ] Mobile-responsive layout improvements
 - [ ] Production deployment guide (Vercel + VPS proxy)
 
 ### 🤔 Known Gaps (Help Wanted!)
 
 - Some dashboard sections may show empty during off-market hours — this is by design (no mock data)
-- Zerodha/Angel One/Upstox/Fyers/5paisa/Alice Blue have UI forms but no backend connectors yet
 - The Strategy Builder payoff chart doesn't integrate with live option chain pricing yet
 - Some component state doesn't persist across page navigation
+- The Futures Scanner and dashboard-wide index/sector data always use Dhan/NSE regardless of your active broker (bulk multi-symbol feeds are better served by a full-universe source than any single broker's per-symbol quote API) — per-broker futures data for the other 32 brokers is a possible future contribution
+- Real order placement is verified for Dhan; other brokers' order support is landing incrementally and varies in confidence — check `server/brokers/registry.mjs` and each adapter's own comments before trusting one with real orders
+- The 1Cliq Trade terminal's SL/Target and panic controls are still client/paper-first — until the server-side risk engine in `1CLIQ-TRADE-SPEC.md` ships, don't rely on it to protect a live position if you close the tab
 
 ---
 
@@ -644,7 +785,8 @@ For a complete deployment with live data:
 
 ### Contribution Ideas
 
-- 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.)
+- 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.) or extend order-placement support to a broker that only has market-data support today
+- ⚡ **Help finish the 1Cliq Trade terminal** — the server-side risk engine, panic layer, and basket execution phases in `1CLIQ-TRADE-SPEC.md` are actively being built and reviewed
 - 📊 **Improve charts** (candlestick charts, better OI visualization)
 - 📱 **Mobile responsiveness** (some sections need mobile love)
 - 🧪 **Add tests** (very few tests exist right now)
@@ -687,8 +829,9 @@ This project is for **educational and analytical purposes only**. It is **not fi
 - Trading in derivatives involves significant risk and may result in loss of capital
 - Always do your own research and consult a registered financial advisor (SEBI-registered)
 - The developers are not responsible for any financial losses
-- This tool does not execute trades — it is an analytics-only platform
-- API keys are stored locally and never transmitted to external servers
+- **This tool can execute real trades.** Order placement, the "Live Trading" toggle, and the 1Cliq Trade terminal (`/one-cliq`) are **off/paper by default everywhere**, but once you connect your own broker credentials and explicitly enable Live Trading (with an on-screen real-money acknowledgment), Buy/Sell actions place genuine orders on **your own account** via **your own API keys** — this is self-directed, bring-your-own-key execution, not a managed or advisory service, and you alone are responsible for every order it places
+- Order-execution features (SL/Target automation, panic/close-all, basket execution) are under active development — see [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md) for exactly what has shipped vs. what is still in progress before trusting any of it with real capital
+- API keys are stored locally and never transmitted to any server other than the broker's own API and this app's local proxy
 
 ---
 

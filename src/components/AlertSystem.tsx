@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Bell, Plus, Trash2, AlertTriangle, TrendingUp, BarChart3, Volume2, VolumeX, CheckCircle } from "lucide-react";
 import { useAlertEngine, playAlertSound, type AlertCondition, type AlertTone } from "@/hooks/useAlertEngine";
-import { useAllIndices } from "@/hooks/useMarketData";
+import { useAllIndices, useLiveIndices } from "@/hooks/useMarketData";
 import { useWebSocketVix } from "@/hooks/useWebSocket";
+import { getAlerts, saveAlerts } from "@/lib/alertStore";
 import { toast } from "sonner";
 
 const typeIcons = {
@@ -34,24 +35,35 @@ interface AlertSystemProps {
 }
 
 export function AlertSystem({ open, onOpenChange }: AlertSystemProps) {
-  const [alerts, setAlerts] = useState<AlertCondition[]>([]);
+  const [alerts, setAlerts] = useState<AlertCondition[]>(() => getAlerts());
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
+  // Persist to localStorage — alerts previously vanished on every reload since
+  // this only ever lived in useState.
+  useEffect(() => { saveAlerts(alerts); }, [alerts]);
+
   // Live data from hooks
   const { data: allIndicesData } = useAllIndices();
+  const { data: indicesResult } = useLiveIndices();
   const { vix: wsVix } = useWebSocketVix();
   const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
 
-  // Derive live spot from indices data
-  const liveSpot = (allIndicesData as any)?.indices?.[0]?.ltp || ((allIndicesData as any)?.vix?.value ? (allIndicesData as any)?.indices?.[0]?.ltp : 0);
+  // Per-symbol live spot, so a BANKNIFTY alert checks BANKNIFTY's own price —
+  // this used to read a field (`indices`) useAllIndices() never returns, so
+  // every "price" alert was permanently comparing against 0 and could never fire.
+  const spotBySymbol = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const idx of indicesResult?.data ?? []) map[idx.symbol] = idx.ltp;
+    return map;
+  }, [indicesResult]);
 
   // Alert data from live market stats
   // VIX serves as IV proxy; PCR derived from VIX level heuristic when chain is unavailable
   const derivedPCR = liveVix > 0 ? (liveVix > 18 ? 0.7 : liveVix > 14 ? 1.0 : 1.3) : 0;
   const alertData = {
-    spotPrice: liveSpot,
+    spotBySymbol,
     vix: liveVix,
     pcr: derivedPCR,
     atmIV: liveVix, // VIX ≈ ATM IV for NIFTY

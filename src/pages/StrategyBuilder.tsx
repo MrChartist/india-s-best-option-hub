@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLiveIndices } from "@/hooks/useMarketData";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,12 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Zap, Shield, Target, Copy, Check, Keyboard, HelpCircle } from "lucide-react";
+import { Plus, Save, Trash2, TrendingUp, TrendingDown, Minus, Zap, Shield, Target, Keyboard } from "lucide-react";
 import { getPresetStrategies, calculatePayoff, calculateGreeks, estimateMargin, estimateProbOfProfit, type StrategyLeg } from "@/lib/mockData";
-import { getSpotPrice, getLotSize, getStepSize } from "@/lib/positionStore";
+import { getSpotPrice, getLotSize, getStepSize, createPosition, savePositions, getPositions } from "@/lib/positionStore";
+import { isLiveTradingEnabled } from "@/lib/brokerConfig";
+import { mapLegsToPendingTrades, mapLegsToBasketLegs } from "@/lib/strategyLegMapper";
+import { previewBasket, type BasketPreview } from "@/lib/basketApi";
+import { saveBasket } from "@/lib/basketStore";
 import { PayoffMultiDTE } from "@/components/PayoffMultiDTE";
+import { PositionSizeCalculator } from "@/components/PositionSizeCalculator";
+import { TradeConfirmDialog, type PendingTrade } from "@/components/TradeConfirmDialog";
+import { SaveBasketDialog } from "@/components/SaveBasketDialog";
+import { GreekCard } from "@/components/GreekCard";
+import { CopyTradeButton } from "@/components/CopyTradeButton";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const outlookIcons = {
   Bullish: <TrendingUp className="h-3 w-3 text-bullish" />,
@@ -196,11 +205,98 @@ export default function StrategyBuilder() {
     };
   }, [legs, payoffData, lotSize, spotPrice]);
 
+  // Paper-fill the whole strategy in one confirmed step — no expiry tracking
+  // exists in Strategy Builder today, so paper positions land with expiry ""
+  // (createPosition/daysToExpiry already fall back gracefully for that).
+  const [pendingLegs, setPendingLegs] = useState<PendingTrade[] | null>(null);
+  const [placingLegs, setPlacingLegs] = useState(false);
+  // Decided per-click, carried alongside pendingLegs — same reasoning as
+  // OptionChain.tsx's tradeMode: a paper click must never resolve against a
+  // live-mode confirm handler if Live Trading is toggled mid-flow.
+  const [tradeMode, setTradeMode] = useState<"paper" | "live">("paper");
+
+  const handleAddStrategyToPositions = useCallback(() => {
+    if (legs.length === 0) return;
+    // 1CLIQ-TRADE-SPEC.md §9's "StrategyBuilder seam": the leg -> PendingTrade
+    // mapping now lives in strategyLegMapper.ts, shared with "Save as Basket".
+    setTradeMode(isLiveTradingEnabled() ? "live" : "paper");
+    setPendingLegs(mapLegsToPendingTrades(legs, activeSymbol, lotSize));
+  }, [legs, activeSymbol, lotSize]);
+
+  const handleConfirmAddStrategy = useCallback(() => {
+    if (!pendingLegs) return;
+    setPlacingLegs(true);
+    try {
+      if (tradeMode === "live") {
+        // Strategy Builder legs never carry a resolved broker security id —
+        // there is no chain lookup in this page, only the payoff/greeks model
+        // (StrategyLeg has no securityId field at all). Rather than let the
+        // "LIVE — REAL MONEY" dialog imply a real order went out when nothing
+        // could, this says so plainly and falls back to paper — the same
+        // honest-refusal pattern as useQuickOrder.ts's live branch. Real live
+        // execution for a multi-leg strategy is "Save as Basket" -> deploy,
+        // which DOES resolve real security ids via basket-deploy.
+        toast.warning(
+          "Live Trading is on, but these legs have no resolved broker contract yet — added as paper positions instead.",
+          { description: "Use \"Save as Basket\" to resolve real contracts and deploy live.", duration: 8000 },
+        );
+      }
+      const newPositions = pendingLegs.map((t) => createPosition({
+        symbol: t.symbol, type: t.optionType, action: t.action, strike: t.strike,
+        entryPrice: t.price, lots: t.lots, lotSize: t.lotSize, expiry: "",
+      }));
+      savePositions([...getPositions(), ...newPositions]);
+      toast.success(`${newPositions.length}-leg strategy added as paper positions`, { description: "View it in Position Tracker." });
+    } catch (e) {
+      toast.error(`Could not add positions: ${(e as Error).message}`);
+    } finally {
+      setPlacingLegs(false);
+      setPendingLegs(null);
+    }
+  }, [pendingLegs, tradeMode]);
+
+  // "Save as Basket" (spec §9) — resolve via basket-deploy for a preview
+  // step, THEN persist locally. basket-deploy never places an order.
+  const [basketPreview, setBasketPreview] = useState<BasketPreview | null>(null);
+  const [resolvingBasket, setResolvingBasket] = useState(false);
+  const [savingBasket, setSavingBasket] = useState(false);
+
+  const handleSaveAsBasket = useCallback(async () => {
+    if (legs.length === 0) return;
+    setResolvingBasket(true);
+    try {
+      const preview = await previewBasket(activeSymbol, mapLegsToBasketLegs(legs));
+      setBasketPreview(preview);
+    } catch (e) {
+      toast.error(`Could not resolve basket: ${(e as Error).message}`);
+    } finally {
+      setResolvingBasket(false);
+    }
+  }, [legs, activeSymbol]);
+
+  const handleConfirmSaveBasket = useCallback((name: string) => {
+    if (!basketPreview) return;
+    setSavingBasket(true);
+    try {
+      saveBasket({ name, symbol: activeSymbol, legs: mapLegsToBasketLegs(legs) });
+      toast.success(`Basket "${name}" saved.`, {
+        description: basketPreview.blockedForLive
+          ? `${basketPreview.blockedLegIds.length} leg(s) are paper-only until a broker contract resolves.`
+          : "All legs resolved live-deployable.",
+      });
+      setBasketPreview(null);
+    } catch (e) {
+      toast.error(`Could not save basket: ${(e as Error).message}`);
+    } finally {
+      setSavingBasket(false);
+    }
+  }, [basketPreview, legs, activeSymbol]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Strategy Builder</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Strategy <span className="font-serif italic font-medium">Builder</span></h1>
           <p className="text-sm text-muted-foreground">Build multi-leg strategies · Payoff analysis · Risk metrics</p>
         </div>
 
@@ -386,6 +482,17 @@ export default function StrategyBuilder() {
             </CardContent></Card>
           </div>
 
+          <PositionSizeCalculator maxLoss={stats.maxLoss} maxLossUnlimited={stats.maxLossUnlimited} />
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleAddStrategyToPositions} disabled={legs.length === 0}>
+              <Plus className="h-3.5 w-3.5" /> Add {legs.length}-Leg Strategy to Position Tracker (Paper)
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleSaveAsBasket} disabled={legs.length === 0 || resolvingBasket}>
+              <Save className="h-3.5 w-3.5" /> {resolvingBasket ? "Resolving..." : "Save as Basket"}
+            </Button>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card><CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Net Premium</p>
@@ -453,91 +560,23 @@ export default function StrategyBuilder() {
           </Card>
         </div>
       </div>
+
+      <TradeConfirmDialog
+        trade={pendingLegs}
+        mode={tradeMode}
+        busy={placingLegs}
+        onConfirm={handleConfirmAddStrategy}
+        onCancel={() => setPendingLegs(null)}
+      />
+
+      <SaveBasketDialog
+        preview={basketPreview}
+        defaultName={selectedPreset || "Custom Strategy"}
+        busy={savingBasket}
+        onConfirm={handleConfirmSaveBasket}
+        onCancel={() => setBasketPreview(null)}
+      />
     </div>
   );
 }
 
-function GreekCard({ label, value, description, color, tooltip }: {
-  label: string; value: number; description: string;
-  color: "bullish" | "bearish" | "neutral"; tooltip: string;
-}) {
-  const colorMap = {
-    bullish: { bg: "bg-bullish/8", border: "border-bullish/20", text: "text-bullish", bar: "bg-bullish" },
-    bearish: { bg: "bg-bearish/8", border: "border-bearish/20", text: "text-bearish", bar: "bg-bearish" },
-    neutral: { bg: "bg-primary/5", border: "border-primary/15", text: "text-foreground", bar: "bg-primary" },
-  };
-  const c = colorMap[color];
-  const barWidth = Math.min(Math.abs(value) * 5, 100);
-
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={`text-center p-3 rounded-lg ${c.bg} border ${c.border} transition-all duration-200 hover:shadow-sm group cursor-default relative`}>
-            <div className="absolute top-2 right-2 opacity-30 group-hover:opacity-100 transition-opacity">
-              <HelpCircle className="h-3 w-3" />
-            </div>
-            <p className="text-xs text-muted-foreground font-medium flex items-center justify-center gap-1">
-              {label}
-            </p>
-            <p className={`text-xl font-semibold font-mono ${c.text} mt-0.5`}>{value}</p>
-            {/* Intensity bar */}
-            <div className="h-1 bg-muted/50 rounded-full mt-2 mb-1 overflow-hidden">
-              <div className={`h-full rounded-full ${c.bar} transition-all duration-500`} style={{ width: `${barWidth}%` }} />
-            </div>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-[200px] text-xs leading-relaxed" side="bottom">
-          {tooltip}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-// Copy trade summary to clipboard
-function CopyTradeButton({ legs, stats, spotPrice, lotSize, selectedPreset }: {
-  legs: StrategyLeg[]; stats: any; spotPrice: number; lotSize: number; selectedPreset: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  // Reset the "Copied!" state via an effect with cleanup rather than a bare
-  // setTimeout in the click handler, so the timer doesn't leak/fire a state
-  // update if the component unmounts (e.g. user navigates away) mid-countdown.
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
-
-  const handleCopy = () => {
-    const lines = [
-      `📊 ${selectedPreset || "Custom Strategy"} — Trade Plan`,
-      `${'─'.repeat(40)}`,
-      `Spot: ₹${spotPrice.toLocaleString("en-IN")} | Lot Size: ${lotSize}`,
-      ``,
-      ...legs.map((l, i) => `  Leg ${i + 1}: ${l.action} ${l.type} ${l.strike} × ${l.lots} lots @ ₹${l.premium}`),
-      ``,
-      `Max Profit: ${stats.maxProfitUnlimited ? "Unlimited" : `₹${stats.maxProfit.toLocaleString("en-IN")}`}`,
-      `Max Loss:   ${stats.maxLossUnlimited ? "Unlimited" : `₹${stats.maxLoss.toLocaleString("en-IN")}`}`,
-      `R:R Ratio:  ${stats.riskReward}`,
-      `Prob Profit: ${stats.probOfProfit}%`,
-      `Net Premium: ${stats.netPremium >= 0 ? "Credit" : "Debit"} ₹${Math.abs(stats.netPremium).toLocaleString("en-IN")}`,
-      `Breakevens:  ${stats.breakevens.length > 0 ? stats.breakevens.map((b: number) => b.toLocaleString("en-IN")).join(", ") : "None"}`,
-      ``,
-      `Greeks: Δ${stats.totalDelta} | Γ${stats.totalGamma} | Θ${stats.totalTheta} | ν${stats.totalVega}`,
-      `${'─'.repeat(40)}`,
-      `Generated by Mr. Chartist Options Terminal`,
-    ];
-    navigator.clipboard.writeText(lines.join("\n"));
-    setCopied(true);
-  };
-
-  return (
-    <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={handleCopy}>
-      {copied ? <Check className="h-3 w-3 text-bullish" /> : <Copy className="h-3 w-3" />}
-      {copied ? "Copied!" : "Export"}
-    </Button>
-  );
-}

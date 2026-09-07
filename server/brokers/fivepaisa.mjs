@@ -17,6 +17,29 @@ import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 export const id = "fivepaisa";
 export const credentialFields = ["appName", "appSource", "userKey", "encryptionKey", "userId", "clientCode", "pin", "totpSecret"];
 
+/**
+ * Capabilities descriptor — informational only. placeOrder is intentionally
+ * NOT implemented for 5paisa in this pass; it stays read-only (market
+ * data/quotes) until order code is written and held to the same
+ * verification bar as fyersOrders.mjs/zerodhaOrders.mjs.
+ *
+ * 5paisa's current order-placement platform is "Xstream" (xstream.5paisa.com
+ * — the legacy developerapi/order-request-place-order docs URL now 301-
+ * redirects there). This session only reached Xstream's marketing/landing
+ * page, not field-level API docs, so every value below is a WEAKER
+ * NEEDS VERIFICATION than Alice Blue/Fyers/Zerodha, which had field-level
+ * docs fetched directly.
+ */
+export const capabilities = {
+  bracket: false, // Xstream's current (2026) marketing page explicitly advertises "Bracket Order" support — the strongest signal among the three read-only brokers in this pass — but no field-level doc was reached to confirm the payload shape or current exchange-level support. NEEDS VERIFICATION before enabling.
+  cover: false, // Same marketing page advertises "Cover Order" support — same caveat as bracket.
+  ioc: false, // NEEDS VERIFICATION — 5paisa's older SDKs reference an IsIOCOrder/IOCOrder flag, but this was not confirmed against Xstream's current docs.
+  mtf: false, // NEEDS VERIFICATION — no MTF evidence found.
+  nativeMarketProtection: false, // NEEDS VERIFICATION — no equivalent field found in what was reviewed.
+  maxLegQty: null, // NEEDS VERIFICATION — the marketing page states an order-RATE limit (10/sec, 25/sec max, 10,000/day), which is not the same thing as a per-leg quantity cap; no qty cap was found. The NSE exchange-wide freeze quantity (spec §8 slicing) is the only confirmed ceiling.
+  products: ["CNC", "MIS", "NRML"], // Universal Indian-broker vocabulary; 5paisa's own wire-format field names (its older SDK uses "DelivIntra") were NOT independently confirmed against Xstream's current docs this session.
+};
+
 // 5paisa's MarketSnapshot endpoint silently returns empty results above ~50
 // instruments per call (confirmed in openalgo's production adapter) — never raise this.
 const QUOTE_BATCH_SIZE = 50;

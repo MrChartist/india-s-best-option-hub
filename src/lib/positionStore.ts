@@ -9,7 +9,7 @@ const CLOSED_STORAGE_KEY = "optionsdesk_closed_positions";
 // Lot sizes per symbol (standard NSE lot sizes — verified from Dhan instrument master)
 export const LOT_SIZE_MAP: Record<string, number> = {
   NIFTY: 25,
-  BANKNIFTY: 15,
+  BANKNIFTY: 30, // NSE revised BANKNIFTY's lot size from 15 to 30 in Nov 2024 — verified against a real broker screenshot (1CLIQ-TRADE-SPEC.md §B1). This constant is display/UI-only: server/lib/orderGuard.mjs always resolves the authoritative lot size from the exchange instrument master before an order is built, never from this map.
   FINNIFTY: 25,
   MIDCPNIFTY: 50,
   SENSEX: 10,
@@ -325,11 +325,13 @@ export function createPosition(
   const iv = overrides.iv ?? 14;
   let defaultDelta = overrides.type === "CE" ? 0.5 : -0.5;
   let defaultTheta = -10;
+  let defaultGamma = 0;
   try {
     const dte = daysToExpiry(overrides.expiry || "", 7);
     const greeks = calculateGreeks(getSpotPrice(symbol), overrides.strike, dte, iv, 6.5);
     defaultDelta = overrides.type === "CE" ? greeks.delta.call : greeks.delta.put;
     defaultTheta = overrides.type === "CE" ? greeks.theta.call : greeks.theta.put;
+    defaultGamma = greeks.gamma; // same for calls and puts at a given strike/spot/iv/dte
   } catch { /* fall back to flat defaults above if inputs are unusable */ }
 
   return {
@@ -348,6 +350,7 @@ export function createPosition(
     pnlPercent,
     delta: overrides.delta ?? defaultDelta,
     theta: overrides.theta ?? defaultTheta,
+    gamma: overrides.gamma ?? defaultGamma,
     iv,
   };
 }

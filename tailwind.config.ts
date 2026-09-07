@@ -14,8 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'monospace'],
+        sans: ['Instrument Sans Variable', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['Fraunces Variable', 'Georgia', 'serif'],
+        mono: ['IBM Plex Mono', 'SF Mono', 'Menlo', 'monospace'],
       },
       fontSize: {
         '2xs': ['0.8125rem', { lineHeight: '1rem' }],

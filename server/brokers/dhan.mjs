@@ -3,6 +3,12 @@
  * `dhanFetch` + the index/underlying maps are also imported directly by
  * proxy-server.mjs's existing /api/dhan-proxy handler, which predates the
  * generic registry and keeps its own richer caching/retry/after-hours logic.
+ *
+ * Futures/MCX data (fetchFuturesQuotes, fetchRolloverData, fetchMCXExpiryList)
+ * lives in the sibling dhanFutures.mjs — this file crossed 300 lines once that
+ * section was added, so it moved out and is re-exported below to keep every
+ * existing import (including the `dhan.fetchFuturesQuotes` namespace access
+ * the generic /api/broker-proxy path uses via registry.mjs) working unchanged.
  */
 
 const DHAN_BASE = "https://api.dhan.co/v2";
@@ -42,7 +48,11 @@ export async function dhanFetch(path, body, method = "POST", customClientId, cus
       "client-id": clientId,
     },
   };
-  if (body && method === "POST") options.body = JSON.stringify(body);
+  // PUT added for dhanPortfolio.mjs's modifyOrder() — Dhan's v2 order-modify
+  // endpoint is PUT /orders/{orderId} with a JSON body, unlike every call
+  // this function previously served (POST/GET/DELETE, none of which need a
+  // PUT body). Additive only: no existing caller uses PUT today.
+  if (body && (method === "POST" || method === "PUT")) options.body = JSON.stringify(body);
 
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -86,3 +96,9 @@ export async function fetchLTP(creds, symbol) {
   if (!secInfo) throw new Error(`Unknown index: ${symbol}`);
   return dhanFetch("/marketfeed/ltp", { [secInfo.exchSeg]: [secInfo.secId] }, "POST", creds?.clientId, creds?.accessToken);
 }
+
+// ── Futures/MCX data (fetchFuturesQuotes, fetchRolloverData,
+// fetchMCXExpiryList) lives in the sibling dhanFutures.mjs; re-exported below
+// so nothing that imports from "./dhan.mjs" (directly, or via registry.mjs's
+// `import * as dhan` namespace) has to change. ──
+export { fetchMCXExpiryList, fetchFuturesQuotes, fetchRolloverData } from "./dhanFutures.mjs";

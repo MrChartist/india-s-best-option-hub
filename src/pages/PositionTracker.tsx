@@ -20,6 +20,7 @@ import {
 import { Plus, Trash2, DollarSign, Shield, Clock, Activity, BarChart3, Download, Upload, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Bar } from "recharts";
 import { WhatIfSimulator } from "@/components/WhatIfSimulator";
+import { TradeJournalAnalytics } from "@/components/TradeJournalAnalytics";
 import { useToast } from "@/hooks/use-toast";
 
 // Available symbols: indices + all F&O stocks
@@ -141,6 +142,12 @@ export default function PositionTracker() {
       } catch { /* keep vega at 0 if inputs are unusable */ }
       return s + vega * mult * p.lots * p.lotSize;
     }, 0);
+    // Net Gamma — rate of change of Delta. High |gamma| means Delta (and so P&L)
+    // accelerates fast near the strike, the classic short-gamma risk near expiry.
+    const totalGamma = positions.reduce((s, p) => {
+      const mult = p.action === "BUY" ? 1 : -1;
+      return s + (p.gamma ?? 0) * mult * p.lots * p.lotSize;
+    }, 0);
     // Only BUY (long) legs represent actual capital paid out ("investment").
     // SELL (short) legs collect premium and post margin instead — summing
     // both together previously overstated deployed capital and understated
@@ -149,17 +156,14 @@ export default function PositionTracker() {
       .filter(p => p.action === "BUY")
       .reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize, 0);
     const totalMargin = positions.filter(p => p.action === "SELL").reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize * 3, 0);
-    const winners = positions.filter(p => p.pnl > 0).length;
-    const losers = positions.filter(p => p.pnl < 0).length;
     return {
       totalPnl, totalDelta: Math.round(totalDelta),
       totalTheta: Math.round(totalTheta * 100) / 100,
       totalVega: Math.round(totalVega),
+      totalGamma: Math.round(totalGamma * 100) / 100,
       totalInvestment: Math.round(totalInvestment),
       totalMargin: Math.round(totalMargin),
       pnlPercent: totalInvestment > 0 ? Math.round((totalPnl / totalInvestment) * 10000) / 100 : 0,
-      winners, losers,
-      winRate: positions.length > 0 ? Math.round((winners / positions.length) * 100) : 0,
     };
   }, [positions]);
 
@@ -187,8 +191,17 @@ export default function PositionTracker() {
     return simulatePnL(simPositions, range, 60);
   }, [simPositions, simSpot]);
 
-  // Greeks Decay
-  const greeksDecay = useMemo(() => simulateGreeksDecay(positions, 7), [positions]);
+  // Greeks Decay — real Black-Scholes re-pricing at each future day (spot/IV
+  // held constant), not a random-walk guess. Each position needs its own
+  // current spot + remaining DTE, which live in positionStore, not mockData.
+  const greeksDecay = useMemo(() => {
+    const enriched = positions.map(p => ({
+      ...p,
+      spotPrice: getSpotPrice(p.symbol),
+      daysToExpiry: daysToExpiry(p.expiry, 7),
+    }));
+    return simulateGreeksDecay(enriched, 7);
+  }, [positions]);
 
   // ── Actions ──
   const handleAddPosition = useCallback(() => {
@@ -332,7 +345,7 @@ export default function PositionTracker() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Position Tracker</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Position <span className="font-serif italic font-medium">Tracker</span></h1>
           <p className="text-sm text-muted-foreground">
             Live P&L · P&L Simulator · Greeks Decay · Portfolio Risk
             {positions.length > 0 && <Badge variant="outline" className="ml-2 text-xs">{positions.length} active</Badge>}
@@ -442,7 +455,7 @@ export default function PositionTracker() {
       )}
 
       {/* Portfolio Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 stagger-children">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 stagger-children">
         <Card className={stats.totalPnl >= 0 ? "border-bullish/20" : "border-bearish/20"}>
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="h-3 w-3" /> Total P&L</p>
@@ -468,17 +481,17 @@ export default function PositionTracker() {
           <p className="text-xs text-muted-foreground/60">{stats.totalVega >= 0 ? "Long vol" : "Short vol"}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
+          <p className="text-xs text-muted-foreground">Net Gamma</p>
+          <p className={`text-xl font-semibold font-mono ${stats.totalGamma >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalGamma}</p>
+          <p className="text-xs text-muted-foreground/60">{Math.abs(stats.totalGamma) > 50 ? "Accelerating fast" : "Stable"}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">Investment</p>
           <p className="text-xl font-semibold font-mono">₹{(stats.totalInvestment / 1000).toFixed(1)}K</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground">Margin</p>
           <p className="text-xl font-semibold font-mono">₹{(stats.totalMargin / 1000).toFixed(0)}K</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4 text-center">
-          <p className="text-xs text-muted-foreground">Win Rate</p>
-          <p className={`text-xl font-semibold font-mono ${stats.winRate >= 50 ? "text-bullish" : "text-bearish"}`}>{stats.winRate}%</p>
-          <p className="text-xs text-muted-foreground">{stats.winners}W/{stats.losers}L</p>
         </CardContent></Card>
         <Card><CardContent className="p-4 text-center">
           <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> Risk</p>
@@ -570,12 +583,12 @@ export default function PositionTracker() {
                     <YAxis yAxisId="delta" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => {
                       if (name === "P&L") return [`₹${v.toLocaleString("en-IN")}`, "P&L"];
-                      if (name === "Cum Theta") return [`₹${v.toLocaleString("en-IN")}`, "Cum Theta"];
+                      if (name === "Theta/day") return [`₹${v.toLocaleString("en-IN")}`, "Theta/day"];
                       return [v, name];
                     }} />
                     <ReferenceLine yAxisId="pnl" y={0} stroke="hsl(var(--muted-foreground))" />
                     <Line yAxisId="pnl" type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={{ fill: "hsl(210 100% 52%)", r: 3 }} name="P&L" />
-                    <Line yAxisId="pnl" type="monotone" dataKey="totalTheta" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Cum Theta" />
+                    <Line yAxisId="pnl" type="monotone" dataKey="totalTheta" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Theta/day" />
                     <Bar yAxisId="delta" dataKey="totalDelta" fill="hsl(142 71% 45% / 0.3)" radius={[2, 2, 0, 0]} name="Delta" />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -689,6 +702,10 @@ export default function PositionTracker() {
           );
         })
       )}
+
+      {/* Trade Journal Analytics — real closed-trade performance, distinct from
+          the open-position Greeks/P&L summary above */}
+      <TradeJournalAnalytics closedPositions={closedPositions} />
 
       {/* Closed Positions */}
       {closedPositions.length > 0 && (

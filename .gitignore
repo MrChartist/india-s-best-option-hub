@@ -60,3 +60,4 @@ _agents/
 .codegraph/
 .superpowers/
 .dev-restart.log
+.claude/

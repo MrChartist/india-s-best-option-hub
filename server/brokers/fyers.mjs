@@ -26,6 +26,13 @@
 import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 import { buildOptionsChain, parseExpiryDate } from "./fyersChain.mjs";
 
+// Order placement (real money) — see fyersOrders.mjs for the verification
+// tier this is held to, and capabilities' inline comments for what's confirmed
+// vs. NEEDS VERIFICATION. Re-exported here so registry.get("fyers") matches
+// the module contract documented in registry.mjs, same as every other
+// exported function in this file.
+export { capabilities, buildOrderBody, placeOrder, getOrders, getOrderStatus, cancelOrder } from "./fyersOrders.mjs";
+
 const FYERS_BASE = "https://api-t1.fyers.in";
 
 export const id = "fyers";

@@ -1,14 +1,16 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type Time } from "lightweight-charts";
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type ISeriesApi, type Time } from "lightweight-charts";
 import { useChartData } from "@/hooks/useChartData";
 import { useIsDark, getChartColors } from "@/hooks/useIsDark";
+import { useChartLevelsOverlay } from "@/hooks/useChartLevelsOverlay";
+import type { OptionData } from "@/lib/mockData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { BarChart3, Loader2, X, CandlestickChart, LineChart } from "lucide-react";
+import { BarChart3, Loader2, X, CandlestickChart, LineChart, Layers } from "lucide-react";
 
 const TIME_RANGES = ["1W", "1M", "3M", "6M", "1Y"] as const;
 type TimeRange = (typeof TIME_RANGES)[number];
@@ -23,22 +25,50 @@ interface StockChartProps {
   asSheet?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Live option chain + context. When provided, an optional "Levels" overlay
+   * (Call Wall, Put Wall, Zero Gamma, Volume Profile, IV bands) becomes
+   * available on the chart. Omit to render a plain price chart (e.g. Watchlist,
+   * which has no option-chain context for an arbitrary symbol).
+   */
+  chain?: OptionData[];
+  spotPrice?: number;
+  lotSize?: number;
+  daysToExpiry?: number;
 }
 
 function ChartCore({
   symbol,
   height = 340,
+  chain,
+  spotPrice,
+  lotSize,
+  daysToExpiry,
 }: {
   symbol: string;
   height?: number;
+  chain?: OptionData[];
+  spotPrice?: number;
+  lotSize?: number;
+  daysToExpiry?: number;
 }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  // Bumped each time buildChart creates a new chart instance. Lets a stale
+  // overlay-cleanup closure (see useChartLevelsOverlay) detect that "its"
+  // chart has already been torn down and replaced, so it can skip touching
+  // an already-removed series instead of racing lightweight-charts' own
+  // internal resize/redraw cycle on the disposed one.
+  const chartGenerationRef = useRef(0);
   const [range, setRange] = useState<TimeRange>("3M");
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const { data: candles, isLoading, error } = useChartData(symbol, range);
   const isDark = useIsDark();
   const queryClient = useQueryClient();
+  const colors = useMemo(() => getChartColors(isDark), [isDark]);
+
+  const [showLevels, setShowLevels] = useState(false);
+  const [priceSeries, setPriceSeries] = useState<ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | null>(null);
 
   // useChartData has no refetchInterval, so once loaded the chart would
   // otherwise never pick up new candles while this view stays open — a
@@ -62,7 +92,6 @@ function ChartCore({
     }
 
     const container = chartContainerRef.current;
-    const colors = getChartColors(isDark);
     const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
     const crosshairColor = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
 
@@ -72,7 +101,7 @@ function ChartCore({
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: colors.text,
-        fontFamily: "'Inter', 'SF Pro', system-ui, sans-serif",
+        fontFamily: "'Instrument Sans Variable', 'SF Pro', system-ui, sans-serif",
         fontSize: 11,
       },
       grid: {
@@ -102,6 +131,7 @@ function ChartCore({
     });
 
     chartRef.current = chart;
+    chartGenerationRef.current += 1;
 
     // Format candle data for lightweight-charts
     const formattedCandles = candles.map((c) => ({
@@ -122,6 +152,7 @@ function ChartCore({
         wickDownColor: colors.bearish,
       });
       candleSeries.setData(formattedCandles);
+      setPriceSeries(candleSeries);
     } else {
       const isPositive = candles[candles.length - 1].close >= candles[0].close;
       const lineColor = isPositive ? colors.bullish : colors.bearish;
@@ -134,6 +165,7 @@ function ChartCore({
       lineSeries.setData(
         candles.map((c) => ({ time: c.time as Time, value: c.close }))
       );
+      setPriceSeries(lineSeries);
     }
 
     // Volume histogram — tinted to match the theme's bullish/bearish palette
@@ -172,13 +204,28 @@ function ChartCore({
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
+      setPriceSeries(null);
     };
-  }, [candles, height, chartType, range, isDark]);
+  }, [candles, height, chartType, range, isDark, colors]);
 
   useEffect(() => {
     const cleanup = buildChart();
     return () => cleanup?.();
   }, [buildChart]);
+
+  useChartLevelsOverlay({
+    chart: chartRef.current,
+    chartGenerationRef,
+    priceSeries,
+    enabled: showLevels,
+    symbol,
+    colors,
+    chain,
+    spotPrice,
+    lotSize,
+    daysToExpiry,
+    candles,
+  });
 
   const lastCandle = candles?.[candles.length - 1];
   const firstCandle = candles?.[0];
@@ -222,6 +269,18 @@ function ChartCore({
               <LineChart className="h-3.5 w-3.5" />
             </ToggleGroupItem>
           </ToggleGroup>
+
+          {chain !== undefined && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setShowLevels((v) => !v)}
+              title="Toggle options-flow levels (Call Wall, Put Wall, Zero Gamma, Volume Profile, IV bands)"
+            >
+              <Layers className={`h-3.5 w-3.5 ${showLevels ? "text-primary" : ""}`} />
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -280,6 +339,10 @@ export function StockChart({
   asSheet = false,
   open = false,
   onOpenChange,
+  chain,
+  spotPrice,
+  lotSize,
+  daysToExpiry,
 }: StockChartProps) {
   if (asSheet) {
     return (
@@ -292,7 +355,7 @@ export function StockChart({
             </SheetTitle>
           </SheetHeader>
           <div className="mt-3">
-            <ChartCore symbol={symbol} height={380} />
+            <ChartCore symbol={symbol} height={380} chain={chain} spotPrice={spotPrice} lotSize={lotSize} daysToExpiry={daysToExpiry} />
           </div>
         </SheetContent>
       </Sheet>
@@ -300,7 +363,7 @@ export function StockChart({
   }
 
   if (inline) {
-    return <ChartCore symbol={symbol} height={height} />;
+    return <ChartCore symbol={symbol} height={height} chain={chain} spotPrice={spotPrice} lotSize={lotSize} daysToExpiry={daysToExpiry} />;
   }
 
   return (
@@ -312,7 +375,7 @@ export function StockChart({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartCore symbol={symbol} height={height} />
+        <ChartCore symbol={symbol} height={height} chain={chain} spotPrice={spotPrice} lotSize={lotSize} daysToExpiry={daysToExpiry} />
       </CardContent>
     </Card>
   );
