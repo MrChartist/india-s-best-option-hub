@@ -15,7 +15,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade Terminal](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
+[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade Terminal](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Docker](#-running-with-docker-no-local-setup-required) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
 
 </div>
 
@@ -328,7 +328,7 @@ The Futures Scanner and dashboard-wide index/sector data always use Dhan → NSE
 
 ---
 
-## ## 🐳 Running with Docker (No Local Setup Required)
+## 🐳 Running with Docker (No Local Setup Required)
 
 You can run the entire application using Docker without installing Node.js or any dependencies on your system.
 
