@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAllIndices, useLiveOptionChain, useFnOStocks } from "@/hooks/useMarketData";
 import { useWebSocketVix, useWebSocketStatus } from "@/hooks/useWebSocket";
-import { TrendingUp, Zap, Activity, BarChart3, Radio, Database, Moon, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { TrendingUp, Zap, Activity, BarChart3, Radio, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 export function KeyMetrics() {
   const { data } = useAllIndices();
@@ -35,7 +35,6 @@ export function KeyMetrics() {
     ? (bnfOC.totalPEOI / bnfOC.totalCEOI).toFixed(2)
     : null;
   const pcrIsLive = !!(niftyOC?.isLive);
-  const pcrIsAfterHours = !pcrIsLive && !!(niftyOC?.afterHours);
 
   // Max Pain from live or cached option chain
   const niftyMaxPain = hasNiftyOC ? niftyOC.maxPain : null;
@@ -54,7 +53,6 @@ export function KeyMetrics() {
         valueColor={niftyPCR ? (Number(niftyPCR) > 1 ? "text-bullish" : "text-bearish") : "text-muted-foreground"}
         sub={bnfPCR ? `BNF: ${bnfPCR}` : undefined}
         isLive={pcrIsLive}
-        badge={pcrIsAfterHours ? "CLOSED" : undefined}
         gauge={niftyPCRNum !== null ? { value: niftyPCRNum, min: 0.5, max: 1.5 } : undefined}
       />
       <MetricCard
@@ -79,18 +77,16 @@ export function KeyMetrics() {
         label="Nifty Max Pain"
         value={niftyMaxPain ? niftyMaxPain.toLocaleString("en-IN") : "—"}
         valueColor="text-warning"
-        sub={hasNiftyOC ? `Spot: ${niftyOC.spotPrice.toLocaleString("en-IN")}` : undefined}
+        sub={hasNiftyOC && niftyOC.spotPrice > 0 ? `Spot: ${niftyOC.spotPrice.toLocaleString("en-IN")}` : undefined}
         isLive={!!(niftyOC?.isLive && niftyMaxPain)}
-        badge={niftyOC?.afterHours && niftyMaxPain ? "CLOSED" : undefined}
       />
       <MetricCard
         icon={<BarChart3 className="h-3.5 w-3.5" />}
         label="BNF Max Pain"
         value={bnfMaxPain ? bnfMaxPain.toLocaleString("en-IN") : "—"}
         valueColor="text-warning"
-        sub={hasBnfOC ? `Spot: ${bnfOC.spotPrice.toLocaleString("en-IN")}` : undefined}
+        sub={hasBnfOC && bnfOC.spotPrice > 0 ? `Spot: ${bnfOC.spotPrice.toLocaleString("en-IN")}` : undefined}
         isLive={!!(bnfOC?.isLive && bnfMaxPain)}
-        badge={bnfOC?.afterHours && bnfMaxPain ? "CLOSED" : undefined}
       />
       <MetricCard
         icon={<Zap className="h-3.5 w-3.5" />}
@@ -122,29 +118,22 @@ function PCRGauge({ value, min, max }: { value: number; min: number; max: number
   );
 }
 
-function MetricCard({ icon, label, value, valueColor, sub, subColor, progress, isLive, badge, gauge, trendDirection }: {
+function MetricCard({ icon, label, value, valueColor, sub, subColor, progress, isLive, gauge, trendDirection }: {
   icon: React.ReactNode; label: string; value: string; valueColor?: string;
-  sub?: string; subColor?: string; progress?: number; isLive?: boolean; badge?: string | null;
+  sub?: string; subColor?: string; progress?: number; isLive?: boolean;
   gauge?: { value: number; min: number; max: number };
   trendDirection?: "up" | "down" | "flat";
 }) {
   return (
-    <Card className="min-h-[104px] transition-all duration-200 hover:shadow-card-hover hover:border-primary/20 relative overflow-hidden group">
-      {/* Subtle neon glow effect inside card on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <CardContent className="pt-4 pb-4 px-4">
+    <Card className="min-h-[104px]">
+      <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-2 text-muted-foreground">
           {icon}
           <p className="text-[11px] font-semibold uppercase tracking-[0.04em]">{label}</p>
           {isLive && <Radio className="h-3 w-3 text-bullish animate-pulse ml-auto" />}
-          {badge && (
-            <span className={`text-xs font-bold tracking-wider uppercase ml-auto flex items-center gap-1 ${badge === "CLOSED" ? "text-amber-500/90" : "text-primary/80"}`}>
-              {badge === "CLOSED" ? <Moon className="h-3 w-3" /> : <Database className="h-3 w-3" />}{badge}
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-2">
-          <p className={`text-[21px] font-bold font-mono leading-none ${valueColor || "text-foreground"}`}>{value}</p>
+          <p className={`num text-[22px] font-semibold font-mono leading-none ${valueColor || "text-foreground"}`}>{value}</p>
           {/* VIX trend arrow */}
           {trendDirection && (
             <span className={`${trendDirection === "up" ? "text-bearish" : trendDirection === "down" ? "text-bullish" : "text-muted-foreground"}`}>

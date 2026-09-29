@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Radio, Moon } from "lucide-react";
+import { TrendingUp, TrendingDown, Radio } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import { getCandleHistory, type CandleHistory } from "@/lib/localDatabase";
@@ -68,9 +68,6 @@ function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: num
   const [storedCandles, setStoredCandles] = useState<{ price: number }[] | null>(null);
   const [dbChecked, setDbChecked] = useState(false);
 
-  // Detect after-hours: if market data exists but websocket is disconnected
-  const isAfterHours = !isLive && index.ltp > 0;
-
   // Try to load stored candle data from IndexedDB
   useEffect(() => {
     const secId = SYMBOL_SEC_MAP[index.symbol];
@@ -102,31 +99,25 @@ function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: num
   const dayRangePosition = dayRange > 0 ? ((index.ltp - index.low) / dayRange) * 100 : 50;
 
   return (
-    <Card className="cursor-pointer group min-h-[178px] hover:border-primary/20 transition-all duration-200 hover:shadow-card-hover relative overflow-hidden" onClick={onClick}>
-      {/* Subtle background glow on hover */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <CardContent className="px-4 pt-4 pb-4">
-        <div className="flex items-start justify-between mb-3">
+    <Card className="group relative min-h-[178px] cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover" onClick={onClick}>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+      <CardContent className="p-4">
+        <div className="mb-3 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <p className="max-w-[180px] text-[11px] leading-tight text-muted-foreground font-semibold uppercase tracking-[0.04em]">{index.name}</p>
-              {isLive && <Radio className="h-3 w-3 text-bullish animate-pulse" />}
-              {isAfterHours && (
-                <span className="flex items-center gap-1 text-xs font-bold text-amber-500/90 uppercase tracking-wider">
-                  <Moon className="h-3 w-3" />Closed
-                </span>
-              )}
-            </div>
-            <p className="text-[25px] font-bold font-mono tabular-nums leading-none transition-colors duration-300">
+            <p className="mb-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold uppercase leading-tight tracking-[0.05em] text-muted-foreground">
+              <span className="truncate">{index.name}</span>
+              {isLive && <Radio className="h-3 w-3 shrink-0 animate-pulse text-bullish" />}
+            </p>
+            <p className="num font-mono text-[26px] font-semibold leading-none">
               {index.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </p>
           </div>
-          <div className={`flex flex-col items-end gap-1`}>
-            <div className={`flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-md shadow-sm ${isPositive ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <div className={`flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-xs font-semibold ${isPositive ? "bg-bullish/15 text-bullish" : "bg-bearish/15 text-bearish"}`}>
               {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
               {isPositive ? "+" : ""}{index.changePercent.toFixed(2)}%
             </div>
-            <span className={`text-xs font-mono tabular-nums font-medium ${isPositive ? "text-bullish/80" : "text-bearish/80"}`}>
+            <span className={`num font-mono text-xs font-medium ${isPositive ? "text-bullish" : "text-bearish"}`}>
               {isPositive ? "+" : ""}{index.change.toFixed(2)}
             </span>
           </div>
@@ -151,23 +142,21 @@ function IndexCard({ index, idx, isLive, onClick }: { index: IndexData; idx: num
           )}
         </div>
 
-        {/* OHLV Row + Day Range Bar */}
-        <div className="space-y-1.5 mt-1">
-          <div className="flex justify-between text-2xs text-muted-foreground font-mono tabular-nums">
-            <span>O: {index.open.toLocaleString("en-IN")}</span>
-            <span>H: {index.high.toLocaleString("en-IN")}</span>
-            <span>L: {index.low.toLocaleString("en-IN")}</span>
+        {/* Open / High / Low + day-range position */}
+        <div className="mt-2 space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {([["Open", index.open], ["High", index.high], ["Low", index.low]] as const).map(([label, v]) => (
+              <div key={label} className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+                <p className="num truncate font-mono text-xs">{v.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</p>
+              </div>
+            ))}
           </div>
-          {/* Day range progress bar */}
           {dayRange > 0 && (
-            <div className="relative h-[3px] bg-muted rounded-full overflow-hidden">
+            <div className="relative h-1 overflow-hidden rounded-full bg-foreground/10">
               <div
-                className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${isPositive ? "bg-bullish/40" : "bg-bearish/40"}`}
+                className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${isPositive ? "bg-bullish/60" : "bg-bearish/60"}`}
                 style={{ width: `${dayRangePosition}%` }}
-              />
-              <div
-                className={`absolute top-[-1px] h-[5px] w-[5px] rounded-full transition-all duration-500 ${isPositive ? "bg-bullish" : "bg-bearish"}`}
-                style={{ left: `${Math.min(dayRangePosition, 97)}%` }}
               />
             </div>
           )}

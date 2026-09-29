@@ -3,7 +3,7 @@ import { fetchLiveOptionChain, fetchLiveIndices, fetchMarketStatus, fetchExpiryL
 import type { FnOStockData } from "@/lib/marketApi";
 import { getMaxPain } from "@/lib/oiUtils";
 import { getLotSize } from "@/lib/positionStore";
-import type { OptionData, IndexData, ExpiryDate } from "@/lib/mockData";
+import type { OptionData, IndexData, ExpiryDate } from "@/lib/derivatives";
 import { useWebSocketIndices, useWebSocketVix, useWebSocketStatus } from "@/hooks/useWebSocket";
 import { useMemo, useEffect, useState, useRef } from "react";
 import {

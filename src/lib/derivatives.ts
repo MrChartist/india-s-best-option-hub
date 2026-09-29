@@ -38,24 +38,6 @@ export interface ExpiryDate {
   daysToExpiry: number;
 }
 
-export interface IntradayPoint {
-  time: string;
-  price: number;
-  volume: number;
-}
-
-export interface FuturesData {
-  symbol: string;
-  spotPrice: number;
-  futuresPrice: number;
-  premium: number;
-  premiumPercent: number;
-  oi: number;
-  oiChange: number;
-  volume: number;
-  expiry: string;
-}
-
 export interface MostActiveFnO {
   symbol: string;
   ltp: number;
@@ -65,18 +47,6 @@ export interface MostActiveFnO {
   oi: number;
   oiChange: number;
   oiInterpretation: "Long Buildup" | "Short Buildup" | "Long Unwinding" | "Short Covering";
-}
-
-export interface SectorData {
-  name: string;
-  change: number;
-  stocks: { symbol: string; change: number }[];
-}
-
-export interface PCRHistoryPoint {
-  time: string;
-  pcr: number;
-  spotPrice: number;
 }
 
 // -- Static Data --
@@ -151,7 +121,6 @@ export const fnoStocks = [
 
 // -- Utility --
 
-
 function seededRandom(seed: number): () => number {
   let s = seed;
   return () => {
@@ -160,30 +129,7 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-
 // -- Analysis Utilities (operate on live chain data) --
-
-export function getMaxPain(chain: OptionData[]): number {
-  let minPain = Infinity;
-  let maxPainStrike = chain[0]?.strikePrice || 0;
-
-  for (const option of chain) {
-    let totalPain = 0;
-    for (const other of chain) {
-      if (other.strikePrice < option.strikePrice) {
-        totalPain += other.ce.oi * (option.strikePrice - other.strikePrice);
-      } else if (other.strikePrice > option.strikePrice) {
-        totalPain += other.pe.oi * (other.strikePrice - option.strikePrice);
-      }
-    }
-    if (totalPain < minPain) {
-      minPain = totalPain;
-      maxPainStrike = option.strikePrice;
-    }
-  }
-
-  return maxPainStrike;
-}
 
 // ΓöÇΓöÇ Black-Scholes Greeks Calculator ΓöÇΓöÇ
 
@@ -245,25 +191,6 @@ export function calculateGreeks(
 }
 
 // Generate sensitivity data for Greeks charts
-export function generateGreeksSensitivity(
-  strike: number, daysToExpiry: number, iv: number, riskFreeRate: number,
-  spotCenter: number, range: number = 500, step: number = 10
-): { spot: number; callDelta: number; putDelta: number; gamma: number; callTheta: number; putTheta: number; vega: number }[] {
-  const points: any[] = [];
-  for (let s = spotCenter - range; s <= spotCenter + range; s += step) {
-    const g = calculateGreeks(s, strike, daysToExpiry, iv, riskFreeRate);
-    points.push({
-      spot: s,
-      callDelta: g.delta.call,
-      putDelta: g.delta.put,
-      gamma: g.gamma,
-      callTheta: g.theta.call,
-      putTheta: g.theta.put,
-      vega: g.vega,
-    });
-  }
-  return points;
-}
 
 // ΓöÇΓöÇ Strategy Definitions ΓöÇΓöÇ
 
@@ -429,191 +356,15 @@ export function estimateProbOfProfit(legs: StrategyLeg[], lotSize: number, spotP
 
 // -- IV Analytics --
 
-export interface IVAnalytics {
-  symbol: string;
-  currentIV: number;
-  ivRank: number;
-  ivPercentile: number;
-  iv52High: number;
-  iv52Low: number;
-  hvMonth: number;
-  hvWeek: number;
-  expectedMove: number;
-  expectedMovePercent: number;
-}
-
-export interface ScannerResult {
-  symbol: string;
-  ltp: number;
-  changePercent: number;
-  iv: number;
-  ivRank: number;
-  ivPercentile: number;
-  signalType: "Long Buildup" | "Short Buildup" | "Short Covering" | "Long Unwinding" | "High IV" | "Low IV";
-  sector: string;
-}
-
-
 // ΓöÇΓöÇ Delta OI (OI ├ù Delta per strike) ΓöÇΓöÇ
-
-export interface DeltaOIData {
-  strike: number;
-  ceDeltaOI: number; // CE OI * CE Delta
-  peDeltaOI: number; // PE OI * PE Delta (negative)
-  netDeltaOI: number;
-}
-
-export function getDeltaOI(chain: OptionData[], spotPrice: number, stepSize: number): DeltaOIData[] {
-  return chain
-    .filter(o => o.ce.oi > 30000 || o.pe.oi > 30000)
-    .map(o => {
-      const ceDeltaOI = Math.round(o.ce.oi * o.ce.delta);
-      const peDeltaOI = Math.round(o.pe.oi * o.pe.delta); // delta is negative for puts
-      return {
-        strike: o.strikePrice,
-        ceDeltaOI: Math.round(ceDeltaOI / 1000),
-        peDeltaOI: Math.round(peDeltaOI / 1000),
-        netDeltaOI: Math.round((ceDeltaOI + peDeltaOI) / 1000),
-      };
-    });
-}
 
 // ΓöÇΓöÇ Strike-wise PCR ΓöÇΓöÇ
 
-export interface StrikePCRData {
-  strike: number;
-  pcr: number;
-  ceOI: number;
-  peOI: number;
-  distance: number;
-}
-
-export function getStrikePCR(chain: OptionData[], spotPrice: number): StrikePCRData[] {
-  return chain
-    .filter(o => o.ce.oi > 10000 && o.pe.oi > 10000)
-    .map(o => ({
-      strike: o.strikePrice,
-      pcr: Math.round((o.pe.oi / o.ce.oi) * 100) / 100,
-      ceOI: o.ce.oi,
-      peOI: o.pe.oi,
-      distance: Math.round(((o.strikePrice - spotPrice) / spotPrice) * 10000) / 100,
-    }));
-}
-
 // ΓöÇΓöÇ ATM Zone Analysis (nearest N strikes) ΓöÇΓöÇ
-
-export interface ATMZoneData {
-  strikes: number;
-  totalCEOI: number;
-  totalPEOI: number;
-  pcr: number;
-  totalCEOIChg: number;
-  totalPEOIChg: number;
-  ceOIChgPercent: number;
-  peOIChgPercent: number;
-  pcrChange: number;
-  strikeData: {
-    strike: number;
-    ceOI: number;
-    peOI: number;
-    pcr: number;
-    ceOIChg: number;
-    peOIChg: number;
-    ceOIChgPct: number;
-    peOIChgPct: number;
-  }[];
-}
-
-export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
-  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const halfRange = Math.floor(numStrikes / 2);
-  const zoneStrikes = chain.filter(o => {
-    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
-    return strikeDist <= halfRange;
-  });
-
-  const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
-  const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
-  const totalCEOIChg = zoneStrikes.reduce((s, o) => s + o.ce.oiChange, 0);
-  const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
-
-  return {
-    strikes: numStrikes,
-    totalCEOI,
-    totalPEOI,
-    pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,
-    totalCEOIChg,
-    totalPEOIChg,
-    ceOIChgPercent: totalCEOI > 0 ? Math.round((totalCEOIChg / totalCEOI) * 10000) / 100 : 0,
-    peOIChgPercent: totalPEOI > 0 ? Math.round((totalPEOIChg / totalPEOI) * 10000) / 100 : 0,
-    pcrChange: totalCEOIChg !== 0 ? Math.round((totalPEOIChg / Math.abs(totalCEOIChg)) * 100) / 100 : 0,
-    strikeData: zoneStrikes.map(o => ({
-      strike: o.strikePrice,
-      ceOI: o.ce.oi,
-      peOI: o.pe.oi,
-      pcr: o.ce.oi > 0 ? Math.round((o.pe.oi / o.ce.oi) * 100) / 100 : 0,
-      ceOIChg: o.ce.oiChange,
-      peOIChg: o.pe.oiChange,
-      ceOIChgPct: o.ce.oi > 0 ? Math.round((o.ce.oiChange / o.ce.oi) * 10000) / 100 : 0,
-      peOIChgPct: o.pe.oi > 0 ? Math.round((o.pe.oiChange / o.pe.oi) * 10000) / 100 : 0,
-    })),
-  };
-}
 
 // ΓöÇΓöÇ Option Price + OI Time Series (mock intraday) ΓöÇΓöÇ
 
-export interface OptionOITimeSeriesPoint {
-  time: string;
-  optionPrice: number;
-  oi: number;
-  oiChange: number;
-  volume: number;
-}
-
-
 // ΓöÇΓöÇ OI-Weighted Greeks ΓöÇΓöÇ
-
-export interface OIWeightedGreeks {
-  netDelta: number;
-  netGamma: number;
-  netTheta: number;
-  netVega: number;
-  gammaExposure: number; // GEX
-  topDeltaStrikes: { strike: number; delta: number; oi: number; contribution: number; type: string }[];
-}
-
-export function getOIWeightedGreeks(chain: OptionData[], lotSize: number): OIWeightedGreeks {
-  let netDelta = 0, netGamma = 0, netTheta = 0, netVega = 0, gex = 0;
-  const deltaContributions: { strike: number; delta: number; oi: number; contribution: number; type: string }[] = [];
-
-  for (const o of chain) {
-    const ceDeltaContrib = o.ce.delta * o.ce.oi;
-    const peDeltaContrib = o.pe.delta * o.pe.oi;
-    netDelta += ceDeltaContrib + peDeltaContrib;
-    netGamma += o.ce.gamma * o.ce.oi + o.pe.gamma * o.pe.oi;
-    netTheta += o.ce.theta * o.ce.oi + o.pe.theta * o.pe.oi;
-    netVega += o.ce.vega * o.ce.oi + o.pe.vega * o.pe.oi;
-    gex += o.ce.gamma * o.ce.oi - o.pe.gamma * o.pe.oi; // GEX = call gamma OI - put gamma OI
-
-    if (Math.abs(ceDeltaContrib) > 50000) {
-      deltaContributions.push({ strike: o.strikePrice, delta: o.ce.delta, oi: o.ce.oi, contribution: Math.round(ceDeltaContrib), type: "CE" });
-    }
-    if (Math.abs(peDeltaContrib) > 50000) {
-      deltaContributions.push({ strike: o.strikePrice, delta: o.pe.delta, oi: o.pe.oi, contribution: Math.round(peDeltaContrib), type: "PE" });
-    }
-  }
-
-  return {
-    netDelta: Math.round(netDelta),
-    netGamma: Math.round(netGamma * 100) / 100,
-    netTheta: Math.round(netTheta),
-    netVega: Math.round(netVega),
-    gammaExposure: Math.round(gex),
-    topDeltaStrikes: deltaContributions
-      .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
-      .slice(0, 8),
-  };
-}
 
 // ΓöÇΓöÇ Candlestick Data (original, kept for backward compat) ΓöÇΓöÇ
 
@@ -646,8 +397,6 @@ export interface Position {
   theta: number;
   iv: number;
 }
-
-
 
 // ΓöÇΓöÇ P&L Simulator ΓöÇΓöÇ
 

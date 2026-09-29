@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Plus, Trash2, TrendingUp, TrendingDown, Minus, Zap, Shield, Target, Copy, Check, Keyboard, HelpCircle } from "lucide-react";
-import { getPresetStrategies, calculatePayoff, calculateGreeks, estimateMargin, estimateProbOfProfit, type StrategyLeg } from "@/lib/mockData";
+import { getPresetStrategies, calculatePayoff, calculateGreeks, estimateMargin, estimateProbOfProfit, type StrategyLeg } from "@/lib/derivatives";
 import { getSpotPrice, getLotSize, getStepSize } from "@/lib/positionStore";
 import { PayoffMultiDTE } from "@/components/PayoffMultiDTE";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

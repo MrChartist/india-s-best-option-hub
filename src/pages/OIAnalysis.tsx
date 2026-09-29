@@ -142,7 +142,7 @@ export default function OIAnalysis() {
         <div className="min-w-0">
           <h1 className="text-[1.55rem] font-semibold leading-tight text-foreground">OI Analysis</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2.5">
-            <Badge variant="outline" className={`gap-1 text-xs ${isLive ? "border-bullish text-bullish" : afterHours ? "border-amber-500/50 text-amber-400" : "border-red-500/50 text-red-400"}`}>
+            <Badge variant="outline" className={`gap-1 text-xs ${isLive ? "border-bullish text-bullish" : afterHours ? "border-warning/50 text-warning" : "border-bearish/50 text-bearish"}`}>
               {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
               {isLive ? "LIVE" : afterHours ? "CLOSED" : "OFFLINE"}
             </Badge>
@@ -150,7 +150,7 @@ export default function OIAnalysis() {
               <span className="text-xs font-mono text-muted-foreground">
                 Spot: <span className="text-foreground font-medium">{spotPrice.toLocaleString("en-IN")}</span>
                 {maxPain > 0 && <> · Max Pain: <span className="text-warning font-medium">{maxPain.toLocaleString("en-IN")}</span></>}
-                {afterHours && <span className="text-amber-400/60 ml-1">(Last Close)</span>}
+                {afterHours && <span className="text-warning/60 ml-1">(Last Close)</span>}
               </span>
             )}
             <p className="text-sm text-muted-foreground">Delta OI · Strike PCR · ATM Zone · Heatmap</p>
@@ -196,7 +196,7 @@ export default function OIAnalysis() {
 
       {/* After-Hours Banner */}
       {afterHours && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning">
           <WifiOff className="h-4 w-4 shrink-0" />
           <p className="text-xs font-medium">
             Market Closed — {hasData ? "Showing last available OI data from closing session" : "No cached data available. Data will populate when market opens."}

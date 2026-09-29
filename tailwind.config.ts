@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'Menlo', 'monospace'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['SF Mono', 'ui-monospace', 'JetBrains Mono', 'Menlo', 'monospace'],
       },
       fontSize: {
         '2xs': ['0.8125rem', { lineHeight: '1rem' }],
@@ -76,11 +76,16 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+        },
       },
       borderRadius: {
+        "2xl": "calc(var(--radius) + 8px)",
+        xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 3px)",
+        sm: "calc(var(--radius) - 6px)",
       },
       boxShadow: {
         'glow': '0 0 14px -6px hsl(var(--primary) / 0.42)',
@@ -88,8 +93,9 @@ export default {
         'neon-cyan': '0 0 10px rgba(0, 206, 232, 0.22)',
         'neon-green': '0 0 10px rgba(0, 214, 128, 0.2)',
         'neon-orange': '0 0 10px rgba(255, 171, 64, 0.18)',
-        'card': 'inset 0 1px 0 0 rgba(255,255,255,0.08), 0 14px 34px -24px rgba(15,23,42,0.45), 0 1px 2px rgba(15,23,42,0.07)',
-        'card-hover': 'inset 0 1px 0 0 rgba(255,255,255,0.12), 0 18px 44px -26px rgba(15,23,42,0.55), 0 0 0 1px hsl(var(--primary) / 0.14)',
+        'card': 'inset 0 1px 0 0 hsl(var(--glass-border)), 0 10px 30px -14px hsl(var(--glass-shadow))',
+        'card-hover': 'inset 0 1px 0 0 hsl(var(--glass-border)), 0 18px 44px -18px hsl(var(--glass-shadow)), 0 0 0 1px hsl(var(--primary) / 0.22)',
+        'glass': 'inset 0 1px 0 0 hsl(var(--glass-border)), 0 24px 60px -20px hsl(var(--glass-shadow))',
         'float': '0 10px 40px -10px hsl(var(--foreground) / 0.1), 0 0 0 1px hsl(var(--foreground) / 0.05)',
         'glow-lg': '0 0 22px -9px hsl(var(--primary) / 0.48)',
         'inner-glow': 'inset 0 0 18px -10px hsl(var(--primary) / 0.28)',

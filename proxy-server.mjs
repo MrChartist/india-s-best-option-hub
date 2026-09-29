@@ -39,6 +39,16 @@ try {
 } catch { /* .env file is optional */ }
 
 const PORT = parseInt(process.env.PROXY_PORT || "4002", 10);
+// Loopback by default: this server handles your broker tokens, so it should not be reachable from your network.
+// Docker / remote setups can opt in with PROXY_HOST=0.0.0.0.
+const HOST = process.env.PROXY_HOST || "127.0.0.1";
+const EXTRA_ORIGINS = (process.env.PROXY_ALLOWED_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/** Only local pages (and any origins you explicitly list) may call the proxy from a browser. */
+function isAllowedOrigin(origin) {
+  return !origin || LOCAL_ORIGIN.test(origin) || EXTRA_ORIGINS.includes(origin);
+}
 const DHAN_BASE = "https://api.dhan.co/v2";
 const NSE_BASE = "https://www.nseindia.com";
 
@@ -1133,13 +1143,20 @@ localWSS.on("connection", (ws) => {
 // ── SECTION 5: HTTP Server ──
 // ══════════════════════════════════════════════
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+const CORS_BASE = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token",
+  Vary: "Origin",
 };
 
 const server = http.createServer(async (req, res) => {
+  const origin = req.headers.origin;
+  if (!isAllowedOrigin(origin)) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ error: `Origin ${origin} is not allowed. Set PROXY_ALLOWED_ORIGINS to permit it.` }));
+  }
+  const CORS_HEADERS = origin ? { ...CORS_BASE, "Access-Control-Allow-Origin": origin } : CORS_BASE;
+
   if (req.method === "OPTIONS") {
     res.writeHead(204, CORS_HEADERS);
     return res.end();
@@ -1220,7 +1237,7 @@ const server = http.createServer(async (req, res) => {
 // Handle WebSocket upgrade for /ws path
 server.on("upgrade", (request, socket, head) => {
   const url = new URL(request.url, `http://localhost:${PORT}`);
-  if (url.pathname === "/ws") {
+  if (url.pathname === "/ws" && isAllowedOrigin(request.headers.origin)) {
     localWSS.handleUpgrade(request, socket, head, (ws) => {
       localWSS.emit("connection", ws, request);
     });
@@ -1229,9 +1246,10 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log("");
   console.log("  🚀 Mr. Chartist Proxy Server");
+  console.log(`  ├─ Listening:  ${HOST}:${PORT}${HOST === "127.0.0.1" ? " (local only)" : ""}`);
   console.log(`  ├─ HTTP:       http://localhost:${PORT}`);
   console.log(`  ├─ WebSocket:  ws://localhost:${PORT}/ws`);
   console.log(`  ├─ Health:     http://localhost:${PORT}/health`);

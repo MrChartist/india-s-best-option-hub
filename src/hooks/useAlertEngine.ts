@@ -1,6 +1,19 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import {
+  alertStore,
+  alertMetricKey,
+  describeAlert,
+  formatMetricValue,
+  shouldFire,
+  toneFor,
+  useAlertMetrics,
+  useAlertState,
+  type AlertTone,
+  type PriceAlert,
+} from "@/lib/alerts";
 
-// Audio context for alert sounds
+// ── Sound ──
 let audioContext: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
@@ -10,131 +23,107 @@ function getAudioContext(): AudioContext {
   return audioContext;
 }
 
-export type AlertTone = "bullish" | "bearish" | "warning" | "info";
-
 const toneFrequencies: Record<AlertTone, number[]> = {
-  bullish: [523.25, 659.25, 783.99],  // C5, E5, G5 — ascending major chord
-  bearish: [783.99, 659.25, 523.25],  // descending
-  warning: [880, 880, 880],            // A5 repeated
-  info: [659.25, 783.99],             // E5, G5
+  bullish: [523.25, 659.25, 783.99], // C5 E5 G5 — rising
+  bearish: [783.99, 659.25, 523.25], // falling
+  warning: [880, 698.46, 880], // A5 F5 A5 — attention
+  info: [659.25, 783.99],
 };
 
-export function playAlertSound(tone: AlertTone = "info", volume: number = 0.3) {
+export function playAlertSound(tone: AlertTone = "info", volume: number = 0.25) {
   try {
     const ctx = getAudioContext();
     if (ctx.state === "suspended") ctx.resume();
 
-    const freqs = toneFrequencies[tone];
-    const noteLength = 0.12;
-
-    freqs.forEach((freq, i) => {
+    const noteLength = 0.13;
+    toneFrequencies[tone].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      osc.type = tone === "warning" ? "square" : "sine";
+      const start = ctx.currentTime + i * noteLength;
+      osc.type = "sine";
       osc.frequency.value = freq;
-      gain.gain.value = volume;
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i + 1) * noteLength + 0.05);
-
-      osc.start(ctx.currentTime + i * noteLength);
-      osc.stop(ctx.currentTime + (i + 1) * noteLength + 0.05);
+      // Soft attack/decay so the chime doesn't click
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + noteLength + 0.12);
+      osc.start(start);
+      osc.stop(start + noteLength + 0.14);
     });
   } catch (e) {
     console.warn("Audio playback failed:", e);
   }
 }
 
-export interface AlertCondition {
-  id: string;
-  symbol: string;
-  type: "price" | "oi_spike" | "iv_spike" | "pcr" | "vix";
-  condition: "above" | "below";
-  value: number;
-  active: boolean;
-  triggered: boolean;
-  triggeredAt?: number;
-  tone: AlertTone;
+// ── Desktop notifications ──
+export function notificationsSupported(): boolean {
+  return typeof window !== "undefined" && "Notification" in window;
 }
 
-interface AlertCheckData {
-  spotPrice?: number;
-  vix?: number;
-  pcr?: number;
-  atmIV?: number;
-  maxOIChange?: number;
+export async function requestDesktopNotifications(): Promise<boolean> {
+  if (!notificationsSupported()) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  return (await Notification.requestPermission()) === "granted";
 }
 
-export function checkAlerts(
-  alerts: AlertCondition[],
-  data: AlertCheckData
-): AlertCondition[] {
-  const now = Date.now();
-  const cooldown = 60000; // 1 minute cooldown between re-triggers
+function fireSideEffects(alert: PriceAlert, actual: number) {
+  const { prefs } = alertStore.getState();
+  const tone = toneFor(alert);
+  const title = describeAlert(alert);
+  const description = `Now ${formatMetricValue(alert.metric, actual)} · ${new Date().toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })}${alert.note ? ` · ${alert.note}` : ""}`;
 
-  return alerts.map(alert => {
-    if (!alert.active || (alert.triggered && alert.triggeredAt && now - alert.triggeredAt < cooldown)) {
-      return alert;
+  toast(`🔔 ${title}`, { description, duration: 10000 });
+
+  if (prefs.sound && alert.sound) playAlertSound(tone);
+
+  if (prefs.browserNotify && notificationsSupported() && Notification.permission === "granted") {
+    try {
+      new Notification("Mr. Chartist Alert", { body: `${title}\n${description}`, tag: alert.id });
+    } catch {
+      /* some browsers only allow notifications from a service worker */
     }
-
-    let currentValue: number | undefined;
-    switch (alert.type) {
-      case "price": currentValue = data.spotPrice; break;
-      case "vix": currentValue = data.vix; break;
-      case "pcr": currentValue = data.pcr; break;
-      case "iv_spike": currentValue = data.atmIV; break;
-      case "oi_spike": currentValue = data.maxOIChange; break;
-    }
-
-    if (currentValue === undefined) return alert;
-
-    const shouldTrigger =
-      (alert.condition === "above" && currentValue > alert.value) ||
-      (alert.condition === "below" && currentValue < alert.value);
-
-    if (shouldTrigger && !alert.triggered) {
-      return { ...alert, triggered: true, triggeredAt: now };
-    }
-
-    // Reset if condition no longer met
-    if (!shouldTrigger && alert.triggered) {
-      return { ...alert, triggered: false, triggeredAt: undefined };
-    }
-
-    return alert;
-  });
+  }
 }
 
-// Hook that runs alert checks on an interval
-export function useAlertEngine(
-  alerts: AlertCondition[],
-  data: AlertCheckData,
-  onTriggered: (alert: AlertCondition) => void,
-  enabled: boolean = true,
-) {
-  const prevTriggered = useRef<Set<string>>(new Set());
-
-  const check = useCallback(() => {
-    if (!enabled) return;
-
-    const updated = checkAlerts(alerts, data);
-    updated.forEach(alert => {
-      if (alert.triggered && !prevTriggered.current.has(alert.id)) {
-        prevTriggered.current.add(alert.id);
-        onTriggered(alert);
-        playAlertSound(alert.tone);
-      }
-      if (!alert.triggered && prevTriggered.current.has(alert.id)) {
-        prevTriggered.current.delete(alert.id);
-      }
-    });
-  }, [alerts, data, onTriggered, enabled]);
+/**
+ * Runs every alert against the latest live readings. Mounted once (see AlertEngine),
+ * so alerts fire whether or not the alerts panel is open.
+ */
+export function useAlertEngine() {
+  const { alerts } = useAlertState();
+  const metrics = useAlertMetrics();
+  const prevValues = useRef<Map<string, number>>(new Map());
+  const wasMet = useRef<Map<string, boolean>>(new Map());
 
   useEffect(() => {
-    if (!enabled) return;
-    const interval = setInterval(check, 5000); // Check every 5 seconds
-    check(); // Immediate check
-    return () => clearInterval(interval);
-  }, [check, enabled]);
+    const now = Date.now();
+    const seenKeys = new Set<string>();
+
+    for (const alert of alerts) {
+      const key = alertMetricKey(alert);
+      const current = metrics[key];
+      if (current === undefined) continue;
+
+      const prev = prevValues.current.get(key);
+      const tracked = wasMet.current.get(alert.id);
+      const { fire, met } = shouldFire(alert, current, prev, tracked, now);
+      wasMet.current.set(alert.id, met);
+
+      // Track state for paused / finished alerts too, so re-arming never replays an old hit.
+      if (fire && alert.active) {
+        alertStore.recordTrigger(alert, current);
+        fireSideEffects(alert, current);
+      }
+      seenKeys.add(key);
+    }
+
+    seenKeys.forEach((key) => prevValues.current.set(key, metrics[key]));
+  }, [alerts, metrics]);
 }

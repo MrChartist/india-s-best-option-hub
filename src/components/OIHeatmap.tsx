@@ -2,7 +2,7 @@ import { Fragment, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Flame } from "lucide-react";
-import { type OptionData } from "@/lib/mockData";
+import { type OptionData } from "@/lib/derivatives";
 
 interface OIHeatmapProps {
   chain: OptionData[];

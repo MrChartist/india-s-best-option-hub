@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
 import { Clock, Percent } from "lucide-react";
-import type { StrategyLeg } from "@/lib/mockData";
+import type { StrategyLeg } from "@/lib/derivatives";
 
 interface Props {
   legs: StrategyLeg[];

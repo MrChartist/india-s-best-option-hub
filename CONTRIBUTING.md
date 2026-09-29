@@ -110,7 +110,7 @@ Browser → useMarketData hooks → marketApi.ts → Proxy Server → Dhan/NSE/T
 ### TypeScript
 - All source code in `src/` must be TypeScript (`.ts` or `.tsx`)
 - No `any` types unless absolutely necessary — prefer proper interfaces
-- Use the existing type definitions in `src/lib/mockData.ts`
+- Use the existing type definitions in `src/lib/derivatives.ts`
 
 ### Styling
 - Use Tailwind CSS classes

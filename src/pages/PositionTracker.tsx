@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { simulatePnL, simulateGreeksDecay, fnoStocks, type Position } from "@/lib/mockData";
+import { simulatePnL, simulateGreeksDecay, fnoStocks, type Position } from "@/lib/derivatives";
 import {
   getPositions, savePositions, removePosition as storeRemove,
   updatePosition as storeUpdate, clearPositions, createPosition,
@@ -19,7 +19,7 @@ import {
 import { Plus, Trash2, DollarSign, Shield, Clock, Activity, BarChart3, Download, Upload, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Bar } from "recharts";
 import { WhatIfSimulator } from "@/components/WhatIfSimulator";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 // Available symbols: indices + all F&O stocks
 const AVAILABLE_SYMBOLS = [
@@ -69,7 +69,6 @@ function EditableCell({ value, onSave, prefix = "", suffix = "", className = "" 
 }
 
 export default function PositionTracker() {
-  const { toast } = useToast();
   const [positions, setPositions] = useState<Position[]>(() => getPositions());
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>(() => getClosedPositions());
   const [showAddForm, setShowAddForm] = useState(false);
@@ -159,18 +158,18 @@ export default function PositionTracker() {
       expiry: formExpiry,
     });
     setPositions(prev => [...prev, pos]);
-    toast({ title: "Position Added", description: `${formAction} ${formSymbol} ${formStrike} ${formType}` });
+    toast.success("Position added", { description: `${formAction} ${formSymbol} ${formStrike} ${formType}` });
     // Reset form
     setFormEntry("100");
     setFormCmp("100");
     setFormLots("1");
     setShowAddForm(false);
-  }, [formSymbol, formType, formAction, formStrike, formLots, formEntry, formCmp, formExpiry, toast]);
+  }, [formSymbol, formType, formAction, formStrike, formLots, formEntry, formCmp, formExpiry]);
 
   const handleRemove = useCallback((id: string) => {
     setPositions(prev => prev.filter(p => p.id !== id));
-    toast({ title: "Position Deleted" });
-  }, [toast]);
+    toast("Position deleted");
+  }, []);
 
   const handleClose = useCallback((id: string) => {
     const pos = positions.find(p => p.id === id);
@@ -178,11 +177,10 @@ export default function PositionTracker() {
     const { active, closed } = storeClose(id, pos.currentPrice);
     setPositions(active);
     setClosedPositions(closed);
-    toast({
-      title: "Position Closed",
+    toast.success("Position closed", {
       description: `${pos.action} ${pos.symbol} ${pos.strike} ${pos.type} — ₹${pos.pnl.toLocaleString("en-IN")} realized`,
     });
-  }, [positions, toast]);
+  }, [positions]);
 
   const handleUpdateCMP = useCallback((id: string, newCmp: number) => {
     setPositions(prev => prev.map(p => {
@@ -212,8 +210,8 @@ export default function PositionTracker() {
   const handleClearAll = useCallback(() => {
     clearPositions();
     setPositions([]);
-    toast({ title: "All positions cleared" });
-  }, [toast]);
+    toast("All positions cleared");
+  }, []);
 
 
 
@@ -226,8 +224,8 @@ export default function PositionTracker() {
     a.download = `positions_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Positions exported" });
-  }, [positions, closedPositions, toast]);
+    toast.success("Positions exported");
+  }, [positions, closedPositions]);
 
   const handleImport = useCallback(() => {
     const input = document.createElement("input");
@@ -244,15 +242,15 @@ export default function PositionTracker() {
             savePositions(data.active);
             setPositions(data.active);
           }
-          toast({ title: `Imported ${data.active?.length || 0} positions` });
+          toast.success(`Imported ${data.active?.length || 0} positions`);
         } catch {
-          toast({ title: "Invalid file format", variant: "destructive" });
+          toast.error("Invalid file format");
         }
       };
       reader.readAsText(file);
     };
     input.click();
-  }, [toast]);
+  }, []);
 
   const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
 

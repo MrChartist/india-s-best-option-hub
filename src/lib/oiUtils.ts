@@ -6,8 +6,8 @@
  */
 
 // Re-export the OptionData type for convenience
-export type { OptionData, OptionLegData } from "./mockData";
-import type { OptionData } from "./mockData";
+export type { OptionData, OptionLegData } from "./derivatives";
+import type { OptionData } from "./derivatives";
 
 // ── Max Pain Calculator ──
 

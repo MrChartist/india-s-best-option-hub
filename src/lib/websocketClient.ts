@@ -9,7 +9,7 @@
  *   Dhan WS (binary) → proxy-server.mjs → this client (JSON) → React hooks
  */
 
-import { getActiveBroker } from "./brokerConfig";
+import { getDhanCredentials } from "./brokerConfig";
 
 // ── Types ──
 
@@ -175,13 +175,9 @@ class MarketWebSocket {
 
   /** Send Dhan credentials to proxy for WebSocket connection */
   sendCredentials(): void {
-    const broker = getActiveBroker();
-    if (broker?.brokerId === "dhan" && broker.values.clientId && broker.values.accessToken) {
-      this.send({
-        type: "configure",
-        clientId: broker.values.clientId,
-        accessToken: broker.values.accessToken,
-      });
+    const dhan = getDhanCredentials();
+    if (dhan) {
+      this.send({ type: "configure", ...dhan });
       this.credentialsSent = true;
       console.log("[MarketWS] Sent Dhan credentials to proxy");
     }

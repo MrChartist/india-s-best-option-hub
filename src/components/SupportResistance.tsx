@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Shield, Target } from "lucide-react";
-import { type OptionData } from "@/lib/mockData";
+import { type OptionData } from "@/lib/derivatives";
 
 interface SupportResistanceProps {
   chain: OptionData[];

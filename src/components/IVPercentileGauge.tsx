@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, CartesianGrid } from "recharts";
 import { Gauge, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import { getATMIV, getIVPercentileFromChain, getIVSkew, calculatePCR } from "@/lib/oiUtils";
-import type { OptionData } from "@/lib/mockData";
+import type { OptionData } from "@/lib/derivatives";
 
 interface Props {
   chain: OptionData[];

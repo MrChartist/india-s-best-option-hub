@@ -48,27 +48,6 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 </details>
 
 <details>
-<summary><strong>Polished Compact Navigation</strong></summary>
-
-![Mr. Chartist compact navigation rail](docs/screenshots/dashboard-collapsed-navbar.png)
-
-</details>
-
-<details>
-<summary><strong>🌙 Dark Mode — Option Chain</strong></summary>
-
-![Option Chain Dark](docs/screenshots/option-chain-dark.png)
-
-</details>
-
-<details>
-<summary><strong>☀️ Light Mode — OI Analysis</strong></summary>
-
-![OI Analysis Light](docs/screenshots/oi-analysis-light.png)
-
-</details>
-
-<details>
 <summary><strong>☀️ Light Mode — Strategy Builder</strong></summary>
 
 ![Strategy Builder Light](docs/screenshots/strategy-builder-light.png)
@@ -76,9 +55,16 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 </details>
 
 <details>
-<summary><strong>🌙 Dark Mode — Broker Settings</strong></summary>
+<summary><strong>🌙 Dark Mode — Brokers &amp; Data (bring your own key)</strong></summary>
 
-![Broker Settings Dark](docs/screenshots/broker-settings-dark.png)
+![Brokers and Data Dark](docs/screenshots/broker-settings-dark.png)
+
+</details>
+
+<details>
+<summary><strong>🔔 Alerts</strong></summary>
+
+![Alerts](docs/screenshots/alerts-dark.png)
 
 </details>
 
@@ -142,7 +128,8 @@ You can use the basic dashboard without broker credentials. Add a free Dhan API 
 | **🧮 Strategy Builder** | Build Bull Call Spread, Iron Condor, Straddle — see payoff chart before you trade | ✅ Working |
 | **💼 Position Tracker** | Track your open positions with real-time P&L | ✅ Working |
 | **⭐ Watchlist** | Save your favorite stocks for quick access | ✅ Working |
-| **🔑 Broker API Keys** | Connect your Dhan/Zerodha/Angel One account for live data (BYOK) | ✅ Working (Dhan fully connected) |
+| **🔑 Bring-your-own-key** | Paste your own broker keys — stored only in your browser, never shipped with the app | ✅ Dhan live · other brokers store keys, relay pending |
+| **🔔 Alerts** | Price, day-change %, VIX, PCR and ATM-IV alerts with cross-above/below, repeat mode, sound, desktop notifications and history | ✅ Working |
 | **📡 WebSocket Live Feed** | Real-time price ticks via Dhan WebSocket binary protocol | ✅ Working |
 | **🗄️ Local Database** | IndexedDB-based persistence for price snapshots and candle history | ✅ Working |
 | **📥 Chart Downloader** | Batch download OHLCV candles via Yahoo Finance (free, no API key) | ✅ Working |
@@ -152,10 +139,10 @@ You can use the basic dashboard without broker credentials. Add a free Dhan API 
 The dashboard is packed with live data widgets:
 
 - **Index Cards** — NIFTY 50, BANK NIFTY, FINNIFTY, MIDCAP NIFTY with live prices & intraday sparklines
-- **Data Sources Bar** — Real-time status of all 6 data sources (Dhan API, Dhan WS, Live Feed, NSE, TradingView, VIX)
 - **Key Metrics** — PCR, VIX, Max Pain for NIFTY and BANKNIFTY
-- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry (based on IV)
-- **IV Rank Scanner** — Scans major stocks for IV Rank with buy/sell signals
+- **Expected Move** — ±1σ / ±2σ range to expiry for NIFTY and BANKNIFTY from each index's own ATM IV, ATM straddle and days to expiry
+- **India VIX Rank** — Where today's VIX sits against the last year of actual VIX closes (rank + percentile)
+- **GIFT Nifty & Expiries** — Pre-market cue and the exchange's real expiry list for each index
 - **Top Movers** — Today's biggest gainers and losers in F&O
 - **Futures & VIX** — Premium/Discount analysis and VIX trend charts
 - **Sector Performance** — Color-coded sector heatmap showing money flow
@@ -256,21 +243,23 @@ DHAN_ACCESS_TOKEN=your_access_token_here
 
 The proxy server will automatically detect your Dhan credentials and connect to the Dhan WebSocket for live ticks.
 
-> **📝 Note:** You can also add Dhan credentials from the UI itself — go to **Broker Settings** page (`/broker-settings`) and enter your keys there. They're stored in your browser's localStorage and never sent to any external server.
+> **📝 Note:** You can also add Dhan credentials from the UI — open **Brokers & Data** (`/broker-settings`) and paste your keys. They stay in your browser (or only for the session if you turn off *Remember on this device*) and go only to your own local proxy.
 
-### Step 5 (Optional): Add Other Broker Keys
+### Step 5 (Optional): Other Brokers
 
-The Broker Settings page supports entering API keys for 7 Indian brokers:
+**Brokers & Data** lets you store keys for 7 Indian brokers. Only Dhan has a live data relay today; the others are marked **Relay pending** in the app so nothing looks connected when it isn't.
 
 | Broker | Status |
 |--------|--------|
-| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket) |
-| **Zerodha (Kite)** | 🔧 UI ready, backend integration coming soon |
-| **Angel One (SmartAPI)** | 🔧 UI ready, backend integration coming soon |
-| **Upstox** | 🔧 UI ready, backend integration coming soon |
-| **Fyers** | 🔧 UI ready, backend integration coming soon |
-| **5paisa** | 🔧 UI ready, backend integration coming soon |
-| **Alice Blue** | 🔧 UI ready, backend integration coming soon |
+| **Dhan** | ✅ Live — option chain, Greeks, WebSocket, connection test |
+| **Zerodha (Kite)** | 🔧 Keys stored, relay pending |
+| **Angel One (SmartAPI)** | 🔧 Keys stored, relay pending |
+| **Upstox** | 🔧 Keys stored, relay pending |
+| **Fyers** | 🔧 Keys stored, relay pending |
+| **5paisa** | 🔧 Keys stored, relay pending |
+| **Alice Blue** | 🔧 Keys stored, relay pending |
+
+Adding a relay means teaching `proxy-server.mjs` that broker's option-chain / quote endpoints — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -352,8 +341,10 @@ option-hub                            latest    d906950fcb94   About a minute ag
 #### 3. Run the container
 
 ```bash
-docker run -p 4001:4001 -p 4002:4002 option-hub
+docker run -p 127.0.0.1:4001:4001 -p 127.0.0.1:4002:4002 option-hub
 ```
+
+> Binding the ports to `127.0.0.1` keeps the proxy (which handles your broker tokens) off your network. Inside the container it listens on all interfaces (`PROXY_HOST=0.0.0.0`) so the port mapping can reach it.
 
 Sample Output
 ```aiignore
@@ -408,7 +399,7 @@ http://localhost:4001
 * If port `4001` or `4002` is already in use, run:
 
 ```bash
-docker run -p 5001:4001 -p 5002:4002 option-hub
+docker run -p 127.0.0.1:5001:4001 -p 127.0.0.1:5002:4002 option-hub
 ```
 
 Then open:
@@ -424,7 +415,7 @@ http://localhost:5001
 To enable live code changes:
 
 ```bash
-docker run -p 4001:4001 -p 4002:4002 -v $(pwd):/app option-hub
+docker run -p 127.0.0.1:4001:4001 -p 127.0.0.1:4002:4002 -v $(pwd):/app option-hub
 ```
 
 ---
@@ -538,14 +529,13 @@ Your Browser  ←→  Local Proxy Server (:4002)  ←→  Dhan / NSE / TradingVi
 4. Data flows back to your browser in real-time
 5. Dhan WebSocket data is parsed from binary and relayed as clean JSON to the browser
 
-> **🔒 Security:** Your API keys never leave your machine. The proxy runs 100% locally — no external servers, no cloud, no tracking. Broker keys stored in the browser are kept in localStorage only.
+> **🔒 Security:** This is a local, bring-your-own-key app — no key ships with it and nothing is stored on a server. Keys live in your browser's localStorage (or sessionStorage if you choose *this session only*) and are sent only to your own proxy, which forwards them to your broker. The proxy listens on `127.0.0.1` and accepts browser requests only from `localhost` origins. To reach it from another machine set `PROXY_HOST=0.0.0.0` and list the page's origin in `PROXY_ALLOWED_ORIGINS`. Prefer read-only / data-only tokens.
 
-### Data Source Status Bar
+### Connection Status
 
-The dashboard shows a **real-time status bar** at the top with all 6 source indicators:
+The toolbar shows a single **LIVE / OFFLINE** chip — click it for a quick summary. The full picture (proxy, Dhan feed, WebSocket ticks, NSE, F&O stocks) is under **Brokers & Data → Status**.
 
-| Indicator | Meaning |
-|-----------|---------|
+-----------|---------|
 | 🟢 **Dhan API** | Primary data source — Option Chain, Greeks |
 | 🟢 **Dhan WS** | WebSocket live ticks — Index prices, VIX |
 | 🟢 **Live Feed** | Browser receiving WebSocket data |
@@ -564,10 +554,9 @@ Hover over any indicator to see detailed connection info, including tick count, 
 The main dashboard with 10+ live data sections. Everything refreshes automatically during market hours.
 
 **Key sections:**
-- **Ticker Tape** — Scrolling prices at the top
 - **Index Cards** — Click any card to open its option chain
 - **Key Metrics** — PCR, VIX, Max Pain
-- **IV Rank Scanner** — Shows if options are cheap or expensive
+- **Expected Move & VIX Rank** — Whether options are cheap or expensive versus the last year
 - **Market Breadth** — Overall market health with sentiment score (0–100)
 
 ### 2. Option Chain (`/option-chain`)
@@ -612,9 +601,13 @@ Track your open option positions with simulated P&L.
 
 Save your favorite F&O symbols for quick access.
 
-### 7. Broker Settings (`/broker-settings`)
+### 7. Brokers & Data (`/broker-settings`)
 
-Configure your broker API credentials. See real-time connection status for all data sources. Supports 7 Indian brokers with BYOK (Bring Your Own Key) architecture.
+Bring your own keys for 7 Indian brokers (Dhan live; others store keys until a relay exists), test a connection, see live status of every data path, and manage the local IndexedDB price/candle store.
+
+### Alerts
+
+Press **A** (or click the bell). Alert on price, day-change %, India VIX, PCR or ATM IV for any index or F&O stock, using *is above / is below / crosses above / crosses below*. Each alert shows its live value and how far away it is, can fire once or repeatedly, plays a chime and can raise a desktop notification. Triggered alerts are kept in a history. Alerts are saved in your browser and are evaluated while the app is open — they only fire on **live** data, never on stale after-hours snapshots.
 
 ---
 
@@ -622,6 +615,14 @@ Configure your broker API credentials. See real-time connection status for all d
 
 | Shortcut | Action |
 |----------|--------|
+| `⌘K` / `Ctrl+K` or `/` | Search & command palette |
+| `A` | Open alerts |
+| `R` | Refresh all data |
+| `1` – `7` | Dashboard · Option Chain · OI Analysis · Watchlist · Strategy Builder · Position Tracker · Brokers & Data |
+
+Single-key shortcuts are ignored while you're typing in a field.
+
+----------|--------|
 | `⌘1` or `Ctrl+1` | Go to Dashboard |
 | `⌘2` or `Ctrl+2` | Go to Option Chain |
 | `⌘3` or `Ctrl+3` | Go to OI Analysis |
@@ -671,15 +672,13 @@ india-s-best-option-hub/
 │   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
 │   │   ├── StrategyBuilder.tsx # Strategy Builder (/strategy-builder)
 │   │   ├── PositionTracker.tsx # Position Tracker (/position-tracker)
-│   │   ├── BrokerSettings.tsx  # Broker Settings (/broker-settings)
+│   │   ├── BrokerSettings.tsx  # Brokers & Data (/broker-settings)
 │   │   └── NotFound.tsx      # 404 page
 │   │
 │   ├── components/           # Reusable UI pieces
 │   │   ├── ui/               # Base components (Button, Card, Table, Badge, etc.)
 │   │   ├── dashboard/        # Dashboard section widgets
-│   │   │   ├── DataSourcesBar.tsx    # 6-source real-time status bar
-│   │   │   ├── MarketHeader.tsx      # Market open/closed indicator
-│   │   │   ├── TickerTape.tsx        # Scrolling price ticker
+│   │   │   ├── MarketHeader.tsx      # Page title + date + NSE session
 │   │   │   ├── IndexCards.tsx        # NIFTY/BANKNIFTY cards with sparklines
 │   │   │   ├── KeyMetrics.tsx        # PCR, VIX, Max Pain cards
 │   │   │   ├── TopMovers.tsx         # Gainers & losers table
@@ -687,18 +686,18 @@ india-s-best-option-hub/
 │   │   │   ├── MostActiveFnO.tsx     # Highest activity F&O stocks
 │   │   │   ├── MarketBreadth.tsx     # Sentiment score, A/D ratio, VIX regime
 │   │   │   ├── FuturesVIX.tsx        # Futures premium/discount + VIX chart
-│   │   │   ├── GiftNiftyExpiry.tsx   # GIFT Nifty + expiry countdown
-│   │   │   ├── WelcomeBanner.tsx     # Welcome message
-│   │   │   ├── QuickTradeActions.tsx # Quick navigation cards
+│   │   │   ├── GiftNiftyExpiry.tsx   # GIFT Nifty + real expiry calendar
 │   │   │   ├── SectionHeader.tsx     # Section titles with tooltips
 │   │   │   └── InfoTooltip.tsx       # Educational tooltips
 │   │   ├── IVPercentileGauge.tsx     # IV analysis with live smile chart
-│   │   ├── IVRankWidget.tsx          # IV rank scanner (multi-symbol)
-│   │   ├── ExpectedMoveWidget.tsx    # Expected move calculator
+│   │   ├── VixRankCard.tsx           # India VIX rank/percentile from 1Y of real closes
+│   │   ├── ExpectedMoveWidget.tsx    # Expected move from live chain IV + straddle + DTE
+│   │   ├── settings/                 # Brokers & Data: BrokerCard, ConnectionStatus
 │   │   ├── DashboardLayout.tsx       # Sidebar + main content layout
 │   │   ├── AppSidebar.tsx            # Navigation sidebar with all routes
 │   │   ├── CommandPalette.tsx        # Cmd+K command palette
-│   │   ├── AlertSystem.tsx           # Price/OI alert engine
+│   │   ├── AlertSystem.tsx           # Alerts panel (create, list, history)
+│   │   ├── AlertEngine.tsx           # Headless: feeds live readings into alerts
 │   │   ├── DatabaseManager.tsx       # IndexedDB price/candle manager UI
 │   │   ├── ErrorBoundary.tsx         # Graceful error handling
 │   │   ├── LoadingSkeletons.tsx      # Loading skeleton animations
@@ -709,17 +708,20 @@ india-s-best-option-hub/
 │   │   ├── useWebSocket.ts   # WebSocket connection for live Dhan ticks
 │   │   ├── useLocalDatabase.ts # IndexedDB read/write hooks
 │   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
-│   │   ├── useAlertEngine.ts # Alert engine logic
+│   │   ├── useAlertEngine.ts # Runs alerts against live data; chime + desktop notifications
 │   │   └── useTheme.ts      # Dark/light theme toggle
 │   │
 │   ├── lib/                  # Utility functions & core logic
 │   │   ├── marketApi.ts      # API calls (Dhan → NSE → TradingView fallback chain)
 │   │   ├── websocketClient.ts # Browser-side WebSocket client for Dhan relay
-│   │   ├── brokerConfig.ts   # Broker definitions + localStorage key management
+│   │   ├── brokerConfig.ts   # Broker catalogue + bring-your-own-key storage (local / session-only)
+│   │   ├── alerts.ts         # Alert model, persistence and pure trigger logic
+│   │   ├── volatility.ts     # Expected move + IV rank maths
+│   │   ├── navigation.ts     # Single source for sidebar, palette and shortcuts
 │   │   ├── oiUtils.ts        # OI analysis calculations (Max Pain, PCR, Delta OI)
 │   │   ├── positionStore.ts  # Position tracking with lot sizes
 │   │   ├── localDatabase.ts  # IndexedDB wrapper for persistent storage
-│   │   ├── mockData.ts       # TypeScript type definitions and data models
+│   │   ├── derivatives.ts    # Option/index types, Greeks, strategy payoff & risk maths
 │   │   └── utils.ts          # General utilities (cn helper)
 │   │
 │   └── test/                 # Test files
@@ -811,11 +813,12 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 - Watchlist
 - Dhan WebSocket live feed with binary protocol parsing
 - Proxy server with 3-source failover (Dhan → NSE → TradingView)
-- Data source status bar
+- Connection status (toolbar chip + Brokers & Data → Status)
 - Keyboard shortcuts & command palette
 - Dark/Light theme
 - IndexedDB local persistence
-- BYOK broker key storage
+- Bring-your-own-key storage (local or session-only) with connection test
+- Alerts: price, day-change %, VIX, PCR, ATM IV — with history, sound and desktop notifications
 
 ### 🔧 What's Being Worked On (Next 10–30 Days)
 
@@ -823,7 +826,7 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 - [ ] Historical OI change charts
 - [ ] Options Greeks calculator with real-time Greeks from Dhan
 - [ ] Multi-expiry comparison views
-- [ ] Alert system with push notifications
+- [ ] Alerts delivered to phone (Telegram / push) when the tab is closed
 - [ ] Advanced strategy P&L with multi-DTE scenarios
 - [ ] GEX (Gamma Exposure) analysis
 - [ ] FII/DII activity dashboard
@@ -833,7 +836,9 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 ### 🤔 Known Gaps (Help Wanted!)
 
 - Some dashboard sections may show empty during off-market hours — this is by design (no mock data)
-- Zerodha/Angel One/Upstox/Fyers/5paisa/Alice Blue have UI forms but no backend connectors yet
+- Zerodha/Angel One/Upstox/Fyers/5paisa/Alice Blue store keys but have no proxy relay yet (shown as *Relay pending*)
+- No per-symbol IV history from free sources, so IV rank is shown for India VIX (the NIFTY proxy) only
+- Lot sizes in the position tracker are hard-coded (`src/lib/positionStore.ts`) and need checking against the current NSE circular
 - The Strategy Builder payoff chart doesn't integrate with live option chain pricing yet
 - Some component state doesn't persist across page navigation
 

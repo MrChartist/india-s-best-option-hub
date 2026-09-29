@@ -259,6 +259,16 @@ export default function OptionChain() {
   const navigate = useNavigate();
   const [symbol, setSymbol] = useState(searchParams.get("symbol") || "NIFTY");
   const [selectedExpiry, setSelectedExpiry] = useState<string | undefined>(undefined);
+
+  // Follow ?symbol= when navigated to from search / index cards while already on this page
+  const symbolParam = searchParams.get("symbol");
+  useEffect(() => {
+    if (symbolParam && symbolParam !== symbol) {
+      setSymbol(symbolParam.toUpperCase());
+      setSelectedExpiry(undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolParam]);
   const [viewMode, setViewMode] = useState<"expiration" | "strike">("expiration");
   const [selectedStrike, setSelectedStrike] = useState<number | null>(null);
   const [columnConfig, setColumnConfig] = useState({
@@ -540,13 +550,13 @@ export default function OptionChain() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={`gap-1 text-[11px] ${isLive ? "border-bullish/50 text-bullish" : afterHours ? "border-amber-500/50 text-amber-400" : "border-red-500/30 text-red-400"}`}>
+          <Badge variant="outline" className={`gap-1 text-[11px] ${isLive ? "border-bullish/50 text-bullish" : afterHours ? "border-warning/50 text-warning" : "border-bearish/30 text-bearish"}`}>
             {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
             {isLive ? (data?.source === "dhan" ? "DHAN" : "NSE") : afterHours ? "CLOSED" : "OFFLINE"}
           </Badge>
           <span className="text-xs font-mono">
             {symbol} <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            {afterHours && <span className="text-amber-400/60 ml-1 text-xs">(Last Close)</span>}
+            {afterHours && <span className="text-warning/60 ml-1 text-xs">(Last Close)</span>}
           </span>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => refetch()}>
             <RefreshCw className="h-3.5 w-3.5" />
@@ -669,11 +679,11 @@ export default function OptionChain() {
 
       {/* After-Hours Banner */}
       {afterHours && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning/10 border border-warning/20 text-warning">
           <WifiOff className="h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="text-xs font-medium">Market Closed — {hasData ? "Showing Last Available Data" : "No Cached Data Available"}</p>
-            <p className="text-xs text-amber-400/60 mt-0.5">
+            <p className="text-xs text-warning/60 mt-0.5">
               {hasData
                 ? "Data is from the last market session. PCR, Max Pain, and OI values reflect closing snapshot."
                 : "Option chain data will be available once the market opens (9:15 AM IST) or when the proxy has cached data."}
@@ -762,15 +772,15 @@ export default function OptionChain() {
 
       {/* Unusual Activity Banner */}
       {unusualActivity.count > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-500/10 border border-orange-500/25 text-xs">
-          <Flame className="h-3.5 w-3.5 text-orange-500 animate-pulse" />
-          <span className="font-semibold text-orange-500">{unusualActivity.count} Unusual Activity</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-warning/10 border border-warning/25 text-xs">
+          <Flame className="h-3.5 w-3.5 text-warning animate-pulse" />
+          <span className="font-semibold text-warning">{unusualActivity.count} Unusual Activity</span>
           <span className="text-muted-foreground">strikes detected (Vol &gt; 3× avg OI):</span>
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
             {unusualActivity.hotStrikes.map(s => {
               const flag = unusualActivity.flags.get(s)!;
               return (
-                <Badge key={s} variant="outline" className="text-[11px] gap-1 border-orange-500/30 text-orange-500 shrink-0">
+                <Badge key={s} variant="outline" className="text-[11px] gap-1 border-warning/30 text-warning shrink-0">
                   {s.toLocaleString("en-IN")}
                   {flag.ce && <span className="text-primary">CE</span>}
                   {flag.ce && flag.pe && <span className="text-muted-foreground">+</span>}
@@ -873,7 +883,7 @@ export default function OptionChain() {
                             ref={isATM ? atmRef : undefined}
                             className={`text-xs sm:text-[11px] font-mono cursor-context-menu transition-colors hover:bg-accent/30 ${
                               isATM ? "bg-primary/[0.08] border-y-2 border-primary/30 shadow-[inset_0_0_20px_hsl(var(--primary)/0.06)]" : ""
-                            } ${hasUA ? "bg-orange-500/[0.04]" : ""} ${isFocused ? "ring-1 ring-primary/60 bg-primary/[0.04]" : ""}`}
+                            } ${hasUA ? "bg-warning/[0.04]" : ""} ${isFocused ? "ring-1 ring-primary/60 bg-primary/[0.04]" : ""}`}
                           >
                             {/* ── CALL SIDE ── */}
                             {columnConfig.iv && <TableCell className={`text-right py-1.5 tabular-nums ${isITMCall ? "text-muted-foreground/70" : ""}`}>{row.ce.iv.toFixed(1)}</TableCell>}
@@ -896,7 +906,7 @@ export default function OptionChain() {
                             {columnConfig.volume && (
                               <TableCell className="text-right py-1.5">
                                 <div className="flex items-center justify-end gap-0.5">
-                                  {uaFlag?.ce && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
+                                  {uaFlag?.ce && <Flame className="h-3 w-3 text-warning shrink-0" />}
                                   <VolumeBar value={row.ce.volume} max={maxVol} side="call" />
                                 </div>
                               </TableCell>
@@ -925,7 +935,7 @@ export default function OptionChain() {
                               <TableCell className="text-left py-1.5">
                                 <div className="flex items-center gap-0.5">
                                   <VolumeBar value={row.pe.volume} max={maxVol} side="put" />
-                                  {uaFlag?.pe && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
+                                  {uaFlag?.pe && <Flame className="h-3 w-3 text-warning shrink-0" />}
                                 </div>
                               </TableCell>
                             )}
@@ -1017,8 +1027,8 @@ export default function OptionChain() {
               </div>
             ) : (
               <>
-              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-amber-500/20 bg-amber-500/5">
-                <Badge variant="outline" className="text-xs h-4 px-1.5 border-amber-500/40 text-amber-600 gap-1">
+              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-warning/20 bg-warning/5">
+                <Badge variant="outline" className="text-xs h-4 px-1.5 border-warning/40 text-warning gap-1">
                   ⚠ Simulated
                 </Badge>
                 <span className="text-[11px] text-muted-foreground">Multi-expiry data is approximated from current expiry. Live multi-expiry API integration pending.</span>

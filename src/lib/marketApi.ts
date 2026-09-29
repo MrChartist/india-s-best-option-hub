@@ -1,5 +1,5 @@
-import type { OptionData, ExpiryDate, IndexData } from "./mockData";
-import { getActiveBroker } from "./brokerConfig";
+import type { OptionData, ExpiryDate, IndexData } from "./derivatives";
+import { getDhanHeaders, type BrokerCredentials } from "./brokerConfig";
 
 // Local proxy base URL — override via VITE_PROXY_URL if deploying proxy elsewhere
 const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
@@ -9,15 +9,8 @@ async function fetchDhanProxy(endpoint: string, params?: Record<string, string>)
   const qp = new URLSearchParams({ endpoint, ...params });
   const url = `${PROXY_BASE}/api/dhan-proxy?${qp.toString()}`;
 
-  // Inject user's Dhan credentials if available
-  const headers: Record<string, string> = {};
-  const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
-  }
-
-  const res = await fetch(url, { headers });
+  // The user's own Dhan keys (if any); otherwise the proxy falls back to its .env keys
+  const res = await fetch(url, { headers: getDhanHeaders() });
   if (!res.ok) {
     const errText = await res.text();
     throw new Error(`Dhan proxy error ${res.status}: ${errText}`);
@@ -494,14 +487,9 @@ export async function fetchFIIDII(): Promise<FIIDIIData[]> {
 
 // ── Test Connection ──
 
-export async function testDhanConnection(): Promise<{ status: string; message: string }> {
-  const headers: Record<string, string> = {};
-  const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
-  }
-  const res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers });
+/** Verify Dhan keys against the local proxy. Pass creds to test unsaved input; omit to test the active broker. */
+export async function testDhanConnection(creds?: BrokerCredentials): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers: getDhanHeaders(creds) });
   return res.json();
 }
 

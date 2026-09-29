@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getMaxPain, calculatePCR, getATMIV, getIVSkew, getStrikePCR, getDeltaOI, getATMZoneAnalysis } from "@/lib/oiUtils";
-import type { OptionData } from "@/lib/mockData";
+import type { OptionData } from "@/lib/derivatives";
 
 // Helper to build a minimal chain row
 function makeRow(strike: number, ceOI: number, peOI: number, overrides?: Partial<{

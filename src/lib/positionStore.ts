@@ -1,7 +1,7 @@
 // Position Store — localStorage-based CRUD for user positions
 // Persists positions across page refreshes. Same pattern as brokerConfig.ts
 
-import type { Position } from "./mockData";
+import type { Position } from "./derivatives";
 
 const STORAGE_KEY = "optionsdesk_positions";
 const CLOSED_STORAGE_KEY = "optionsdesk_closed_positions";

@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -8,9 +7,13 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  CommandShortcut,
 } from "@/components/ui/command";
-import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, Search, TrendingUp, TrendingDown, Keyboard } from "lucide-react";
+import { BellPlus, Moon, Search, TrendingUp, TrendingDown } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
+import { useTheme } from "@/hooks/useTheme";
+import { NAV_ALL } from "@/lib/navigation";
+import { alertStore } from "@/lib/alerts";
 
 // Static F&O stock list for command palette navigation (no prices needed)
 const FNO_STOCKS = [
@@ -19,6 +22,8 @@ const FNO_STOCKS = [
   "TATAMOTORS", "SUNPHARMA", "TITAN", "WIPRO", "BAJFINANCE", "HCLTECH",
 ];
 
+const FALLBACK_INDICES = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"];
+
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,64 +31,69 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const { toggle: toggleTheme, isDark } = useTheme();
   const { data: indicesResult } = useLiveIndices();
   const indices = indicesResult?.data || [];
 
-  const go = (path: string) => {
-    navigate(path);
+  const run = (fn: () => void) => {
     onOpenChange(false);
+    fn();
   };
+  const go = (path: string) => run(() => navigate(path));
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search symbols, pages, actions..." />
-      <CommandList>
+      <CommandInput placeholder="Search symbols, pages, actions…" />
+      <CommandList className="max-h-[420px] p-1.5">
         <CommandEmpty>No results found.</CommandEmpty>
 
-        <CommandGroup heading="Pages">
-          <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+1</span></CommandItem>
-          <CommandItem onSelect={() => go("/option-chain")}><TableProperties className="mr-2 h-4 w-4" /> Option Chain <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+2</span></CommandItem>
-          <CommandItem onSelect={() => go("/oi-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> OI Analysis <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+3</span></CommandItem>
-          <CommandItem onSelect={() => go("/greeks")}><Calculator className="mr-2 h-4 w-4" /> Greeks Calculator <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+4</span></CommandItem>
-          <CommandItem onSelect={() => go("/strategy")}><Layers className="mr-2 h-4 w-4" /> Strategy Builder <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+5</span></CommandItem>
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        <CommandGroup heading="Indices">
-          {indices.length > 0 ? indices.map((idx: any) => (
-            <CommandItem key={idx.symbol} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
-              {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
-              {idx.name}
-              <span className="ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
-            </CommandItem>
-          )) : (
-            <>
-              {["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"].map(sym => (
-                <CommandItem key={sym} onSelect={() => go(`/option-chain?symbol=${sym}`)}>
-                  <Search className="mr-2 h-4 w-4" />
-                  {sym}
-                </CommandItem>
-              ))}
-            </>
-          )}
-        </CommandGroup>
-
-        <CommandSeparator />
-
-        <CommandGroup heading="F&O Stocks">
-          {FNO_STOCKS.map(stock => (
-            <CommandItem key={stock} onSelect={() => go(`/option-chain?symbol=${stock}`)}>
-              <Search className="mr-2 h-4 w-4" />
-              {stock}
+        <CommandGroup heading="Go to">
+          {NAV_ALL.map((n) => (
+            <CommandItem key={n.url} onSelect={() => go(n.url)}>
+              <n.icon className="mr-2 h-4 w-4" /> {n.title}
+              {n.key && <CommandShortcut className="font-mono">{n.key}</CommandShortcut>}
             </CommandItem>
           ))}
         </CommandGroup>
 
         <CommandSeparator />
 
-        <CommandGroup heading="Keyboard Shortcuts">
-          <CommandItem disabled><Keyboard className="mr-2 h-4 w-4" /> / — Search &nbsp;|&nbsp; G — Greeks &nbsp;|&nbsp; Ctrl+1-5 — Navigate &nbsp;|&nbsp; Esc — Close</CommandItem>
+        <CommandGroup heading="Actions">
+          <CommandItem onSelect={() => run(() => alertStore.setPanelOpen(true))}>
+            <BellPlus className="mr-2 h-4 w-4" /> New alert…
+            <CommandShortcut className="font-mono">A</CommandShortcut>
+          </CommandItem>
+          <CommandItem onSelect={() => run(toggleTheme)}>
+            <Moon className="mr-2 h-4 w-4" /> Switch to {isDark ? "light" : "dark"} mode
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Option chain — indices">
+          {indices.length > 0
+            ? indices.map((idx: any) => (
+                <CommandItem key={idx.symbol} value={`${idx.name} ${idx.symbol}`} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
+                  {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
+                  {idx.name}
+                  <span className="num ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
+                </CommandItem>
+              ))
+            : FALLBACK_INDICES.map((sym) => (
+                <CommandItem key={sym} onSelect={() => go(`/option-chain?symbol=${sym}`)}>
+                  <Search className="mr-2 h-4 w-4" /> {sym}
+                </CommandItem>
+              ))}
+        </CommandGroup>
+
+        <CommandSeparator />
+
+        <CommandGroup heading="Option chain — F&O stocks">
+          {FNO_STOCKS.map((stock) => (
+            <CommandItem key={stock} onSelect={() => go(`/option-chain?symbol=${stock}`)}>
+              <Search className="mr-2 h-4 w-4" /> {stock}
+            </CommandItem>
+          ))}
         </CommandGroup>
       </CommandList>
     </CommandDialog>
