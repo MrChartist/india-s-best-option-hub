@@ -44,3 +44,7 @@ coverage/
 .gemini/
 .agents/
 _agents/
+
+# Playwright
+playwright-report/
+test-results/

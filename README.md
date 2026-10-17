@@ -108,7 +108,7 @@ You only need three things: **Node.js**, this project folder, and a browser. The
 
 ### Windows PC
 
-1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+1. Install **Node.js LTS** (v20 or newer) from [nodejs.org](https://nodejs.org/).
 2. Download this project as a ZIP from GitHub and extract it, or clone it with Git.
 3. Open the extracted project folder.
 4. Click the folder address bar, type `cmd`, and press **Enter**. A terminal opens inside the project.
@@ -118,7 +118,7 @@ You only need three things: **Node.js**, this project folder, and a browser. The
 
 ### Mac
 
-1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+1. Install **Node.js LTS** (v20 or newer) from [nodejs.org](https://nodejs.org/).
 2. Download this project as a ZIP from GitHub and unzip it, or clone it with Git.
 3. Open **Terminal**.
 4. Type `cd `, drag the project folder into Terminal, and press **Enter**.
@@ -170,7 +170,7 @@ The dashboard is packed with live data widgets:
 
 | Tool | Version | Download |
 |------|---------|----------|
-| **Node.js** | v18 or higher | [nodejs.org](https://nodejs.org/) |
+| **Node.js** | v20 or higher (v22 LTS recommended) | [nodejs.org](https://nodejs.org/) |
 | **Git** | Any recent version | [git-scm.com](https://git-scm.com/downloads) |
 | **Code Editor** | Optional but recommended | [VS Code](https://code.visualstudio.com/) |
 
@@ -202,7 +202,7 @@ npm install
 
 This downloads all the libraries the project needs. Wait for it to finish (~1-2 minutes on first install).
 
-> **Getting errors?** Make sure Node.js is installed by running `node --version`. You should see `v18.x.x` or higher. If not, [download Node.js](https://nodejs.org/).
+> **Getting errors?** Make sure Node.js is installed by running `node --version`. You should see `v20.x.x` or higher. If not, [download Node.js](https://nodejs.org/).
 
 ### Step 3: Start the App
 
@@ -228,6 +228,16 @@ This starts **two servers simultaneously**:
 | Dashboard overview, index cards, watchlist, sector flow, scanners, and many fallback data widgets | Full Dhan option chain, Greeks, expiry metadata, and live WebSocket ticks |
 | Local settings, local watchlist, browser storage, and theme preferences | Highest-quality real-time derivatives data |
 | Yahoo Finance historical candle downloads | Broker-specific authenticated endpoints |
+
+### Sample-data mode (no proxy, no keys)
+
+Want to look around outside market hours, or without running the proxy?
+
+```bash
+VITE_DATA_MODE=sample npm run dev:vite
+```
+
+With no proxy reachable, pages show either an empty state or clearly labelled sample data (look for the **Sample data** badge). `VITE_DATA_MODE=sample` tells the data layer to skip the proxy and go straight to sample data. Sample numbers are for demonstration only and are never shown as live prices. The Playwright smoke tests run in this mode.
 
 ### Step 4 (Optional): Add Dhan API for Premium Data
 
@@ -274,235 +284,35 @@ The Broker Settings page supports entering API keys for 7 Indian brokers:
 
 ---
 
-## ## 🐳 Running with Docker (No Local Setup Required)
+## 🐳 Running with Docker
 
-You can run the entire application using Docker without installing Node.js or any dependencies on your system.
+The image is a production build: `dist/` is served on port **4001** and the data proxy runs on port **4002**, as a non-root user, with a health check. Broker keys are never baked into the image; they are read from `.env` at runtime.
 
----
-
-### ✅ Prerequisites
-
-* Install **Docker Desktop**
-* Ensure Docker is running
-
-Verify:
-
-```bash
-docker --version
-```
-
----
-
-### 🚀 Quick Start
-
-#### 1. Clone the repository
+### Docker Compose (recommended)
 
 ```bash
 git clone https://github.com/MrChartist/india-s-best-option-hub.git
 cd india-s-best-option-hub
+cp .env.example .env        # optional: add Dhan keys
+docker compose up --build
 ```
 
----
+Open `http://localhost:4001`. Both ports are bound to `127.0.0.1` only, because the proxy can hold your broker token.
 
-#### 2. Build the Docker image
+### Plain Docker
 
 ```bash
-docker build -t option-hub .
+docker build -t mrchartist-terminal .
+docker run --rm -p 127.0.0.1:4001:4001 -p 127.0.0.1:4002:4002 --env-file .env mrchartist-terminal
 ```
 
-Sample Output:
-```aiignore
-[+] Building 87.4s (10/10) FINISHED                                                                                                                                                                                                                      docker:desktop-linux
- => [internal] load build definition from Dockerfile                                                                                                                                                                                                                     0.0s
- => => transferring dockerfile: 294B                                                                                                                                                                                                                                     0.0s
- => [internal] load metadata for docker.io/library/node:18                                                                                                                                                                                                               2.1s
- => [internal] load .dockerignore                                                                                                                                                                                                                                        0.0s
- => => transferring context: 144B                                                                                                                                                                                                                                        0.0s
- => [1/5] FROM docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
- => => resolve docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
- => [internal] load build context                                                                                                                                                                                                                                        0.0s
- => => transferring context: 7.42kB                                                                                                                                                                                                                                      0.0s
- => CACHED [2/5] WORKDIR /app                                                                                                                                                                                                                                            0.0s
- => CACHED [3/5] COPY package*.json ./                                                                                                                                                                                                                                   0.0s
- => [4/5] RUN rm -rf node_modules package-lock.json     && npm install --force                                                                                                                                                                                          75.2s
- => [5/5] COPY . .                                                                                                                                                                                                                                                       0.1s 
- => exporting to image                                                                                                                                                                                                                                                   9.9s 
- => => exporting layers                                                                                                                                                                                                                                                  7.4s 
- => => exporting manifest sha256:75e3c113eac8c8dcc0ec769ec51bdfb5767ce0883609fe46f7ee57d983af34bb                                                                                                                                                                        0.0s 
- => => exporting config sha256:e8dfd38c4b9b20bb6f764db17b5a0c770d80d79ef0fa696956fd6f14a7195eaa                                                                                                                                                                          0.0s 
- => => exporting attestation manifest sha256:f65b10ee21b3422cab3fa8ba6596aed9a79262d011e0e87187cdaa28bde88f12                                                                                                                                                            0.0s 
- => => exporting manifest list sha256:5ccf075f6e80ce19f175629b38be8df5b4a010110a079c3ed06228c1182029d9                                                                                                                                                                   0.0s
- => => naming to docker.io/library/option-hub:latest                                                                                                                                                                                                                     0.0s
- => => unpacking to docker.io/library/option-hub:latest                                                                                                                                                                                                                  2.4s
+Leave out `--env-file .env` if you have no keys yet. Check health with `curl http://localhost:4002/health`.
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/q8ak3rr7fs3kwdwy7u8e48itu
-```
-
-Verify generated build image:
-```aiignore
-docker images | grep option-hub
-```
-
-Sample Output
-```aiignore
-option-hub                            latest    d906950fcb94   About a minute ago   2.24GB
-```
----
-
-#### 3. Run the container
-
-```bash
-docker run -p 4001:4001 -p 4002:4002 option-hub
-```
-
-Sample Output
-```aiignore
-
-> india-s-best-option-hub@1.0.0 dev
-> concurrently -n vite,proxy -c cyan,green "vite" "node proxy-server.mjs" --host
-
-[proxy] 
-[proxy]   🚀 Mr. Chartist Proxy Server
-[proxy]   ├─ HTTP:       http://localhost:4002
-[proxy]   ├─ WebSocket:  ws://localhost:4002/ws
-[proxy]   ├─ Health:     http://localhost:4002/health
-[proxy]   ├─ Dhan (1°):  http://localhost:4002/api/dhan-proxy?endpoint=option-chain&symbol=NIFTY
-[proxy]   ├─ NSE  (2°):  http://localhost:4002/api/nse-proxy?endpoint=indices
-[proxy]   └─ TV Scanner: http://localhost:4002/api/tv-scan?type=stocks
-[proxy] 
-[proxy]   Data Priority: Dhan → NSE → TradingView
-[proxy]   Dhan credentials: ⚠️  Not set (configure in .env or Broker Settings)
-[proxy] 
-[vite] 
-[vite]   VITE v5.4.21  ready in 83 ms
-[vite] 
-[vite]   ➜  Local:   http://localhost:4001/
-[vite]   ➜  Network: http://172.17.0.2:4001/
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy]   🌐 Browser WebSocket client connected
-```
-
----
-
-#### 4. Open in browser
-
-```
-http://localhost:4001
-```
-
----
-
-### 🔧 How it Works
-
-* **Frontend (Vite)** runs on: `http://localhost:4001`
-* **Proxy Server** runs on: `http://localhost:4002`
-* Everything runs inside an isolated container
-
----
-
-### ⚠️ Notes
-
-* If port `4001` or `4002` is already in use, run:
-
-```bash
-docker run -p 5001:4001 -p 5002:4002 option-hub
-```
-
-Then open:
-
-```
-http://localhost:5001
-```
-
----
-
-### 🔁 Development Mode (Hot Reload)
-
-To enable live code changes:
-
-```bash
-docker run -p 4001:4001 -p 4002:4002 -v $(pwd):/app option-hub
-```
-
----
-
-### 🧠 Apple Silicon (M1/M2/M3) Note
-
-If you face issues related to Rollup or native modules, rebuild using:
-
-```bash
-docker build --no-cache -t option-hub .
-```
-
----
-
-### 🛑 Stopping the Container
-
-Find running containers:
-
-```bash
-docker ps
-```
-
-Stop:
-
-```bash
-docker stop <container_id>
-```
-
----
-
-### 🧹 Cleanup
-
-Remove container:
-
-```bash
-docker rm <container_id>
-```
-
-Remove image:
-
-```bash
-docker rmi option-hub
-```
-
----
-
-### 📦 Optional: Docker Compose
-
-Create a `docker-compose.yml`:
-
-```yaml
-version: "3"
-
-services:
-  option-hub:
-    build: .
-    ports:
-      - "4001:4001"
-      - "4002:4002"
-    volumes:
-      - .:/app
-    command: npm run dev -- --host
-```
-
-Run:
-
-```bash
-docker-compose up --build
-```
-
----
-
-### 🎯 Benefits of Docker Setup
-
-* No local dependency installation
-* Clean and isolated environment
-* Works across Mac, Linux, Windows
-* Easy onboarding for new users
+| Setting | How |
+|---------|-----|
+| Different host ports | `-p 127.0.0.1:5001:4001 -p 127.0.0.1:5002:4002`, and rebuild with `--build-arg VITE_PROXY_URL=http://localhost:5002` |
+| Proxy on another host | `--build-arg VITE_PROXY_URL=https://proxy.example.com` and set `PROXY_ALLOWED_ORIGINS` at runtime |
+| Hot reload while coding | Use `npm run dev` on your machine; the image is for running, not developing |
 
 ---
 
@@ -620,14 +430,26 @@ Configure your broker API credentials. See real-time connection status for all d
 
 ## ⌨️ Keyboard Shortcuts
 
+Press `g`, then a letter, to jump between pages (like Gmail or GitHub). Shortcuts are ignored while you are typing in a field or a dialog is open.
+
 | Shortcut | Action |
 |----------|--------|
-| `⌘1` or `Ctrl+1` | Go to Dashboard |
-| `⌘2` or `Ctrl+2` | Go to Option Chain |
-| `⌘3` or `Ctrl+3` | Go to OI Analysis |
-| `⌘4` or `Ctrl+4` | Go to Watchlist |
-| `⌘5` or `Ctrl+5` | Go to Strategy Builder |
-| `⌘6` or `Ctrl+6` | Go to Position Tracker |
+| `g` `d` | Dashboard |
+| `g` `c` | Option Chain |
+| `g` `o` | OI Analysis |
+| `g` `s` | Strategy Builder |
+| `g` `v` | Volatility |
+| `g` `x` | Gamma Exposure |
+| `g` `f` | Options Flow |
+| `g` `p` | Position Tracker |
+| `g` `l` | Learn |
+| `/` or `Ctrl+K` | Search / command palette |
+| `R` | Refresh market data |
+| `Alt+A` | Alerts |
+| `?` | Show all shortcuts |
+| `Esc` | Close panels |
+
+The list is generated from the route registry in `src/lib/routes.ts`.
 
 ---
 
@@ -736,13 +558,19 @@ india-s-best-option-hub/
 
 | Command | What It Does |
 |---------|-------------|
-| `npm run dev` | **Start everything** — Vite frontend (`:4001`) + Proxy server (`:4002`) together |
-| `npm run dev:vite` | Start only Vite (frontend only, no live data from proxy) |
+| `npm run dev` | **Start everything**: Vite frontend (`:4001`) and proxy server (`:4002`) together |
+| `npm run dev:vite` | Start only Vite (frontend only, no live data from the proxy) |
 | `npm run proxy` | Start only the proxy server |
-| `npm run build` | Create production build in `dist/` folder |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Check code for TypeScript/ESLint errors |
-| `npm run test` | Run tests with Vitest |
+| `npm run build` | Production build in `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | TypeScript in strict mode (app, config files and e2e) |
+| `npm run lint` | ESLint (`npm run lint:strict` fails on any warning) |
+| `npm test` | Unit tests with Vitest |
+| `npm run test:coverage` | Unit tests with coverage (90% gate on `src/lib/options/**`) |
+| `npm run test:e2e` | Playwright smoke tests on every page, in sample-data mode (run `npx playwright install chromium` once) |
+| `npm run format` | Format with Prettier (Tailwind classes sorted) |
+| `npm run knip` | Find unused files, exports and dependencies |
+| `npm run check` | Typecheck, lint, test and build: run this before opening a PR |
 
 ---
 
@@ -757,7 +585,7 @@ india-s-best-option-hub/
 
 ### "npm install fails"
 
-- Make sure you have **Node.js v18+** installed: `node --version`
+- Make sure you have **Node.js v20+** installed: `node --version`
 - Try clearing npm cache: `npm cache clean --force` then `npm install` again
 - On Windows, try running as Administrator
 - On Mac/Linux, if permission errors: `sudo npm install` (not recommended long-term — fix npm permissions instead)
@@ -800,6 +628,8 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 ---
 
 ## 🗺️ Current Status & Roadmap
+
+The full, prioritised plan (feature parity with Sensibull, OptionStrat and others, adapted for NSE) lives in **[ROADMAP.md](ROADMAP.md)**. How the code fits together is in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ### ✅ What's Working Now
 
@@ -868,6 +698,8 @@ For a complete deployment with live data:
 
 ### How to Contribute
 
+Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. Every PR must pass `npm run check` (typecheck, lint, tests, build).
+
 1. **Fork** this repository
 2. **Create** a feature branch: `git checkout -b feature/my-feature`
 3. **Make changes** and commit: `git commit -m 'Add my feature'`
@@ -879,7 +711,7 @@ For a complete deployment with live data:
 - 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.)
 - 📊 **Improve charts** (candlestick charts, better OI visualization)
 - 📱 **Mobile responsiveness** (some sections need mobile love)
-- 🧪 **Add tests** (very few tests exist right now)
+- 🧪 **Add tests** (pure logic in `src/lib/**` with Vitest, pages via the Playwright smoke suite)
 - 📝 **Documentation** (component docs, API docs)
 - 🎨 **UI polish** (animations, better loading states)
 - 🐛 **Bug fixes** (find something broken? Fix it!)
@@ -889,7 +721,7 @@ For a complete deployment with live data:
 - Write TypeScript (no plain JavaScript in `src/`)
 - Use the design system (CSS variables) — no hardcoded colors
 - Test in both dark and light themes
-- Don't add mock/fake data — all data must come from real APIs
+- Never present sample or derived data as live: label it visibly (a **Sample data** or **Derived** badge)
 - Keep the proxy server dependency-free (only `ws` as external dep)
 
 ---

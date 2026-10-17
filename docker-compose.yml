@@ -1,0 +1,34 @@
+# docker compose up --build   →   http://localhost:4001
+#
+# Dhan keys are optional. Copy .env.example to .env and fill them in; the file
+# is read at runtime and never copied into the image (.dockerignore).
+services:
+  terminal:
+    build:
+      context: .
+      args:
+        # The browser talks to the proxy directly; change if you publish 4002 elsewhere.
+        VITE_PROXY_URL: http://localhost:4002
+    image: mrchartist/options-terminal:local
+    container_name: mrchartist-terminal
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PROXY_ALLOWED_ORIGINS: http://localhost:4001,http://127.0.0.1:4001
+    ports:
+      # Bound to localhost only: the proxy can hold your broker token.
+      - "127.0.0.1:4001:4001"
+      - "127.0.0.1:4002:4002"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      # Proxy last-good cache survives restarts.
+      - proxy-cache:/app/.cache
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  proxy-cache:

@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CommandDialog,
@@ -8,26 +7,28 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  CommandShortcut,
 } from "@/components/ui/command";
-import { LayoutDashboard, TableProperties, BarChart3, Calculator, Layers, Search, TrendingUp, TrendingDown, Keyboard } from "lucide-react";
+import { Keyboard, Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
+import { routesByGroup } from "@/lib/routes";
+import { routeIcon } from "@/lib/routeIcons";
+import { STATIC_FNO_STOCKS } from "@/lib/screener/universe";
 
-// Static F&O stock list for command palette navigation (no prices needed)
-const FNO_STOCKS = [
-  "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
-  "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK",
-  "TATAMOTORS", "SUNPHARMA", "TITAN", "WIPRO", "BAJFINANCE", "HCLTECH",
-];
+const NAV_GROUPS = routesByGroup();
+const FALLBACK_INDICES = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"];
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opens the keyboard-shortcut overlay. */
+  onShowShortcuts?: () => void;
 }
 
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { data: indicesResult } = useLiveIndices();
-  const indices = indicesResult?.data || [];
+  const indices = indicesResult?.data ?? [];
 
   const go = (path: string) => {
     navigate(path);
@@ -36,44 +37,55 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search symbols, pages, actions..." />
+      <CommandInput placeholder="Search pages, symbols, actions..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        <CommandGroup heading="Pages">
-          <CommandItem onSelect={() => go("/")}><LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+1</span></CommandItem>
-          <CommandItem onSelect={() => go("/option-chain")}><TableProperties className="mr-2 h-4 w-4" /> Option Chain <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+2</span></CommandItem>
-          <CommandItem onSelect={() => go("/oi-analysis")}><BarChart3 className="mr-2 h-4 w-4" /> OI Analysis <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+3</span></CommandItem>
-          <CommandItem onSelect={() => go("/greeks")}><Calculator className="mr-2 h-4 w-4" /> Greeks Calculator <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+4</span></CommandItem>
-          <CommandItem onSelect={() => go("/strategy")}><Layers className="mr-2 h-4 w-4" /> Strategy Builder <span className="ml-auto text-xs text-muted-foreground font-mono">Ctrl+5</span></CommandItem>
-        </CommandGroup>
+        {NAV_GROUPS.map(({ group, routes }) => (
+          <CommandGroup key={group} heading={group}>
+            {routes.map((r) => {
+              const Icon = routeIcon(r.icon);
+              return (
+                <CommandItem
+                  key={r.path}
+                  value={`${r.navLabel} ${r.title} ${r.path}`}
+                  keywords={r.keywords}
+                  onSelect={() => go(r.path)}
+                >
+                  <Icon className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <span>{r.navLabel}</span>
+                  {r.badge && <span className="ml-2 text-[10px] font-semibold uppercase text-primary-ink">{r.badge}</span>}
+                  {r.shortcut && <CommandShortcut>{r.shortcut.toUpperCase()}</CommandShortcut>}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+        ))}
 
         <CommandSeparator />
 
         <CommandGroup heading="Indices">
-          {indices.length > 0 ? indices.map((idx: any) => (
-            <CommandItem key={idx.symbol} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
-              {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
-              {idx.name}
-              <span className="ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
-            </CommandItem>
-          )) : (
-            <>
-              {["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"].map(sym => (
-                <CommandItem key={sym} onSelect={() => go(`/option-chain?symbol=${sym}`)}>
+          {indices.length > 0
+            ? indices.map((idx) => (
+                <CommandItem key={idx.symbol} value={`index ${idx.symbol} ${idx.name}`} onSelect={() => go(`/option-chain?symbol=${idx.symbol}`)}>
+                  {idx.change >= 0 ? <TrendingUp className="mr-2 h-4 w-4 text-bullish" /> : <TrendingDown className="mr-2 h-4 w-4 text-bearish" />}
+                  {idx.name}
+                  <span className="ml-auto font-mono text-xs">{idx.ltp.toLocaleString("en-IN")}</span>
+                </CommandItem>
+              ))
+            : FALLBACK_INDICES.map((sym) => (
+                <CommandItem key={sym} value={`index ${sym}`} onSelect={() => go(`/option-chain?symbol=${sym}`)}>
                   <Search className="mr-2 h-4 w-4" />
                   {sym}
                 </CommandItem>
               ))}
-            </>
-          )}
         </CommandGroup>
 
         <CommandSeparator />
 
-        <CommandGroup heading="F&O Stocks">
-          {FNO_STOCKS.map(stock => (
-            <CommandItem key={stock} onSelect={() => go(`/option-chain?symbol=${stock}`)}>
+        <CommandGroup heading="F&O Stocks · open option chain">
+          {STATIC_FNO_STOCKS.map((stock) => (
+            <CommandItem key={stock} value={`stock ${stock}`} onSelect={() => go(`/option-chain?symbol=${stock}`)}>
               <Search className="mr-2 h-4 w-4" />
               {stock}
             </CommandItem>
@@ -82,8 +94,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Keyboard Shortcuts">
-          <CommandItem disabled><Keyboard className="mr-2 h-4 w-4" /> / — Search &nbsp;|&nbsp; G — Greeks &nbsp;|&nbsp; Ctrl+1-5 — Navigate &nbsp;|&nbsp; Esc — Close</CommandItem>
+        <CommandGroup heading="Help">
+          <CommandItem
+            value="keyboard shortcuts help"
+            onSelect={() => {
+              onOpenChange(false);
+              onShowShortcuts?.();
+            }}
+          >
+            <Keyboard className="mr-2 h-4 w-4" />
+            Keyboard shortcuts
+            <CommandShortcut>?</CommandShortcut>
+          </CommandItem>
         </CommandGroup>
       </CommandList>
     </CommandDialog>

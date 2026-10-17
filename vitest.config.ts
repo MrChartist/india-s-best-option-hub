@@ -2,15 +2,73 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+/**
+ * Two test projects:
+ *  - "lib":  pure logic under src/lib/** runs in plain Node (fast, no DOM).
+ *  - "dom":  everything else (hooks, components, src/test/**) runs in jsdom.
+ *
+ * A src/lib test that genuinely needs the DOM (localStorage, CSS variables)
+ * goes in DOM_LIB_TESTS below, or starts with a `// @vitest-environment jsdom`
+ * docblock.
+ */
+const DOM_LIB_TESTS = ["src/lib/chartTheme.test.ts", "src/lib/options/__tests__/contract.test.ts"];
+
+const alias = { "@": path.resolve(__dirname, "./src") };
+
 export default defineConfig({
   plugins: [react()],
+  resolve: { alias },
   test: {
-    environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
-  },
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "lib",
+          environment: "node",
+          include: ["src/lib/**/*.{test,spec}.{ts,tsx}"],
+          exclude: DOM_LIB_TESTS,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["src/*.{test,spec}.{ts,tsx}", "src/!(lib)/**/*.{test,spec}.{ts,tsx}", ...DOM_LIB_TESTS],
+        },
+      },
+    ],
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary", "html", "lcov", "json-summary"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "src/**/__tests__/**",
+        "src/test/**",
+        "src/components/ui/**",
+        "src/main.tsx",
+        "src/vite-env.d.ts",
+        "src/**/*.d.ts",
+      ],
+      thresholds: {
+        // Hard gate: the pricing core must stay well tested.
+        "src/lib/options/**": {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
+        },
+        // Global numbers are report-only for now (see CONTRIBUTING.md); raise
+        // them to 60 once page-level tests land.
+        statements: 0,
+        branches: 0,
+        functions: 0,
+        lines: 0,
+      },
+    },
   },
 });

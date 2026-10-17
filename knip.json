@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/main.tsx", "proxy-server.mjs", "e2e/**/*.spec.ts", "src/**/*.test.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "*.{ts,mjs,js}"],
+  "ignore": ["src/components/ui/**", "src/vite-env.d.ts", "dist/**", "coverage/**"],
+  "ignoreDependencies": [
+    "@radix-ui/.*",
+    "tailwindcss-animate",
+    "@tailwindcss/typography",
+    "autoprefixer",
+    "postcss",
+    "prettier-plugin-tailwindcss",
+    "@testing-library/jest-dom"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "vite": { "config": ["vite.config.ts"] },
+  "vitest": { "config": ["vitest.config.ts"] },
+  "playwright": { "config": ["playwright.config.ts"] },
+  "eslint": { "config": ["eslint.config.js"] }
+}
