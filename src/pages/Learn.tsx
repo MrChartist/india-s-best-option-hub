@@ -1,0 +1,244 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  Clock3,
+  FlaskConical,
+  GraduationCap,
+  Layers,
+  Magnet,
+  Receipt,
+  Search,
+  ShieldAlert,
+  Sigma,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import Glossary from "@/components/learn/Glossary";
+import LessonCard from "@/components/learn/LessonCard";
+import MetricHelp from "@/components/learn/MetricHelp";
+import NismBanner from "@/components/learn/NismBanner";
+import ProgressTracker from "@/components/learn/ProgressTracker";
+import { useLearnProgress } from "@/components/learn/useLearnProgress";
+import { GLOSSARY } from "@/content/learn/glossary";
+import { LESSONS, lessonsInPath, PATHS, SEBI_STUDY_2024_URL, TOTAL_MINUTES } from "@/content/learn/lessons";
+import { METRIC_KEYS, METRICS } from "@/content/learn/metrics";
+import { nextLessonSlug } from "@/content/learn/progress";
+import type { LearningPath, SimId } from "@/content/learn/types";
+
+const PATH_ICON: Record<LearningPath["icon"], LucideIcon> = { BookOpen, Sigma, Activity, Layers, ShieldAlert, BarChart3, Magnet };
+
+const SIM_CARDS: Array<{ sim: SimId; title: string; blurb: string; icon: LucideIcon }> = [
+  { sim: "ivStraddle", title: "Drag IV, watch the straddle", blurb: "See premiums and the expected move respond to volatility and time.", icon: Activity },
+  { sim: "payoff", title: "Build a payoff", blurb: "Click strikes to assemble spreads, straddles and condors.", icon: Layers },
+  { sim: "thetaDecay", title: "Expiry-day theta", blurb: "Slide the clock from 09:15 to 15:30 and watch time value melt.", icon: Clock3 },
+  { sim: "greeks", title: "Greeks explorer", blurb: "Delta and gamma curves across strikes, days and IV.", icon: Sigma },
+  { sim: "pop", title: "Probability of profit", blurb: "POP vs expected value for strangles and condors.", icon: Target },
+  { sim: "charges", title: "Charges and STT", blurb: "Every rupee between gross and net, plus the exercise trap.", icon: Receipt },
+];
+
+function firstLessonWithSim(sim: SimId): string {
+  return LESSONS.find((l) => l.sims.includes(sim))?.slug ?? LESSONS[0].slug;
+}
+
+export default function Learn() {
+  useDocumentTitle("Learn options with NISMExams.com");
+  const { progress, reset } = useLearnProgress();
+  const location = useLocation();
+  const [filter, setFilter] = useState("");
+
+  const ordered = useMemo(() => LESSONS.map((l) => l.slug), []);
+  const nextSlug = nextLessonSlug(progress, ordered);
+  const nextLesson = LESSONS.find((l) => l.slug === nextSlug);
+  const started = Object.keys(progress.completed).length > 0 || !!progress.lastSlug;
+  const allDone = !nextSlug;
+
+  const q = filter.trim().toLowerCase();
+  const matches = (title: string, summary: string) => !q || title.toLowerCase().includes(q) || summary.toLowerCase().includes(q);
+  const visiblePaths = PATHS.map((p) => ({ path: p, lessons: lessonsInPath(p.id).filter((l) => matches(l.title, l.summary) || matches(p.title, "")) })).filter((x) => x.lessons.length > 0);
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
+
+  return (
+    <div className="mx-auto w-full max-w-[1400px] space-y-6 px-1.5 py-1 sm:px-0">
+      {/* Hero */}
+      <header className="relative overflow-hidden rounded-panel border border-border bg-card p-5 shadow-card sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-capsule bg-wash-brand opacity-70" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-capsule bg-product-wash opacity-80" aria-hidden="true" />
+        <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-label uppercase text-muted-foreground">
+              <GraduationCap className="h-4 w-4 text-primary-ink" aria-hidden="true" />
+              Mr. Chartist <span aria-hidden="true">×</span> <span className="text-product">NISMExams.com</span>
+            </p>
+            <h1 className="mt-3 max-w-3xl font-display text-[2rem] font-extrabold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-[2.6rem]">
+              Learn options with <span className="font-serif font-normal italic text-primary-ink">NISMExams.com</span>
+            </h1>
+            <p className="mt-3 max-w-2xl text-lead font-normal text-muted-foreground">
+              Plain-English lessons on Indian F&O, from calls and puts to GEX, with interactive simulators that use the same maths as the terminal. Every lesson ends with a short quiz.
+            </p>
+            <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm" aria-label="What is inside">
+              {[
+                [String(LESSONS.length), "lessons"],
+                [`${TOTAL_MINUTES} min`, "total reading"],
+                [String(SIM_CARDS.length), "simulators"],
+                [String(GLOSSARY.length), "glossary terms"],
+              ].map(([v, k]) => (
+                <li key={k} className="flex items-baseline gap-1.5">
+                  <span className="font-num text-title tabular-nums text-foreground">{v}</span>
+                  <span className="text-muted-foreground">{k}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+            <Link
+              to={`/learn/${nextLesson?.slug ?? LESSONS[0].slug}`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-pill bg-primary px-5 text-lead font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
+            >
+              {allDone ? "Review from the start" : started ? "Continue learning" : "Start with Options 101"}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            {nextLesson && started ? <span className="text-center text-body-sm text-muted-foreground lg:max-w-[16rem]">Next up: {nextLesson.title}</span> : null}
+          </div>
+        </div>
+      </header>
+
+      <aside role="note" className="flex gap-3 rounded-card border border-bearish/25 bg-wash-loss p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-bearish" aria-hidden="true" />
+        <p className="text-body text-foreground">
+          <span className="font-semibold">Know the odds first.</span> SEBI found that about 9 in 10 individual F&O traders lost money between FY22 and FY24.{" "}
+          <a href={SEBI_STUDY_2024_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-bearish underline underline-offset-4 focus-visible:shadow-ember focus-visible:outline-none">
+            Read the SEBI study<span className="sr-only"> (PDF, opens in a new tab)</span>
+          </a>{" "}
+          or start with the{" "}
+          <Link to="/learn/risk-disclosure" className="font-semibold text-bearish underline underline-offset-4 focus-visible:shadow-ember focus-visible:outline-none">
+            risk disclosure lesson
+          </Link>
+          .
+        </p>
+      </aside>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {/* Learning paths */}
+        <section aria-labelledby="paths-h" className="min-w-0 space-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="paths-h" className="font-display text-title text-foreground">
+                Learning paths
+              </h2>
+              <p className="mt-0.5 text-body-sm text-muted-foreground">Work through them in order, or jump to what you need.</p>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <label htmlFor="lesson-filter" className="sr-only">
+                Filter lessons
+              </label>
+              <Input id="lesson-filter" type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter lessons" className="pl-8" autoComplete="off" />
+            </div>
+          </div>
+
+          {visiblePaths.length === 0 ? (
+            <div className="rounded-card border border-dashed border-border bg-surface px-4 py-10 text-center">
+              <p className="font-semibold text-foreground">No lessons match “{filter}”</p>
+              <p className="mt-1 text-body-sm text-muted-foreground">Try the glossary below for single terms.</p>
+            </div>
+          ) : (
+            visiblePaths.map(({ path, lessons }) => {
+              const Icon = PATH_ICON[path.icon];
+              const all = lessonsInPath(path.id);
+              return (
+                <div key={path.id} id={`path-${path.id}`} className="scroll-mt-20">
+                  <div className="mb-3 flex items-start gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-tile bg-wash-brand text-primary-ink" aria-hidden="true">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="font-display text-lead font-bold text-foreground">{path.title}</h3>
+                      <p className="text-body-sm text-muted-foreground">{path.blurb}</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {lessons.map((l) => (
+                      <LessonCard key={l.slug} lesson={l} index={all.indexOf(l)} done={!!progress.completed[l.slug]} quiz={progress.quiz[l.slug]} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </section>
+
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <ProgressTracker progress={progress} onReset={reset} />
+          <NismBanner variant="compact" />
+        </div>
+      </div>
+
+      <NismBanner />
+
+      {/* Simulators */}
+      <section aria-labelledby="sims-h">
+        <h2 id="sims-h" className="flex items-center gap-2 font-display text-title text-foreground">
+          <FlaskConical className="h-5 w-5 text-primary-ink" aria-hidden="true" /> Try the simulators
+        </h2>
+        <p className="mt-0.5 text-body-sm text-muted-foreground">Each one lives inside a lesson, priced with the terminal's Black-Scholes core on a live or sample NIFTY level.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {SIM_CARDS.map((s) => (
+            <Link
+              key={s.sim}
+              to={`/learn/${firstLessonWithSim(s.sim)}`}
+              className="group flex items-start gap-3 rounded-card border border-border bg-card p-4 shadow-card transition-[box-shadow,border-color] duration-hover ease-expo hover:border-primary/40 hover:shadow-card-hover focus-visible:shadow-ember focus-visible:outline-none"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-tile bg-product-wash text-product" aria-hidden="true">
+                <s.icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-semibold text-foreground group-hover:text-primary-ink">{s.title}</span>
+                <span className="mt-0.5 block text-body-sm text-muted-foreground">{s.blurb}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Metric explainers */}
+      <section aria-labelledby="metrics-h">
+        <h2 id="metrics-h" className="font-display text-title text-foreground">
+          Every metric, explained
+        </h2>
+        <p className="mt-0.5 text-body-sm text-muted-foreground">The same explainers appear next to numbers across the terminal. Hover, focus or tap the info icon.</p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {METRIC_KEYS.map((k) => (
+            <li key={k} className="flex min-w-0 items-start justify-between gap-2 rounded-tile border border-border bg-card px-3 py-2.5">
+              <span className="min-w-0">
+                <MetricHelp metric={k} className="font-semibold text-foreground">
+                  <span className="truncate">{METRICS[k].title}</span>
+                </MetricHelp>
+                <span className="mt-0.5 line-clamp-2 block text-body-sm text-muted-foreground">{METRICS[k].oneLiner}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <div id="glossary" className="scroll-mt-20">
+        <Glossary />
+      </div>
+
+      <footer className="space-y-1 border-t border-border pt-3 text-body-sm text-muted-foreground">
+        <p>Data for education and research. Not investment advice. Examples and simulators are illustrative; lot sizes, charge rates and expiry rules come from dated tables marked for verification against NSE, BSE and SEBI circulars.</p>
+        <p>Educational content in partnership with NISMExams.com. Progress is stored only in this browser.</p>
+      </footer>
+    </div>
+  );
+}

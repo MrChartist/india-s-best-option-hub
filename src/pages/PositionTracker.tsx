@@ -1,685 +1,373 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+/**
+ * Position Tracker: manually tracked option positions, repriced live.
+ *
+ * CMP follows the live option-chain LTP (unless overridden), IV is solved from the CMP with Black-76,
+ * Greeks are shown in rupees, delta is beta-weighted into NIFTY lots, P&L is net of round-trip charges,
+ * and a scenario grid / payoff chart / management hints sit on top of the same repricing.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { Briefcase, CalendarClock, FlaskConical, Plus, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { simulatePnL, simulateGreeksDecay, fnoStocks, type Position } from "@/lib/mockData";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AddPositionForm } from "@/components/positions/AddPositionForm";
+import { ChainFeed } from "@/components/positions/ChainFeed";
+import { ImportExport } from "@/components/positions/ImportExport";
+import { ManagementHints } from "@/components/positions/ManagementHints";
+import { PortfolioPayoff } from "@/components/positions/PortfolioPayoff";
+import { PortfolioTiles, UnderlyingGreeksTable } from "@/components/positions/PortfolioGreeks";
+import { ClosedPositionsTable, PositionsTable, type PositionRow } from "@/components/positions/PositionsTable";
+import { ScenarioGrid } from "@/components/positions/ScenarioGrid";
+import { SettleDialog } from "@/components/positions/SettleDialog";
+import { EduNote, EmptyState, Panel } from "@/components/positions/ui";
+import { feedKey, feedSourceToQuote, isRealFeed, spotsFromFeeds, useChainFeeds, type QuoteSource } from "@/components/positions/helpers";
+import { livePosition, managementHints, quoteFromChain, summarisePortfolio, type PositionLive } from "@/components/positions/analytics";
+import { useBetas } from "@/components/positions/useBetas";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { formatINR, formatTimeIST, getExpiries, getLotSize, getMarketParams } from "@/lib/options";
 import {
-  getPositions, savePositions, removePosition as storeRemove,
-  updatePosition as storeUpdate, clearPositions, createPosition,
-  closePosition as storeClose, getClosedPositions, clearClosedPositions,
-  getLotSize, getSpotPrice, type ClosedPosition,
-  LOT_SIZE_MAP, SPOT_PRICE_MAP,
+  applyPositionUpdate,
+  clearClosedPositions,
+  closePosition as storeClose,
+  getClosedPositions,
+  getPositions,
+  isExpired,
+  positionExpiryIso,
+  savePositions,
+  settleExpired,
+  type ClosedPosition,
+  type TrackedPosition,
 } from "@/lib/positionStore";
-import { Plus, Trash2, DollarSign, Shield, Clock, Activity, BarChart3, Download, Upload, X, Check, ChevronDown, ChevronUp } from "lucide-react";
-import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart, Bar } from "recharts";
-import { WhatIfSimulator } from "@/components/WhatIfSimulator";
-import { useToast } from "@/hooks/use-toast";
 
-// Available symbols: indices + all F&O stocks
-const AVAILABLE_SYMBOLS = [
-  "NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY",
-  ...fnoStocks.filter(s => !["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"].includes(s)),
-];
-
-// Inline editable cell
-function EditableCell({ value, onSave, prefix = "", suffix = "", className = "" }: {
-  value: number; onSave: (v: number) => void; prefix?: string; suffix?: string; className?: string;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editVal, setEditVal] = useState(value.toString());
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
-
-  if (!editing) {
-    return (
-      <span
-        className={`cursor-pointer hover:bg-accent/50 px-1 rounded transition-colors ${className}`}
-        onClick={() => { setEditVal(value.toString()); setEditing(true); }}
-        title="Click to edit"
-      >
-        {prefix}{value.toFixed(2)}{suffix}
-      </span>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-0.5">
-      <Input
-        ref={inputRef}
-        type="number"
-        value={editVal}
-        onChange={e => setEditVal(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === "Enter") { onSave(Number(editVal)); setEditing(false); }
-          if (e.key === "Escape") setEditing(false);
-        }}
-        onBlur={() => { onSave(Number(editVal)); setEditing(false); }}
-        className="h-5 w-[70px] text-xs font-mono px-1"
-        step="0.05"
-      />
-    </div>
-  );
+function useNow(ms: number): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), ms);
+    return () => window.clearInterval(id);
+  }, [ms]);
+  return now;
 }
 
 export default function PositionTracker() {
-  const { toast } = useToast();
-  const [positions, setPositions] = useState<Position[]>(() => getPositions());
-  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>(() => getClosedPositions());
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showClosed, setShowClosed] = useState(false);
-  const [simSpotOverride, setSimSpotOverride] = useState<string>("");
-  const [simSymbol, setSimSymbol] = useState<string>(""); // auto-detect
+  useDocumentTitle("Positions");
+  const [positions, setPositions] = useState<TrackedPosition[]>(() => getPositions());
+  const [closed, setClosed] = useState<ClosedPosition[]>(() => getClosedPositions());
+  const [showAdd, setShowAdd] = useState(false);
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [tab, setTab] = useState("positions");
+  const [feeds, report] = useChainFeeds();
+  const now = useNow(30_000);
+  const r = getMarketParams().r;
 
-  // Auto-save to localStorage on every change
-  useEffect(() => { savePositions(positions); }, [positions]);
+  const persist = useCallback((next: TrackedPosition[]) => {
+    setPositions(next);
+    if (!savePositions(next)) toast.error("Could not save positions", { description: "Browser storage is full or blocked. Changes last until you close this tab." });
+  }, []);
 
-  // ── Add Form State ──
-  const [formSymbol, setFormSymbol] = useState("NIFTY");
-  const [formType, setFormType] = useState<"CE" | "PE">("CE");
-  const [formAction, setFormAction] = useState<"BUY" | "SELL">("SELL");
-  const [formStrike, setFormStrike] = useState("24300");
-  const [formLots, setFormLots] = useState("1");
-  const [formEntry, setFormEntry] = useState("100");
-  const [formCmp, setFormCmp] = useState("100");
-  const [formExpiry, setFormExpiry] = useState("");
+  // ── Feeds: one live chain per (symbol, expiry), plus NIFTY for beta weighting ──
+  const niftyExpiry = useMemo(() => getExpiries("NIFTY", new Date(), 1)[0]?.date ?? "", []);
+  const pairs = useMemo(() => {
+    const set = new Map<string, { symbol: string; expiry: string }>();
+    for (const p of positions) {
+      const e = positionExpiryIso(p);
+      set.set(feedKey(p.symbol, e), { symbol: p.symbol, expiry: e });
+    }
+    if (positions.length && ![...set.values()].some((x) => x.symbol === "NIFTY")) set.set(feedKey("NIFTY", niftyExpiry), { symbol: "NIFTY", expiry: niftyExpiry });
+    return [...set.values()];
+  }, [positions, niftyExpiry]);
 
-  // Update defaults when symbol changes
+  // Auto-update CMP from the live chain LTP (never from generated sample data, never over a manual price).
   useEffect(() => {
-    const spot = getSpotPrice(formSymbol);
-    const step = formSymbol === "BANKNIFTY" ? 100 : formSymbol === "MIDCPNIFTY" ? 25 : 50;
-    setFormStrike((Math.round(spot / step) * step).toString());
-  }, [formSymbol]);
+    let changed = false;
+    const next = positions.map((p) => {
+      if (p.cmpManual) return p;
+      const f = feeds[feedKey(p.symbol, positionExpiryIso(p))];
+      if (!isRealFeed(f) || !f.expiryMatch) return p;
+      const q = quoteFromChain(f.chain, p.strike, p.type);
+      if (!q || !(q.ltp > 0) || Math.abs(q.ltp - p.currentPrice) < 0.001) return p;
+      changed = true;
+      return applyPositionUpdate(p, { currentPrice: q.ltp });
+    });
+    if (changed) persist(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to new feed data only
+  }, [feeds]);
 
-  // ── Derived stats ──
-  const stats = useMemo(() => {
-    const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
-    const totalDelta = positions.reduce((s, p) => {
-      const mult = p.action === "BUY" ? 1 : -1;
-      return s + p.delta * mult * p.lots * p.lotSize;
-    }, 0);
-    const totalTheta = positions.reduce((s, p) => {
-      const mult = p.action === "BUY" ? 1 : -1;
-      return s + p.theta * mult * p.lots * p.lotSize;
-    }, 0);
-    const totalVega = positions.reduce((s, p) => s + 8 * p.lots * p.lotSize * (p.action === "BUY" ? 1 : -1), 0);
-    const totalInvestment = positions.reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize, 0);
-    const totalMargin = positions.filter(p => p.action === "SELL").reduce((s, p) => s + p.entryPrice * p.lots * p.lotSize * 3, 0);
-    const winners = positions.filter(p => p.pnl > 0).length;
-    const losers = positions.filter(p => p.pnl < 0).length;
-    return {
-      totalPnl, totalDelta: Math.round(totalDelta),
-      totalTheta: Math.round(totalTheta * 100) / 100,
-      totalVega: Math.round(totalVega),
-      totalInvestment: Math.round(totalInvestment),
-      totalMargin: Math.round(totalMargin),
-      pnlPercent: totalInvestment > 0 ? Math.round((totalPnl / totalInvestment) * 10000) / 100 : 0,
-      winners, losers,
-      winRate: positions.length > 0 ? Math.round((winners / positions.length) * 100) : 0,
-    };
-  }, [positions]);
+  const spotInfo = useMemo(() => spotsFromFeeds(feeds), [feeds]);
+  const spots = useMemo(() => Object.fromEntries(Object.entries(spotInfo).map(([s, v]) => [s, v.spot])), [spotInfo]);
+  const spotSources = useMemo(() => Object.fromEntries(Object.entries(spotInfo).map(([s, v]) => [s, { source: feedSourceToQuote(v.source, v.isLive), asOf: v.asOf }])), [spotInfo]);
+  const sampleSpots = Object.entries(spotInfo).filter(([, v]) => v.source === "sample").map(([s]) => s);
 
-  // ── Symbol groups for positions ──
-  const grouped = useMemo(() => {
-    const groups: Record<string, Position[]> = {};
-    for (const p of positions) (groups[p.symbol] ||= []).push(p);
-    return groups;
-  }, [positions]);
+  const live = useMemo(() => {
+    const out: Record<string, PositionLive> = {};
+    for (const p of positions) {
+      const f = feeds[feedKey(p.symbol, positionExpiryIso(p))];
+      const q = f?.expiryMatch ? quoteFromChain(f.chain, p.strike, p.type) : null;
+      out[p.id] = livePosition(p, { spot: spots[p.symbol] ?? NaN, now, r, chainIvPct: q?.iv });
+    }
+    return out;
+  }, [positions, feeds, spots, now, r]);
 
-  // ── P&L Simulator ──
-  const availableSimSymbols = useMemo(() => Object.keys(grouped), [grouped]);
-  const activeSimSymbol = simSymbol || availableSimSymbols[0] || "NIFTY";
-  const simPositions = positions.filter(p => p.symbol === activeSimSymbol);
-  const simSpot = Number(simSpotOverride) || getSpotPrice(activeSimSymbol);
-  const pnlSimData = useMemo(() => {
-    if (simPositions.length === 0) return [];
-    const range: [number, number] = [simSpot * 0.95, simSpot * 1.05];
-    return simulatePnL(simPositions, range, 60);
-  }, [simPositions, simSpot]);
+  const rows: PositionRow[] = useMemo(
+    () =>
+      positions.map((p) => {
+        const f = feeds[feedKey(p.symbol, positionExpiryIso(p))];
+        let source: QuoteSource = "entry";
+        if (p.cmpManual) source = "manual";
+        else if (isRealFeed(f) && f.expiryMatch && quoteFromChain(f.chain, p.strike, p.type)?.ltp) source = feedSourceToQuote(f.source, f.isLive);
+        else if (Math.abs(p.currentPrice - p.entryPrice) > 1e-9) source = "delayed";
+        return { p, live: live[p.id], quoteSource: source, quoteAsOf: source === "live" || source === "delayed" ? f?.asOf : undefined };
+      }),
+    [positions, feeds, live],
+  );
 
-  // Greeks Decay
-  const greeksDecay = useMemo(() => simulateGreeksDecay(positions, 7), [positions]);
+  const symbols = useMemo(() => Array.from(new Set(positions.map((p) => p.symbol))), [positions]);
+  const betaInfo = useBetas(symbols);
+  const betas = useMemo(() => Object.fromEntries(Object.entries(betaInfo).map(([s, b]) => [s, b.beta])), [betaInfo]);
+  const niftyLot = getLotSize("NIFTY", niftyExpiry) ?? 65;
+  const summary = useMemo(() => summarisePortfolio(positions, live, { spots, betas, niftySpot: spots.NIFTY ?? NaN, niftyLot, now }), [positions, live, spots, betas, niftyLot, now]);
+  const chains = useMemo(() => Object.fromEntries(Object.values(feeds).map((f) => [f.key, f.chain])), [feeds]);
+  const hints = useMemo(() => managementHints({ positions, live, summary, chains, now, r, formatINR: (v) => formatINR(v, { decimals: 0 }) }), [positions, live, summary, chains, now, r]);
+  const closedNet = useMemo(() => closed.reduce((a, c) => a + (c.netPnl ?? c.realizedPnl), 0), [closed]);
+  const expired = useMemo(() => positions.filter((p) => isExpired(p, now)), [positions, now]);
+  const loadingFeeds = pairs.some((x) => !feeds[feedKey(x.symbol, x.expiry)] || feeds[feedKey(x.symbol, x.expiry)].loading);
+  const latestAsOf = Math.max(0, ...Object.values(feeds).map((f) => f.asOf || 0));
 
   // ── Actions ──
-  const handleAddPosition = useCallback(() => {
-    const pos = createPosition({
-      symbol: formSymbol,
-      type: formType,
-      action: formAction,
-      strike: Number(formStrike),
-      lots: Number(formLots),
-      entryPrice: Number(formEntry),
-      currentPrice: Number(formCmp),
-      expiry: formExpiry,
-    });
-    setPositions(prev => [...prev, pos]);
-    toast({ title: "Position Added", description: `${formAction} ${formSymbol} ${formStrike} ${formType}` });
-    // Reset form
-    setFormEntry("100");
-    setFormCmp("100");
-    setFormLots("1");
-    setShowAddForm(false);
-  }, [formSymbol, formType, formAction, formStrike, formLots, formEntry, formCmp, formExpiry, toast]);
+  const addPosition = (p: TrackedPosition) => {
+    persist([...positions, p]);
+    setShowAdd(false);
+    toast.success(`Added ${p.action} ${p.symbol} ${p.strike} ${p.type}`);
+  };
+  const setCmp = (id: string, price: number) => persist(positions.map((p) => (p.id === id ? applyPositionUpdate(p, { currentPrice: price, cmpManual: true }) : p)));
+  const resetCmp = (id: string) => persist(positions.map((p) => (p.id === id ? applyPositionUpdate(p, { cmpManual: false }) : p)));
+  const editLots = (id: string, lots: number) => persist(positions.map((p) => (p.id === id ? applyPositionUpdate(p, { lots }) : p)));
+  const removeOne = (id: string) => {
+    const gone = positions.find((p) => p.id === id);
+    persist(positions.filter((p) => p.id !== id));
+    if (gone)
+      toast("Position deleted", {
+        description: `${gone.symbol} ${gone.strike} ${gone.type} removed without recording a trade.`,
+        action: { label: "Undo", onClick: () => persist([...getPositions(), gone]) },
+      });
+  };
+  const closeOne = (id: string, price: number) => {
+    savePositions(positions);
+    const res = storeClose(id, price);
+    setPositions(res.active);
+    setClosed(res.closed);
+    const c = res.closed[res.closed.length - 1];
+    if (c) toast.success("Position closed", { description: `Net ${formatINR(c.netPnl ?? c.realizedPnl, { decimals: 0 })} after ${formatINR(c.charges ?? 0, { decimals: 0 })} charges.` });
+  };
+  const settle = (s: Record<string, number>) => {
+    savePositions(positions);
+    const res = settleExpired(now, s);
+    setPositions(res.active);
+    setClosed(res.closed);
+    setSettleOpen(false);
+    toast.success(`Settled ${res.settled.length} position${res.settled.length === 1 ? "" : "s"} at expiry`);
+  };
+  const clearAll = () => {
+    persist([]);
+    toast("All open positions cleared");
+  };
 
-  const handleRemove = useCallback((id: string) => {
-    setPositions(prev => prev.filter(p => p.id !== id));
-    toast({ title: "Position Deleted" });
-  }, [toast]);
-
-  const handleClose = useCallback((id: string) => {
-    const pos = positions.find(p => p.id === id);
-    if (!pos) return;
-    const { active, closed } = storeClose(id, pos.currentPrice);
-    setPositions(active);
-    setClosedPositions(closed);
-    toast({
-      title: "Position Closed",
-      description: `${pos.action} ${pos.symbol} ${pos.strike} ${pos.type} — ₹${pos.pnl.toLocaleString("en-IN")} realized`,
-    });
-  }, [positions, toast]);
-
-  const handleUpdateCMP = useCallback((id: string, newCmp: number) => {
-    setPositions(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const mult = p.action === "BUY" ? 1 : -1;
-      const pnl = Math.round((newCmp - p.entryPrice) * mult * p.lots * p.lotSize);
-      const pnlPercent = p.entryPrice > 0
-        ? Math.round(((newCmp - p.entryPrice) / p.entryPrice) * mult * 10000) / 100
-        : 0;
-      return { ...p, currentPrice: newCmp, pnl, pnlPercent };
-    }));
-  }, []);
-
-  const handleUpdateLots = useCallback((id: string, newLots: number) => {
-    if (newLots < 1) return;
-    setPositions(prev => prev.map(p => {
-      if (p.id !== id) return p;
-      const mult = p.action === "BUY" ? 1 : -1;
-      const pnl = Math.round((p.currentPrice - p.entryPrice) * mult * newLots * p.lotSize);
-      const pnlPercent = p.entryPrice > 0
-        ? Math.round(((p.currentPrice - p.entryPrice) / p.entryPrice) * mult * 10000) / 100
-        : 0;
-      return { ...p, lots: newLots, pnl, pnlPercent };
-    }));
-  }, []);
-
-  const handleClearAll = useCallback(() => {
-    clearPositions();
-    setPositions([]);
-    toast({ title: "All positions cleared" });
-  }, [toast]);
-
-
-
-  const handleExport = useCallback(() => {
-    const data = JSON.stringify({ active: positions, closed: closedPositions, exportedAt: new Date().toISOString() }, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `positions_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Positions exported" });
-  }, [positions, closedPositions, toast]);
-
-  const handleImport = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const data = JSON.parse(ev.target?.result as string);
-          if (data.active && Array.isArray(data.active)) {
-            savePositions(data.active);
-            setPositions(data.active);
-          }
-          toast({ title: `Imported ${data.active?.length || 0} positions` });
-        } catch {
-          toast({ title: "Invalid file format", variant: "destructive" });
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  }, [toast]);
-
-  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
+  const hasPositions = positions.length > 0;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Position Tracker</h1>
-          <p className="text-sm text-muted-foreground">
-            Live P&L · P&L Simulator · Greeks Decay · Portfolio Risk
-            {positions.length > 0 && <Badge variant="outline" className="ml-2 text-[11px]">{positions.length} active</Badge>}
-            {closedPositions.length > 0 && <Badge variant="outline" className="ml-1 text-[11px]">{closedPositions.length} closed</Badge>}
+    <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
+      {pairs.map((x) => (
+        <ChainFeed key={feedKey(x.symbol, x.expiry)} symbol={x.symbol} expiry={x.expiry} onUpdate={report} />
+      ))}
+
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 font-display text-display">
+            <Briefcase className="h-6 w-6 text-primary-ink" aria-hidden="true" />
+            Positions
+          </h1>
+          <p className="mt-1 max-w-2xl text-body text-muted-foreground">
+            Track your option positions with live repricing: Greeks in rupees, NIFTY-equivalent delta, P&L after charges, what-if scenarios and plain management hints.
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleExport}>
-            <Download className="h-3 w-3" /> Export
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleImport}>
-            <Upload className="h-3 w-3" /> Import
-          </Button>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive">
-                <Trash2 className="h-3 w-3" /> Clear All
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear all positions?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently delete all {positions.length} active positions. Closed positions will be kept.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearAll}>Delete All</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddForm(!showAddForm)}>
-            <Plus className="h-3 w-3" /> Add Position
+        <div className="flex flex-wrap items-center gap-2">
+          {latestAsOf > 0 ? <span className="text-body-sm text-muted-foreground">Quotes {formatTimeIST(latestAsOf)}</span> : null}
+          <ImportExport
+            disabled={!hasPositions && closed.length === 0}
+            onImported={(res) => {
+              setPositions(res.active);
+              setClosed(res.closed);
+            }}
+          />
+          <Button size="sm" onClick={() => setShowAdd((s) => !s)} aria-expanded={showAdd}>
+            <Plus aria-hidden="true" /> Add position
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Add Position Form */}
-      {showAddForm && (
-        <Card className="border-primary/30">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">Add New Position</CardTitle>
-              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setShowAddForm(false)}>
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
-              <div>
-                <Label className="text-[11px]">Symbol</Label>
-                <Select value={formSymbol} onValueChange={setFormSymbol}>
-                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {AVAILABLE_SYMBOLS.map(s => (
-                      <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px]">Type</Label>
-                <Select value={formType} onValueChange={v => setFormType(v as "CE" | "PE")}>
-                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="CE">CE</SelectItem><SelectItem value="PE">PE</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px]">Action</Label>
-                <Select value={formAction} onValueChange={v => setFormAction(v as "BUY" | "SELL")}>
-                  <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="BUY">BUY</SelectItem><SelectItem value="SELL">SELL</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px]">Strike</Label>
-                <Input value={formStrike} onChange={e => setFormStrike(e.target.value)} type="number" className="h-7 text-xs font-mono" />
-              </div>
-              <div>
-                <Label className="text-[11px]">Lots ({getLotSize(formSymbol)}/lot)</Label>
-                <Input value={formLots} onChange={e => setFormLots(e.target.value)} type="number" min={1} className="h-7 text-xs font-mono" />
-              </div>
-              <div>
-                <Label className="text-[11px]">Entry ₹</Label>
-                <Input value={formEntry} onChange={e => setFormEntry(e.target.value)} type="number" step="0.05" className="h-7 text-xs font-mono" />
-              </div>
-              <div>
-                <Label className="text-[11px]">CMP ₹</Label>
-                <Input value={formCmp} onChange={e => setFormCmp(e.target.value)} type="number" step="0.05" className="h-7 text-xs font-mono" />
-              </div>
-              <div>
-                <Label className="text-[11px]">Expiry</Label>
-                <Input value={formExpiry} onChange={e => setFormExpiry(e.target.value)} placeholder="27 Mar" className="h-7 text-xs" />
-              </div>
-              <div className="flex items-end">
-                <Button size="sm" className="h-7 text-xs w-full gap-1" onClick={handleAddPosition}>
-                  <Check className="h-3 w-3" /> Add
-                </Button>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1.5">
-              Lot size: {getLotSize(formSymbol)} | Total qty: {Number(formLots) * getLotSize(formSymbol)} | Investment: ₹{(Number(formEntry) * Number(formLots) * getLotSize(formSymbol)).toLocaleString("en-IN")}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {showAdd ? (
+        <Panel title="New position" subtitle="Lot size and expiries follow the NSE/BSE contract calendar. Prices are per unit.">
+          <AddPositionForm onAdd={addPosition} onCancel={() => setShowAdd(false)} />
+        </Panel>
+      ) : null}
 
-      {/* Portfolio Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 stagger-children">
-        <Card className={`transition-all duration-200 hover:shadow-md ${stats.totalPnl >= 0 ? "border-bullish/20 hover:border-bullish/40" : "border-bearish/20 hover:border-bearish/40"}`}>
-          <CardContent className="pt-3 pb-3 text-center">
-            <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="h-3 w-3" /> Total P&L</p>
-            <p className={`text-xl font-bold font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {stats.totalPnl >= 0 ? "+" : ""}₹{stats.totalPnl.toLocaleString("en-IN")}
-            </p>
-            <p className={`text-xs font-mono ${stats.totalPnl >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.pnlPercent >= 0 ? "+" : ""}{stats.pnlPercent}%</p>
-          </CardContent>
-        </Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Net Delta</p>
-          <p className={`text-lg font-bold font-mono ${stats.totalDelta >= 0 ? "text-bullish" : "text-bearish"}`}>{stats.totalDelta}</p>
-          <p className="text-xs text-muted-foreground/60">{stats.totalDelta >= 0 ? "Net Long" : "Net Short"}</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Net Theta</p>
-          <p className={`text-lg font-bold font-mono ${stats.totalTheta >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalTheta}/d</p>
-          <p className="text-xs text-muted-foreground/60">{stats.totalTheta >= 0 ? "Earning daily" : "Decaying daily"}</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Net Vega</p>
-          <p className={`text-lg font-bold font-mono ${stats.totalVega >= 0 ? "text-bullish" : "text-bearish"}`}>₹{stats.totalVega}</p>
-          <p className="text-xs text-muted-foreground/60">{stats.totalVega >= 0 ? "Long vol" : "Short vol"}</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Investment</p>
-          <p className="text-lg font-bold font-mono">₹{(stats.totalInvestment / 1000).toFixed(1)}K</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Margin</p>
-          <p className="text-lg font-bold font-mono">₹{(stats.totalMargin / 1000).toFixed(0)}K</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground">Win Rate</p>
-          <p className={`text-lg font-bold font-mono ${stats.winRate >= 50 ? "text-bullish" : "text-bearish"}`}>{stats.winRate}%</p>
-          <p className="text-[11px] text-muted-foreground">{stats.winners}W/{stats.losers}L</p>
-        </CardContent></Card>
-        <Card className="transition-all duration-200 hover:shadow-sm"><CardContent className="pt-3 pb-3 text-center">
-          <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> Risk</p>
-          <p className={`text-lg font-bold font-mono ${Math.abs(stats.totalDelta) > 500 ? "text-bearish" : "text-bullish"}`}>
-            {Math.abs(stats.totalDelta) > 500 ? "High" : Math.abs(stats.totalDelta) > 200 ? "Med" : "Low"}
+      {sampleSpots.length ? (
+        <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-body-sm text-warning">
+          <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            No live quotes for {sampleSpots.join(", ")}. Spots come from sample data, so Greeks, scenarios and margin are illustrative only. CMPs are not overwritten; set them by hand.
+          </span>
+        </div>
+      ) : null}
+
+      {expired.length ? (
+        <div role="status" className="flex flex-col gap-2 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-2 text-body-sm">
+            <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
+            {expired.length} position{expired.length === 1 ? " has" : "s have"} passed expiry (15:30 IST).
+          </span>
+          <Button size="sm" variant="outline" onClick={() => setSettleOpen(true)}>
+            Settle expired
+          </Button>
+        </div>
+      ) : null}
+
+      {!hasPositions ? (
+        <EmptyState icon={<Briefcase className="h-8 w-8" aria-hidden="true" />} title="No open positions">
+          <p>
+            Add a position, import a JSON file, or send legs here from the <Link to="/strategy-builder" className="text-primary-ink underline-offset-4 hover:underline">Strategy Builder</Link>. Want to practise first? Try{" "}
+            <Link to="/paper-trading" className="text-primary-ink underline-offset-4 hover:underline">Paper Trading</Link>.
           </p>
-        </CardContent></Card>
-      </div>
-
-      {/* P&L Simulator & Greeks Decay */}
-      <Tabs defaultValue="pnl-sim">
-        <TabsList>
-          <TabsTrigger value="pnl-sim">P&L Simulator</TabsTrigger>
-          <TabsTrigger value="greeks-decay">Greeks Decay</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pnl-sim">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4" /> P&L at Expiry — {activeSimSymbol} Positions</CardTitle>
-                  <p className="text-xs text-muted-foreground">Shows combined P&L across all {activeSimSymbol} legs as spot moves ±5%</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {availableSimSymbols.length > 1 && (
-                    <Select value={activeSimSymbol} onValueChange={v => { setSimSymbol(v); setSimSpotOverride(""); }}>
-                      <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {availableSimSymbols.map(s => (
-                          <SelectItem key={s} value={s} className="text-xs">{s} ({grouped[s]?.length} legs)</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <Label className="text-[11px]">Spot:</Label>
-                  <Input
-                    type="number"
-                    value={simSpotOverride || simSpot}
-                    onChange={e => setSimSpotOverride(e.target.value)}
-                    className="w-[100px] h-7 text-xs font-mono"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {pnlSimData.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={pnlSimData}>
-                      <defs>
-                        <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.3} />
-                          <stop offset="50%" stopColor="hsl(142 71% 45%)" stopOpacity={0} />
-                          <stop offset="50%" stopColor="hsl(0 84% 60%)" stopOpacity={0} />
-                          <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0.3} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                      <XAxis dataKey="spotPrice" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                      <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "P&L"]} />
-                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
-                      <ReferenceLine x={simSpot} stroke="hsl(38 92% 50%)" strokeDasharray="3 3" label={{ value: "Spot", fill: "hsl(38 92% 50%)", fontSize: 9 }} />
-                      <Area type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" fill="url(#pnlGrad)" strokeWidth={2} name="Total P&L" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No {activeSimSymbol} positions to simulate. Add positions above.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="greeks-decay">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Greeks Decay Over Time (T to T+7)</CardTitle>
-              <p className="text-xs text-muted-foreground">How your portfolio P&L and Greeks change as time passes (theta decay effect)</p>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={greeksDecay}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis yAxisId="pnl" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis yAxisId="delta" orientation="right" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => {
-                      if (name === "P&L") return [`₹${v.toLocaleString("en-IN")}`, "P&L"];
-                      if (name === "Cum Theta") return [`₹${v.toLocaleString("en-IN")}`, "Cum Theta"];
-                      return [v, name];
-                    }} />
-                    <ReferenceLine yAxisId="pnl" y={0} stroke="hsl(var(--muted-foreground))" />
-                    <Line yAxisId="pnl" type="monotone" dataKey="totalPnl" stroke="hsl(210 100% 52%)" strokeWidth={2} dot={{ fill: "hsl(210 100% 52%)", r: 3 }} name="P&L" />
-                    <Line yAxisId="pnl" type="monotone" dataKey="totalTheta" stroke="hsl(38 92% 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} name="Cum Theta" />
-                    <Bar yAxisId="delta" dataKey="totalDelta" fill="hsl(142 71% 45% / 0.3)" radius={[2, 2, 0, 0]} name="Delta" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* What-If Scenario Simulator */}
-      <WhatIfSimulator positions={positions} />
-
-      {/* Active Positions by Symbol */}
-      {positions.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground text-sm">No active positions.</p>
-            <div className="flex items-center justify-center gap-2 mt-3">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => setShowAddForm(true)}>
-                <Plus className="h-3 w-3 mr-1" /> Add Position
-              </Button>
-
-            </div>
-          </CardContent>
-        </Card>
+          <Button size="sm" className="mt-3" onClick={() => setShowAdd(true)}>
+            <Plus aria-hidden="true" /> Add your first position
+          </Button>
+        </EmptyState>
       ) : (
-        Object.entries(grouped).map(([sym, symPositions]) => {
-          const symPnl = symPositions.reduce((s, p) => s + p.pnl, 0);
-          return (
-            <Card key={sym}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    {sym}
-                    <Badge variant="outline" className="text-[11px]">{symPositions.length} legs</Badge>
-                    <Badge variant="outline" className="text-[11px]">Lot: {getLotSize(sym)}</Badge>
-                  </CardTitle>
-                  <span className={`text-sm font-bold font-mono ${symPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                    {symPnl >= 0 ? "+" : ""}₹{symPnl.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="text-xs">
-                      <TableHead>Action</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Strike</TableHead>
-                      <TableHead className="text-right">Lots</TableHead>
-                      <TableHead className="text-right">Entry ₹</TableHead>
-                      <TableHead className="text-right">CMP ₹</TableHead>
-                      <TableHead className="text-right">P&L</TableHead>
-                      <TableHead className="text-right">P&L%</TableHead>
-                      <TableHead className="text-right">Delta</TableHead>
-                      <TableHead className="text-right">Theta</TableHead>
-                      <TableHead className="text-right">IV</TableHead>
-                      <TableHead className="text-center">Expiry</TableHead>
-                      <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {symPositions.map(p => (
-                      <TableRow key={p.id} className="text-[11px] font-mono hover:bg-accent/30">
-                        <TableCell><Badge variant={p.action === "BUY" ? "default" : "destructive"} className="text-[11px] h-4 px-1.5">{p.action}</Badge></TableCell>
-                        <TableCell><Badge variant="outline" className="text-[11px] h-4 px-1.5">{p.type}</Badge></TableCell>
-                        <TableCell className="text-right font-bold">{p.strike.toLocaleString("en-IN")}</TableCell>
-                        <TableCell className="text-right">
-                          <EditableCell value={p.lots} onSave={v => handleUpdateLots(p.id, Math.max(1, Math.round(v)))} />
-                        </TableCell>
-                        <TableCell className="text-right">{p.entryPrice.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <EditableCell value={p.currentPrice} onSave={v => handleUpdateCMP(p.id, v)} prefix="₹" className="text-primary font-medium" />
-                        </TableCell>
-                        <TableCell className={`text-right font-bold ${p.pnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                          {p.pnl >= 0 ? "+" : ""}₹{p.pnl.toLocaleString("en-IN")}
-                        </TableCell>
-                        <TableCell className={`text-right ${p.pnlPercent >= 0 ? "text-bullish" : "text-bearish"}`}>
-                          {p.pnlPercent >= 0 ? "+" : ""}{p.pnlPercent.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right">{p.delta.toFixed(2)}</TableCell>
-                        <TableCell className={`text-right ${p.theta >= 0 ? "text-bullish" : "text-bearish"}`}>{p.theta.toFixed(1)}</TableCell>
-                        <TableCell className="text-right">{p.iv.toFixed(1)}%</TableCell>
-                        <TableCell className="text-center text-muted-foreground">
-                          <div className="flex items-center gap-1 justify-center">
-                            <Clock className="h-2.5 w-2.5" /> {p.expiry || "—"}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-0.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 px-1.5 text-[11px] text-primary hover:text-primary"
-                              onClick={() => handleClose(p.id)}
-                              title="Close at CMP"
-                            >
-                              Close
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive hover:text-destructive" onClick={() => handleRemove(p.id)} title="Delete">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          );
-        })
+        <>
+          {loadingFeeds && Object.keys(feeds).length === 0 ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+              {Array.from({ length: 8 }, (_, i) => (
+                <Skeleton key={i} className="h-[76px] rounded-tile" />
+              ))}
+            </div>
+          ) : (
+            <PortfolioTiles summary={summary} closedNet={closedNet} />
+          )}
+
+          <Panel title="Management hints" subtitle="Rules of thumb, not instructions. Always weigh them against your plan.">
+            <ManagementHints hints={hints} />
+          </Panel>
+
+          <Tabs value={tab} onValueChange={setTab} className="space-y-3">
+            <div className="-mx-1 overflow-x-auto px-1">
+              <TabsList>
+                <TabsTrigger value="positions">Open ({positions.length})</TabsTrigger>
+                <TabsTrigger value="greeks">Greeks by underlying</TabsTrigger>
+                <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+                <TabsTrigger value="payoff">Payoff</TabsTrigger>
+                <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="positions" className="mt-0">
+              <Panel
+                title="Open positions"
+                subtitle="Click a CMP to override it, or lots to resize. Net P&L deducts entry and exit charges."
+                bodyClassName="p-0"
+                actions={
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-bearish">
+                        <Trash2 aria-hidden="true" /> Clear all
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear all open positions?</AlertDialogTitle>
+                        <AlertDialogDescription>This deletes {positions.length} open positions without recording any trades. Export first if you want a copy.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={clearAll}>Clear all</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                }
+              >
+                <PositionsTable rows={rows} onSetCmp={setCmp} onResetCmp={resetCmp} onClose={closeOne} onRemove={removeOne} onEditLots={editLots} />
+              </Panel>
+            </TabsContent>
+
+            <TabsContent value="greeks" className="mt-0">
+              <Panel title="Greeks by underlying" subtitle="Delta in lots of each underlying and in NIFTY lots after beta weighting. Hedge = futures lots to flatten delta." bodyClassName="p-0">
+                <UnderlyingGreeksTable summary={summary} betas={betaInfo} spotSources={spotSources} />
+              </Panel>
+            </TabsContent>
+
+            <TabsContent value="scenarios" className="mt-0">
+              <Panel title="Scenario grid" subtitle="Spot ±1/2/3% against IV ±5 points, every leg repriced with Black-76.">
+                <ScenarioGrid positions={positions} live={live} spots={spots} r={r} now={now} />
+              </Panel>
+            </TabsContent>
+
+            <TabsContent value="payoff" className="mt-0">
+              <Panel title="Combined payoff" subtitle="T+0 uses each leg's live IV. The expiry line is the payoff at the nearest expiry.">
+                <PortfolioPayoff positions={positions} live={live} spots={spots} r={r} now={now} />
+              </Panel>
+            </TabsContent>
+
+            <TabsContent value="closed" className="mt-0">
+              <Panel
+                title="Closed positions"
+                subtitle="Realised P&L after entry and exit charges (and STT on exercise for settled ITM longs)."
+                bodyClassName="p-0"
+                actions={
+                  closed.length ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-bearish">
+                          <Trash2 aria-hidden="true" /> Clear history
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Clear closed history?</AlertDialogTitle>
+                          <AlertDialogDescription>This removes {closed.length} closed records from this browser.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              clearClosedPositions();
+                              setClosed([]);
+                            }}
+                          >
+                            Clear history
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : null
+                }
+              >
+                {closed.length ? <ClosedPositionsTable closed={closed} /> : <div className="p-4"><EmptyState title="No closed positions yet">Close or settle a position and it is recorded here with its charges.</EmptyState></div>}
+              </Panel>
+            </TabsContent>
+          </Tabs>
+        </>
       )}
 
-      {/* Closed Positions */}
-      {closedPositions.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 cursor-pointer" onClick={() => setShowClosed(!showClosed)}>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                Closed Positions
-                <Badge variant="outline" className="text-[11px]">{closedPositions.length}</Badge>
-                <span className={`text-xs font-mono font-bold ${closedPositions.reduce((s, p) => s + p.realizedPnl, 0) >= 0 ? "text-bullish" : "text-bearish"}`}>
-                  ₹{closedPositions.reduce((s, p) => s + p.realizedPnl, 0).toLocaleString("en-IN")} realized
-                </span>
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-5 text-[11px] text-destructive" onClick={(e) => { e.stopPropagation(); clearClosedPositions(); setClosedPositions([]); }}>
-                  Clear
-                </Button>
-                {showClosed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </div>
-          </CardHeader>
-          {showClosed && (
-            <CardContent className="p-0 overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-xs">
-                    <TableHead>Position</TableHead>
-                    <TableHead className="text-right">Entry</TableHead>
-                    <TableHead className="text-right">Exit</TableHead>
-                    <TableHead className="text-right">Lots</TableHead>
-                    <TableHead className="text-right">Realized P&L</TableHead>
-                    <TableHead className="text-right">P&L%</TableHead>
-                    <TableHead className="text-center">Closed On</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {closedPositions.map(p => (
-                    <TableRow key={p.id} className="text-[11px] font-mono opacity-70">
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Badge variant={p.action === "BUY" ? "default" : "destructive"} className="text-xs h-3.5 px-1">{p.action}</Badge>
-                          <span className="font-sans text-xs">{p.symbol} {p.strike} {p.type}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">₹{p.entryPrice.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">₹{p.exitPrice.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{p.lots}</TableCell>
-                      <TableCell className={`text-right font-bold ${p.realizedPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                        {p.realizedPnl >= 0 ? "+" : ""}₹{p.realizedPnl.toLocaleString("en-IN")}
-                      </TableCell>
-                      <TableCell className={`text-right ${p.realizedPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                        {p.entryPrice > 0 ? `${((p.exitPrice - p.entryPrice) / p.entryPrice * 100 * (p.action === "BUY" ? 1 : -1)).toFixed(1)}%` : "—"}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground">{p.exitDate}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          )}
-        </Card>
-      )}
+      {closed.length && !hasPositions ? (
+        <Panel title="Closed positions" bodyClassName="p-0">
+          <ClosedPositionsTable closed={closed} />
+        </Panel>
+      ) : null}
+
+      <SettleDialog open={settleOpen} onOpenChange={setSettleOpen} expired={expired} suggestedSpots={spots} now={now} onConfirm={settle} />
+
+      <EduNote>Greeks use Black-76 on the forward with IV solved from the CMP. Margin is an estimate; your broker's figure will differ.</EduNote>
     </div>
   );
 }
