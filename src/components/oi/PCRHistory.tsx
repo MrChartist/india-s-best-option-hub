@@ -4,13 +4,14 @@ import { CartesianGrid, ComposedChart, Legend, Line, ReferenceArea, ReferenceLin
 import { CalendarRange, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { useSnapshots } from "@/hooks/useSnapshotRecorder";
-import { axisProps, chartColors, gridProps, legendStyle, tokenColor, tooltipCursor, tooltipStyle } from "@/lib/chartTheme";
-import { formatDateIST, formatTimeIST, istDateString } from "@/lib/options";
+import { useOiSession } from "./useOiSession";
+import { axisProps, chartColors, compactAxisTick, gridProps, legendStyle, tokenColor, tooltipCursor, tooltipStyle } from "@/lib/chartTheme";
+import { formatDateIST, formatTimeIST } from "@/lib/options";
 import { PCR_BANDS, pcrSignal, percentileRank, quantile, snapshotSeries } from "@/lib/oiUtils";
-import { getDailyStats, snapshotDateIST } from "@/lib/snapshotStore";
+import { getDailyStats } from "@/lib/snapshotStore";
 import { cn } from "@/lib/utils";
-import { EmptyState, ModuleHeader, StatTile } from "./shared";
+import MetricHelp from "@/components/learn/MetricHelp";
+import { ChartCaption, EmptyState, ModuleHeader, SessionBadge, StatTile } from "./shared";
 import { fmtRatio, fmtStrike } from "./format";
 
 const HISTORY_DAYS = 60;
@@ -27,19 +28,14 @@ function pcrBands(yAxisId: string, max: number) {
   return out;
 }
 
-/** Intraday PCR vs spot from today's snapshots. */
-export function IntradayPCR({ symbol, expiry }: { symbol: string; expiry: string }) {
-  const { data: snaps = [], isLoading } = useSnapshots(symbol, expiry);
-  const series = useMemo(() => {
-    const today = istDateString();
-    const todays = snaps.filter((s) => snapshotDateIST(s.ts) === today);
-    const use = todays.length >= 2 ? todays : (() => {
-      // Outside market hours show the latest recorded day.
-      const last = snaps.length ? snapshotDateIST(snaps[snaps.length - 1].ts) : "";
-      return snaps.filter((s) => snapshotDateIST(s.ts) === last);
-    })();
-    return snapshotSeries(use);
-  }, [snaps]);
+/**
+ * Intraday PCR vs spot from the latest recorded session; before this browser has recorded one, a
+ * labelled sample session anchored to the sample chain at the current spot.
+ */
+export function IntradayPCR({ symbol, expiry, spot = 0 }: { symbol: string; expiry: string; spot?: number }) {
+  const session = useOiSession(symbol, expiry, spot);
+  const isLoading = session.loading;
+  const series = useMemo(() => snapshotSeries(session.snaps), [session.snaps]);
   const pcrMax = Math.max(2, ...series.map((p) => p.pcrOI ?? 0)) * 1.05;
   const first = series[0];
   const last = series[series.length - 1];
@@ -50,7 +46,14 @@ export function IntradayPCR({ symbol, expiry }: { symbol: string; expiry: string
       <ModuleHeader
         icon={<Clock className="h-4 w-4 text-primary-ink" />}
         title="Intraday PCR vs spot"
-        hint={series.length >= 2 ? `${dayLabel} · ${series.length} snapshots recorded in this browser` : "Built from snapshots this browser records during market hours."}
+        hint={
+          series.length >= 2
+            ? session.source === "sample"
+              ? `${dayLabel} · sample session until this browser records one during market hours`
+              : `${dayLabel} · ${series.length} snapshots recorded in this browser`
+            : "Built from snapshots this browser records during market hours."
+        }
+        right={series.length >= 2 ? <SessionBadge source={session.source} count={series.length} /> : undefined}
       />
       <CardContent className="p-4">
         {series.length < 2 ? (
@@ -60,17 +63,17 @@ export function IntradayPCR({ symbol, expiry }: { symbol: string; expiry: string
         ) : (
           <>
             <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-              <StatTile label="PCR now" value={fmtRatio(last?.pcrOI)} valueClass={pcrSignal(last?.pcrOI ?? NaN).className} />
+              <StatTile label={<MetricHelp metric="pcr" value={last?.pcrOI ?? undefined}>PCR now</MetricHelp>} value={fmtRatio(last?.pcrOI)} valueClass={pcrSignal(last?.pcrOI ?? NaN).className} />
               <StatTile label="PCR at first snapshot" value={fmtRatio(first?.pcrOI)} sub={first ? formatTimeIST(first.ts) : undefined} />
               <StatTile label="Change" value={first?.pcrOI && last?.pcrOI ? `${last.pcrOI - first.pcrOI >= 0 ? "+" : ""}${(last.pcrOI - first.pcrOI).toFixed(2)}` : "—"} />
               <StatTile label="Volume PCR now" value={fmtRatio(last?.pcrVol)} />
             </div>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={series} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                <ComposedChart data={series} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}>
                   <CartesianGrid {...gridProps} />
                   <XAxis {...axisProps} dataKey="ts" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(v: number) => formatTimeIST(v).replace(" IST", "")} minTickGap={30} />
-                  <YAxis {...axisProps} yAxisId="pcr" domain={[0, pcrMax]} tickFormatter={(v: number) => v.toFixed(1)} width={36} />
+                  <YAxis {...axisProps} yAxisId="pcr" domain={[0, pcrMax]} tickFormatter={compactAxisTick} width={36} />
                   <YAxis {...axisProps} yAxisId="spot" orientation="right" domain={["auto", "auto"]} tickFormatter={(v: number) => fmtStrike(v)} width={58} />
                   <Tooltip contentStyle={tooltipStyle} cursor={tooltipCursor} labelFormatter={(v: number) => formatTimeIST(v)} formatter={(v: number, n: string) => [n === "Spot" ? fmtStrike(v) : fmtRatio(v), n]} />
                   <Legend wrapperStyle={legendStyle} />
@@ -81,6 +84,7 @@ export function IntradayPCR({ symbol, expiry }: { symbol: string; expiry: string
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
+            <ChartCaption className="mt-2">Left axis: put-call ratio (puts ÷ calls, unit-free). Right axis: spot in points. Shaded bands mark the call-heavy, put-heavy and extreme zones.</ChartCaption>
           </>
         )}
       </CardContent>
@@ -164,10 +168,10 @@ export function PCRHistory({ symbol, currentPcr, sample }: { symbol: string; cur
             )}
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={view.rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                <ComposedChart data={view.rows} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}>
                   <CartesianGrid {...gridProps} />
                   <XAxis {...axisProps} dataKey="date" tickFormatter={(v: string) => formatDateIST(v).replace(/ \d{4}$/, "")} minTickGap={24} />
-                  <YAxis {...axisProps} yAxisId="pcr" domain={[0, yMax]} tickFormatter={(v: number) => v.toFixed(1)} width={36} />
+                  <YAxis {...axisProps} yAxisId="pcr" domain={[0, yMax]} tickFormatter={compactAxisTick} width={36} />
                   <Tooltip contentStyle={tooltipStyle} cursor={tooltipCursor} labelFormatter={(v: string) => formatDateIST(v)} formatter={(v: number, n: string) => [fmtRatio(v), n]} />
                   <Legend wrapperStyle={legendStyle} />
                   {enough && Number.isFinite(view.p10) && Number.isFinite(view.p90) && (
@@ -180,6 +184,7 @@ export function PCRHistory({ symbol, currentPcr, sample }: { symbol: string; cur
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
+            <ChartCaption className="mt-2">Y axis: closing OI put-call ratio (puts ÷ calls, unit-free).</ChartCaption>
           </>
         )}
       </CardContent>
@@ -210,7 +215,7 @@ export function MaxPainDrift({ symbol }: { symbol: string }) {
         ) : (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+              <ComposedChart data={rows} margin={{ top: 20, right: 4, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis {...axisProps} dataKey="date" tickFormatter={(v: string) => formatDateIST(v).replace(/ \d{4}$/, "")} minTickGap={24} />
                 <YAxis {...axisProps} domain={["auto", "auto"]} tickFormatter={(v: number) => fmtStrike(v)} width={58} />
@@ -222,6 +227,7 @@ export function MaxPainDrift({ symbol }: { symbol: string }) {
             </ResponsiveContainer>
           </div>
         )}
+        {rows.length >= 2 && <ChartCaption className="mt-2">Y axis: index level in points.</ChartCaption>}
       </CardContent>
     </Card>
   );

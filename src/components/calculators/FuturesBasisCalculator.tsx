@@ -57,7 +57,7 @@ export default function FuturesBasisCalculator() {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
       <Panel title="Futures basis and carry" description="Compare the futures price with spot: basis, annualised cost of carry, fair value and the dividend yield the market is pricing in.">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
           <SymbolField
             value={symbol}
             onChange={(s) => {

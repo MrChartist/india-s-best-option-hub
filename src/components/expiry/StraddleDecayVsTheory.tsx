@@ -11,7 +11,7 @@ import { axisProps, chartColors, gridProps, legendStyle, tooltipCursor, tooltipI
 import { formatINR, formatPct, formatSigned } from "@/lib/options";
 import type { ChainSnapshot } from "@/lib/snapshotStore";
 import { cn } from "@/lib/utils";
-import { analyseStraddle, constantIvWithSpot, decaySchedule, hhmmIST, openingATM, signTone } from "./expiryMath";
+import { analyseStraddle, constantIvWithSpot, decaySchedule, hhmmIST, openingATM, premiumDomain, signTone } from "./expiryMath";
 import { EmptyState, HelpTip, ModelBadge, Panel, PanelSkeleton, SampleBadge } from "./ExpiryUi";
 import type { SessionMode } from "./useExpirySession";
 
@@ -85,7 +85,7 @@ export function StraddleDecayVsTheory({ snaps, expiry, r, q, mode, loading }: Pr
               <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="ts" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={(v: number) => hhmmIST(v)} {...axisProps} minTickGap={28} />
-                <YAxis {...axisProps} width={52} domain={[0, "auto"]} tickFormatter={(v: number) => v.toFixed(0)} />
+                <YAxis {...axisProps} width={52} domain={premiumDomain(1)} tickFormatter={(v: number) => v.toFixed(0)} />
                 <Tooltip
                   contentStyle={tooltipStyle}
                   labelStyle={tooltipLabelStyle}

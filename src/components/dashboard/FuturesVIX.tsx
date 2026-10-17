@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Activity, BarChart3 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card } from "@/components/ui/card";
-import { useAllIndices, useLiveIndices, useStoredCandles } from "@/hooks/useMarketData";
+import { useStoredCandles } from "@/hooks/useMarketData";
 import { useChartData } from "@/hooks/useChartData";
 import { axisProps, chartColors, gridProps, tooltipCursor, tooltipItemStyle, tooltipLabelStyle, tooltipStyle } from "@/lib/chartTheme";
 import { formatNumberIN, formatPct, formatSigned, istDateString } from "@/lib/options";
@@ -16,14 +16,16 @@ import { cn } from "@/lib/utils";
 import { ARROW, signTone, sourceName, statusFrom, vixRegime, TONE_TEXT } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { sampleVixHistory } from "./sampleMarket";
+import { useDashAllIndices, useDashIndices } from "./useDashboardData";
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
 
 export function FuturesVIX() {
   const qc = useQueryClient();
   const d = useDensityClasses();
-  const idx = useLiveIndices();
-  const all = useAllIndices();
+  const idx = useDashIndices();
+  const all = useDashAllIndices();
   const stored = useStoredCandles("INDIAVIX", "5");
   // Daily closes built from the 5-minute candles saved by the database manager (last close per IST day).
   const storedDaily = useMemo(() => {
@@ -32,22 +34,25 @@ export function FuturesVIX() {
     return Array.from(byDay.values()).sort((a, b) => a.time - b.time);
   }, [stored.data]);
   const hasStored = storedDaily.length >= 5;
-  const api = useChartData("INDIAVIX", "3M", stored.isFetched && !hasStored);
+  const api = useChartData("INDIAVIX", "3M", stored.isFetched && !hasStored && !all.isSample);
 
   const rows = useMemo(() => idx.data.data.filter((r) => r.ltp > 0), [idx.data.data]);
   const maxAbs = useMemo(() => Math.max(0.5, ...rows.map((r) => Math.abs(r.changePercent))), [rows]);
   const idxStatus = statusFrom({ isLoading: idx.isLoading, hasData: rows.length > 0, source: idx.source, stale: idx.stale, isLive: idx.data.isLive });
 
-  const vixSeries = useMemo(() => {
-    if (hasStored) return { points: storedDaily.map((c) => ({ t: dateFmt.format(new Date(c.time)), vix: c.close })), source: "Local DB" };
-    if (api.data && api.data.length > 1) return { points: api.data.map((c) => ({ t: dateFmt.format(new Date(c.time * 1000)), vix: c.close })), source: "Historical API" };
-    return null;
-  }, [hasStored, storedDaily, api.data]);
-
   const vix = all.data.vix;
+  const sampleValue = all.isSample ? vix?.value ?? 0 : 0;
+  const vixSeries = useMemo(() => {
+    // A sample VIX is only ever drawn with the sample history generated to end at it.
+    if (sampleValue > 0) return { points: sampleVixHistory(sampleValue).map((c) => ({ t: dateFmt.format(new Date(c.time)), vix: c.close })), source: "Sample history", sample: true };
+    if (hasStored) return { points: storedDaily.map((c) => ({ t: dateFmt.format(new Date(c.time)), vix: c.close })), source: "Local DB", sample: false };
+    if (api.data && api.data.length > 1) return { points: api.data.map((c) => ({ t: dateFmt.format(new Date(c.time * 1000)), vix: c.close })), source: "Historical API", sample: false };
+    return null;
+  }, [sampleValue, hasStored, storedDaily, api.data]);
+
   const regime = vixRegime(vix?.value);
   const vixStatus = statusFrom({ isLoading: all.isLoading && !vix, hasData: !!vix, source: all.source, stale: all.stale, isLive: all.data.isLive });
-  const chartStatus = vixSeries ? (hasStored ? "stale" : "delayed") : stored.isLoading || api.isLoading ? "loading" : "empty";
+  const chartStatus = vixSeries ? (vixSeries.sample ? "sample" : hasStored ? "stale" : "delayed") : stored.isLoading || api.isLoading ? "loading" : "empty";
 
   return (
     <div className={cn("grid lg:grid-cols-5", d.gap)}>
@@ -132,7 +137,7 @@ export function FuturesVIX() {
                       </defs>
                       <CartesianGrid {...gridProps} />
                       <XAxis dataKey="t" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
-                      <YAxis {...axisProps} domain={["auto", "auto"]} width={44} tickFormatter={(v: number) => formatNumberIN(v, 0)} />
+                      <YAxis {...axisProps} domain={["auto", "auto"]} width={44} allowDecimals={false} tickCount={5} tickFormatter={(v: number) => formatNumberIN(v, Number.isInteger(v) ? 0 : 1)} />
                       <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} cursor={tooltipCursor} formatter={(v: number) => [formatNumberIN(v, 2), "VIX"]} />
                       <Area type="monotone" dataKey="vix" stroke={chartColors.vix} fill="url(#dash-vix-grad)" strokeWidth={1.5} dot={false} isAnimationActive={false} />
                     </AreaChart>

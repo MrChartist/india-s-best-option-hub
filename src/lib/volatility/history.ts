@@ -5,6 +5,7 @@
  *   1. "bhavcopy": constant-maturity 30-day ATM IV solved with Black-76 on NSE F&O bhavcopy prices.
  *   2. "snapshot": end-of-day ATM IV saved by the local snapshot recorder (dailyStats).
  *   3. "vix":      India VIX closes (a 30-day NIFTY implied vol index). Used for NIFTY only.
+ *   4. "sample":   a seeded, clearly labelled illustration (see sampleHistory.ts). Never market data.
  *
  * All IV values here are in PERCENT (14.2 means 14.2%). HV helpers return PERCENT as well, so the
  * page can compare IV and HV directly. Raw maths comes from "@/lib/options".
@@ -35,7 +36,7 @@ import {
   type OHLC,
 } from "@/lib/options";
 
-export type IvSource = "bhavcopy" | "snapshot" | "vix";
+export type IvSource = "bhavcopy" | "snapshot" | "vix" | "sample";
 
 export interface IvPoint {
   /** ISO date (IST trading day). */
@@ -72,7 +73,7 @@ export function dailyStatsToPoints(stats: DailyStat[] | null | undefined): IvPoi
 }
 
 export function countBySource(points: IvPoint[]): Record<IvSource, number> {
-  const out: Record<IvSource, number> = { bhavcopy: 0, snapshot: 0, vix: 0 };
+  const out: Record<IvSource, number> = { bhavcopy: 0, snapshot: 0, vix: 0, sample: 0 };
   for (const p of points) out[p.source]++;
   return out;
 }
