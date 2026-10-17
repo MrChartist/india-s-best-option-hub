@@ -187,22 +187,22 @@ All text/background pairs have been checked for WCAG AA (at least 4.5:1). Colour
 
 ## 5. Phase 3: Differentiators (what no single competitor offers)
 
-- [ ] **End-of-day backtester on NSE bhavcopy**, cached in IndexedDB: delta-targeted entries, profit-take and stop, net of real charges, lot-size history correct by date, results by VIX regime and weekday. **H / L**
-- [ ] **HIRO-style hedging-pressure estimate** from snapshot deltas (₹ crore dealer hedge flow vs NIFTY), split into calls, puts and 0DTE. **H / L**
+- [x] **End-of-day backtester on NSE bhavcopy**, cached in IndexedDB: delta-targeted entries, profit-take and stop, net of real charges, lot-size history correct by date, results by VIX regime and weekday. **H / L** (shipped in R2-13 at `/backtest`; intraday per-leg rules are R3-14)
+- [x] **HIRO-style hedging-pressure estimate** from snapshot deltas (₹ crore dealer hedge flow vs NIFTY), split into calls, puts and 0DTE. **H / L** (shipped in R2-09 as the Flow hedging-pressure card)
 - [ ] **Event-aware calendar**: RBI MPC, Budget, results, FOMC/CPI on expiry pickers, payoff date slider and IV charts; implied vs realized event move history and the "straddle overpriced X% of the time" statistic. **H / L**
 - [x] **Trade journal and edge analytics net of costs**: import Zerodha/Dhan/Upstox tradebooks; charges as % of gross; expectancy by DTE, IVP bucket and time of day; ITR-ready turnover CSV. **M / M** (shipped in R2-12 at `/journal`, with Angel One import too; expectancy by IVP bucket still to come)
 - [x] **SEBI-style guardrails**: beginner mode (naked shorts hidden), max loss in ₹ and % of capital before any trade, daily loss cap and kill switch for basket orders. **M / M** (shipped in R2-12 on Paper Trading)
 - [ ] **Basket execution via broker APIs** (Dhan first): hedge legs first, freeze-quantity slicing, margin check, charge preview; OAuth flows only, with WebCrypto-encrypted tokens. **H / L**
 - [ ] **Modular workspaces** (Super-Flow style): widget grid, colour-linked symbol groups, Scalper/Writer/Swing presets, JSON share. **M / L**
-- [ ] **Contract lookup page** `/contract/:symbol/:expiry/:strike/:type`: intraday LTP/IV/OI/volume, bhavcopy history, greeks, depth. **M / M**
+- [x] **Contract lookup page** `/contract/:symbol/:expiry/:strike/:type`: intraday LTP/IV/OI/volume, bhavcopy history, greeks, depth. **M / M** (shipped in R2-03)
 - [ ] **True burst detection** via an opt-in Dhan tick feed (LTQ/LTT, aggressor classification). **M / L**
-- [ ] **Server-side snapshot recorder** in the proxy (NDJSON/SQLite) so history survives tab closes; export as CSV. **H / L**
+- [x] **Server-side snapshot recorder** in the proxy (NDJSON/SQLite) so history survives tab closes; export as CSV. **H / L** (shipped in R2-03 as the opt-in NDJSON recorder with a hydrate endpoint)
 - [ ] **Installable PWA** with an offline last-snapshot shell and background notifications. **M / M**
 - [ ] **Colour-blind palette**, a compact/comfortable density setting, and BSE multi-exchange parity. **M / S**
 
 ---
 
-## 6. Round 2 (in progress)
+## 6. Round 2 (shipped)
 
 Round 1 shipped Phases 1 and 2. Round 2 acts on four critiques (feature gaps, design, trader workflow, tech/a11y/perf). It runs as 16 parallel streams with strict file ownership. The integrator alone owns `src/App.tsx`, `src/components/AppSidebar.tsx`, `src/components/CommandPalette.tsx`, `src/lib/routes.ts`, `src/lib/routeIcons.ts` and `package.json`. It wires the new routes, mounts `PaletteToggle`, sets the QueryClient defaults (`retry:1, refetchOnWindowFocus:false, staleTime:15s`), removes the Radix `<Toaster/>`, wraps NotFound in the layout and installs any listed dependencies.
 
@@ -227,7 +227,46 @@ Contracts streams can rely on: `PageHeader`, `BuildupBadge`, `ScrollRegion`, the
 | R2-15 | Events calendar | RBI/Budget/CPI/FOMC/holidays/results with symbol filters, a `useEvents` hook and `EventMarker` for later wiring, results implied vs realised move statistic | `/events` |
 | R2-16 | Screener, Futures, Participants, Broker | Screener row actions and suggested structures, near-ban count fix, BuildupBadge; Futures and rollover page; participant hatch bars, ordinal fix, tiles and history depth; Broker layout | `/futures` |
 
-### Round 3 backlog (deferred)
+---
+
+## 7. Round 3 (in progress)
+
+Round 3 acts on four new critiques: feature gaps against Sensibull, Opstra, Quantsapp, OptionStrat, Unusual Whales, SpotGamma, Stockmock and Market Chameleon; design; trader workflow and consistency; and tech, performance, SEO and accessibility. It runs as 16 parallel streams with strict file ownership. As before, the integrator alone owns `src/App.tsx`, `src/components/AppSidebar.tsx`, `src/components/CommandPalette.tsx`, `src/lib/routes.ts`, `src/lib/routeIcons.ts` and `package.json`. In this round the integrator also: mounts `SymbolProvider` and wraps each route in `RouteMeta`; adds `usesMarketData` and `seoDescription` to `RouteDef`; keeps the "New" badge on 3 routes only and renders it as a dot; renames the nav label to "Learn"; adds `aria-hidden` to the sidebar `<kbd>` and badge, plus `aria-keyshortcuts`; wires the omnibox from `commandPaletteSearch.ts` into the palette; registers `/stock/:symbol`, `/scanner` and any other new routes; and installs listed dependencies.
+
+Contracts streams can rely on:
+- `useActiveSymbol()` from `src/lib/symbolContext`, which returns `{symbol, setSymbol, expiry, setExpiry}`. It is synced to `?symbol=&expiry=`, remembered for the session, and works without the provider (R3-01).
+- `PageContainer` (with a `wide` variant), `PageHeader` with a 2-line clamp, `Tabs` variants `page`/`inline`, `useReducedMotion()`, and a dark `--wash-brand` with low chroma (R3-01).
+- `formatAxisIndian(domainMax)` and `formatIndianColumn(values)` from `src/lib/options/format`; IV returns `null` at the minimum tick; `getReferencePrice(symbol)` in `instruments.ts`; `generateSampleChain({ atmIv, strikes, asOf })`; one seeded sample index path (R3-04).
+- `oiWalls(chain)` from `oiUtils.ts`, which returns the max OI per side plus the nearest level above or below spot, each labelled (R3-08). "Gamma call wall" is the GEX term (R3-09).
+- `/stock/:symbol` URL shape (R3-11); `/strategy-builder?template=<id>&symbol=` and `?mode=adjust&base=<encodedLegs>` (R3-05); `ExecuteWithBroker` at `src/components/broker/ExecuteWithBroker.tsx` (R3-07).
+- The existing `useEvents` and `EventMarker` APIs stay unchanged, so the chain, builder, volatility and stock pages can use them in parallel.
+
+| # | Stream | Headline deliverables | New route |
+|---|---|---|---|
+| R3-01 | Shell, design system and global symbol context | `SymbolProvider`/`useActiveSymbol`, header symbol and expiry switcher, omnibox parser, dark brand wash fix, SampleBanner only on market-data routes and fixed live region, one sample chip per page, `PageContainer`, PageHeader clamp, two tab variants, reduced motion, charts with no animation on refetch | – |
+| R3-02 | Performance, SEO, PWA and accessibility CI | Leaf imports out of the entry chunk, Radix shell allowlist, icons chunk, AlertSystem mounted only when needed, per-route meta and static prerender (Learn included), self-hosted fonts, slim SW precache, manifest shortcuts, bundle-size budget, a11y states sweep, Learn "Try it in the terminal" links | – |
+| R3-03 | Options math core and sample consistency | Axis/column unit formatter, null IV at minimum tick, per-symbol reference prices, sample chain IV/strikes/asOf inputs, one time basis for IV and EM, one seeded index path for all sample sessions | – |
+| R3-04 | Option chain | Lazy by-strike view, row virtualisation, focus state in the table and grid a11y, chain within 150px of the top, neutral group headers, B/S on every row with the expiry in the label, ranked volume spikes, mobile compact preset, EM probabilities, event markers on expiries, basket kept until the paper fill | – |
+| R3-05 | Strategy Builder | Greeks-vs-spot/time charts, compare 2–4 strategies, `?template=`, event IV-crush scenario and events on the date slider, dense leg table, mobile order and sticky summary, tidy metrics grid, ±3σ default range, adjust mode with ghost curves | – |
+| R3-06 | Positions and Paper Trading | Hedge-exit guard in beginner mode, persisted staged basket, exit-strategy groups, intraday MTM/greeks timeline, adjust and hedge suggester, one margin basis, link to paper analytics, defined-risk prefill, paper history archived to IndexedDB | – |
+| R3-07 | Broker execution and server-side alerts | Dhan basket execution (hedges first, freeze slicing, margin pre-check, charge preview), order-book and position sync, WebCrypto tokens, Telegram channel, rule evaluation in the proxy, PWA push | – |
+| R3-08 | OI Analysis and Max Pain/PCR | One OI-wall definition, ranked levels with strength bars, OI tile labels by sign, colour by meaning, spread CTA with risk, OI heatmap in dark mode, wash fixes | – |
+| R3-09 | GEX and Flow | Call wall labels relative to spot, headline led by flip, padded domain, trade-this links, historical flow search, saved searches, daily net-premium bars, returns after large prints, flow store ring buffer | – |
+| R3-10 | Volatility, expected-move hit rate, seasonality | 3D IV surface, RR25/BF25 skew history with percentiles, events on the term structure, EM hit rate by VIX regime and event weeks, seasonality tab, heading order, trade-this links | – |
+| R3-11 | Stock overview, Watchlist, Contract, Events | `/stock/:symbol` profile for about 200 F&O names, events on candles, Watchlist polish and tests, Contract error states, flat event chips | `/stock/:symbol` |
+| R3-12 | Optimizer and strategy scanner | Cross-symbol scanner on the optimizer worker, results table fit, labelled actions, expiries for calendars, honest "matches your view" and estimated max loss | `/scanner` |
+| R3-13 | Screener, Futures, Participants | Screener IV matches the chain, builder link carries the suggestion, lazy quadrant, universe buildup heatmap, rollover vs 3-series average, calendar spread, BSE parity, gauge and chart a11y | – |
+| R3-14 | Intraday backtester | 1-minute entries at a set time, per-leg SL/target/trailing, re-entry, SL to cost, premium-based strikes, 15:15 square-off, custom legs, parameter-sweep heatmap, expectancy by IVP | – |
+| R3-15 | Dashboard and modular workspaces | 390px overflow fix, shorter dashboard, sparkline caption, lazy below-the-fold widgets, resizable widget grid with colour-linked symbol groups, brief walls from `oiWalls` | – |
+| R3-16 | Expiry Day, Straddles, Journal | Sticky section tabs, weekend next-session card, one IV/EM time basis, spot axis ticks, scatter a11y, journal IVP buckets, tags, mistakes, R-multiples, per-strategy breakdown, chain replay link, store cap | – |
+
+### Round 4 backlog (deferred)
+- True burst detection on an opt-in Dhan/Upstox tick feed (needs a WebSocket in the proxy).
+- Hindi and regional languages (react-i18next), a mobile bottom tab bar and quick chain + payoff view.
+- Strategy sharing gallery, OG share cards, short links and embeddable widgets.
+- Upgrade to Recharts 3, or hand-written SVG for the small charts.
+
+### Round 3 backlog (deferred in Round 2, now planned above)
 - Broker basket execution (Dhan) and live position sync, after the proxy recorder lands.
 - Global `?symbol=&expiry=` URL state plus an omnibox in CommandPalette (integrator-owned).
 - Event markers on expiry pickers, the payoff date slider and the IV term structure (consumes R2-15).
@@ -237,7 +276,7 @@ Contracts streams can rely on: `PageHeader`, `BuildupBadge`, `ScrollRegion`, the
 
 ---
 
-## 7. Execution model
+## 8. Execution model
 
 Work runs in parallel streams with **strict file ownership**. `src/App.tsx`, `src/components/AppSidebar.tsx`, `src/components/CommandPalette.tsx`, `src/lib/routes.ts`, `src/lib/routeIcons.ts` and `package.json` belong to the integrator, who wires each stream's reported route, page file and nav label/group. All math goes through `src/lib/options/`; the signatures are published up front so streams can code against them before the core lands. Every stream falls back to labelled sample data when live data is unavailable.
 
@@ -245,5 +284,5 @@ Quality gates for every merge: `npm run typecheck && npm run lint -- --max-warni
 
 ---
 
-## 8. Sources (selection)
+## 9. Sources (selection)
 OptionStrat features and optimizer · SpotGamma Call/Put Wall support docs · Unusual Whales Super Flow and flow-alert docs · Market Chameleon implied moves and IV movers · Barchart max pain and UOA · OptionCharts docs · NSE/Kotak/Fyers/Sahi lot-size bulletins (Dec 2025) · Navia/Zerodha/share.market STT and charge notes · Dhan v2 live-feed and option-chain docs · mrchartist.com stylesheet (mc.css). Rates, lot sizes and endpoints marked *verify* must be checked against current NSE/SEBI circulars before release.

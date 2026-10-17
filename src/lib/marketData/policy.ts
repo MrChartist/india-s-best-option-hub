@@ -5,7 +5,9 @@
  * polls in each market session, how saved IndexedDB prices become an index list, and the
  * SourceMeta stamp every hook result carries.
  */
-import { getMarketSession, type MarketSession } from "@/lib/options";
+// Leaf modules, not the "@/lib/options" barrel: this file sits in the entry chunk.
+import { formatTimeIST } from "@/lib/options/format";
+import { getMarketSession, istDateString, type MarketSession } from "@/lib/options/time";
 import type { IndexData } from "@/lib/mockData";
 import type { PriceSnapshot } from "@/lib/localDatabase";
 import type { DataSource, SourceMeta } from "@/lib/types/market";
@@ -128,4 +130,48 @@ export function fallbackReason(err: unknown, fallback = "Proxy offline"): string
   if (/timed out|timeout/i.test(raw)) return "Proxy timed out";
   if (/sample data mode/i.test(raw)) return REASON_COPY["sample-mode"];
   return raw.slice(0, 160);
+}
+
+// ── Expiry list: refresh once per IST trading day ──
+
+/** Expiry calendars change at most once a day, so the list is fresh for 6 hours and never polled. */
+export const EXPIRY_LIST_STALE_MS = 6 * 60 * MINUTE;
+
+const IST_OFFSET_MS = 330 * MINUTE;
+const DAY_MS = 24 * 60 * MINUTE;
+
+/**
+ * Milliseconds from `now` until the next IST midnight (00:00 Asia/Kolkata), plus a small `slackMs`
+ * so a timer set with it fires after the date has rolled. Always > 0.
+ */
+export function msUntilNextISTMidnight(now: number = Date.now(), slackMs = SECOND): number {
+  const istMs = now + IST_OFFSET_MS;
+  const nextMidnightIst = Math.floor(istMs / DAY_MS) * DAY_MS + DAY_MS;
+  return nextMidnightIst - istMs + Math.max(0, slackMs);
+}
+
+/** IST calendar date ("yyyy-mm-dd") used in the expiry-list query key, so the list refetches on the roll. */
+export function istDayKey(now: number = Date.now()): string {
+  return istDateString(new Date(now));
+}
+
+// ── Offline / cached labels ──
+
+/** Sources that are a saved copy rather than a fresh read (local IndexedDB or a last-good cache). */
+export function isCachedSource(source: SourceMeta["source"] | string | undefined): boolean {
+  return source === "database" || source === "cache";
+}
+
+/** "Cached at 14:05 IST" for a saved copy; "" when the timestamp is unusable. */
+export function cachedAtLabel(asOf: number | null | undefined): string {
+  if (typeof asOf !== "number" || !Number.isFinite(asOf) || asOf <= 0) return "";
+  return `Cached at ${formatTimeIST(asOf)}`;
+}
+
+/** Append the cached-at label to a fallback reason ("Proxy offline. Cached at 14:05 IST"). */
+export function withCachedLabel(reason: string | undefined, asOf: number | null | undefined): string {
+  const label = cachedAtLabel(asOf);
+  const base = (reason ?? "").trim().replace(/[.\s]+$/, "");
+  if (!label) return base;
+  return base ? `${base}. ${label}` : label;
 }
