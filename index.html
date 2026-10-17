@@ -1,36 +1,68 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2300f2fe'/%3E%3Cstop offset='100%25' stop-color='%234facfe'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5z' fill='url(%23g)' opacity='0.9'/%3E%3Cpath d='M2 17l10 5 10-5M2 12l10 5 10-5' stroke='url(%23g)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='0.7'/%3E%3C/svg%3E" />
-    <meta name="theme-color" content="#0a0d14" />
-    <title>Mr. Chartist — Options Terminal | NSE F&O Analytics</title>
-    <meta name="description" content="Mr. Chartist Options Terminal — India's most comprehensive open-source F&O analytics platform. Live option chain, OI analysis, strategy builder, Greeks, and IV Rank scanner." />
-    <meta name="keywords" content="Mr Chartist, options trading, NSE, F&O, option chain, NIFTY, BANKNIFTY, OI analysis, strategy builder, IV rank, Greeks calculator, India, stock market" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Mr. Chartist Options Terminal</title>
+    <meta name="description" content="Open-source NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs. Data for education and research. Not investment advice." />
     <meta name="author" content="Mr. Chartist" />
     <meta name="robots" content="index, follow" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3F4EE" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060809" />
+
+    <!-- Deployment domain TBD: canonical points at the repository for now -->
     <link rel="canonical" href="https://github.com/MrChartist/india-s-best-option-hub" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='15' fill='%23EE6125'/%3E %3Cpath d='M14 44 L25 31 L33 38 L49 20' fill='none' stroke='%231F0D14' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E %3Ccircle cx='49' cy='20' r='4.5' fill='%231F0D14'/%3E %3Cpath d='M14 50 H50' stroke='%231F0D14' stroke-width='3' stroke-linecap='round' opacity='0.45'/%3E%3C/svg%3E" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Plus+Jakarta+Sans:wght@500..800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
     <script>
-      (function(){var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.classList.remove('dark')}else{document.documentElement.classList.add('dark')}})();
+      // Apply the saved scheme before first paint. "system" (default) follows the OS.
+      (function () {
+        var root = document.documentElement;
+        var mode = "system";
+        try {
+          var saved = window.localStorage.getItem("theme");
+          if (saved === "light" || saved === "dark" || saved === "system") mode = saved;
+        } catch (e) {
+          /* storage blocked: follow the system */
+        }
+        var dark = false;
+        try {
+          dark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        } catch (e) {
+          dark = mode === "dark";
+        }
+        root.classList.toggle("dark", dark);
+        root.style.colorScheme = dark ? "dark" : "light";
+        if (mode !== "system") {
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", dark ? "#060809" : "#F3F4EE");
+        }
+      })();
     </script>
 
-    <meta property="og:title" content="Mr. Chartist — Options Terminal | Best Open-Source F&O Analytics" />
-    <meta property="og:description" content="Professional options trading terminal with live data, OI analysis, strategy builder, IV Rank scanner & real-time alerts. Free & open-source." />
+    <meta property="og:title" content="Mr. Chartist Options Terminal" />
+    <meta property="og:description" content="Open-source NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs. Data for education and research." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://github.com/MrChartist/india-s-best-option-hub" />
     <meta property="og:image" content="https://raw.githubusercontent.com/MrChartist/india-s-best-option-hub/master/docs/screenshots/dashboard-dark.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Mr. Chartist — Options Terminal | Open-Source F&O Analytics" />
-    <meta name="twitter:description" content="Professional options trading terminal with live data, OI analysis, strategy builder & IV Rank scanner. Free & open-source." />
+    <meta name="twitter:title" content="Mr. Chartist Options Terminal" />
+    <meta name="twitter:description" content="Open-source NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs." />
     <meta name="twitter:image" content="https://raw.githubusercontent.com/MrChartist/india-s-best-option-hub/master/docs/screenshots/dashboard-dark.png" />
   </head>
 
   <body>
+    <noscript>Mr. Chartist Options Terminal needs JavaScript to run.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
