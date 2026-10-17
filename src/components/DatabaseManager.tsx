@@ -5,16 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
-  Database, Download, RefreshCw, Trash2, CheckCircle2, Clock, HardDrive, BarChart3,
-  Loader2, AlertCircle, Radio, Layers, CandlestickChart, TrendingUp,
+  Database, Download, Trash2, CheckCircle2, Clock, BarChart3,
+  Loader2, AlertCircle, Radio, Layers, CandlestickChart, TrendingUp, History, Scissors,
 } from "lucide-react";
-import { fetchInstrumentMaster, fetchHistoricalCandles } from "@/lib/marketApi";
+import { fetchInstrumentMaster, fetchHistoricalCandles, fetchFnOStocks, parseNSEFnOStocks } from "@/lib/marketApi";
 import {
   saveInstruments, savePriceSnapshots, saveCandleHistory, getDatabaseStats,
-  clearAllData, setMetadata, type DatabaseStats, type Instrument,
-  type CandleHistory, type CandleData,
+  clearAllData, clearSnapshotData, setMetadata, type DatabaseStats, type Instrument,
+  type CandleHistory, type CandleData, type PriceSnapshot,
 } from "@/lib/localDatabase";
+import { getSnapshotStats, pruneSnapshots } from "@/lib/snapshotStore";
 import { invalidateLocalPriceCache } from "@/hooks/useMarketData";
+import { SECURITY_MAP } from "@/hooks/useChartData";
+import { formatTimeIST, formatDateIST } from "@/lib/options";
 import { useQueryClient } from "@tanstack/react-query";
 
 type UpdatePhase = "idle" | "instruments" | "prices" | "candles" | "fno-candles" | "done" | "error";
@@ -26,28 +29,22 @@ interface UpdateProgress {
   message: string;
 }
 
-// Index instruments to fetch historical candles for
-const INDEX_CANDLE_TARGETS = [
-  { securityId: "13", symbol: "NIFTY", segment: "IDX_I", instrument: "INDEX" },
-  { securityId: "25", symbol: "BANKNIFTY", segment: "IDX_I", instrument: "INDEX" },
-  { securityId: "27", symbol: "FINNIFTY", segment: "IDX_I", instrument: "INDEX" },
-  { securityId: "442", symbol: "MIDCPNIFTY", segment: "IDX_I", instrument: "INDEX" },
-  { securityId: "26", symbol: "INDIAVIX", segment: "IDX_I", instrument: "INDEX" },
-];
+type CandleTarget = { securityId: string; symbol: string; segment: string; instrument: string };
 
-// Top F&O stocks to also fetch candle history for
-const FNO_STOCK_CANDLE_TARGETS = [
-  { securityId: "2885", symbol: "RELIANCE", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "11536", symbol: "TCS", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "1333", symbol: "HDFCBANK", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "11915", symbol: "INFY", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "4963", symbol: "ICICIBANK", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "3045", symbol: "SBIN", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "11723", symbol: "BHARTIARTL", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "1660", symbol: "ITC", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "10999", symbol: "TATAMOTORS", segment: "NSE_EQ", instrument: "EQUITY" },
-  { securityId: "5258", symbol: "BAJFINANCE", segment: "NSE_EQ", instrument: "EQUITY" },
-];
+const target = (symbol: string): CandleTarget => {
+  const ref = SECURITY_MAP[symbol];
+  return { securityId: ref.secId, symbol, segment: ref.exchSeg, instrument: ref.instrument };
+};
+
+// Indices to fetch 5-minute candles for
+const INDEX_CANDLE_TARGETS: CandleTarget[] = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "INDIAVIX", "SENSEX"].map(target);
+
+// Large F&O stocks to also fetch candle history for (ids from the shared, de-duplicated map)
+const FNO_STOCK_CANDLE_TARGETS: CandleTarget[] = [
+  "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "TATAMOTORS", "BAJFINANCE",
+].map(target);
+
+interface SnapshotInfo { count: number; symbols: string[]; recording: boolean; lastTs: number | null }
 
 export function DatabaseManager() {
   const queryClient = useQueryClient();
@@ -56,13 +53,17 @@ export function DatabaseManager() {
     phase: "idle", current: 0, total: 0, message: "",
   });
   const [isUpdating, setIsUpdating] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [snapInfo, setSnapInfo] = useState<SnapshotInfo | null>(null);
 
   const loadStats = useCallback(async () => {
     try {
-      const s = await getDatabaseStats();
+      const [s, snaps] = await Promise.all([getDatabaseStats(), getSnapshotStats()]);
       setStats(s);
-    } catch (err) {
-      console.warn("Failed to load DB stats:", err);
+      setSnapInfo(snaps);
+      setDbError(null);
+    } catch {
+      setDbError("This browser blocked local storage (IndexedDB). Offline data is unavailable.");
     }
   }, []);
 
@@ -106,34 +107,26 @@ export function DatabaseManager() {
       setProgress({ phase: "prices", current: 0, total: 100, message: "Fetching F&O price snapshots from NSE..." });
 
       try {
-        const nseRes = await fetch("http://localhost:4002/api/nse-proxy?endpoint=equity-derivatives");
-        if (nseRes.ok) {
-          const nseData = await nseRes.json();
-          if (nseData?.data) {
-            const priceSnapshots = nseData.data
-              .filter((d: any) => d.symbol && d.lastPrice > 0)
-              .map((d: any) => ({
-                securityId: d.identifier || d.symbol,
-                symbol: d.symbol,
-                ltp: d.lastPrice,
-                open: d.open || d.lastPrice,
-                high: d.dayHigh || d.lastPrice,
-                low: d.dayLow || d.lastPrice,
-                close: d.previousClose || d.lastPrice,
-                change: d.change || 0,
-                changePercent: d.pChange || 0,
-                volume: d.totalTradedVolume || 0,
-                oi: d.openInterest || 0,
-                timestamp: Date.now(),
-              }));
-
-            if (priceSnapshots.length > 0) {
-              await savePriceSnapshots(priceSnapshots);
-              await setMetadata("lastPriceUpdate", new Date().toISOString());
-            }
-            setProgress({ phase: "prices", current: 100, total: 100, message: `Saved ${priceSnapshots.length} price snapshots` });
-          }
+        const now = Date.now();
+        const priceSnapshots: PriceSnapshot[] = parseNSEFnOStocks(await fetchFnOStocks()).map((d) => ({
+          securityId: d.symbol,
+          symbol: d.symbol,
+          ltp: d.ltp,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.previousClose,
+          change: d.change,
+          changePercent: d.changePercent,
+          volume: d.volume,
+          oi: d.openInterest ?? 0,
+          timestamp: now,
+        }));
+        if (priceSnapshots.length > 0) {
+          await savePriceSnapshots(priceSnapshots);
+          await setMetadata("lastPriceUpdate", new Date().toISOString());
         }
+        setProgress({ phase: "prices", current: 100, total: 100, message: `Saved ${priceSnapshots.length} price snapshots` });
       } catch {
         setProgress({ phase: "prices", current: 100, total: 100, message: "Price snapshots skipped (NSE unavailable)" });
       }
@@ -161,16 +154,24 @@ export function DatabaseManager() {
             "5", // 5-minute candles
           );
 
-          if (candleResult?.data?.timestamp?.length > 0) {
-            const candles: CandleData[] = candleResult.data.timestamp.map((ts: number, idx: number) => ({
-              timestamp: ts * 1000, // Convert epoch seconds to ms
-              open: candleResult.data.open[idx],
-              high: candleResult.data.high[idx],
-              low: candleResult.data.low[idx],
-              close: candleResult.data.close[idx],
-              volume: candleResult.data.volume[idx],
-              oi: candleResult.data.oi?.[idx],
-            }));
+          const cd = candleResult?.data;
+          const times = cd?.timestamp ?? [];
+          if (cd && times.length > 0) {
+            const candles: CandleData[] = [];
+            times.forEach((ts, idx) => {
+              const close = cd.close?.[idx];
+              const t = typeof ts === "number" ? ts : Date.parse(ts) / 1000;
+              if (close == null || !Number.isFinite(t)) return;
+              candles.push({
+                timestamp: t > 1e12 ? t : t * 1000,
+                open: cd.open?.[idx] ?? close,
+                high: cd.high?.[idx] ?? close,
+                low: cd.low?.[idx] ?? close,
+                close,
+                volume: cd.volume?.[idx] ?? 0,
+                oi: cd.oi?.[idx] ?? undefined,
+              });
+            });
 
             const history: CandleHistory = {
               securityId: target.securityId,
@@ -181,11 +182,13 @@ export function DatabaseManager() {
               lastUpdated: Date.now(),
             };
 
-            await saveCandleHistory(history);
-            successCount++;
+            if (candles.length > 0) {
+              await saveCandleHistory(history);
+              successCount++;
+            }
           }
-        } catch (err) {
-          console.warn(`Failed to fetch candles for ${target.symbol}:`, err);
+        } catch {
+          /* skip this symbol; the summary shows how many succeeded */
         }
 
         // Small delay between requests to avoid rate limiting
@@ -209,9 +212,10 @@ export function DatabaseManager() {
         { duration: 5000 }
       );
       await loadStats();
-    } catch (err: any) {
-      setProgress({ phase: "error", current: 0, total: 0, message: err.message || "Update failed" });
-      toast.error(`Database update failed: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Update failed";
+      setProgress({ phase: "error", current: 0, total: 0, message });
+      toast.error(`Database update failed: ${message}`);
     } finally {
       setIsUpdating(false);
       setTimeout(() => {
@@ -227,18 +231,36 @@ export function DatabaseManager() {
       queryClient.invalidateQueries();
       await loadStats();
       toast.info("Local database cleared");
-    } catch (err: any) {
-      toast.error(`Clear failed: ${err.message}`);
+    } catch (err) {
+      toast.error(`Clear failed: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  };
+
+  const handlePruneSnapshots = async () => {
+    try {
+      const n = await pruneSnapshots(30);
+      await loadStats();
+      toast.success(n > 0 ? `Removed ${n.toLocaleString("en-IN")} snapshots older than 30 days` : "No snapshots older than 30 days");
+    } catch {
+      toast.error("Could not prune snapshots");
+    }
+  };
+
+  const handleClearSnapshots = async () => {
+    try {
+      await clearSnapshotData();
+      queryClient.invalidateQueries({ queryKey: ["chain-snapshots"] });
+      await loadStats();
+      toast.info("Snapshot history cleared");
+    } catch {
+      toast.error("Could not clear snapshot history");
     }
   };
 
   const formatDate = (iso: string | null) => {
     if (!iso) return "Never";
     const d = new Date(iso);
-    return d.toLocaleDateString("en-IN", {
-      day: "numeric", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
+    return Number.isFinite(d.getTime()) ? `${formatDateIST(d)}, ${formatTimeIST(d)}` : "Never";
   };
 
   const overallProgress = progress.phase === "instruments"
@@ -252,11 +274,11 @@ export function DatabaseManager() {
     : progress.phase === "done" ? 100 : 0;
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-transparent">
+    <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Database className="h-5 w-5 text-primary" />
-          Market Database
+        <CardTitle className="text-base flex flex-wrap items-center gap-2">
+          <Database className="h-5 w-5 text-primary" aria-hidden />
+          Market database
           {stats && stats.instruments > 0 && (
             <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-bullish/30 text-bullish gap-1">
               <Radio className="h-2 w-2" />
@@ -271,9 +293,15 @@ export function DatabaseManager() {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {dbError && (
+          <p role="alert" className="text-xs text-bearish flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" aria-hidden /> {dbError}
+          </p>
+        )}
+
         {/* Stats Grid */}
         {stats && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               icon={<Layers className="h-3.5 w-3.5" />}
               label="Instruments"
@@ -288,7 +316,7 @@ export function DatabaseManager() {
             />
             <StatCard
               icon={<CandlestickChart className="h-3.5 w-3.5" />}
-              label="Candle Charts"
+              label="Candle charts"
               value={stats.candles > 0 ? stats.candles.toLocaleString() : "—"}
               sub={formatDate(stats.lastCandleUpdate)}
             />
@@ -311,7 +339,7 @@ export function DatabaseManager() {
                 {progress.phase === "prices" && "Step 2/4: Price Snapshots"}
                 {progress.phase === "candles" && "Step 3/4: Index Candles"}
                 {progress.phase === "fno-candles" && "Step 4/4: F&O Stock Candles"}
-                {progress.phase === "done" && "Complete!"}
+                {progress.phase === "done" && "Complete"}
                 {progress.phase === "error" && "Error"}
               </span>
               <span className="text-xs text-muted-foreground font-mono">{Math.round(overallProgress)}%</span>
@@ -355,14 +383,46 @@ export function DatabaseManager() {
           )}
         </div>
 
+        {/* Snapshot recorder history */}
+        {snapInfo && (
+          <div className="p-3 rounded-lg border border-border bg-card space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <span className="text-xs font-medium">Option-chain snapshots</span>
+              <Badge variant="outline" className={snapInfo.recording ? "text-bullish border-bullish/30" : ""}>
+                {snapInfo.recording ? "Recording" : "Idle"}
+              </Badge>
+              <span className="text-xs text-muted-foreground tabular-nums ml-auto">
+                {snapInfo.count.toLocaleString("en-IN")} saved
+                {snapInfo.lastTs ? ` · last ${formatTimeIST(snapInfo.lastTs)}` : ""}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {snapInfo.symbols.length > 0
+                ? `Symbols: ${snapInfo.symbols.join(", ")}. Recorded in this browser only while a page with the recorder is open during market hours.`
+                : "No snapshots yet. Pages that use the recorder save the live chain every minute during market hours."}
+            </p>
+            {snapInfo.count > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handlePruneSnapshots}>
+                  <Scissors className="h-3 w-3" aria-hidden /> Remove older than 30 days
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-destructive" onClick={handleClearSnapshots}>
+                  <Trash2 className="h-3 w-3" aria-hidden /> Clear snapshots
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* What gets downloaded */}
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground">What gets stored:</p>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {[
               { icon: <Layers className="h-2.5 w-2.5" />, text: "NSE F&O instrument master" },
-              { icon: <TrendingUp className="h-2.5 w-2.5" />, text: "Live F&O price snapshots" },
-              { icon: <CandlestickChart className="h-2.5 w-2.5" />, text: "2-day index candles (5m)" },
+              { icon: <TrendingUp className="h-2.5 w-2.5" />, text: "F&O price snapshot (NSE)" },
+              { icon: <CandlestickChart className="h-2.5 w-2.5" />, text: "3-day index candles (5 min)" },
               { icon: <BarChart3 className="h-2.5 w-2.5" />, text: "Top 10 F&O stock candles" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">

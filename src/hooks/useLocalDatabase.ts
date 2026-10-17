@@ -22,7 +22,6 @@ import {
   getInstrumentsBySegment,
   type PriceSnapshot,
   type CandleHistory,
-  type CandleData,
   type DatabaseStats,
   type Instrument,
 } from "@/lib/localDatabase";
@@ -116,6 +115,7 @@ export function useCandleHistory(
         minute: "2-digit",
         day: "numeric",
         month: "short",
+        timeZone: "Asia/Kolkata",
       }),
       open: c.open,
       high: c.high,
@@ -195,12 +195,15 @@ export function useInstrumentLookup() {
 
 // ── Symbol → SecurityId mapping from local DB ──
 
+// Dhan IDX_I security ids (same as useChartData's SECURITY_MAP).
 const KNOWN_INDEX_MAP: Record<string, string> = {
   NIFTY: "13",
   BANKNIFTY: "25",
   FINNIFTY: "27",
   MIDCPNIFTY: "442",
-  INDIAVIX: "26",
+  INDIAVIX: "21",
+  SENSEX: "51",
+  BANKEX: "69",
 };
 
 export function getSecurityIdForSymbol(symbol: string): string | undefined {

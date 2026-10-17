@@ -2,6 +2,7 @@
  * Local Database — IndexedDB-based storage for offline market data
  * 
  * Stores:
+ *   5. chainSnapshots / dailyStats — snapshot recorder (see snapshotStore.ts)
  *   1. Instruments — F&O stock master (symbol, securityId, lotSize, exchangeSegment)
  *   2. Price Snapshots — Latest known prices for all instruments  
  *   3. Candle History — 1-2 days of intraday OHLCV candles for charts
@@ -67,14 +68,35 @@ export interface DatabaseMetadata {
 // ── IndexedDB Manager ──
 
 const DB_NAME = "mrchartist_market_db";
-const DB_VERSION = 2;
+/** v3 adds the chainSnapshots and dailyStats stores used by src/lib/snapshotStore.ts. */
+const DB_VERSION = 3;
+
+export const STORE_CHAIN_SNAPSHOTS = "chainSnapshots";
+export const STORE_DAILY_STATS = "dailyStats";
 
 let dbInstance: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+/** True when IndexedDB exists in this environment (false in node tests and some private windows). */
+export function isIndexedDBAvailable(): boolean {
+  try {
+    return typeof indexedDB !== "undefined" && indexedDB !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Open (or reuse) the shared market database. */
+export function openMarketDB(): Promise<IDBDatabase> {
+  return openDB();
+}
 
 function openDB(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
+  if (dbPromise) return dbPromise;
+  if (!isIndexedDBAvailable()) return Promise.reject(new Error("IndexedDB is not available"));
 
-  return new Promise((resolve, reject) => {
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
@@ -104,22 +126,48 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("metadata")) {
         db.createObjectStore("metadata", { keyPath: "key" });
       }
+
+      // v3: intraday option-chain snapshots (one record per symbol/expiry/timestamp)
+      if (!db.objectStoreNames.contains(STORE_CHAIN_SNAPSHOTS)) {
+        const snap = db.createObjectStore(STORE_CHAIN_SNAPSHOTS, { keyPath: "id" });
+        snap.createIndex("symbolExpiryTs", ["symbol", "expiry", "ts"], { unique: false });
+        snap.createIndex("ts", "ts", { unique: false });
+        snap.createIndex("symbol", "symbol", { unique: false });
+      }
+
+      // v3: end-of-day stats (one record per symbol/date)
+      if (!db.objectStoreNames.contains(STORE_DAILY_STATS)) {
+        const daily = db.createObjectStore(STORE_DAILY_STATS, { keyPath: ["symbol", "date"] });
+        daily.createIndex("symbol", "symbol", { unique: false });
+      }
     };
 
     request.onsuccess = (event) => {
       dbInstance = (event.target as IDBOpenDBRequest).result;
+      // Another tab upgraded the schema: close so it can proceed, reopen lazily next time.
+      dbInstance.onversionchange = () => {
+        dbInstance?.close();
+        dbInstance = null;
+        dbPromise = null;
+      };
       resolve(dbInstance);
     };
 
+    request.onblocked = () => {
+      console.warn("[localDatabase] Upgrade blocked by another open tab; close other tabs of the terminal.");
+    };
+
     request.onerror = () => {
+      dbPromise = null;
       reject(new Error("Failed to open IndexedDB"));
     };
   });
+  return dbPromise;
 }
 
 // ── Generic CRUD operations ──
 
-async function putItem(storeName: string, item: any): Promise<void> {
+async function putItem<T>(storeName: string, item: T): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
@@ -129,7 +177,7 @@ async function putItem(storeName: string, item: any): Promise<void> {
   });
 }
 
-async function putItems(storeName: string, items: any[]): Promise<void> {
+async function putItems<T>(storeName: string, items: T[]): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
@@ -142,7 +190,7 @@ async function putItems(storeName: string, items: any[]): Promise<void> {
   });
 }
 
-async function getItem<T>(storeName: string, key: any): Promise<T | undefined> {
+async function getItem<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
@@ -162,7 +210,7 @@ async function getAllItems<T>(storeName: string): Promise<T[]> {
   });
 }
 
-async function getItemsByIndex<T>(storeName: string, indexName: string, value: any): Promise<T[]> {
+async function getItemsByIndex<T>(storeName: string, indexName: string, value: IDBValidKey | IDBKeyRange): Promise<T[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readonly");
@@ -289,3 +337,11 @@ export async function getDatabaseStats(): Promise<DatabaseStats> {
 export async function clearAllData(): Promise<void> {
   await Promise.all([clearInstruments(), clearPrices(), clearCandles()]);
 }
+
+/** Clear the snapshot recorder stores (chain snapshots and daily stats). */
+export async function clearSnapshotData(): Promise<void> {
+  await Promise.all([clearStore(STORE_CHAIN_SNAPSHOTS), clearStore(STORE_DAILY_STATS)]);
+}
+
+export const countChainSnapshots = () => countItems(STORE_CHAIN_SNAPSHOTS);
+export const countDailyStats = () => countItems(STORE_DAILY_STATS);
