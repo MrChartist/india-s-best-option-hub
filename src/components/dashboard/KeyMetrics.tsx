@@ -1,164 +1,280 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { useAllIndices, useLiveOptionChain, useFnOStocks } from "@/hooks/useMarketData";
-import { useWebSocketVix, useWebSocketStatus } from "@/hooks/useWebSocket";
-import { TrendingUp, Zap, Activity, BarChart3, Radio, Database, Moon, ArrowUp, ArrowDown, Minus } from "lucide-react";
+/**
+ * Key market metrics row: NIFTY PCR (with direction vs the last recorded close), India VIX,
+ * advance/decline, max pain for NIFTY and BANKNIFTY (with the expiry it refers to) and F&O volume.
+ */
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, Scale, Target, TrendingUp, Zap } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAllIndices, useFnOStocks, useLiveOptionChain, type OptionChainHookData } from "@/hooks/useMarketData";
+import { formatCompactIN, formatDateIST, formatNumberIN, formatPct, istDateString } from "@/lib/options";
+import { getDailyStats } from "@/lib/snapshotStore";
+import { cn } from "@/lib/utils";
+import { ARROW, direction, signTone, statusFrom, sourceName, vixRegime, TONE_TEXT, type Direction, type WidgetStatus } from "./dashboardModel";
+import { DataStatus, RetryButton } from "./DataState";
+import { useDensityClasses } from "./density";
+
+const shortDate = (iso: string) => (iso ? formatDateIST(iso).replace(/ \d{4}$/, "") : "");
+
+function chainStatus(q: { isLoading: boolean; isError: boolean; data?: OptionChainHookData }): WidgetStatus {
+  return statusFrom({ isLoading: q.isLoading, isError: q.isError, hasData: !!q.data && q.data.chain.length > 0, source: q.data?.source, stale: q.data?.stale, isLive: q.data?.isLive });
+}
+
+/** Previous recorded NIFTY PCR (from the local snapshot recorder), excluding today. */
+function usePrevPcr(symbol: string) {
+  return useQuery({
+    queryKey: ["dash-prev-pcr", symbol],
+    queryFn: async (): Promise<{ pcr: number; date: string } | null> => {
+      try {
+        const stats = await getDailyStats(symbol, 5);
+        const today = istDateString();
+        const prev = stats.filter((s) => s.date < today && Number.isFinite(s.pcrOi) && s.pcrOi > 0).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+        return prev ? { pcr: prev.pcrOi, date: prev.date } : null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 10 * 60_000,
+    retry: 0,
+  });
+}
 
 export function KeyMetrics() {
-  const { data } = useAllIndices();
-  const { vix: wsVix } = useWebSocketVix();
-  const wsConnected = useWebSocketStatus();
-  const { data: fnoData } = useFnOStocks();
+  const qc = useQueryClient();
+  const d = useDensityClasses();
+  const idx = useAllIndices();
+  const fno = useFnOStocks();
+  const nifty = useLiveOptionChain("NIFTY");
+  const bnf = useLiveOptionChain("BANKNIFTY");
+  const prev = usePrevPcr("NIFTY");
 
-  const { data: niftyOC } = useLiveOptionChain("NIFTY");
-  const { data: bnfOC } = useLiveOptionChain("BANKNIFTY");
+  const vix = idx.data.vix;
+  const regime = vixRegime(vix?.value);
+  const adv = idx.data.advances;
+  const dec = idx.data.declines;
+  const adTotal = adv + dec;
 
-  // VIX: WebSocket → Polled → null
-  const vix = wsVix || data?.vix;
-  const vixValue = vix?.value ?? null;
-  const vixChange = vix?.changePercent ?? null;
+  const nSt = chainStatus(nifty);
+  const bSt = chainStatus(bnf);
+  const pcr = nifty.data && nifty.data.totalCEOI > 0 ? nifty.data.totalPEOI / nifty.data.totalCEOI : null;
+  const bnfPcr = bnf.data && bnf.data.totalCEOI > 0 ? bnf.data.totalPEOI / bnf.data.totalCEOI : null;
+  // Only compare real data with the previous recorded close.
+  const pcrDir = nSt === "sample" ? null : direction(pcr, prev.data?.pcr ?? null, 0.01);
+  const pcrDirFallback: Direction | null = pcr === null ? null : pcr > 1 ? "up" : pcr < 1 ? "down" : "flat";
 
-  const advances = data?.advances ?? 0;
-  const declines = data?.declines ?? 0;
+  const fnoVol = fno.data?.isLive && fno.data.allStocks.length ? fno.data.allStocks.reduce((s, x) => s + (x.volume || 0), 0) : null;
+  const vixDir: Direction | null = vix ? (vix.changePercent > 0 ? "up" : vix.changePercent < 0 ? "down" : "flat") : null;
 
-  const isLiveData = data?.isLive || false;
-  const isLiveStocks = fnoData?.isLive || false;
-
-  // PCR from live option chain OI — works with both live AND afterHours cached data
-  const hasNiftyOC = niftyOC && (niftyOC.isLive || niftyOC.afterHours);
-  const hasBnfOC = bnfOC && (bnfOC.isLive || bnfOC.afterHours);
-
-  const niftyPCRNum = hasNiftyOC && niftyOC.totalCEOI > 0
-    ? (niftyOC.totalPEOI / niftyOC.totalCEOI) : null;
-  const niftyPCR = niftyPCRNum !== null ? niftyPCRNum.toFixed(2) : null;
-  const bnfPCR = hasBnfOC && bnfOC.totalCEOI > 0
-    ? (bnfOC.totalPEOI / bnfOC.totalCEOI).toFixed(2)
-    : null;
-  const pcrIsLive = !!(niftyOC?.isLive);
-  const pcrIsAfterHours = !pcrIsLive && !!(niftyOC?.afterHours);
-
-  // Max Pain from live or cached option chain
-  const niftyMaxPain = hasNiftyOC ? niftyOC.maxPain : null;
-  const bnfMaxPain = hasBnfOC ? bnfOC.maxPain : null;
-
-  // Volume from live stocks only
-  const totalFnOVol = isLiveStocks && fnoData?.allStocks?.length
-    ? fnoData.allStocks.reduce((sum: number, s: any) => sum + (s.volume || 0), 0) : null;
+  const retryChains = () => void qc.invalidateQueries({ queryKey: ["live-option-chain"] });
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-      <MetricCard
-        icon={<BarChart3 className="h-3.5 w-3.5" />}
-        label="Nifty PCR"
-        value={niftyPCR || "—"}
-        valueColor={niftyPCR ? (Number(niftyPCR) > 1 ? "text-bullish" : "text-bearish") : "text-muted-foreground"}
-        sub={bnfPCR ? `BNF: ${bnfPCR}` : undefined}
-        isLive={pcrIsLive}
-        badge={pcrIsAfterHours ? "CLOSED" : undefined}
-        gauge={niftyPCRNum !== null ? { value: niftyPCRNum, min: 0.5, max: 1.5 } : undefined}
+    <div className={cn("grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6", d.gap)}>
+      <Metric
+        to="/max-pain-pcr?symbol=NIFTY"
+        icon={<Scale className="h-3.5 w-3.5" />}
+        label="NIFTY PCR (OI)"
+        status={nSt}
+        lastUpdated={nifty.data?.asOf}
+        source={sourceName(nifty.data?.source)}
+        reason={nifty.data?.reason}
+        onRetry={retryChains}
+        value={pcr !== null ? formatNumberIN(pcr, 2, { minDecimals: 2 }) : "—"}
+        valueClass={pcr === null ? "text-muted-foreground" : pcr >= 1 ? "text-bullish" : "text-bearish"}
+        arrow={pcrDir ?? pcrDirFallback}
+        arrowTitle={pcrDir && prev.data ? `vs ${formatNumberIN(prev.data.pcr, 2)} on ${shortDate(prev.data.date)}` : "vs 1.00 (neutral)"}
+        sub={
+          <>
+            {pcrDir && prev.data ? <span>Prev {formatNumberIN(prev.data.pcr, 2)} · </span> : <span>{pcr !== null ? (pcr >= 1 ? "Above 1 · " : "Below 1 · ") : ""}</span>}
+            {bnfPcr !== null ? <span>BNF {formatNumberIN(bnfPcr, 2)}</span> : null}
+          </>
+        }
+        gauge={pcr !== null ? { value: pcr, min: 0.5, max: 1.5 } : undefined}
       />
-      <MetricCard
+      <Metric
+        to="/volatility"
         icon={<Activity className="h-3.5 w-3.5" />}
         label="India VIX"
-        value={vixValue !== null ? vixValue.toFixed(2) : "—"}
-        sub={vixChange !== null ? `${vixChange >= 0 ? "+" : ""}${vixChange.toFixed(2)}%` : undefined}
-        subColor={vixChange !== null ? (vixChange < 0 ? "text-bullish" : "text-bearish") : undefined}
-        isLive={wsConnected && wsVix !== null}
-        trendDirection={vixChange !== null ? (vixChange > 0.5 ? "up" : vixChange < -0.5 ? "down" : "flat") : undefined}
+        status={statusFrom({ isLoading: idx.isLoading, hasData: !!vix, source: idx.source, stale: idx.stale, isLive: idx.data.isLive })}
+        lastUpdated={idx.asOf}
+        source={sourceName(idx.source)}
+        onRetry={() => void qc.invalidateQueries({ queryKey: ["nse-all-indices"] })}
+        value={vix ? formatNumberIN(vix.value, 2, { minDecimals: 2 }) : "—"}
+        arrow={vixDir}
+        arrowInvert
+        arrowTitle={vix ? `${formatPct(vix.changePercent, { signed: true })} today` : undefined}
+        sub={
+          vix ? (
+            <>
+              <span className={vix.changePercent > 0 ? "text-bearish" : vix.changePercent < 0 ? "text-bullish" : undefined}>{formatPct(vix.changePercent, { signed: true })}</span>
+              {regime ? <span className={TONE_TEXT[regime.tone]}> · {regime.label}</span> : null}
+            </>
+          ) : undefined
+        }
       />
-      <MetricCard
+      <Metric
         icon={<TrendingUp className="h-3.5 w-3.5" />}
-        label="Adv / Dec"
-        value={advances + declines > 0 ? `${advances} / ${declines}` : "—"}
-        valueColor={advances > declines ? "text-bullish" : advances + declines > 0 ? "text-bearish" : "text-muted-foreground"}
-        progress={advances + declines > 0 ? (advances / (advances + declines)) * 100 : undefined}
-        isLive={isLiveData}
+        label="Advance / decline"
+        status={statusFrom({ isLoading: idx.isLoading, hasData: adTotal > 0, source: idx.source, stale: idx.stale, isLive: idx.data.isLive })}
+        lastUpdated={idx.asOf}
+        source={sourceName(idx.source)}
+        onRetry={() => void qc.invalidateQueries({ queryKey: ["nse-all-indices"] })}
+        value={adTotal > 0 ? `${formatNumberIN(adv)} / ${formatNumberIN(dec)}` : "—"}
+        valueClass={adTotal === 0 ? "text-muted-foreground" : adv >= dec ? "text-bullish" : "text-bearish"}
+        progress={adTotal > 0 ? (adv / adTotal) * 100 : undefined}
+        sub={adTotal > 0 ? <span>Ratio {dec > 0 ? formatNumberIN(adv / dec, 2) : "—"}</span> : undefined}
       />
-      <MetricCard
-        icon={<BarChart3 className="h-3.5 w-3.5" />}
-        label="Nifty Max Pain"
-        value={niftyMaxPain ? niftyMaxPain.toLocaleString("en-IN") : "—"}
-        valueColor="text-warning"
-        sub={hasNiftyOC ? `Spot: ${niftyOC.spotPrice.toLocaleString("en-IN")}` : undefined}
-        isLive={!!(niftyOC?.isLive && niftyMaxPain)}
-        badge={niftyOC?.afterHours && niftyMaxPain ? "CLOSED" : undefined}
-      />
-      <MetricCard
-        icon={<BarChart3 className="h-3.5 w-3.5" />}
-        label="BNF Max Pain"
-        value={bnfMaxPain ? bnfMaxPain.toLocaleString("en-IN") : "—"}
-        valueColor="text-warning"
-        sub={hasBnfOC ? `Spot: ${bnfOC.spotPrice.toLocaleString("en-IN")}` : undefined}
-        isLive={!!(bnfOC?.isLive && bnfMaxPain)}
-        badge={bnfOC?.afterHours && bnfMaxPain ? "CLOSED" : undefined}
-      />
-      <MetricCard
+      <MaxPainMetric symbol="NIFTY" q={nifty} status={nSt} onRetry={retryChains} />
+      <MaxPainMetric symbol="BANKNIFTY" q={bnf} status={bSt} onRetry={retryChains} />
+      <Metric
         icon={<Zap className="h-3.5 w-3.5" />}
-        label="F&O Volume"
-        value={totalFnOVol !== null ? `${(totalFnOVol / 10000000).toFixed(1)}Cr` : "—"}
-        isLive={isLiveStocks}
+        label="F&O stocks volume"
+        status={statusFrom({ isLoading: fno.isLoading, isError: fno.isError, hasData: fnoVol !== null, source: fno.data?.source, stale: fno.data?.stale, isLive: fno.data?.isLive })}
+        lastUpdated={fno.data?.asOf}
+        source={sourceName(fno.data?.source)}
+        onRetry={() => void fno.refetch()}
+        value={fnoVol !== null ? formatCompactIN(fnoVol) : "—"}
+        sub={fnoVol !== null ? <span>Shares, {formatNumberIN(fno.data?.allStocks.length ?? 0)} stocks</span> : <span>Needs a live feed</span>}
       />
     </div>
   );
 }
 
-// PCR Gauge: a tiny horizontal bar showing PCR position (0.5 bearish → 1.0 neutral → 1.5+ bullish)
-function PCRGauge({ value, min, max }: { value: number; min: number; max: number }) {
-  const normalized = Math.min(Math.max((value - min) / (max - min), 0), 1) * 100;
-  const isBullish = value > 1;
+function MaxPainMetric({ symbol, q, status, onRetry }: { symbol: string; q: { data?: OptionChainHookData }; status: WidgetStatus; onRetry: () => void }) {
+  const data = q.data;
+  const mp = data && data.maxPain > 0 ? data.maxPain : null;
+  const dist = mp !== null && data && data.spotPrice > 0 ? data.spotPrice - mp : null;
+  const label = symbol === "BANKNIFTY" ? "BANKNIFTY max pain" : "NIFTY max pain";
   return (
-    <div className="relative h-[4px] bg-muted rounded-full overflow-hidden mt-1.5">
-      {/* Neutral marker at center (PCR = 1.0) */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-full bg-muted-foreground/30" />
-      <div
-        className={`absolute top-0 left-0 h-full rounded-full transition-all duration-500 ${isBullish ? "bg-bullish/60" : "bg-bearish/60"}`}
-        style={{ width: `${normalized}%` }}
-      />
-      <div
-        className={`absolute top-[-1px] h-[6px] w-[6px] rounded-full border border-background transition-all duration-500 ${isBullish ? "bg-bullish" : "bg-bearish"}`}
-        style={{ left: `calc(${Math.min(normalized, 96)}% - 3px)` }}
-      />
+    <Metric
+      to={`/max-pain-pcr?symbol=${symbol}`}
+      icon={<Target className="h-3.5 w-3.5" />}
+      label={label}
+      status={status}
+      lastUpdated={data?.asOf}
+      source={sourceName(data?.source)}
+      reason={data?.reason}
+      onRetry={onRetry}
+      value={mp !== null ? formatNumberIN(mp) : "—"}
+      sub={
+        mp !== null && data ? (
+          <>
+            {data.expiry ? <span>Exp {shortDate(data.expiry)}</span> : null}
+            {dist !== null ? (
+              <span>
+                {" "}·{" "}
+                {Math.round(dist) === 0 ? (
+                  "Spot at max pain"
+                ) : (
+                  // "Spot 0" read as "spot price is 0" and "Spot −50" was ambiguous: say it in words.
+                  <>
+                    Spot <span className={signTone(dist)}>{formatNumberIN(Math.abs(dist), 0)} pts</span> {dist > 0 ? "above" : "below"}
+                  </>
+                )}
+              </span>
+            ) : null}
+          </>
+        ) : undefined
+      }
+    />
+  );
+}
+
+function PcrGauge({ value, min, max }: { value: number; min: number; max: number }) {
+  const pct = Math.min(Math.max((value - min) / (max - min), 0), 1) * 100;
+  return (
+    <div className="relative mt-2 h-1 rounded-full bg-muted" aria-hidden="true">
+      <div className="absolute left-1/2 top-[-2px] h-2 w-px bg-muted-foreground/50" />
+      <div className={cn("absolute top-[-2px] h-2 w-2 -translate-x-1/2 rounded-full border border-card", value >= 1 ? "bg-bullish" : "bg-bearish")} style={{ left: `${pct}%` }} />
     </div>
   );
 }
 
-function MetricCard({ icon, label, value, valueColor, sub, subColor, progress, isLive, badge, gauge, trendDirection }: {
-  icon: React.ReactNode; label: string; value: string; valueColor?: string;
-  sub?: string; subColor?: string; progress?: number; isLive?: boolean; badge?: string | null;
+interface MetricProps {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  valueClass?: string;
+  sub?: ReactNode;
+  status: WidgetStatus;
+  lastUpdated?: number;
+  source?: string;
+  reason?: string;
+  onRetry?: () => void;
+  to?: string;
+  arrow?: Direction | null;
+  /** For VIX: up is bad, so up is shown in the bearish colour. */
+  arrowInvert?: boolean;
+  arrowTitle?: string;
+  progress?: number;
   gauge?: { value: number; min: number; max: number };
-  trendDirection?: "up" | "down" | "flat";
-}) {
-  return (
-    <Card className="min-h-[104px] transition-all duration-200 hover:shadow-card-hover hover:border-primary/20 relative overflow-hidden group">
-      {/* Subtle neon glow effect inside card on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      <CardContent className="pt-4 pb-4 px-4">
-        <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-          {icon}
-          <p className="text-[11px] font-semibold uppercase tracking-[0.04em]">{label}</p>
-          {isLive && <Radio className="h-3 w-3 text-bullish animate-pulse ml-auto" />}
-          {badge && (
-            <span className={`text-xs font-bold tracking-wider uppercase ml-auto flex items-center gap-1 ${badge === "CLOSED" ? "text-amber-500/90" : "text-primary/80"}`}>
-              {badge === "CLOSED" ? <Moon className="h-3 w-3" /> : <Database className="h-3 w-3" />}{badge}
-            </span>
-          )}
+}
+
+function Metric({ icon, label, value, valueClass, sub, status, lastUpdated, source, reason, onRetry, to, arrow, arrowInvert, arrowTitle, progress, gauge }: MetricProps) {
+  const d = useDensityClasses();
+  const arrowClass = !arrow || arrow === "flat" ? "text-muted-foreground" : (arrow === "up") !== !!arrowInvert ? "text-bullish" : "text-bearish";
+  const showChip = status === "sample" || status === "stale" || status === "derived";
+
+  const body = (
+    <Card className={cn("h-full min-h-[104px] transition-shadow duration-200", to && "group-hover:shadow-card-hover", d.pad)}>
+      <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
+        <span aria-hidden="true">{icon}</span>
+        <p className="min-w-0 truncate text-label uppercase">{label}</p>
+      </div>
+      {status === "loading" ? (
+        <div className="space-y-2" aria-busy="true">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-3 w-24" />
         </div>
-        <div className="flex items-center gap-2">
-          <p className={`text-[21px] font-bold font-mono leading-none ${valueColor || "text-foreground"}`}>{value}</p>
-          {/* VIX trend arrow */}
-          {trendDirection && (
-            <span className={`${trendDirection === "up" ? "text-bearish" : trendDirection === "down" ? "text-bullish" : "text-muted-foreground"}`}>
-              {trendDirection === "up" && <ArrowUp className="h-4 w-4" />}
-              {trendDirection === "down" && <ArrowDown className="h-4 w-4" />}
-              {trendDirection === "flat" && <Minus className="h-4 w-4" />}
-            </span>
-          )}
+      ) : status === "error" || status === "empty" ? (
+        <div className="space-y-1.5">
+          <p className="font-num text-[21px] font-bold leading-none text-muted-foreground">—</p>
+          <p className="text-body-sm text-muted-foreground">{status === "error" ? "Could not load" : "No data yet"}</p>
         </div>
-        {/* PCR Gauge */}
-        {gauge && <PCRGauge value={gauge.value} min={gauge.min} max={gauge.max} />}
-        {progress !== undefined && <Progress value={progress} className="h-1.5 mt-2.5" />}
-        {sub && <p className={`text-xs font-mono mt-1 ${subColor || "text-muted-foreground"}`}>{sub}</p>}
-      </CardContent>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-1.5">
+            <p className={cn("font-num text-[21px] font-bold leading-none tabular-nums", valueClass ?? "text-foreground")}>{value}</p>
+            {arrow ? (
+              <span className={cn("text-body-sm", arrowClass)} title={arrowTitle} aria-label={arrowTitle ? `${arrow} ${arrowTitle}` : arrow}>
+                {ARROW[arrow]}
+              </span>
+            ) : null}
+          </div>
+          {gauge ? <PcrGauge {...gauge} /> : null}
+          {progress !== undefined ? (
+            <div className="relative mt-2 h-1 overflow-hidden rounded-full bg-bearish/30" aria-hidden="true">
+              <div className="absolute inset-y-0 left-0 rounded-full bg-bullish" style={{ width: `${progress}%` }} />
+            </div>
+          ) : null}
+          {sub ? <p className="mt-1.5 truncate font-num text-body-sm tabular-nums text-muted-foreground">{sub}</p> : null}
+        </>
+      )}
+      {showChip ? (
+        <div className="mt-1.5">
+          <DataStatus status={status} lastUpdated={lastUpdated} source={source} reason={reason} plain={!!to} />
+        </div>
+      ) : null}
     </Card>
   );
+
+  if (status === "error" && onRetry) {
+    return (
+      <div className="relative">
+        {body}
+        <div className="absolute bottom-3 right-3">
+          <RetryButton onRetry={onRetry} />
+        </div>
+      </div>
+    );
+  }
+  if (!to) return body;
+  return (
+    <Link to={to} aria-label={`${label}: ${value}. Open details`} className="group block rounded-card focus-visible:shadow-ember focus-visible:outline-none">
+      {body}
+    </Link>
+  );
 }
+
+export default KeyMetrics;

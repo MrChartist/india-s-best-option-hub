@@ -1,16 +1,27 @@
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useProxyHealth, useAllIndices, useFnOStocks, useLiveOptionChain } from "@/hooks/useMarketData";
+/**
+ * Data source health in one compact control: a "Sources n/6" button that opens a list with
+ * the status and detail of each feed. Replaces the old always-visible row of pulsing chips.
+ */
+import type { ReactNode } from "react";
+import { Activity, BarChart3, Globe, Radio, TrendingUp, Zap } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAllIndices, useFnOStocks, useLiveOptionChain, useProxyHealth } from "@/hooks/useMarketData";
 import { useWebSocketStatus, useWebSocketVix } from "@/hooks/useWebSocket";
-import { Globe, BarChart3, Activity, Server, Zap, Radio, Database, TrendingUp } from "lucide-react";
+import { formatNumberIN } from "@/lib/options";
+import { cn } from "@/lib/utils";
+
+type FeedState = "live" | "degraded" | "offline";
 
 interface SourceStatus {
   name: string;
-  icon: React.ReactNode;
-  status: "live" | "degraded" | "offline";
-  detail?: string;
-  primary?: boolean;
+  icon: ReactNode;
+  status: FeedState;
+  detail: string;
 }
+
+const DOT: Record<FeedState, string> = { live: "bg-bullish", degraded: "bg-warning", offline: "bg-bearish" };
+const TEXT: Record<FeedState, string> = { live: "text-bullish", degraded: "text-warning", offline: "text-bearish" };
+const LABEL: Record<FeedState, string> = { live: "Connected", degraded: "Partial", offline: "Offline" };
 
 export function DataSourcesBar() {
   const { data: health } = useProxyHealth();
@@ -21,159 +32,92 @@ export function DataSourcesBar() {
   const { vix: wsVix } = useWebSocketVix();
 
   const dhanConfigured = health?.sources?.dhan === true;
-  const dhanWSConnected = health?.websocket?.dhanConnected === true;
-  const fnoSource = (fnoData as any)?.source || "none";
-  const ocSource = niftyOC?.source || "offline";
+  const dhanWS = health?.websocket?.dhanConnected === true;
+  const fnoSource = fnoData?.source ?? "none";
+  const ocSource = niftyOC?.source ?? "none";
+  const nStocks = fnoData?.allStocks?.length ?? 0;
 
   const sources: SourceStatus[] = [
-    // ── DHAN (Primary — always first) ──
     {
       name: "Dhan API",
-      icon: <TrendingUp className="h-3 w-3" />,
-      status: dhanConfigured
-        ? (ocSource === "dhan" ? "live" : dhanWSConnected ? "degraded" : "offline")
-        : "offline",
-      detail: !dhanConfigured
-        ? "No credentials in .env"
-        : ocSource === "dhan"
-        ? "Primary · Option Chain"
-        : dhanWSConnected
-        ? "WebSocket only"
-        : "Configured but no response",
-      primary: true,
+      icon: <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />,
+      status: dhanConfigured ? (ocSource === "dhan" ? "live" : dhanWS ? "degraded" : "offline") : "offline",
+      detail: !dhanConfigured ? "No credentials configured on the proxy" : ocSource === "dhan" ? "Primary option chain source" : dhanWS ? "WebSocket only" : "Configured but not responding",
     },
-    // ── Dhan WebSocket ──
     {
-      name: "Dhan WS",
-      icon: <Zap className="h-3 w-3" />,
-      status: dhanWSConnected ? "live" : dhanConfigured ? "offline" : "offline",
-      detail: dhanWSConnected
-        ? `Live ticks · ${health?.websocket?.cachedTicks || 0} cached · ${health?.websocket?.instrumentsSubscribed || 0} instruments`
+      name: "Dhan WebSocket",
+      icon: <Zap className="h-3.5 w-3.5" aria-hidden="true" />,
+      status: dhanWS ? "live" : "offline",
+      detail: dhanWS
+        ? `${formatNumberIN(health?.websocket?.instrumentsSubscribed ?? 0)} instruments · ${formatNumberIN(health?.websocket?.cachedTicks ?? 0)} cached ticks`
         : dhanConfigured
-        ? "Disconnected"
-        : "Requires Dhan credentials",
+          ? "Disconnected"
+          : "Needs Dhan credentials",
     },
-    // ── Browser WebSocket (relay) ──
     {
-      name: "Live Feed",
-      icon: <Radio className="h-3 w-3" />,
+      name: "Browser feed",
+      icon: <Radio className="h-3.5 w-3.5" aria-hidden="true" />,
       status: wsConnected ? "live" : "offline",
-      detail: wsConnected
-        ? `Browser connected · ${health?.websocket?.browserClients || 0} clients`
-        : "Browser WS disconnected",
+      detail: wsConnected ? `Connected · ${formatNumberIN(health?.websocket?.browserClients ?? 0)} client(s)` : "Not connected to the proxy relay",
     },
-    // ── NSE India ──
     {
       name: "NSE",
-      icon: <Globe className="h-3 w-3" />,
-      status: allIndices?.isLive
-        ? "live"
-        : ocSource === "nse"
-        ? "live"
-        : "offline",
-      detail: allIndices?.isLive
-        ? `Indices${ocSource === "nse" ? " + Option Chain (fallback)" : " + Sectors"}`
-        : ocSource === "nse"
-        ? "Option Chain (Dhan unavailable)"
-        : "No data",
+      icon: <Globe className="h-3.5 w-3.5" aria-hidden="true" />,
+      status: allIndices?.isLive || ocSource === "nse" ? "live" : "offline",
+      detail: allIndices?.isLive ? `Indices and sectors${ocSource === "nse" ? " · option chain fallback" : ""}` : ocSource === "nse" ? "Option chain (Dhan unavailable)" : "No response",
     },
-    // ── TradingView Scanner ──
     {
       name: "TradingView",
-      icon: <BarChart3 className="h-3 w-3" />,
-      status: fnoSource === "tradingview"
-        ? "live"
-        : fnoData?.isLive
-        ? "degraded"
-        : "offline",
-      detail: fnoSource === "tradingview"
-        ? `${fnoData?.allStocks?.length || 0} F&O stocks (no OI)`
-        : fnoData?.isLive
-        ? `NSE primary · ${fnoData.allStocks?.length || 0} stocks`
-        : "Standby",
+      icon: <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />,
+      status: fnoSource === "tradingview" ? "live" : fnoData?.isLive ? "degraded" : "offline",
+      detail: fnoSource === "tradingview" ? `${formatNumberIN(nStocks)} F&O stocks (no OI)` : fnoData?.isLive ? `Standby · NSE serving ${formatNumberIN(nStocks)} stocks` : "Standby",
     },
-    // ── VIX (composite) ──
     {
-      name: "VIX",
-      icon: <Activity className="h-3 w-3" />,
+      name: "India VIX",
+      icon: <Activity className="h-3.5 w-3.5" aria-hidden="true" />,
       status: wsVix ? "live" : allIndices?.vix ? "degraded" : "offline",
-      detail: wsVix
-        ? `Dhan WS: ${wsVix.value?.toFixed(2)}`
-        : allIndices?.vix
-        ? `NSE Poll: ${allIndices.vix.value?.toFixed(2)}`
-        : "No data",
+      detail: wsVix ? `Dhan stream · ${formatNumberIN(wsVix.value, 2)}` : allIndices?.vix ? `NSE poll · ${formatNumberIN(allIndices.vix.value, 2)}` : "No data",
     },
   ];
 
-  const liveCount = sources.filter(s => s.status === "live").length;
-  const totalCount = sources.length;
-
-  const statusColor = (s: SourceStatus["status"]) => {
-    switch (s) {
-      case "live": return "bg-emerald-500";
-      case "degraded": return "bg-amber-500";
-      case "offline": return "bg-red-500";
-    }
-  };
-
-  const statusTextColor = (s: SourceStatus["status"]) => {
-    switch (s) {
-      case "live": return "text-emerald-400";
-      case "degraded": return "text-amber-400";
-      case "offline": return "text-red-400";
-    }
-  };
-
-  const statusLabel = (s: SourceStatus["status"]) => {
-    switch (s) {
-      case "live": return "Connected";
-      case "degraded": return "Partial";
-      case "offline": return "Offline";
-    }
-  };
+  const live = sources.filter((s) => s.status === "live").length;
+  const overall: FeedState = live >= 4 ? "live" : live >= 2 ? "degraded" : "offline";
 
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-card/60 border border-border/50 backdrop-blur-sm overflow-x-auto">
-      {/* Overall status indicator */}
-      <div className="flex items-center gap-1.5 mr-2 pr-2 border-r border-border/30 shrink-0">
-        <div className={`h-2 w-2 rounded-full ${liveCount >= 4 ? "bg-emerald-500 animate-pulse" : liveCount >= 2 ? "bg-amber-500 animate-pulse" : "bg-red-500"}`} />
-        <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-          {liveCount}/{totalCount} Sources
-        </span>
-      </div>
-
-      {/* Individual sources */}
-      {sources.map((src) => (
-        <Tooltip key={src.name}>
-          <TooltipTrigger asChild>
-            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium cursor-default transition-all duration-200 shrink-0 ${
-              src.primary 
-                ? src.status === "live"
-                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                  : src.status === "degraded"
-                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-400"
-                  : "bg-red-500/5 border border-red-500/10 text-red-400"
-                : `${statusTextColor(src.status)} hover:bg-accent/30`
-            }`}>
-              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusColor(src.status)} ${src.status === "live" ? "animate-pulse" : ""}`} />
-              {src.icon}
-              <span className="hidden sm:inline whitespace-nowrap">{src.name}</span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-sm max-w-[280px]">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <div className={`h-2 w-2 rounded-full shrink-0 ${statusColor(src.status)}`} />
-                <span className="font-semibold">{src.name}</span>
-                <Badge variant="outline" className={`text-xs h-5 px-1.5 ${statusTextColor(src.status)}`}>
-                  {statusLabel(src.status)}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground text-xs leading-snug">{src.detail}</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+          aria-label={`Data sources: ${live} of ${sources.length} connected. Show details`}
+        >
+          <span className={cn("h-2 w-2 rounded-full", DOT[overall])} aria-hidden="true" />
+          <span className="font-num tabular-nums">
+            {live}/{sources.length}
+          </span>
+          <span className="hidden sm:inline">sources</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[300px] p-2">
+        <p className="px-2 pb-1.5 pt-1 text-label uppercase text-muted-foreground">Data sources</p>
+        <ul className="space-y-0.5">
+          {sources.map((s) => (
+            <li key={s.name} className="flex items-start gap-2 rounded-md px-2 py-1.5">
+              <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", DOT[s.status])} aria-hidden="true" />
+              <span className="mt-0.5 text-muted-foreground">{s.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-body font-medium">{s.name}</span>
+                  <span className={cn("text-label uppercase", TEXT[s.status])}>{LABEL[s.status]}</span>
+                </span>
+                <span className="block text-body-sm leading-snug text-muted-foreground">{s.detail}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }
+
+export default DataSourcesBar;
