@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { BuildupBadge } from "@/components/ui/buildup-badge";
 import { buildSampleChainData, useLiveOptionChain } from "@/hooks/useMarketData";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -564,6 +565,7 @@ export default function OptionChain() {
         eyebrow="Chain & OI"
         title="Option Chain"
         description="NSE and BSE chain with Greeks, OI build-up, probabilities and a basket that hands off to the Strategy Builder or Paper Trading."
+        source={<ProductCrossLink id="optionsDesk" campaign="option-chain" lead="More options tools:" />}
       />
 
       <ChainToolbar

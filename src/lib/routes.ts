@@ -56,7 +56,8 @@ export const ROUTE_GROUPS: readonly RouteGroup[] = [
   "Settings",
 ];
 
-export const APP_NAME = "Mr. Chartist";
+/** Appended to every page title: "Option Chain · Option Hub by Mr. Chartist". */
+export const APP_NAME = "Option Hub by Mr. Chartist";
 
 // ── Page loaders ──────────────────────────────────────────────────────────
 //
@@ -414,6 +415,18 @@ export const ROUTES: RouteDef[] = [
     lazy: pageLoader("LearnLesson"),
   },
 
+  {
+    path: "/ecosystem",
+    title: "Mr. Chartist ecosystem",
+    navLabel: "Mr. Chartist ecosystem",
+    group: "Learn",
+    icon: "Blocks",
+    keywords: ["mr chartist", "ecosystem", "products", "fii dii data", "ipo decode", "tradebook", "optionsdesk", "fundadesk", "chartbook", "nism", "books", "socials", "github", "sebi"],
+    description: "More from Mr. Chartist: products, courses, socials and the SEBI RA details.",
+    page: "Ecosystem",
+    lazy: pageLoader("Ecosystem"),
+  },
+
   // ── Settings ────────────────────────────────────────────────────────────
   {
     path: "/broker-settings",
@@ -458,6 +471,8 @@ export const LEGACY_REDIRECTS: Readonly<Record<string, string>> = {
   "/calendar": "/events",
   "/rollover": "/futures",
   "/alert": "/alerts",
+  "/more": "/ecosystem",
+  "/products": "/ecosystem",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────

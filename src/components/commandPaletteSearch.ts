@@ -31,6 +31,8 @@ export interface PaletteEntry {
   keywords: readonly string[];
   /** Where Enter goes; undefined for actions handled by the caller. */
   path?: string;
+  /** External URL opened in a new tab (actions that leave the app). */
+  href?: string;
   /** Group heading shown next to the result. */
   group: string;
 }

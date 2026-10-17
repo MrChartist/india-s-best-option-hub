@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { EdgeTable } from "@/components/journal/EdgeTable";
 import { EquityCurve } from "@/components/journal/EquityCurve";
 import { ImportPanel } from "@/components/journal/ImportPanel";
@@ -203,6 +204,7 @@ export default function Journal() {
           </>
         }
       />
+      <ProductCrossLink id="tradeBook" campaign="journal" lead="Want a dedicated trading journal for NSE, MCX and F&O? Try" />
 
       {isSample ? (
         <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-body-sm text-foreground">

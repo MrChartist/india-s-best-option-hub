@@ -3,6 +3,27 @@
  * to concrete colours, serialise it, draw it onto a canvas with a title band and save the PNG.
  */
 
+import { MARK_PATHS, MARK_VIEWBOX } from "@/lib/brand/logo";
+
+export const EXPORT_WATERMARK = "Option Hub by Mr. Chartist · mrchartist.com · For education, not investment advice";
+
+/**
+ * Draw the official Mr. Chartist mark (monochrome, in `fill`) as a `size`-px square at (x, y).
+ * Returns false when the canvas has no Path2D support, so the caller can skip the mark.
+ */
+export function drawBrandMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, fill: string): boolean {
+  if (typeof Path2D === "undefined") return false;
+  const k = size / MARK_VIEWBOX.size;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(k, k);
+  ctx.translate(-MARK_VIEWBOX.x, -MARK_VIEWBOX.y);
+  ctx.fillStyle = fill;
+  for (const d of MARK_PATHS) ctx.fill(new Path2D(d));
+  ctx.restore();
+  return true;
+}
+
 function rootVar(name: string): string {
   try {
     return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
@@ -92,7 +113,10 @@ export async function renderChartPng(container: HTMLElement | null, opts: ChartI
     sub = `${sub.trimEnd()}…`;
   }
   ctx.fillText(sub, pad, 48);
-  ctx.fillText("Mr. Chartist Options Terminal · mrchartist.com · For education, not investment advice", pad, H - 12);
+  const markSize = 14;
+  const hasMark = drawBrandMark(ctx, pad, H - 12 - markSize + 3, markSize, hsl("foreground"));
+  ctx.fillStyle = hsl("muted-foreground");
+  ctx.fillText(EXPORT_WATERMARK, pad + (hasMark ? markSize + 6 : 0), H - 12);
 
   const img = new Image();
   const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml;charset=utf-8" }));

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { EventFilters, type EventFiltersValue } from "@/components/events/EventFilters";
 import { EventHighlights } from "@/components/events/EventHighlights";
 import { EventList } from "@/components/events/EventList";
@@ -193,6 +194,7 @@ export default function Events() {
         source={source}
         actions={actions}
       />
+      <ProductCrossLink id="ipoDecode" campaign="events" lead="Tracking IPOs? Live subscription, grey market premium, allotment status and listing performance on" />
 
       <EventHighlights events={aheadEvents} today={today} week={week} now={now} />
 

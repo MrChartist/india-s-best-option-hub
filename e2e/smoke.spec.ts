@@ -32,6 +32,7 @@ const REQUIRED_PATHS = [
   "/journal",
   "/alerts",
   "/events",
+  "/ecosystem",
 ];
 
 /** Browser noise caused by the proxy being offline. Anything else fails the test. */
@@ -111,7 +112,7 @@ test.describe("404 page", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
     const firstSuggestion = page.locator("#main").getByRole("list").getByRole("link").first();
     await expect(firstSuggestion).toHaveAttribute("href", "/option-chain");
-    await expect(page).toHaveTitle(/Page not found · Mr\. Chartist/);
+    await expect(page).toHaveTitle(/Page not found · Option Hub by Mr\. Chartist/);
     expect(collected.errors).toEqual([]);
   });
 });

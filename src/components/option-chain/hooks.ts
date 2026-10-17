@@ -99,7 +99,7 @@ export function useStrikeAlerts(symbol: string, expiry: string, rows: RowView[],
       const text = describeAlert(h.alert);
       const now = h.alert.field === "iv" ? `${h.current.toFixed(2)}%` : h.alert.field === "premium" ? `₹${h.current.toFixed(2)}` : h.current.toLocaleString("en-IN");
       toast.warning(`Alert: ${text}`, { description: `Now ${now}` });
-      notify("Mr. Chartist alert", `${text} (now ${now})`);
+      notify("Option Hub alert", `${text} (now ${now})`);
     }
   }, [version, rows, alerts, symbol, expiry]);
 

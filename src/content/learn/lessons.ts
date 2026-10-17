@@ -382,7 +382,7 @@ export const LESSONS: Lesson[] = [
         "Set a daily loss limit and stop when it is hit.",
         "Learn the rules first. NISM Series VIII (Equity Derivatives) is the certification for people dealing in F&O.",
       ] },
-      { kind: "callout", tone: "info", title: "This hub is educational", text: "Nothing in the Mr. Chartist terminal or this Learn hub is investment advice. Numbers in examples and simulators are illustrative." },
+      { kind: "callout", tone: "info", title: "This hub is educational", text: "Nothing in Option Hub or this Learn hub is investment advice. Numbers in examples and simulators are illustrative." },
     ],
     quiz: [
       { id: "q1", prompt: "According to SEBI's FY22–FY24 study, roughly what share of individual F&O traders lost money?", options: ["About 50%", "About 70%", "About 93%", "About 30%"], answer: 2, explain: "SEBI reported 93% of individual traders made losses over FY22–FY24." },

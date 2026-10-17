@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Compass, Layers, Map as MapIcon, TableProperties, Wallet, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MrChartistMark } from "@/components/brand/MrChartistLogo";
 import { cn } from "@/lib/utils";
 import { TOUR_STEPS, type TourAction, type TourState, type TourStep } from "./onboarding";
 
@@ -37,7 +38,7 @@ export function OnboardingTour({ state, dispatch }: Props) {
     <section aria-labelledby="tour-title" aria-roledescription="tour" className="relative overflow-hidden rounded-card border border-primary/30 bg-wash-brand/40 p-3 shadow-card sm:p-4">
       <div className="flex items-start gap-3">
         <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-tile bg-card text-primary-ink shadow-card sm:inline-flex" aria-hidden="true">
-          <Icon className="h-4 w-4" />
+          {step.id === "welcome" ? <MrChartistMark size={20} decorative className="text-foreground" /> : <Icon className="h-4 w-4" />}
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">

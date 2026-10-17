@@ -1,15 +1,14 @@
 import { ArrowUpRight, Award, CheckCircle2 } from "lucide-react";
+import { product, withUtm } from "@/lib/brand/links";
 import { cn } from "@/lib/utils";
 
-/** Verified 17 Oct 2026: the site lists NISM Series V-A, VIII, XV, X-A and X-B prep. */
-const NISM_HOME = "https://nismexams.com";
-const NISM_COURSES = "https://nismexams.com/courses";
-
-const UTM = "utm_source=mrchartist-terminal&utm_medium=learn-hub";
-
-function withUtm(url: string, content: string): string {
-  return `${url}${url.includes("?") ? "&" : "?"}${UTM}&utm_campaign=${encodeURIComponent(content)}`;
-}
+/**
+ * Verified 17 Oct 2026: nismexams.com offers notes, mock tests, explanations and performance
+ * tracking for Series V-A, VIII, XV, X-A, X-B, XXI-A and XXI-B. URLs and UTM tags come from
+ * src/lib/brand/links.ts like every other outbound link.
+ */
+const NISM_HOME = product("nismExams").url;
+const NISM_COURSES = `${NISM_HOME}/courses`;
 
 /**
  * NISMExams.com partner banner. "full" for the hub, "compact" for lesson sidebars.
@@ -24,7 +23,7 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
         <p className="mt-1.5 font-display text-lead font-bold text-foreground">Preparing for NISM Series VIII?</p>
         <p className="mt-1 text-body-sm text-muted-foreground">Mock tests, notes and explanations for the Equity Derivatives certification.</p>
         <a
-          href={withUtm(NISM_COURSES, "lesson-sidebar")}
+          href={withUtm(NISM_COURSES, "learn-lesson-sidebar")}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 inline-flex items-center gap-1 rounded-pill text-body-sm font-semibold text-product underline-offset-4 hover:underline focus-visible:shadow-ember focus-visible:outline-none"
@@ -38,18 +37,18 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
 
   return (
     <aside
-      aria-label="NISMExams.com partner"
+      aria-label="NISMExams.com, from Mr. Chartist"
       className={cn("relative overflow-hidden rounded-card border border-product/25 bg-product-wash p-5 shadow-card sm:p-6", className)}
     >
       <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-capsule bg-product/10" aria-hidden="true" />
       <div className="relative grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-label uppercase text-product">
-            <Award className="h-3.5 w-3.5" aria-hidden="true" /> Education partner
+            <Award className="h-3.5 w-3.5" aria-hidden="true" /> Also from Mr. Chartist
           </p>
           <h2 className="mt-1.5 font-display text-title text-foreground">Get certified with NISMExams.com</h2>
           <p className="mt-1.5 max-w-2xl text-body text-muted-foreground">
-            NISM Series VIII (Equity Derivatives) is the certification for people dealing in F&O. NISMExams.com offers mock tests, chapter notes, explanations and performance tracking to help you pass.
+            NISM Series VIII (Equity Derivatives) is the certification for people dealing in F&O. NISMExams.com has notes, mock tests, explanations and performance tracking for Series VIII, plus V-A, XV, X-A, X-B, XXI-A and XXI-B.
           </p>
           <ul className="mt-3 grid gap-1.5 text-body-sm text-foreground sm:grid-cols-3">
             {["Full-length mock tests", "Chapter-wise notes", "Explanations for every answer"].map((t) => (
@@ -61,7 +60,7 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
         </div>
         <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
           <a
-            href={withUtm(NISM_COURSES, "hub-banner")}
+            href={withUtm(NISM_COURSES, "learn-hub-banner")}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-pill bg-primary px-4 text-body font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
@@ -70,7 +69,7 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
             <span className="sr-only">(opens NISMExams.com in a new tab)</span>
           </a>
           <a
-            href={withUtm(NISM_HOME, "hub-banner-home")}
+            href={withUtm(NISM_HOME, "learn-hub-banner-home")}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-10 items-center justify-center gap-1.5 rounded-pill border border-border bg-card px-4 text-body font-semibold text-foreground transition-colors duration-fast hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"

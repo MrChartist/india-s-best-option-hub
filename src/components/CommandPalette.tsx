@@ -11,7 +11,9 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Keyboard, Search, TrendingDown, TrendingUp } from "lucide-react";
+import { ExternalLink, Keyboard, Search, Star, TrendingDown, TrendingUp } from "lucide-react";
+import { MrChartistMark } from "@/components/brand/MrChartistLogo";
+import { BRAND, withUtm } from "@/lib/brand/links";
 import { useLiveIndices } from "@/hooks/useMarketData";
 import { routesByGroup, type RouteDef } from "@/lib/routes";
 import { routeIcon } from "@/lib/routeIcons";
@@ -42,8 +44,26 @@ const STOCK_ENTRIES: PaletteEntry[] = STATIC_FNO_STOCKS.map((s) => ({
   path: `/option-chain?symbol=${s}`,
   group: "F&O stock",
 }));
+const GITHUB_ID = "action:github-star";
+const SITE_ID = "action:mrchartist-site";
 const ACTION_ENTRIES: PaletteEntry[] = [
   { id: SHORTCUTS_ID, kind: "action", label: "Keyboard shortcuts", keywords: ["help", "keys", "hotkeys"], group: "Help" },
+  {
+    id: GITHUB_ID,
+    kind: "action",
+    label: "Star Option Hub on GitHub",
+    keywords: ["github", "star", "source", "source code", "repo", "contribute"],
+    href: withUtm(BRAND.repo, "command-palette"),
+    group: "Mr. Chartist",
+  },
+  {
+    id: SITE_ID,
+    kind: "action",
+    label: "Visit mrchartist.com",
+    keywords: ["mr chartist", "website", "site", "products", "ecosystem"],
+    href: withUtm(BRAND.site, "command-palette"),
+    group: "Mr. Chartist",
+  },
 ];
 
 const DIALOG_CMD_CLASS =
@@ -106,6 +126,9 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
     if (entry.id === SHORTCUTS_ID) {
       onOpenChange(false);
       onShowShortcuts?.();
+    } else if (entry.href) {
+      window.open(entry.href, "_blank", "noopener,noreferrer");
+      onOpenChange(false);
     } else if (entry.path) {
       go(entry.path);
     }
@@ -150,6 +173,21 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
           <Search className="mr-2 h-4 w-4" aria-hidden="true" />
           <span>{entry.label}</span>
           <span className="ml-auto pl-2 text-[11px] text-muted-foreground">F&amp;O stock · option chain</span>
+        </>
+      );
+    }
+    if (entry.href) {
+      return (
+        <>
+          {entry.id === GITHUB_ID ? (
+            <Star className="mr-2 h-4 w-4" aria-hidden="true" />
+          ) : (
+            <MrChartistMark size={16} decorative className="mr-2" />
+          )}
+          <span>{entry.label}</span>
+          <span className="ml-auto flex items-center gap-1 pl-2 text-[11px] text-muted-foreground">
+            New tab <ExternalLink className="!h-3 !w-3" aria-hidden="true" />
+          </span>
         </>
       );
     }
@@ -222,8 +260,17 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                 </CommandGroup>
 
                 <CommandSeparator />
+                <CommandGroup heading="Mr. Chartist">
+                  {ACTION_ENTRIES.filter((e) => e.group === "Mr. Chartist").map((e) => (
+                    <CommandItem key={e.id} value={e.id} onSelect={() => runEntry(e)}>
+                      {renderEntry(e)}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+
+                <CommandSeparator />
                 <CommandGroup heading="Help">
-                  {ACTION_ENTRIES.map((e) => (
+                  {ACTION_ENTRIES.filter((e) => e.group === "Help").map((e) => (
                     <CommandItem key={e.id} value={e.id} onSelect={() => runEntry(e)}>
                       {renderEntry(e)}
                     </CommandItem>

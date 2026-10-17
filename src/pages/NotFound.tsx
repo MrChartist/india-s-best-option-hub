@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Home, SearchX } from "lucide-react";
+import { ArrowLeft, ArrowRight, Home } from "lucide-react";
+import { MrChartistMark } from "@/components/brand/MrChartistLogo";
 import { routeIcon } from "@/lib/routeIcons";
 import { Button } from "@/components/ui/button";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -67,10 +68,10 @@ const NotFound = () => {
     <div className="flex min-h-[60svh] items-center justify-center px-1 py-8 text-foreground sm:py-12">
       <div className="mx-auto w-full max-w-xl">
         <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border border-border bg-card shadow-card">
-            <SearchX className="h-5 w-5 text-primary-ink" aria-hidden />
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border border-border bg-card text-foreground shadow-card">
+            <MrChartistMark size={26} title="Mr. Chartist" />
           </span>
-          <p className="font-num text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Error 404</p>
+          <p className="font-num text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Error 404 · Option Hub</p>
         </div>
 
         <h1 className="font-display text-display text-foreground">Page not found</h1>
@@ -114,7 +115,11 @@ const NotFound = () => {
         <p className="mt-8 text-xs text-muted-foreground">
           {ROUTES.filter((r) => !r.hidden).length} pages available. Press{" "}
           <kbd className="rounded-chip border border-border bg-surface px-1 font-mono text-[11px]">g</kbd> then a letter to jump
-          between pages once you are back in the terminal.
+          between pages once you are back in the terminal. Looking for another Mr. Chartist product? See{" "}
+          <Link to="/ecosystem" className="font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary">
+            More from Mr. Chartist
+          </Link>
+          .
         </p>
       </div>
     </div>

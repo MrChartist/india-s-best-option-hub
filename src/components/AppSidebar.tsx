@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Blocks, ChevronRight, Monitor, Moon, Sun } from "lucide-react";
+import { MrChartistLogo, MrChartistMark } from "@/components/brand/MrChartistLogo";
+import { OutboundLink } from "@/components/brand/OutboundLink";
+import { SocialIcon } from "@/components/brand/SocialIcon";
+import { BRAND, SOCIALS, type SocialId } from "@/lib/brand/links";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -108,6 +112,55 @@ function NavItem({ route, collapsed, seen }: { route: RouteDef; collapsed: boole
   );
 }
 
+/** Socials shown in the expanded sidebar footer (the rest are on the ecosystem page). */
+const SIDEBAR_SOCIALS: readonly SocialId[] = ["x", "youtube", "telegram", "instagram", "linkedin", "github"];
+
+/** Compact "More from Mr. Chartist" link to /ecosystem, plus social icons when expanded. */
+function EcosystemLink({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <NavLink
+        to="/ecosystem"
+        aria-label="More from Mr. Chartist"
+        title="More from Mr. Chartist"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        activeClassName="bg-primary/15 text-primary-ink"
+      >
+        <Blocks className="h-[17px] w-[17px]" strokeWidth={1.75} aria-hidden="true" />
+      </NavLink>
+    );
+  }
+  const socials = SIDEBAR_SOCIALS.map((id) => SOCIALS.find((s) => s.id === id)).filter((s): s is (typeof SOCIALS)[number] => Boolean(s));
+  return (
+    <div className="space-y-1.5">
+      <NavLink
+        to="/ecosystem"
+        className="group flex h-8 items-center gap-2 rounded-md px-2 text-[12.5px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+        activeClassName="bg-primary/10 font-semibold text-primary-ink"
+      >
+        <MrChartistMark size={16} decorative />
+        <span className="min-w-0 flex-1 truncate">More from Mr. Chartist</span>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </NavLink>
+      <ul className="flex items-center justify-between px-1" aria-label="Mr. Chartist on social media">
+        {socials.map((s) => (
+          <li key={s.id}>
+            <OutboundLink
+              url={s.url}
+              campaign="sidebar"
+              label={`Mr. Chartist on ${s.label}`}
+              title={s.label}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+            >
+              <SocialIcon id={s.id} className="h-3.5 w-3.5" />
+            </OutboundLink>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
   const { mode, setMode, isDark, toggle } = useTheme();
   if (collapsed) {
@@ -176,26 +229,19 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className={cn("shrink-0 border-b border-sidebar-border/80 px-4 py-3.5", collapsed && "items-center px-0 py-3")}>
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center gap-0")}>
-          <div
-            className={cn(
-              "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-card shadow-card",
-            )}
-          >
-            <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.18),transparent_72%)]" />
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10" aria-hidden="true">
-              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
-              <path d="M6 16V10L9 13L12 9L15 7V16" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="15" cy="7" r="1.8" fill="hsl(var(--primary))" opacity="0.9" />
-            </svg>
-          </div>
-          {!collapsed && (
-            <div className="flex min-w-0 flex-col">
-              <span className="text-[15px] font-bold leading-none text-foreground">Mr. Chartist</span>
-              <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Options Terminal</span>
-            </div>
+        <Link
+          to="/"
+          // Must start with the visible lockup text ("Mr. Chartist" / "Option Hub") so the
+          // accessible name matches what sighted voice-control users read (WCAG 2.5.3).
+          aria-label={`${BRAND.name} ${BRAND.product}, go to dashboard`}
+          title={collapsed ? BRAND.productFull : undefined}
+          className={cn(
+            "flex min-w-0 items-center rounded-md text-foreground focus-visible:shadow-ember focus-visible:outline-none",
+            collapsed ? "h-9 w-9 justify-center" : "-mx-1 px-1 py-0.5",
           )}
-        </div>
+        >
+          {collapsed ? <MrChartistMark size={24} decorative /> : <MrChartistLogo size={30} />}
+        </Link>
       </SidebarHeader>
 
       {/*
@@ -235,6 +281,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className={cn("shrink-0 gap-2 border-t border-sidebar-border/80 p-2", collapsed && "items-center px-0 py-2.5")}>
+        <EcosystemLink collapsed={collapsed} />
         <ThemeSwitch collapsed={collapsed} />
         <PaletteToggle collapsed={collapsed} />
         {/* Keyboard hints are noise on touch screens; hide them on mobile and when collapsed. */}
