@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { APP_NAME } from "@/lib/routes";
-import { SITE_DESCRIPTION, absoluteUrl, normaliseSiteUrl } from "@/lib/marketData/seo";
+import { SITE_DESCRIPTION, SITE_NAME, absoluteUrl, normaliseSiteUrl } from "@/lib/marketData/seo";
 
-export const DEFAULT_DOCUMENT_TITLE = "Mr. Chartist Options Terminal";
+export const DEFAULT_DOCUMENT_TITLE = SITE_NAME;
 
 /** Public site URL from VITE_SITE_URL ("" when unset: canonical tags are then left alone). */
 export const SITE_URL: string = (() => {
@@ -13,14 +13,14 @@ export const SITE_URL: string = (() => {
   }
 })();
 
-/** "Option Chain" → "Option Chain · Mr. Chartist"; empty → the default app title. */
+/** "Option Chain" → "Option Chain · Option Hub by Mr. Chartist"; empty → the default app title. */
 export function formatDocumentTitle(title: string): string {
   const t = title.trim();
   return t ? `${t} · ${APP_NAME}` : DEFAULT_DOCUMENT_TITLE;
 }
 
 /**
- * Set document.title for the current page, appending " · Mr. Chartist".
+ * Set document.title for the current page, appending " · Option Hub by Mr. Chartist".
  * The previous title is restored on unmount.
  */
 export function useDocumentTitle(title: string): void {
@@ -35,7 +35,7 @@ export function useDocumentTitle(title: string): void {
 }
 
 export interface PageMeta {
-  /** Page title (" · Mr. Chartist" is appended). */
+  /** Page title (" · Option Hub by Mr. Chartist" is appended). */
   title: string;
   /** Meta description; keep it under ~160 characters. Falls back to the site description. */
   description?: string;
