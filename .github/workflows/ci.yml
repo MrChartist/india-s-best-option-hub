@@ -2,39 +2,215 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main, master]
   pull_request:
-    branches: [master, main]
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_DEFAULT: "22"
+  # Keep Playwright browsers out of the npm cache key.
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
 
 jobs:
-  build:
+  guards:
+    name: Content guards
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18, 20]
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: No leaked prompt text or mojibake in source
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          scan() {
+            local label="$1"; shift
+            if grep -rnI --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git \
+                 --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
+                 --include='*.css' --include='*.html' --include='*.json' "$@" src index.html public proxy-server.mjs 2>/dev/null; then
+              echo "::error::$label"
+              fail=1
+            fi
+          }
+          # Pasted prompt / markdown fences that leaked into UI copy.
+          scan "Stray ''' found (pasted prompt or markdown fence)" -F "'''"
+          scan "Leaked AI prompt text found in UI copy" -iE "(do not make any visual modifications|the phrases i write are commands|ignore (all )?previous instructions|as an ai (language )?model|you are (an? )?(helpful )?assistant|<\|im_start\|>|system prompt)"
+          # UTF-8 box-drawing characters decoded as CP437 (e.g. "─" shown as "Γö").
+          scan "Mojibake (Γö) found: re-save the file as UTF-8" -F "Γö"
+          exit $fail
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+  typecheck:
+    name: Typecheck (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ matrix.node }}
           cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: TypeScript check
-        run: npx tsc --noEmit
-
-      - name: Lint
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_DEFAULT }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: ESLint
         run: npm run lint
+      - name: ESLint (zero warnings, informational until the any-removal lands)
+        run: npm run lint:strict
+        continue-on-error: true
 
-      - name: Test
-        run: npm run test
+  test:
+    name: Unit tests + coverage (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Vitest with coverage
+        run: npm run test:coverage
+      - name: Coverage summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e "const t=require('./coverage/coverage-summary.json').total;const r=k=>t[k].pct.toFixed(1)+'%';console.log('| Metric | Coverage |\n|---|---|\n| Lines | '+r('lines')+' |\n| Statements | '+r('statements')+' |\n| Functions | '+r('functions')+' |\n| Branches | '+r('branches')+' |')" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload lcov
+        if: always() && matrix.node == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            coverage/lcov.info
+            coverage/coverage-summary.json
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Build
-        run: npm run build
+  build:
+    name: Build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Upload dist
+        if: matrix.node == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
+
+  e2e:
+    name: E2E smoke (Playwright, sample mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_DEFAULT }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAYWRIGHT_BROWSERS_PATH }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke tests
+        run: npm run test:e2e
+        env:
+          CI: "true"
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  proxy-smoke:
+    name: Proxy smoke (/health)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_DEFAULT }}
+          cache: npm
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - name: Start proxy and check /health
+        shell: bash
+        env:
+          PROXY_PORT: "4002"
+        run: |
+          set -euo pipefail
+          node proxy-server.mjs > proxy.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4002/health -o health.json; then break; fi
+            sleep 1
+          done
+          cat health.json || { echo "::error::proxy did not answer /health"; cat proxy.log; exit 1; }
+          node -e "const h=require('./health.json'); if (h.status !== 'ok') { console.error('unexpected health payload'); process.exit(1); }"
+          # Unknown routes must 404, not crash.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4002/definitely-not-a-route)
+          test "$code" = "404" || { echo "::error::expected 404, got $code"; cat proxy.log; exit 1; }
+          kill $PID
+
+  audit:
+    name: npm audit (high, non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_DEFAULT }}
+      - run: npm audit --audit-level=high --omit=dev

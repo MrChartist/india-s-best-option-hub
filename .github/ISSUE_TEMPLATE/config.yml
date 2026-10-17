@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Roadmap
+    url: https://github.com/MrChartist/india-s-best-option-hub/blob/main/ROADMAP.md
+    about: Check what is already planned before opening a feature request.

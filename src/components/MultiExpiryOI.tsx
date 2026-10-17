@@ -1,264 +1,218 @@
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Bar, BarChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AlertTriangle, Layers, Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useLiveOptionChain, useExpiryList } from "@/hooks/useMarketData";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend, ComposedChart, Line, Cell } from "recharts";
-import { Layers, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { buildSampleChainData, isLiveSession, type OptionChainHookData } from "@/hooks/useMarketData";
+import { fetchLiveOptionChain } from "@/lib/marketApi";
+import { axisProps, barCursor, gridProps, legendStyle, tokenColor, tooltipStyle } from "@/lib/chartTheme";
+import { findATMStrike, formatDateIST, modalStrikeStep, normalizeExpiry } from "@/lib/options";
+import { maxLegOI, significantStrikes, windowAround } from "@/lib/oiUtils";
+import type { ExpiryDate, OptionData } from "@/lib/mockData";
+import { EmptyState, ModuleHeader } from "@/components/oi/shared";
+import { fmtOI, fmtOIChange, fmtStrike } from "@/components/oi/format";
+import { cn } from "@/lib/utils";
 
 interface Props {
   symbol: string;
+  /** Expiries available for the symbol (ISO values). */
+  expiries: ExpiryDate[];
+  /** Expiry the page is showing; its chain is passed in so it is not fetched twice. */
+  primaryExpiry: string;
+  primaryChain: OptionData[];
+  spotPrice: number;
+  /** True when the primary chain is sample data. */
+  sample?: boolean;
 }
 
-export function MultiExpiryOI({ symbol }: Props) {
-  const { data: expiryData } = useExpiryList(symbol);
-  const expiries = expiryData?.expiries || [];
+type SecondaryData = Pick<OptionChainHookData, "chain" | "source" | "expiry">;
 
-  // Pick first 3 expiries
-  const exp1 = expiries[0]?.value || "";
-  const exp2 = expiries[1]?.value || "";
-  const exp3 = expiries[2]?.value || "";
+/** A secondary expiry chain, polled every 45 s in session (5 min outside). Disabled when not shown. */
+function useSecondaryChain(symbol: string, expiry: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["oi-secondary-chain", symbol, expiry],
+    queryFn: async (): Promise<SecondaryData> => {
+      const exp = expiry ?? "";
+      try {
+        const r = await fetchLiveOptionChain(symbol, exp);
+        if (r.chain.length > 0) return { chain: r.chain, source: r.stale ? "cache" : r.source, expiry: r.expiry || normalizeExpiry(exp) };
+      } catch {
+        /* fall through to the labelled sample */
+      }
+      const s = await buildSampleChainData(symbol, exp, "Live chain unavailable for this expiry");
+      return { chain: s.chain, source: "sample", expiry: s.expiry };
+    },
+    enabled: enabled && !!symbol && !!expiry,
+    refetchInterval: () => (isLiveSession() ? 45_000 : 300_000),
+    staleTime: 30_000,
+    retry: 0,
+  });
+}
 
-  const { data: chain1 } = useLiveOptionChain(symbol, exp1);
-  const { data: chain2 } = useLiveOptionChain(symbol, exp2);
-  const { data: chain3 } = useLiveOptionChain(symbol, exp3);
+const CE_ALPHA = [0.9, 0.55, 0.3];
+const PE_ALPHA = [0.9, 0.55, 0.3];
 
+interface Signal {
+  strike: number;
+  label: string;
+  tone: "bullish" | "bearish";
+  detail: string;
+}
+
+/**
+ * Multi-expiry OI by strike. The page's expiry is always shown; up to two more can be toggled on.
+ * Secondary expiries are fetched only while they are switched on.
+ */
+export function MultiExpiryOI({ symbol, expiries, primaryExpiry, primaryChain, spotPrice, sample }: Props) {
+  const others = useMemo(() => expiries.filter((e) => e.value && e.value !== primaryExpiry).slice(0, 4), [expiries, primaryExpiry]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [showOIChange, setShowOIChange] = useState(false);
-  const [selectedExpiries, setSelectedExpiries] = useState<number[]>([0, 1]);
 
-  const spotPrice = chain1?.spotPrice || 0;
-  const stepSize = chain1?.stepSize || 50;
+  // Keep only selections that still exist for this symbol, max two.
+  const active = useMemo(() => selected.filter((v) => others.some((o) => o.value === v)).slice(0, 2), [selected, others]);
+  const q1 = useSecondaryChain(symbol, active[0], active.length > 0);
+  const q2 = useSecondaryChain(symbol, active[1], active.length > 1);
 
-  // Merge data from multiple expiries
-  const mergedData = useMemo(() => {
-    const chains = [chain1, chain2, chain3];
-    const allStrikes = new Set<number>();
+  const series = useMemo(() => {
+    const list: Array<{ key: string; label: string; chain: OptionData[]; sample: boolean }> = [
+      { key: "e0", label: formatDateIST(primaryExpiry || new Date()), chain: primaryChain, sample: !!sample },
+    ];
+    if (active[0] && q1.data) list.push({ key: "e1", label: formatDateIST(active[0]), chain: q1.data.chain, sample: q1.data.source === "sample" });
+    if (active[1] && q2.data) list.push({ key: "e2", label: formatDateIST(active[1]), chain: q2.data.chain, sample: q2.data.source === "sample" });
+    return list;
+  }, [primaryExpiry, primaryChain, sample, active, q1.data, q2.data]);
 
-    chains.forEach((c, idx) => {
-      if (!selectedExpiries.includes(idx) || !c) return;
-      c.chain.forEach(o => {
-        if (o.ce.oi > 30000 || o.pe.oi > 30000) allStrikes.add(o.strikePrice);
-      });
-    });
-
-    const strikes = Array.from(allStrikes).sort((a, b) => a - b);
-    // Filter to ±15 strikes from ATM
-    const atm = Math.round(spotPrice / stepSize) * stepSize;
-    const filtered = strikes.filter(s => Math.abs(s - atm) <= stepSize * 15);
-
-    return filtered.map(strike => {
-      const row: any = { strike };
-      chains.forEach((c, idx) => {
-        if (!selectedExpiries.includes(idx) || !c) return;
-        const opt = c.chain.find(o => o.strikePrice === strike);
-        const suffix = `_exp${idx}`;
-        if (showOIChange) {
-          row[`ceOIChg${suffix}`] = opt ? Math.round(opt.ce.oiChange / 1000) : 0;
-          row[`peOIChg${suffix}`] = opt ? Math.round(opt.pe.oiChange / 1000) : 0;
-        } else {
-          row[`ceOI${suffix}`] = opt ? Math.round(opt.ce.oi / 1000) : 0;
-          row[`peOI${suffix}`] = opt ? Math.round(opt.pe.oi / 1000) : 0;
-        }
+  const data = useMemo(() => {
+    const base = significantStrikes(primaryChain);
+    if (base.length === 0) return [];
+    const atm = findATMStrike(base, spotPrice);
+    const strikes = windowAround(base.map((r) => ({ strike: r.strikePrice })), atm, 15).map((r) => r.strike);
+    const maps = series.map((s) => new Map(s.chain.map((r) => [r.strikePrice, r])));
+    return strikes.map((strike) => {
+      const row: Record<string, number> = { strike };
+      series.forEach((s, i) => {
+        const o = maps[i].get(strike);
+        row[`ce_${s.key}`] = o ? (showOIChange ? o.ce.oiChange : o.ce.oi) : 0;
+        row[`pe_${s.key}`] = o ? (showOIChange ? o.pe.oiChange : o.pe.oi) : 0;
       });
       return row;
     });
-  }, [chain1, chain2, chain3, selectedExpiries, showOIChange, spotPrice, stepSize]);
+  }, [primaryChain, spotPrice, series, showOIChange]);
 
-  // Buildup/Unwinding analysis
-  const buildupAnalysis = useMemo(() => {
-    if (!chain1 || !chain2) return [];
-    const atm = Math.round(spotPrice / stepSize) * stepSize;
-    const analysis: Array<{
-      strike: number;
-      signal: string;
-      type: "bullish" | "bearish" | "neutral";
-      detail: string;
-    }> = [];
+  const atmStrike = useMemo(() => (primaryChain.length ? findATMStrike(primaryChain, spotPrice) : NaN), [primaryChain, spotPrice]);
 
-    chain1.chain
-      .filter(o => Math.abs(o.strikePrice - atm) <= stepSize * 10)
-      .forEach(o1 => {
-        const o2 = chain2?.chain.find(x => x.strikePrice === o1.strikePrice);
-        if (!o2) return;
+  const signals = useMemo((): Signal[] => {
+    const maxOI = maxLegOI(primaryChain);
+    if (maxOI <= 0) return [];
+    const step = modalStrikeStep(primaryChain, spotPrice);
+    const cut = maxOI * 0.05;
+    const out: Signal[] = [];
+    for (const o of primaryChain) {
+      if (Number.isFinite(atmStrike) && Math.abs(o.strikePrice - atmStrike) > step * 10) continue;
+      if (o.ce.oiChange >= cut) out.push({ strike: o.strikePrice, label: "Call writing", tone: "bearish", detail: `Resistance adding: call OI ${fmtOI(o.ce.oi)}, change ${fmtOIChange(o.ce.oiChange)}` });
+      if (o.pe.oiChange >= cut) out.push({ strike: o.strikePrice, label: "Put writing", tone: "bullish", detail: `Support adding: put OI ${fmtOI(o.pe.oi)}, change ${fmtOIChange(o.pe.oiChange)}` });
+      if (o.ce.oiChange <= -cut) out.push({ strike: o.strikePrice, label: "Call unwinding", tone: "bullish", detail: `Resistance easing: call OI down ${fmtOI(Math.abs(o.ce.oiChange))}` });
+      if (o.pe.oiChange <= -cut) out.push({ strike: o.strikePrice, label: "Put unwinding", tone: "bearish", detail: `Support easing: put OI down ${fmtOI(Math.abs(o.pe.oiChange))}` });
+    }
+    const mag = (s: Signal) => {
+      const row = primaryChain.find((r) => r.strikePrice === s.strike);
+      if (!row) return 0;
+      return Math.abs(s.label.startsWith("Call") ? row.ce.oiChange : row.pe.oiChange);
+    };
+    return out.sort((a, b) => mag(b) - mag(a)).slice(0, 8);
+  }, [primaryChain, spotPrice, atmStrike]);
 
-        // Compare weekly vs monthly OI patterns
-        const ceOIRatio = o2.ce.oi > 0 ? o1.ce.oi / o2.ce.oi : 0;
-        const peOIRatio = o2.pe.oi > 0 ? o1.pe.oi / o2.pe.oi : 0;
-
-        if (o1.ce.oiChange > 50000 && o1.ce.oi > o2.ce.oi * 0.8) {
-          analysis.push({
-            strike: o1.strikePrice,
-            signal: "CE Writing",
-            type: "bearish",
-            detail: `Strong resistance — CE OI ${(o1.ce.oi / 100000).toFixed(1)}L, Chg +${(o1.ce.oiChange / 1000).toFixed(0)}K`,
-          });
-        }
-        if (o1.pe.oiChange > 50000 && o1.pe.oi > o2.pe.oi * 0.8) {
-          analysis.push({
-            strike: o1.strikePrice,
-            signal: "PE Writing",
-            type: "bullish",
-            detail: `Strong support — PE OI ${(o1.pe.oi / 100000).toFixed(1)}L, Chg +${(o1.pe.oiChange / 1000).toFixed(0)}K`,
-          });
-        }
-        if (o1.ce.oiChange < -30000) {
-          analysis.push({
-            strike: o1.strikePrice,
-            signal: "CE Unwinding",
-            type: "bullish",
-            detail: `Resistance breaking — CE OI dropped ${(Math.abs(o1.ce.oiChange) / 1000).toFixed(0)}K`,
-          });
-        }
-        if (o1.pe.oiChange < -30000) {
-          analysis.push({
-            strike: o1.strikePrice,
-            signal: "PE Unwinding",
-            type: "bearish",
-            detail: `Support breaking — PE OI dropped ${(Math.abs(o1.pe.oiChange) / 1000).toFixed(0)}K`,
-          });
-        }
-      });
-
-    return analysis
-      .sort((a, b) => {
-        const priority = { bearish: 0, bullish: 1, neutral: 2 };
-        return priority[a.type] - priority[b.type];
-      })
-      .slice(0, 8);
-  }, [chain1, chain2, spotPrice, stepSize]);
-
-  const expiryColors = [
-    { ce: "hsl(var(--bearish))", pe: "hsl(var(--bullish))" },
-    { ce: "hsl(0 68% 52% / 0.5)", pe: "hsl(152 60% 44% / 0.5)" },
-    { ce: "hsl(0 68% 52% / 0.25)", pe: "hsl(152 60% 44% / 0.25)" },
-  ];
-
-  const expiryLabels = expiries.slice(0, 3).map((e, i) => e.label || `Expiry ${i + 1}`);
-  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
-
-  const toggleExpiry = (idx: number) => {
-    setSelectedExpiries(prev =>
-      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-    );
-  };
+  const toggle = (v: string) => setSelected((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev.filter((x) => others.some((o) => o.value === x)), v].slice(-2)));
+  const loading = (active[0] && q1.isLoading) || (active[1] && q2.isLoading);
+  // The page header labels a sample primary chain; flag only sample secondary expiries here.
+  const anySample = !sample && series.some((s) => s.sample);
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          {expiryLabels.map((label, idx) => (
-            <button
-              key={idx}
-              onClick={() => toggleExpiry(idx)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                selectedExpiries.includes(idx)
-                  ? "bg-primary/10 border-primary/30 text-primary"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-              {idx === 0 && <span className="ml-1 text-[11px] opacity-60">(Weekly)</span>}
-              {idx === 1 && <span className="ml-1 text-[11px] opacity-60">(Next)</span>}
-              {idx === 2 && <span className="ml-1 text-[11px] opacity-60">(Monthly)</span>}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground">Show OI Change</Label>
-          <Switch checked={showOIChange} onCheckedChange={setShowOIChange} />
-        </div>
-      </div>
-
-      {/* Chart */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary" />
-            Multi-Expiry OI {showOIChange ? "Change" : "Distribution"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[420px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mergedData} barGap={1}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-                <XAxis dataKey="strike" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}K`, ""]} />
-                <Legend wrapperStyle={{ fontSize: "10px" }} />
-                <ReferenceLine x={Math.round(spotPrice / stepSize) * stepSize} stroke="hsl(var(--primary))" strokeDasharray="3 3" label={{ value: "ATM", fill: "hsl(var(--primary))", fontSize: 9 }} />
-                {selectedExpiries.map(idx => {
-                  const suffix = `_exp${idx}`;
-                  const colors = expiryColors[idx];
-                  if (showOIChange) {
-                    return [
-                      <Bar key={`ceChg${idx}`} dataKey={`ceOIChg${suffix}`} fill={colors.ce} name={`CE Chg ${expiryLabels[idx] || ""}`} radius={[2, 2, 0, 0]} />,
-                      <Bar key={`peChg${idx}`} dataKey={`peOIChg${suffix}`} fill={colors.pe} name={`PE Chg ${expiryLabels[idx] || ""}`} radius={[2, 2, 0, 0]} />,
-                    ];
-                  }
-                  return [
-                    <Bar key={`ce${idx}`} dataKey={`ceOI${suffix}`} fill={colors.ce} name={`CE OI ${expiryLabels[idx] || ""}`} radius={[2, 2, 0, 0]} />,
-                    <Bar key={`pe${idx}`} dataKey={`peOI${suffix}`} fill={colors.pe} name={`PE OI ${expiryLabels[idx] || ""}`} radius={[2, 2, 0, 0]} />,
-                  ];
-                })}
-              </BarChart>
-            </ResponsiveContainer>
+      <Card className="overflow-hidden">
+        <ModuleHeader
+          icon={<Layers className="h-4 w-4 text-primary-ink" />}
+          title={`Multi-expiry OI ${showOIChange ? "change" : "by strike"}`}
+          hint="The selected expiry is always shown. Add up to two more; they refresh every 45 seconds."
+          right={
+            <>
+              {anySample && <Badge variant="warning">Includes sample expiry</Badge>}
+              <div className="flex items-center gap-2">
+                <Switch id="multi-exp-chg" checked={showOIChange} onCheckedChange={setShowOIChange} />
+                <Label htmlFor="multi-exp-chg" className="text-xs text-muted-foreground">
+                  OI change
+                </Label>
+              </div>
+            </>
+          }
+        />
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-1.5" aria-label="Compare expiries">
+            <span className="rounded-capsule border border-primary/50 bg-wash-brand px-3 py-1 text-xs font-medium text-primary-ink">{formatDateIST(primaryExpiry || new Date())} · shown</span>
+            {others.map((e) => {
+              const on = active.includes(e.value);
+              return (
+                <button
+                  key={e.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggle(e.value)}
+                  className={cn(
+                    "rounded-capsule border px-3 py-1 text-xs font-medium transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
+                    on ? "border-foreground/30 bg-muted text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {e.label || formatDateIST(e.value)}
+                </button>
+              );
+            })}
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label="Loading expiry" />}
           </div>
+          {data.length === 0 ? (
+            <EmptyState icon={<Layers className="h-5 w-5" />} title="No OI to compare" />
+          ) : (
+            <div className="h-[340px] sm:h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data} barGap={1} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis {...axisProps} dataKey="strike" tickFormatter={(v: number) => fmtStrike(v)} minTickGap={16} />
+                  <YAxis {...axisProps} tickFormatter={(v: number) => fmtOI(v)} width={52} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={barCursor} labelFormatter={(v: number) => `Strike ${fmtStrike(v)}`} formatter={(v: number, name: string) => [showOIChange ? fmtOIChange(v) : fmtOI(v), name]} />
+                  <Legend wrapperStyle={legendStyle} />
+                  {showOIChange && <ReferenceLine y={0} stroke={tokenColor("muted-foreground", 0.6)} />}
+                  {Number.isFinite(atmStrike) && <ReferenceLine x={atmStrike} stroke={tokenColor("chart-1")} strokeDasharray="4 4" label={{ value: "ATM", fill: tokenColor("chart-1"), fontSize: 11, position: "top" }} />}
+                  {series.flatMap((s, i) => [
+                    <Bar key={`ce_${s.key}`} dataKey={`ce_${s.key}`} name={`Call ${s.label}`} fill={tokenColor("chart-call", CE_ALPHA[i])} radius={[2, 2, 0, 0]} isAnimationActive={false} />,
+                    <Bar key={`pe_${s.key}`} dataKey={`pe_${s.key}`} name={`Put ${s.label}`} fill={tokenColor("chart-put", PE_ALPHA[i])} radius={[2, 2, 0, 0]} isAnimationActive={false} />,
+                  ])}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Buildup/Unwinding Signals */}
-      {buildupAnalysis.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              OI Buildup / Unwinding Signals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {buildupAnalysis.map((signal, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 p-3 rounded-md border ${
-                    signal.type === "bullish"
-                      ? "bg-bullish/5 border-bullish/20"
-                      : signal.type === "bearish"
-                      ? "bg-bearish/5 border-bearish/20"
-                      : "bg-accent/50 border-border"
-                  }`}
-                >
-                  <div className="shrink-0 mt-0.5">
-                    {signal.type === "bullish" ? (
-                      <TrendingUp className="h-4 w-4 text-bullish" />
-                    ) : signal.type === "bearish" ? (
-                      <TrendingDown className="h-4 w-4 text-bearish" />
-                    ) : (
-                      <AlertTriangle className="h-4 w-4 text-warning" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold font-mono">{signal.strike.toLocaleString("en-IN")}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[11px] h-4 ${
-                          signal.type === "bullish" ? "text-bullish border-bullish/30" :
-                          signal.type === "bearish" ? "text-bearish border-bearish/30" : ""
-                        }`}
-                      >
-                        {signal.signal}
-                      </Badge>
+      {signals.length > 0 && (
+        <Card className="overflow-hidden">
+          <ModuleHeader icon={<AlertTriangle className="h-4 w-4 text-warning" />} title="Writing and unwinding near ATM" hint="Strikes within 10 steps of ATM where today's OI change is at least 5% of the largest OI." />
+          <CardContent className="p-4">
+            <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {signals.map((s) => (
+                <li key={`${s.strike}-${s.label}`} className={cn("flex items-start gap-3 rounded-tile border p-3", s.tone === "bullish" ? "border-bullish/25 bg-wash-profit/40" : "border-bearish/25 bg-wash-loss/40")}>
+                  {s.tone === "bullish" ? <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-bullish" aria-hidden="true" /> : <TrendingDown className="mt-0.5 h-4 w-4 shrink-0 text-bearish" aria-hidden="true" />}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-num text-xs font-bold">{fmtStrike(s.strike)}</span>
+                      <Badge variant={s.tone}>{s.label}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{signal.detail}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{s.detail}</p>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </CardContent>
         </Card>
       )}

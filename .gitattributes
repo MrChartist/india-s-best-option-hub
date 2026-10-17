@@ -1,0 +1,21 @@
+# Normalise line endings to LF in the repo; check out natively per OS.
+* text=auto eol=lf
+
+# Windows scripts keep CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary assets
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
+
+# Lockfiles: no textual merges, collapse in diffs.
+package-lock.json -diff linguist-generated=true merge=binary

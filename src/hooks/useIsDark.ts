@@ -7,20 +7,34 @@ import { useEffect, useState } from "react";
  * of truth for canvas / lightweight-charts that must repaint on change).
  */
 export function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
+  return useChartThemeKey().startsWith("dark");
+}
+
+function readThemeKey(): string {
+  if (typeof document === "undefined") return "light:default";
+  const root = document.documentElement;
+  return `${root.classList.contains("dark") ? "dark" : "light"}:${root.getAttribute("data-palette") || "default"}`;
+}
+
+/**
+ * Theme key for canvas charts: "dark:default", "light:cvd", ... It changes when
+ * either the colour mode (`dark` class) or the colour-blind palette
+ * (`data-palette` on <html>) changes, so charts that read CSS variables once
+ * (lightweight-charts) know to re-read getChartColors().
+ */
+export function useChartThemeKey(): string {
+  const [key, setKey] = useState(readThemeKey);
 
   useEffect(() => {
     const root = document.documentElement;
-    const update = () => setIsDark(root.classList.contains("dark"));
+    const update = () => setKey(readThemeKey());
     update();
     const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(root, { attributes: true, attributeFilter: ["class", "data-palette"] });
     return () => observer.disconnect();
   }, []);
 
-  return isDark;
+  return key;
 }
 
 /**
@@ -29,12 +43,13 @@ export function useIsDark(): boolean {
  * as an argument purely so callers re-resolve colors whenever the theme flips.
  */
 export function getChartColors(_isDark?: boolean) {
+  // Mr. Chartist dark-mode values, used only when CSS variables cannot be read (SSR/tests).
   const fallback = {
-    bullish: "145 100% 45%",
-    bearish: "0 84% 60%",
-    primary: "189 93% 48%",
-    text: "215 15% 55%",
-    grid: "210 12% 15%",
+    bullish: "148.9 45.5% 63.3%",
+    bearish: "3 72% 66%",
+    primary: "17.9 85.5% 53.9%",
+    text: "72 6% 64%",
+    grid: "212 14% 12%",
   };
 
   if (typeof window === "undefined") {

@@ -1,167 +1,563 @@
 import { describe, it, expect } from "vitest";
-import { getMaxPain, calculatePCR, getATMIV, getIVSkew, getStrikePCR, getDeltaOI, getATMZoneAnalysis } from "@/lib/oiUtils";
-import type { OptionData } from "@/lib/mockData";
+import {
+  buildupCounts,
+  buildupQuadrantPoints,
+  buildupTone,
+  calculatePCR,
+  diffSnapshots,
+  expirySummary,
+  getATMIV,
+  getATMZoneAnalysis,
+  getBuildup,
+  getDeltaOI,
+  getIVSkew,
+  getMaxPain,
+  getOILevels,
+  getStrikePCR,
+  legOIChangePct,
+  legPriceChange,
+  maxOIStrike,
+  pcrSignal,
+  percentileRank,
+  quantile,
+  significantStrikes,
+  snapshotSeries,
+  wallShift,
+  windowAround,
+  buildupCode,
+  cumulativeOIChangeSeries,
+  defaultSeriesStrikes,
+  dominantBuildup,
+  latestSessionSnapshots,
+  optimizerTargetUrl,
+  rangeOIChangeSeries,
+  snapshotStrikes,
+  spotMaxPainLabel,
+  strikeGap,
+  strikeOISeries,
+  strikeSeriesKey,
+  wallCreditSpread,
+} from "@/lib/oiUtils";
+import { buildSampleOiSession } from "@/components/oi/sampleOiSession";
+import { generateSampleChain, toISTDate } from "@/lib/options";
+import type { OptionData, OptionLegData } from "@/lib/mockData";
+import type { ChainSnapshot } from "@/lib/snapshotStore";
 
-// Helper to build a minimal chain row
-function makeRow(strike: number, ceOI: number, peOI: number, overrides?: Partial<{
+type Overrides = Partial<{
   ceLTP: number; peLTP: number; ceIV: number; peIV: number;
   ceDelta: number; peDelta: number; ceVol: number; peVol: number;
-  ceOIChg: number; peOIChg: number;
-}>): OptionData {
-  return {
-    strikePrice: strike,
-    ce: {
-      ltp: overrides?.ceLTP ?? 100,
-      oi: ceOI,
-      oiChange: overrides?.ceOIChg ?? 0,
-      volume: overrides?.ceVol ?? 10000,
-      iv: overrides?.ceIV ?? 15,
-      delta: overrides?.ceDelta ?? 0.5,
-      gamma: 0.01,
-      theta: -5,
-      vega: 10,
-      bidPrice: 99,
-      askPrice: 101,
-    },
-    pe: {
-      ltp: overrides?.peLTP ?? 100,
-      oi: peOI,
-      oiChange: overrides?.peOIChg ?? 0,
-      volume: overrides?.peVol ?? 10000,
-      iv: overrides?.peIV ?? 15,
-      delta: overrides?.peDelta ?? -0.5,
-      gamma: 0.01,
-      theta: -5,
-      vega: 10,
-      bidPrice: 99,
-      askPrice: 101,
-    },
-  };
+  ceOIChg: number; peOIChg: number; ceChange: number; peChange: number;
+}>;
+
+function makeRow(strike: number, ceOI: number, peOI: number, o?: Overrides): OptionData {
+  const leg = (side: "ce" | "pe", oi: number): OptionLegData => ({
+    ltp: (side === "ce" ? o?.ceLTP : o?.peLTP) ?? 100,
+    oi,
+    oiChange: (side === "ce" ? o?.ceOIChg : o?.peOIChg) ?? 0,
+    volume: (side === "ce" ? o?.ceVol : o?.peVol) ?? 10000,
+    iv: (side === "ce" ? o?.ceIV : o?.peIV) ?? 15,
+    delta: (side === "ce" ? o?.ceDelta : o?.peDelta) ?? (side === "ce" ? 0.5 : -0.5),
+    gamma: 0.01,
+    theta: -5,
+    vega: 10,
+    bidPrice: 99,
+    askPrice: 101,
+    change: side === "ce" ? o?.ceChange : o?.peChange,
+  });
+  return { strikePrice: strike, ce: leg("ce", ceOI), pe: leg("pe", peOI) };
 }
 
 describe("getMaxPain", () => {
-  it("returns 0 for empty chain", () => {
+  it("returns 0 for an empty chain", () => {
     expect(getMaxPain([])).toBe(0);
   });
 
-  it("returns the strike with minimum total pain", () => {
-    // Chain: 24000 (heavy PE OI), 24100 (balanced), 24200 (heavy CE OI)
-    // Max pain should gravitate toward the strike where writers lose least
-    const chain: OptionData[] = [
-      makeRow(24000, 50000, 200000),
-      makeRow(24100, 100000, 100000),
-      makeRow(24200, 200000, 50000),
-    ];
-    const mp = getMaxPain(chain);
-    expect(mp).toBe(24100); // balanced OI = minimum pain
+  it("returns the strike with minimum total writer payout", () => {
+    const chain = [makeRow(24000, 50000, 200000), makeRow(24100, 100000, 100000), makeRow(24200, 200000, 50000)];
+    expect(getMaxPain(chain)).toBe(24100);
   });
 
-  it("handles single-strike chain", () => {
-    const chain = [makeRow(25000, 100000, 100000)];
-    expect(getMaxPain(chain)).toBe(25000);
+  it("handles a single-strike chain", () => {
+    expect(getMaxPain([makeRow(25000, 100000, 100000)])).toBe(25000);
+  });
+});
+
+describe("pcrSignal bands", () => {
+  it.each([
+    [0.5, "call-heavy", "bearish"],
+    [0.69, "call-heavy", "bearish"],
+    [0.7, "balanced", "neutral"],
+    [1.0, "balanced", "neutral"],
+    [1.2, "balanced", "neutral"],
+    [1.21, "put-heavy", "bullish"],
+    [1.6, "put-heavy", "bullish"],
+    [1.61, "extreme-put", "warning"],
+    [2.5, "extreme-put", "warning"],
+  ])("PCR %s → %s (%s)", (pcr, band, tone) => {
+    const s = pcrSignal(pcr);
+    expect(s.band).toBe(band);
+    expect(s.tone).toBe(tone);
+  });
+
+  it("returns a neutral no-data reading for bad input", () => {
+    expect(pcrSignal(0).label).toBe("No data");
+    expect(pcrSignal(NaN).tone).toBe("neutral");
   });
 });
 
 describe("calculatePCR", () => {
-  it("returns zeros for empty chain", () => {
-    const result = calculatePCR([]);
-    expect(result.pcrOI).toBe(0);
-    expect(result.pcrVolume).toBe(0);
-    expect(result.totalCEOI).toBe(0);
+  it("returns zeros and nulls for an empty chain", () => {
+    const r = calculatePCR([]);
+    expect(r.pcrOI).toBe(0);
+    expect(r.pcrVolume).toBe(0);
+    expect(r.pcrChgOI).toBeNull();
+    expect(r.pcrPremium).toBeNull();
   });
 
-  it("computes correct PCR ratio", () => {
+  it("computes OI, volume, change-in-OI and premium PCR", () => {
     const chain = [
-      makeRow(24000, 100000, 150000),
-      makeRow(24100, 200000, 250000),
+      makeRow(24000, 100000, 150000, { ceVol: 1000, peVol: 3000, ceOIChg: 1000, peOIChg: 4000, ceLTP: 50, peLTP: 20 }),
+      makeRow(24100, 200000, 250000, { ceVol: 1000, peVol: 1000, ceOIChg: 1000, peOIChg: 0, ceLTP: 50, peLTP: 20 }),
     ];
-    const result = calculatePCR(chain);
-    // Total CE OI = 300000, Total PE OI = 400000
-    expect(result.totalCEOI).toBe(300000);
-    expect(result.totalPEOI).toBe(400000);
-    expect(result.pcrOI).toBeCloseTo(1.33, 1);
-    expect(result.signal).toBe("Strong Bullish");
+    const r = calculatePCR(chain);
+    expect(r.totalCEOI).toBe(300000);
+    expect(r.totalPEOI).toBe(400000);
+    expect(r.pcrOI).toBeCloseTo(1.33, 2);
+    expect(r.pcrVolume).toBe(2);
+    expect(r.pcrChgOI).toBe(2);
+    // PE premium 20 × 4000 = 80000; CE premium 50 × 2000 = 100000
+    expect(r.pcrPremium).toBe(0.8);
+    expect(r.signalTone).toBe("bullish");
   });
 
-  it("returns Bearish signal for low PCR", () => {
-    const chain = [
-      makeRow(24000, 200000, 80000),
-      makeRow(24100, 200000, 80000),
-    ];
-    const result = calculatePCR(chain);
-    expect(result.pcrOI).toBeCloseTo(0.4, 1);
-    expect(result.signal).toBe("Strong Bearish");
+  it("leaves change-in-OI PCR empty when call OI was shed", () => {
+    const r = calculatePCR([makeRow(24000, 100, 100, { ceOIChg: -50, peOIChg: 20 })]);
+    expect(r.pcrChgOI).toBeNull();
   });
 });
 
 describe("getATMIV", () => {
-  it("returns 0 for empty chain", () => {
+  it("returns 0 for an empty chain", () => {
     expect(getATMIV([], 24000).atmIV).toBe(0);
   });
 
-  it("finds the ATM strike closest to spot and averages CE/PE IV", () => {
+  it("uses the OTM leg IV at the strike nearest spot", () => {
     const chain = [
-      makeRow(23900, 100000, 100000, { ceIV: 12, peIV: 14 }),
-      makeRow(24000, 100000, 100000, { ceIV: 16, peIV: 18 }),
-      makeRow(24100, 100000, 100000, { ceIV: 20, peIV: 22 }),
+      makeRow(23900, 1, 1, { ceIV: 12, peIV: 14 }),
+      makeRow(24000, 1, 1, { ceIV: 16, peIV: 18 }),
+      makeRow(24100, 1, 1, { ceIV: 20, peIV: 22 }),
     ];
-    const result = getATMIV(chain, 24050);
-    expect(result.atmStrike).toBe(24000); // closest to 24050
-    expect(result.atmIV).toBe(17); // (16+18)/2
+    const r = getATMIV(chain, 24050);
+    expect(r.atmStrike).toBe(24000);
+    expect(r.atmIV).toBe(18); // 24000 < spot, so the put is OTM
+  });
+
+  it("does not halve when one leg IV is zero", () => {
+    const r = getATMIV([makeRow(24000, 1, 1, { ceIV: 0, peIV: 16 })], 23990);
+    expect(r.atmIV).toBe(16);
   });
 });
 
 describe("getIVSkew", () => {
-  it("returns all strikes with non-zero IV", () => {
+  it("drops rows with no IV and averages only valid legs", () => {
     const chain = [
-      makeRow(24000, 100000, 100000, { ceIV: 15, peIV: 16 }),
-      makeRow(24100, 100000, 100000, { ceIV: 0, peIV: 0 }),
-      makeRow(24200, 100000, 100000, { ceIV: 18, peIV: 19 }),
+      makeRow(24000, 1, 1, { ceIV: 15, peIV: 16 }),
+      makeRow(24100, 1, 1, { ceIV: 0, peIV: 0 }),
+      makeRow(24200, 1, 1, { ceIV: 18, peIV: 0 }),
     ];
     const skew = getIVSkew(chain);
-    expect(skew).toHaveLength(2); // row at 24100 filtered out (both IVs 0)
-    expect(skew[0].strike).toBe(24000);
-    expect(skew[0].avgIV).toBeCloseTo(15.5, 1);
+    expect(skew).toHaveLength(2);
+    expect(skew[0].avgIV).toBeCloseTo(15.5, 5);
+    expect(skew[1].avgIV).toBe(18);
   });
 });
 
-describe("getStrikePCR", () => {
-  it("filters strikes below OI threshold", () => {
-    const chain = [
-      makeRow(24000, 5000, 5000),    // below 10000 threshold
-      makeRow(24100, 100000, 200000), // above threshold
-    ];
-    const result = getStrikePCR(chain, 24050);
-    expect(result).toHaveLength(1);
-    expect(result[0].pcr).toBe(2);
+describe("relative thresholds", () => {
+  it("keeps strikes with at least 5% of the largest leg OI", () => {
+    const chain = [makeRow(24000, 4000, 4000), makeRow(24100, 100000, 200000), makeRow(24200, 12000, 0)];
+    expect(significantStrikes(chain).map((r) => r.strikePrice)).toEqual([24100, 24200]);
+  });
+
+  it("strike PCR filters on both legs relative to max OI", () => {
+    const chain = [makeRow(24000, 5000, 5000), makeRow(24100, 100000, 200000)];
+    const r = getStrikePCR(chain, 24050);
+    expect(r).toHaveLength(1);
+    expect(r[0].pcr).toBe(2);
   });
 });
 
-describe("getDeltaOI", () => {
-  it("filters low OI strikes and computes delta exposure", () => {
+describe("getDeltaOI (writer delta exposure)", () => {
+  it("negates buyer delta and reports lots", () => {
     const chain = [
-      makeRow(24000, 10000, 10000, { ceDelta: 0.7, peDelta: -0.3 }),  // below 30000 threshold
+      makeRow(24000, 1000, 1000, { ceDelta: 0.7, peDelta: -0.3 }), // below 5% of max
       makeRow(24100, 50000, 80000, { ceDelta: 0.5, peDelta: -0.5 }),
     ];
-    const result = getDeltaOI(chain, 24050, 100);
-    expect(result).toHaveLength(1);
-    expect(result[0].strike).toBe(24100);
-    expect(result[0].ceDeltaOI).toBe(25); // 50000 * 0.5 / 1000 = 25
-    expect(result[0].peDeltaOI).toBe(-40); // 80000 * -0.5 / 1000 = -40
+    const r = getDeltaOI(chain, 24050, 100);
+    expect(r).toHaveLength(1);
+    expect(r[0].ceDeltaOI).toBe(-25000); // writers short 0.5 × 50000
+    expect(r[0].peDeltaOI).toBe(40000); // short puts are long delta
+    expect(r[0].netDeltaOI).toBe(15000);
+  });
+
+  it("converts quantity OI to lots", () => {
+    const r = getDeltaOI([makeRow(24100, 6500, 0, { ceDelta: 0.5 })], 0, 0, { oiUnit: "qty", lotSize: 65 });
+    expect(r[0].ceDeltaOI).toBe(-50);
   });
 });
 
 describe("getATMZoneAnalysis", () => {
-  it("analyzes the zone around ATM", () => {
+  const chain = [
+    makeRow(23800, 90000, 100000),
+    makeRow(23900, 100000, 120000, { ceOIChg: 5000, peOIChg: 8000 }),
+    makeRow(24000, 150000, 180000, { ceOIChg: 10000, peOIChg: 12000 }),
+    makeRow(24100, 130000, 110000, { ceOIChg: 7000, peOIChg: 6000 }),
+    makeRow(24200, 120000, 60000),
+  ];
+
+  it("takes ATM ± N listed strikes", () => {
+    const z1 = getATMZoneAnalysis(chain, 24010, 100, 1);
+    expect(z1.strikes).toBe(3);
+    expect(z1.atmStrike).toBe(24000);
+    expect(z1.strikeData.map((s) => s.strike)).toEqual([23900, 24000, 24100]);
+    expect(z1.strikeData.find((s) => s.isATM)?.strike).toBe(24000);
+    expect(getATMZoneAnalysis(chain, 24010, 100, 2).strikes).toBe(5);
+  });
+
+  it("clips at the chain edge", () => {
+    expect(getATMZoneAnalysis(chain, 23800, 100, 2).strikes).toBe(3);
+  });
+
+  it("reports PCR change as PCR now minus PCR at the previous close", () => {
+    const z = getATMZoneAnalysis(chain, 24010, 100, 1);
+    expect(z.totalCEOI).toBe(380000);
+    expect(z.totalPEOI).toBe(410000);
+    const now = 410000 / 380000;
+    const prev = (410000 - 26000) / (380000 - 22000);
+    expect(z.pcrChange).toBeCloseTo(Math.round((now - prev) * 100) / 100, 5);
+    expect(z.prevPcr).toBeCloseTo(prev, 2);
+  });
+
+  it("is empty for an empty chain", () => {
+    expect(getATMZoneAnalysis([], 24000).strikes).toBe(0);
+  });
+});
+
+describe("buildup", () => {
+  it("applies the same rule to calls and puts", () => {
+    const row = makeRow(24000, 100, 100, { ceChange: 5, ceOIChg: 10, peChange: 5, peOIChg: 10 });
+    expect(getBuildup(row.ce)).toBe("LONG_BUILDUP");
+    expect(getBuildup(row.pe)).toBe("LONG_BUILDUP");
+    expect(getBuildup(makeRow(1, 100, 100, { ceChange: -5, ceOIChg: 10 }).ce)).toBe("SHORT_BUILDUP");
+    expect(getBuildup(makeRow(1, 100, 100, { peChange: 5, peOIChg: -10 }).pe)).toBe("SHORT_COVERING");
+    expect(getBuildup(makeRow(1, 100, 100, { peChange: -5, peOIChg: -10 }).pe)).toBe("LONG_UNWINDING");
+  });
+
+  it("is neutral when the price change is unknown", () => {
+    expect(getBuildup(makeRow(1, 100, 100, { ceOIChg: 10 }).ce)).toBe("NEUTRAL");
+  });
+
+  it("derives price change from prevClose", () => {
+    const leg = { ...makeRow(1, 100, 100).ce, change: undefined, prevClose: 80 };
+    expect(legPriceChange(leg)).toBe(20);
+  });
+
+  it("maps tones per the theme spec", () => {
+    expect(buildupTone("LONG_BUILDUP")).toBe("bullish");
+    expect(buildupTone("SHORT_BUILDUP")).toBe("bearish");
+    expect(buildupTone("SHORT_COVERING")).toBe("info");
+    expect(buildupTone("LONG_UNWINDING")).toBe("warning");
+  });
+});
+
+describe("buildupQuadrantPoints", () => {
+  it("places each leg in the right quadrant with % axes", () => {
     const chain = [
-      makeRow(23900, 100000, 120000, { ceOIChg: 5000, peOIChg: 8000 }),
-      makeRow(24000, 150000, 180000, { ceOIChg: 10000, peOIChg: 12000 }),
-      makeRow(24100, 130000, 110000, { ceOIChg: 7000, peOIChg: 6000 }),
+      makeRow(24000, 1200, 1100, { ceLTP: 110, ceChange: 10, ceOIChg: 200, peLTP: 90, peChange: -10, peOIChg: 100 }),
+      makeRow(24100, 800, 900, { ceLTP: 90, ceChange: -10, ceOIChg: -200, peLTP: 110, peChange: 10, peOIChg: -100 }),
     ];
-    const result = getATMZoneAnalysis(chain, 24000, 100, 3);
-    expect(result.strikes).toBe(3);
-    expect(result.totalCEOI).toBe(380000);
-    expect(result.totalPEOI).toBe(410000);
-    expect(result.pcr).toBeCloseTo(1.08, 1);
+    const pts = buildupQuadrantPoints(chain);
+    expect(pts).toHaveLength(4);
+    const ce24000 = pts.find((p) => p.strike === 24000 && p.side === "CE");
+    expect(ce24000?.pricePct).toBe(10); // 10 / 100
+    expect(ce24000?.oiPct).toBe(20); // 200 / 1000
+    expect(ce24000?.buildup).toBe("LONG_BUILDUP");
+    const counts = buildupCounts(pts);
+    expect(counts.LONG_BUILDUP).toBe(1);
+    expect(counts.SHORT_BUILDUP).toBe(1);
+    expect(counts.LONG_UNWINDING).toBe(1);
+    expect(counts.SHORT_COVERING).toBe(1);
+  });
+
+  it("skips legs without a price change or with no previous OI", () => {
+    const pts = buildupQuadrantPoints([makeRow(24000, 100, 100, { ceOIChg: 100, peOIChg: 10 })]);
+    expect(pts).toHaveLength(0);
+    expect(legOIChangePct(makeRow(1, 100, 1, { ceOIChg: 100 }).ce)).toBeNaN();
+  });
+});
+
+describe("getOILevels", () => {
+  const chain = [
+    makeRow(23900, 10, 500, { peOIChg: 0 }),
+    makeRow(24000, 400, 400, { peOIChg: 300 }),
+    makeRow(24100, 600, 10),
+    makeRow(24200, 300, 5, { ceOIChg: 500 }),
+  ];
+
+  it("includes the ATM strike on both sides when spot sits on it", () => {
+    const l = getOILevels(chain, 24000);
+    expect(l.resistance.map((x) => x.strike)).toContain(24000);
+    expect(l.support.map((x) => x.strike)).toContain(24000);
+  });
+
+  it("weights fresh OI change", () => {
+    const l = getOILevels(chain, 24000, { freshWeight: 1 });
+    // 24000 PE: 400 + 300 = 700 beats 23900 PE: 500
+    expect(l.support[0].strike).toBe(24000);
+    expect(l.support[0].strength).toBe(100);
+    // 24200 CE: 300 + 500 = 800 beats 24100 CE: 600
+    const strongest = [...l.resistance].sort((a, b) => b.score - a.score)[0];
+    expect(strongest.strike).toBe(24200);
+  });
+
+  it("guards an empty chain", () => {
+    expect(getOILevels([], 24000)).toEqual({ resistance: [], support: [] });
+  });
+
+  it("finds max OI strikes and shifts", () => {
+    expect(maxOIStrike(chain, "CE")).toBe(24100);
+    expect(maxOIStrike(chain, "PE")).toBe(23900);
+    expect(maxOIStrike([], "CE")).toBeNaN();
+    expect(wallShift(24000, 24100)).toBe("up");
+    expect(wallShift(24100, 24000)).toBe("down");
+    expect(wallShift(NaN, 24000)).toBe("unknown");
+  });
+});
+
+describe("snapshot helpers", () => {
+  const snap = (ts: number, spot: number, rows: Array<[number, "CE" | "PE", number, number?]>): ChainSnapshot => ({
+    id: String(ts),
+    symbol: "NIFTY",
+    expiry: "2026-10-20",
+    ts,
+    spot,
+    rows: rows.map(([strike, side, oi, vol]) => ({ strike, side, oi, vol: vol ?? 0, ltp: 10, iv: 15, bid: 9, ask: 11 })),
+  });
+  const s1 = snap(1000, 24000, [[24000, "CE", 100, 10], [24000, "PE", 50, 20], [24100, "CE", 300], [23900, "PE", 200]]);
+  const s2 = snap(2000, 24050, [[24000, "CE", 150, 10], [24000, "PE", 90, 30], [24100, "CE", 250], [23900, "PE", 400]]);
+
+  it("builds an ordered series with PCR, walls and max pain", () => {
+    const series = snapshotSeries([s2, s1]);
+    expect(series.map((p) => p.ts)).toEqual([1000, 2000]);
+    expect(series[0].pcrOI).toBe(0.63); // 250 / 400
+    expect(series[0].pcrVol).toBe(2);
+    expect(series[0].maxCEStrike).toBe(24100);
+    expect(series[1].maxPEStrike).toBe(23900);
+    expect(series[0].maxPain).not.toBeNull();
+  });
+
+  it("diffs OI by strike between two snapshots", () => {
+    const d = diffSnapshots(s2, s1);
+    const k = d.find((x) => x.strike === 24000);
+    expect(k?.ceChg).toBe(50);
+    expect(k?.peChg).toBe(40);
+    expect(diffSnapshots(s2, null).every((x) => x.ceChg === 0 && x.peChg === 0)).toBe(true);
+    expect(diffSnapshots(undefined, s1)).toEqual([]);
+  });
+
+  it("windows rows around a centre strike", () => {
+    const rows = [1, 2, 3, 4, 5, 6, 7].map((strike) => ({ strike }));
+    expect(windowAround(rows, 4, 1).map((r) => r.strike)).toEqual([3, 4, 5]);
+    expect(windowAround(rows, 1, 2).map((r) => r.strike)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("distribution helpers", () => {
+  it("computes quantiles and percentile ranks", () => {
+    const xs = [1, 2, 3, 4, 5];
+    expect(quantile(xs, 0.5)).toBe(3);
+    expect(quantile(xs, 0.25)).toBe(2);
+    expect(quantile([], 0.5)).toBeNaN();
+    expect(percentileRank(3, xs)).toBe(50);
+    expect(percentileRank(6, xs)).toBe(100);
+    expect(percentileRank(1, [])).toBeNull();
+  });
+});
+
+describe("expirySummary", () => {
+  const chain = [
+    makeRow(23900, 100000, 300000, { ceLTP: 160, peLTP: 60, ceIV: 15, peIV: 15 }),
+    makeRow(24000, 200000, 200000, { ceLTP: 100, peLTP: 100, ceIV: 15, peIV: 15 }),
+    makeRow(24100, 300000, 100000, { ceLTP: 60, peLTP: 160, ceIV: 15, peIV: 15 }),
+  ];
+  const now = new Date("2026-10-13T04:00:00Z"); // 09:30 IST, a week before expiry
+
+  it("reports max pain distance in points, percent and expected-move multiples", () => {
+    const s = expirySummary(chain, 23950, "2026-10-20", { now, r: 0.065 });
+    expect(s.maxPain).toBe(24000);
+    expect(s.distance).toBe(50);
+    expect(s.distancePct).toBeCloseTo(0.21, 2);
+    expect(s.emSource).toBe("iv");
+    expect(s.expectedMove).toBeGreaterThan(300);
+    expect(s.expectedMove).toBeLessThan(700);
+    expect(s.emMultiple).toBeCloseTo(50 / (s.expectedMove as number), 2);
+    expect(s.pcr.pcrOI).toBe(1);
+  });
+
+  it("falls back to the straddle when IV is missing", () => {
+    const noIv = chain.map((r) => ({ ...r, ce: { ...r.ce, iv: 0 }, pe: { ...r.pe, iv: 0 } }));
+    const s = expirySummary(noIv, 24000, "2026-10-20", { now });
+    expect(s.emSource).toBe("straddle");
+    expect(s.expectedMove).toBeCloseTo(0.85 * 200, 5);
+  });
+
+  it("returns nulls for an empty chain", () => {
+    const s = expirySummary([], 24000, "2026-10-20", { now });
+    expect(s.maxPain).toBeNull();
+    expect(s.emMultiple).toBeNull();
+  });
+});
+
+describe("intraday OI series", () => {
+  const snap = (ts: number, spot: number, rows: Array<[number, "CE" | "PE", number]>): ChainSnapshot => ({
+    id: String(ts),
+    symbol: "NIFTY",
+    expiry: "2026-10-20",
+    ts,
+    spot,
+    rows: rows.map(([strike, side, oi]) => ({ strike, side, oi, vol: 0, ltp: 10, iv: 15, bid: 9, ask: 11 })),
+  });
+  const day = (hhmm: string) => toISTDate("2026-10-16", hhmm).getTime();
+  const a = snap(day("09:15"), 24000, [[23900, "PE", 500], [24000, "CE", 100], [24000, "PE", 300], [24100, "CE", 800], [24200, "CE", 50]]);
+  const b = snap(day("10:15"), 24040, [[23900, "PE", 700], [24000, "CE", 160], [24000, "PE", 360], [24100, "CE", 900], [24200, "CE", 70]]);
+  const c = snap(day("11:15"), 24080, [[23900, "PE", 650], [24000, "CE", 220], [24000, "PE", 420], [24100, "CE", 1000], [24200, "CE", 90], [24300, "CE", 40]]);
+
+  it("keeps only the latest IST session", () => {
+    const older = snap(toISTDate("2026-10-15", "15:25").getTime(), 23900, [[24000, "CE", 1]]);
+    expect(latestSessionSnapshots([c, older, a, b]).map((s) => s.ts)).toEqual([a.ts, b.ts, c.ts]);
+    expect(latestSessionSnapshots([])).toEqual([]);
+  });
+
+  it("lists strikes and builds strike lines with gaps for missing legs", () => {
+    expect(snapshotStrikes([a, b, c])).toEqual([23900, 24000, 24100, 24200, 24300]);
+    const oi = strikeOISeries([c, a, b], [24000, 24300], ["CE"], "oi");
+    expect(oi.map((r) => r[strikeSeriesKey(24000, "CE")])).toEqual([100, 160, 220]);
+    expect(oi.map((r) => r.CE_24300)).toEqual([null, null, 40]);
+    const chg = strikeOISeries([a, b, c], [24000], ["CE", "PE"], "chg");
+    expect(chg.map((r) => r.CE_24000)).toEqual([0, 60, 120]);
+    expect(chg.map((r) => r.PE_24000)).toEqual([0, 60, 120]);
+    // A strike listed mid-session starts at zero change, not at its full OI.
+    expect(strikeOISeries([a, b, c], [24300], ["CE"], "chg").map((r) => r.CE_24300)).toEqual([null, null, 0]);
+  });
+
+  it("accumulates call and put OI change with spot", () => {
+    const pts = cumulativeOIChangeSeries([a, b, c]);
+    expect(pts.map((p) => p.spot)).toEqual([24000, 24040, 24080]);
+    expect(pts[0]).toMatchObject({ ceChg: 0, peChg: 0, netChg: 0 });
+    expect(pts[1]).toMatchObject({ ceChg: 180, peChg: 260, netChg: 80 });
+    expect(pts[2]).toMatchObject({ ceChg: 360, peChg: 270, netChg: -90, ceOI: 1350, peOI: 1070 });
+  });
+
+  it("limits the range series to ATM ± N strikes at the latest spot", () => {
+    const r = rangeOIChangeSeries([a, b, c], 1);
+    expect(r.atm).toBe(24100);
+    expect(r.strikes).toEqual([24000, 24100, 24200]);
+    expect(r.points[2]).toMatchObject({ ceChg: 360, peChg: 120 });
+    expect(rangeOIChangeSeries([], 5)).toEqual({ atm: NaN, strikes: [], points: [] });
+    expect(rangeOIChangeSeries([a, b, c], 1, 23900).strikes).toEqual([23900, 24000]);
+  });
+
+  it("picks ATM, the call wall above and the put wall below by default", () => {
+    expect(defaultSeriesStrikes([a, b, c])).toEqual([23900, 24100]);
+    expect(defaultSeriesStrikes([])).toEqual([]);
+  });
+});
+
+describe("labels and trade hand-offs", () => {
+  it("combines spot and max pain within half a strike", () => {
+    expect(spotMaxPainLabel(24262, 24250, 50)).toEqual({ combined: true, text: "Spot ≈ Max pain 24,250" });
+    expect(spotMaxPainLabel(24300, 24250, 50)).toEqual({ combined: false, text: "Max pain 24,250" });
+    expect(spotMaxPainLabel(0, 24250, 50).combined).toBe(false);
+    expect(spotMaxPainLabel(24250, 0, 50).text).toBeNull();
+  });
+
+  it("measures the strike gap", () => {
+    expect(strikeGap([24100, 24000, 24050, 24050])).toBe(50);
+    expect(Number.isNaN(strikeGap([24000]))).toBe(true);
+  });
+
+  it("maps build-ups to badge codes", () => {
+    expect(buildupCode("LONG_BUILDUP")).toBe("LB");
+    expect(buildupCode("SHORT_BUILDUP")).toBe("SB");
+    expect(buildupCode("SHORT_COVERING")).toBe("SC");
+    expect(buildupCode("LONG_UNWINDING")).toBe("LU");
+    expect(buildupCode("NEUTRAL")).toBeNull();
+  });
+
+  it("finds the build-up carrying the most OI change per side", () => {
+    const chain = [
+      makeRow(24000, 100000, 100000, { ceChange: -5, ceOIChg: 30000, peChange: 4, peOIChg: 20000 }),
+      makeRow(24100, 100000, 100000, { ceChange: 3, ceOIChg: 5000, peChange: -2, peOIChg: -40000 }),
+    ];
+    expect(dominantBuildup(chain, "CE")).toEqual({ buildup: "SHORT_BUILDUP", share: 0.86 });
+    expect(dominantBuildup(chain, "PE")).toEqual({ buildup: "LONG_UNWINDING", share: 0.67 });
+    expect(dominantBuildup([makeRow(24000, 100, 100)], "CE")).toEqual({ buildup: "NEUTRAL", share: 0 });
+  });
+
+  it("writes a bear call spread at resistance and a bull put spread at support", () => {
+    const strikes = Array.from({ length: 21 }, (_, i) => 24000 + i * 50);
+    const chain = strikes.map((k) => makeRow(k, 1000, 1000, { ceLTP: Math.max(1, 25000 - k) / 5, peLTP: Math.max(1, k - 24000) / 5 }));
+    const call = wallCreditSpread(chain, 24500, "CE", 24250);
+    expect(call).not.toBeNull();
+    expect(call?.sell.strike).toBe(24500);
+    expect(call?.buy.strike).toBe(24700); // max(2 × 50, 0.8% of 24,250 → 200)
+    expect(call?.width).toBe(200);
+    expect(call?.sell.premium).toBe(100); // mid of 99 / 101
+    expect(call?.sell.iv).toBe(0.15);
+    const put = wallCreditSpread(chain, 24300, "PE", 24250);
+    expect(put?.buy.strike).toBe(24100);
+    expect(wallCreditSpread(chain, 24900, "CE", 24250)).toBeNull(); // no strike 200 above
+    expect(wallCreditSpread(chain, 12345, "CE", 24250)).toBeNull();
+  });
+
+  it("links the optimizer with a target", () => {
+    expect(optimizerTargetUrl("nifty", 24250)).toBe("/optimizer?symbol=NIFTY&target=24250");
+    expect(optimizerTargetUrl("BANKNIFTY", NaN)).toBe("/optimizer?symbol=BANKNIFTY");
+  });
+});
+
+describe("sample OI session", () => {
+  const now = toISTDate("2026-10-16", "13:02");
+  const expiry = "2026-10-20";
+  const input = { symbol: "NIFTY", expiry, spot: 25012.4, now };
+
+  it("is deterministic and ends exactly at the sample chain", () => {
+    const s1 = buildSampleOiSession(input);
+    const s2 = buildSampleOiSession(input);
+    expect(s1).toEqual(s2);
+    expect(s1.length).toBeGreaterThan(40);
+    expect(s1[0].ts).toBe(toISTDate("2026-10-16", "09:15").getTime());
+    expect(s1[s1.length - 1].ts).toBe(now.getTime());
+    const last = s1[s1.length - 1];
+    expect(last.spot).toBe(25012.4);
+    const { chain } = generateSampleChain({ symbol: "NIFTY", spot: 25012.4, expiry, now, strikes: 41 });
+    for (const r of chain) {
+      expect(last.rows.find((x) => x.strike === r.strikePrice && x.side === "CE")?.oi).toBe(Math.round(r.ce.oi));
+      expect(last.rows.find((x) => x.strike === r.strikePrice && x.side === "PE")?.oi).toBe(Math.round(r.pe.oi));
+    }
+  });
+
+  it("opens each leg at the previous close (OI minus the day's change)", () => {
+    const s = buildSampleOiSession(input);
+    const { chain } = generateSampleChain({ symbol: "NIFTY", spot: 25012.4, expiry, now, strikes: 41 });
+    const r = chain[20];
+    const open = s[0].rows.find((x) => x.strike === r.strikePrice && x.side === "CE")?.oi ?? NaN;
+    expect(Math.abs(open - Math.max(0, Math.round(r.ce.oi) - Math.round(r.ce.oiChange)))).toBeLessThanOrEqual(Math.abs(r.ce.oiChange) * 0.05 + 1);
+    expect(s.every((snap) => snap.rows.every((x) => x.oi >= 0 && x.ltp > 0))).toBe(true);
+  });
+
+  it("returns nothing for unusable inputs", () => {
+    expect(buildSampleOiSession({ ...input, spot: 0 })).toEqual([]);
+    expect(buildSampleOiSession({ ...input, expiry: "" })).toEqual([]);
+    expect(buildSampleOiSession({ ...input, expiry: "2026-10-01" })).toEqual([]);
   });
 });

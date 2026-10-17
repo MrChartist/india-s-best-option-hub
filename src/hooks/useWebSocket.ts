@@ -1,42 +1,43 @@
 /**
- * React Hooks for Dhan WebSocket real-time market data
- * 
- * These hooks consume the MarketWebSocket singleton and provide
- * real-time ticking data to dashboard components.
+ * React hooks over the MarketWebSocket singleton (live Dhan feed relayed by the proxy).
+ * Ticks are keyed by "segment:securityId"; index hooks resolve symbols to IDX_I keys.
  */
-
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { marketWS, SYMBOL_TO_SECURITY_ID, type TickData } from "@/lib/websocketClient";
+import { marketWS, indexTickKey, startMarketWS, type FeedStatus, type TickData } from "@/lib/websocketClient";
+import { probeProxy } from "@/lib/api/proxyClient";
 
-// ── Hook: WebSocket Connection Status ──
-
-export function useWebSocketStatus() {
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    return marketWS.onStatus(setIsConnected);
-  }, []);
-
+/** True when the Dhan feed is live (ticks flowing through the proxy). */
+export function useWebSocketStatus(): boolean {
+  const [isConnected, setIsConnected] = useState(() => marketWS.isDhanConnected);
+  useEffect(() => marketWS.onStatus(setIsConnected), []);
   return isConnected;
 }
 
-// ── Hook: Single Instrument Tick ──
+/** Proxy and Dhan feed status separately, plus the last Dhan disconnect reason. */
+export function useFeedStatus(): FeedStatus {
+  const [status, setStatus] = useState<FeedStatus>(() => marketWS.getStatus());
+  useEffect(() => marketWS.onFeedStatus(setStatus), []);
+  return status;
+}
 
-export function useWebSocketTick(symbol: string): TickData | null {
-  const securityId = SYMBOL_TO_SECURITY_ID[symbol];
-  const [tick, setTick] = useState<TickData | null>(() => {
-    return securityId ? marketWS.getLatest(securityId) || null : null;
-  });
-
+/** Latest tick for a "segment:securityId" key. */
+export function useTickByKey(key: string | undefined): TickData | null {
+  const [tick, setTick] = useState<TickData | null>(() => (key ? marketWS.getLatest(key) ?? null : null));
   useEffect(() => {
-    if (!securityId) return;
-    return marketWS.subscribe(securityId, setTick);
-  }, [securityId]);
-
+    if (!key) {
+      setTick(null);
+      return;
+    }
+    setTick(marketWS.getLatest(key) ?? null);
+    return marketWS.subscribe(key, setTick);
+  }, [key]);
   return tick;
 }
 
-// ── Hook: All Index Ticks (NIFTY, BANKNIFTY, etc.) ──
+/** Latest tick for an index symbol (NIFTY, BANKNIFTY, SENSEX, INDIAVIX …). */
+export function useWebSocketTick(symbol: string): TickData | null {
+  return useTickByKey(indexTickKey(symbol));
+}
 
 export interface WebSocketIndexData {
   symbol: string;
@@ -54,61 +55,75 @@ const INDEX_NAMES: Record<string, string> = {
   NIFTY: "NIFTY 50",
   BANKNIFTY: "NIFTY BANK",
   FINNIFTY: "NIFTY FINANCIAL SERVICES",
-  MIDCPNIFTY: "NIFTY MIDCAP 50",
+  MIDCPNIFTY: "NIFTY MIDCAP SELECT",
+  SENSEX: "SENSEX",
+  BANKEX: "BANKEX",
 };
+
+/** Minimum interval between index tick commits to React state. */
+const INDEX_TICK_FLUSH_MS = 250;
 
 export function useWebSocketIndices(): { indices: WebSocketIndexData[]; isConnected: boolean } {
   const isConnected = useWebSocketStatus();
-  const [tickMap, setTickMap] = useState<Map<number, TickData>>(new Map());
+  const [tickMap, setTickMap] = useState<Map<string, TickData>>(() => new Map());
 
   useEffect(() => {
-    // Subscribe to all index ticks
-    const indexSymbols = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"];
-    const unsubscribers: (() => void)[] = [];
-
-    for (const symbol of indexSymbols) {
-      const secId = SYMBOL_TO_SECURITY_ID[symbol];
-      if (!secId) continue;
-
-      const unsub = marketWS.subscribe(secId, (data) => {
-        setTickMap((prev) => {
-          const next = new Map(prev);
-          next.set(secId, data);
-          return next;
-        });
+    // Ticks for six indices can arrive many times a second. Buffer them and commit at most once per
+    // INDEX_TICK_FLUSH_MS so the header and merged index list re-render a few times a second, not per tick.
+    const pending = new Map<string, TickData>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      if (pending.size === 0) return;
+      const batch = new Map(pending);
+      pending.clear();
+      setTickMap((prev) => {
+        const next = new Map(prev);
+        for (const [k, v] of batch) next.set(k, v);
+        return next;
       });
-      unsubscribers.push(unsub);
+    };
+    const unsubs: Array<() => void> = [];
+    for (const symbol of Object.keys(INDEX_NAMES)) {
+      const key = indexTickKey(symbol);
+      if (!key) continue;
+      unsubs.push(
+        marketWS.subscribe(key, (data) => {
+          pending.set(key, data);
+          if (timer === null) timer = setTimeout(flush, INDEX_TICK_FLUSH_MS);
+        }),
+      );
     }
-
-    return () => unsubscribers.forEach((unsub) => unsub());
+    return () => {
+      unsubs.forEach((u) => u());
+      if (timer !== null) clearTimeout(timer);
+      pending.clear();
+    };
   }, []);
 
   const indices = useMemo(() => {
     const result: WebSocketIndexData[] = [];
     for (const [symbol, name] of Object.entries(INDEX_NAMES)) {
-      const secId = SYMBOL_TO_SECURITY_ID[symbol];
-      const tick = tickMap.get(secId);
-      if (tick?.ltp) {
-        result.push({
-          symbol,
-          name,
-          ltp: tick.ltp,
-          change: tick.change || 0,
-          changePercent: tick.changePercent || 0,
-          open: tick.open || tick.ltp,
-          high: tick.high || tick.ltp,
-          low: tick.low || tick.ltp,
-          prevClose: tick.prevClose || tick.close || tick.ltp,
-        });
-      }
+      const key = indexTickKey(symbol);
+      const tick = key ? tickMap.get(key) : undefined;
+      if (!tick?.ltp) continue;
+      result.push({
+        symbol,
+        name,
+        ltp: tick.ltp,
+        change: tick.change || 0,
+        changePercent: tick.changePercent || 0,
+        open: tick.open || tick.ltp,
+        high: tick.high || tick.ltp,
+        low: tick.low || tick.ltp,
+        prevClose: tick.prevClose || tick.close || tick.ltp,
+      });
     }
     return result;
   }, [tickMap]);
 
   return { indices, isConnected };
 }
-
-// ── Hook: VIX Real-time ──
 
 export interface WebSocketVixData {
   value: number;
@@ -121,7 +136,6 @@ export interface WebSocketVixData {
 export function useWebSocketVix(): { vix: WebSocketVixData | null; isConnected: boolean } {
   const isConnected = useWebSocketStatus();
   const tick = useWebSocketTick("INDIAVIX");
-
   const vix = useMemo(() => {
     if (!tick?.ltp) return null;
     return {
@@ -132,15 +146,22 @@ export function useWebSocketVix(): { vix: WebSocketVixData | null; isConnected: 
       low: tick.low || tick.ltp,
     };
   }, [tick]);
-
   return { vix, isConnected };
 }
 
-// ── Hook: Force reconnect ──
-
+/**
+ * Manual reconnect (e.g. after saving new Dhan keys). Checks the proxy first, ignoring the gate's
+ * backoff; when it answers, the socket is reopened with the failure counter cleared.
+ */
 export function useWebSocketReconnect() {
   return useCallback(() => {
-    marketWS.disconnect();
-    setTimeout(() => marketWS.connect(), 200);
+    void probeProxy({ force: true }).then((ok) => {
+      if (!ok) return;
+      marketWS.disconnect();
+      setTimeout(() => {
+        startMarketWS();
+        marketWS.connect(); // no-op when startMarketWS() just opened the socket
+      }, 200);
+    });
   }, []);
 }

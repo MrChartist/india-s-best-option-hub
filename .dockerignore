@@ -1,6 +1,37 @@
+# Dependencies and build output are rebuilt inside the image
 node_modules
-npm-debug.log
+dist
+dist-ssr
+coverage
+playwright-report
+test-results
+.cache
+
+# Secrets never go into the image; pass them at runtime (env_file / -e)
+.env
+.env.*
+!.env.example
+
+# VCS, editor and tooling noise
+.git
+.github
+.gitignore
+.vscode
+.idea
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Docker files themselves
 Dockerfile
 .dockerignore
-.git
-.gitignore
+docker-compose.yml
+
+# Local AI/tool artefacts
+.lovable
+.gemini
+.agents
+_agents
+.claude
+screenshots

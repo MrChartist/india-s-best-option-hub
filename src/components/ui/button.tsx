@@ -4,23 +4,30 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/** On touch screens, grow compact buttons' hit area by 6px on every side (WCAG 2.5.8). */
+const touchHitArea =
+  "relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-['']";
+
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold tracking-[0.005em] transition-[background-color,color,border-color,box-shadow,transform] duration-fast ease-expo active:scale-[0.97] active:duration-press focus-visible:outline-none focus-visible:shadow-ember disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),_0_2px_8px_rgba(0,0,0,0.15)] shadow-sm",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
-        outline: "border border-input/60 bg-background/50 backdrop-blur-sm hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-primary text-primary-foreground shadow-card hover:bg-primary-hover",
+        destructive: "bg-destructive text-destructive-foreground shadow-card hover:bg-destructive/90",
+        outline: "border border-border bg-card text-foreground shadow-card hover:border-primary/40 hover:bg-accent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        ghost: "text-foreground/85 hover:bg-accent hover:text-accent-foreground",
+        link: "h-auto px-0 text-primary-ink underline-offset-4 hover:underline",
+        buy: "bg-bullish text-bullish-foreground shadow-card hover:bg-bullish/90",
+        sell: "bg-bearish text-bearish-foreground shadow-card hover:bg-bearish/90",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        sm: `h-9 rounded-md px-3 ${touchHitArea}`,
+        lg: "h-11 rounded-lg px-8",
+        icon: `h-10 w-10 ${touchHitArea}`,
+        pill: `h-7 rounded-pill px-2.5 text-xs [&_svg]:size-3.5 ${touchHitArea}`,
       },
     },
     defaultVariants: {

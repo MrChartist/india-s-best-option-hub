@@ -1,222 +1,246 @@
-import { useMemo } from "react";
-import { useLiveIndices, useMarketStatus, useExpiryList, useAllIndices } from "@/hooks/useMarketData";
-import { getSpotPrice } from "@/lib/positionStore";
-import { DashboardSkeleton } from "@/components/LoadingSkeletons";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+/**
+ * Market dashboard. Every section renders on its own (no full-page skeleton), sits in its own
+ * error boundary, and can be hidden or reordered. Named workspaces (with Scalper, Writer, Swing and
+ * Expiry presets) and density persist in localStorage. Without the proxy, sections fall back to a
+ * labelled sample snapshot; anything still unavailable is named once in the "Needs live data" strip
+ * below the populated sections.
+ */
+import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3, CalendarClock, Crosshair, Gauge, LayoutDashboard, Layers, Newspaper, Target, TrendingUp, Zap } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
-import { IVRankCard, IVRankDashboard } from "@/components/IVRankWidget";
-import { useWebSocketVix } from "@/hooks/useWebSocket";
-import { Target, BarChart3, Zap, TrendingUp, Activity } from "lucide-react";
+import { IVRankDashboard } from "@/components/IVRankWidget";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { formatDateIST, nowIST } from "@/lib/options";
+import { cn } from "@/lib/utils";
 
-import { MarketHeader } from "@/components/dashboard/MarketHeader";
-import { TickerTape } from "@/components/dashboard/TickerTape";
-import { IndexCards } from "@/components/dashboard/IndexCards";
+import { LayoutCustomizer } from "@/components/dashboard/LayoutCustomizer";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickTradeActions } from "@/components/dashboard/QuickTradeActions";
+import { IndexCards, IndexCardsStatus } from "@/components/dashboard/IndexCards";
 import { KeyMetrics } from "@/components/dashboard/KeyMetrics";
+import { FeatureCards } from "@/components/dashboard/FeatureCards";
 import { GiftNiftyExpiry } from "@/components/dashboard/GiftNiftyExpiry";
 import { TopMovers } from "@/components/dashboard/TopMovers";
 import { FuturesVIX } from "@/components/dashboard/FuturesVIX";
 import { SectorHeatmap } from "@/components/dashboard/SectorHeatmap";
 import { MostActiveFnO } from "@/components/dashboard/MostActiveFnO";
 import { MarketBreadth } from "@/components/dashboard/MarketBreadth";
-import { SectionHeader } from "@/components/dashboard/SectionHeader";
+import { DailyBrief } from "@/components/dashboard/DailyBrief";
+import { useMarketBrief } from "@/components/dashboard/useMarketBrief";
 import { DataSourcesBar } from "@/components/dashboard/DataSourcesBar";
+import { NeedsLiveStrip } from "@/components/dashboard/NeedsLiveStrip";
+import { OnboardingTour } from "@/components/dashboard/OnboardingTour";
+import { SectionHeader } from "@/components/dashboard/SectionHeader";
+import { WidgetBoundary } from "@/components/dashboard/WidgetBoundary";
+import { DensityContext, useDensityClasses } from "@/components/dashboard/density";
+import { useNow } from "@/components/dashboard/useNow";
+import { useDashFno, useDashIndices } from "@/components/dashboard/useDashboardData";
+import { collectLiveGaps, partitionSections } from "@/components/dashboard/liveGaps";
+import { loadTour, saveTour, tourReducer } from "@/components/dashboard/onboarding";
+import { activeWorkspace, loadWorkspaces, saveWorkspaces, updateActiveLayout, type WorkspaceState } from "@/components/dashboard/workspaces";
+import { DEFAULT_LAYOUT, WELCOME_DISMISS_KEY, readFlag, sectionMeta, visibleSections, writeFlag, type SectionId } from "@/components/dashboard/dashboardModel";
 
-const EXPIRY_CONTRACTS = [
-  { symbol: "NIFTY", exchange: "NSE", lotSize: 25, type: "Weekly" },
-  { symbol: "BANKNIFTY", exchange: "NSE", lotSize: 15, type: "Weekly" },
-  { symbol: "FINNIFTY", exchange: "NSE", lotSize: 25, type: "Monthly" },
-  { symbol: "MIDCPNIFTY", exchange: "NSE", lotSize: 50, type: "Monthly" },
-  { symbol: "CRUDEOIL", exchange: "MCX", lotSize: 100, type: "Monthly" },
-  { symbol: "GOLD", exchange: "MCX", lotSize: 100, type: "Monthly" },
-  { symbol: "SILVER", exchange: "MCX", lotSize: 30, type: "Monthly" },
-  { symbol: "NATURALGAS", exchange: "MCX", lotSize: 1250, type: "Monthly" },
-];
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function getTimeToExpiry(expiryDate: string): string {
-  const expiry = new Date(expiryDate + "T15:30:00+05:30");
-  const now = new Date();
-  const diff = expiry.getTime() - now.getTime();
-  if (diff <= 0) return "Expired";
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  if (days === 0) return `${hours}h left`;
-  return `${days}d ${hours}h`;
+const ICONS: Record<SectionId, ReactNode> = {
+  indices: <TrendingUp className="h-4 w-4" />,
+  brief: <Newspaper className="h-4 w-4" />,
+  metrics: <BarChart3 className="h-4 w-4" />,
+  positioning: <Crosshair className="h-4 w-4" />,
+  volatility: <Target className="h-4 w-4" />,
+  expiry: <CalendarClock className="h-4 w-4" />,
+  movers: <Activity className="h-4 w-4" />,
+  futures: <Gauge className="h-4 w-4" />,
+  ivScanner: <Zap className="h-4 w-4" />,
+  sectors: <Layers className="h-4 w-4" />,
+  active: <Zap className="h-4 w-4" />,
+  breadth: <BarChart3 className="h-4 w-4" />,
+};
+
+function ExpectedMoves() {
+  const d = useDensityClasses();
+  return (
+    <div className={cn("grid md:grid-cols-2 xl:grid-cols-3", d.gap)}>
+      {["NIFTY", "BANKNIFTY", "SENSEX"].map((s) => (
+        <WidgetBoundary key={s} name={`${s} expected move`}>
+          <ExpectedMoveWidget symbol={s} />
+        </WidgetBoundary>
+      ))}
+    </div>
+  );
+}
+
+function renderSection(id: SectionId): ReactNode {
+  switch (id) {
+    case "indices":
+      return <IndexCards />;
+    case "brief":
+      return <DailyBrief />;
+    case "metrics":
+      return <KeyMetrics />;
+    case "positioning":
+      return <FeatureCards />;
+    case "volatility":
+      return <ExpectedMoves />;
+    case "expiry":
+      return <GiftNiftyExpiry />;
+    case "movers":
+      return <TopMovers />;
+    case "futures":
+      return <FuturesVIX />;
+    case "ivScanner":
+      return <IVRankDashboard />;
+    case "sectors":
+      return <SectorHeatmap />;
+    case "active":
+      return <MostActiveFnO />;
+    case "breadth":
+      return <MarketBreadth />;
+  }
+}
+
+/** Sections whose data finished loading with nothing to show, even after the sample fallback. */
+function useEmptySections(): Set<SectionId> {
+  const idx = useDashIndices();
+  const fno = useDashFno();
+  const noIndices = !idx.isLoading && idx.data.data.length === 0;
+  const noStocks = !fno.isLoading && (fno.data?.allStocks.length ?? 0) === 0;
+  return useMemo(() => {
+    const s = new Set<SectionId>();
+    if (noIndices) s.add("indices").add("futures");
+    if (noStocks) s.add("movers").add("active");
+    return s;
+  }, [noIndices, noStocks]);
+}
+
+function DashboardDate() {
+  const ist = nowIST(useNow(60_000));
+  return (
+    <>
+      <time dateTime={ist.date}>
+        {WEEKDAY[ist.weekday]}, {formatDateIST(ist.date)}
+      </time>{" "}
+      · IST. Indices, positioning and volatility at a glance; select any card to open its page.
+    </>
+  );
 }
 
 export default function Index() {
-  const { data: indicesResult, isLoading: indicesLoading } = useLiveIndices();
-  const { data: marketStatusResult } = useMarketStatus();
-  const { data: niftyExpiry } = useExpiryList("NIFTY");
-  const { data: bnfExpiry } = useExpiryList("BANKNIFTY");
-  const { data: allIndicesData } = useAllIndices();
-  const { vix: wsVix } = useWebSocketVix();
+  useDocumentTitle("Dashboard");
+  const qc = useQueryClient();
 
-  const indices = indicesResult?.data || [];
-  const isLive = indicesResult?.isLive || false;
-  const isOpen = marketStatusResult?.isOpen ?? false;
-  const marketStatus = marketStatusResult?.status || "Closed";
-  const giftNifty = marketStatusResult?.giftNifty;
-  const indicativeNifty = marketStatusResult?.indicativeNifty;
-  
-  // Live VIX value for Expected Move calculations
-  const liveVix = wsVix?.value ?? allIndicesData?.vix?.value ?? 0;
+  const [ws, setWs] = useState<WorkspaceState>(() => loadWorkspaces());
+  const [saved, setSaved] = useState(true);
+  const [showContext, setShowContext] = useState(() => !readFlag(WELCOME_DISMISS_KEY));
+  const [tour, dispatchTour] = useReducer(tourReducer, undefined, () => loadTour());
 
-  const nearestExpiries = useMemo(() => {
-    const nExpiry = niftyExpiry?.expiries?.[0]?.value || "";
-    const bnExpiry = bnfExpiry?.expiries?.[0]?.value || "";
-    return EXPIRY_CONTRACTS.map((c) => {
-      let expDate = "";
-      if (c.symbol === "NIFTY") expDate = nExpiry;
-      else if (c.symbol === "BANKNIFTY") expDate = bnExpiry;
-      else if (c.symbol === "FINNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
-      else if (c.symbol === "MIDCPNIFTY") expDate = niftyExpiry?.expiries?.[1]?.value || nExpiry;
-      else {
-        const now = new Date();
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        expDate = lastDay.toISOString().split("T")[0];
-      }
-      return { ...c, expiry: expDate, timeLeft: expDate ? getTimeToExpiry(expDate) : "N/A" };
-    });
-  }, [niftyExpiry, bnfExpiry]);
+  useEffect(() => setSaved(saveWorkspaces(ws)), [ws]);
+  useEffect(() => saveTour(tour), [tour]);
 
-  const getDTE = (sym: string) => {
-    const match = nearestExpiries.find((c) => c.symbol === sym)?.timeLeft?.match(/(\d+)d/);
-    return match ? parseInt(match[1]) : 4;
-  };
+  const layout = activeWorkspace(ws).layout;
+  const onChange = useCallback((fn: (s: WorkspaceState) => WorkspaceState) => setWs(fn), []);
+  const onShowContext = useCallback((v: boolean) => {
+    setShowContext(v);
+    writeFlag(WELCOME_DISMISS_KEY, !v);
+  }, []);
+  const onReset = useCallback(() => setWs((s) => updateActiveLayout(s, (l) => ({ ...DEFAULT_LAYOUT, order: [...DEFAULT_LAYOUT.order], density: l.density }))), []);
 
-  if (indicesLoading) return <DashboardSkeleton />;
+  const visible = visibleSections(layout);
+  const emptySet = useEmptySections();
+  const { populated, empty } = partitionSections(visible, emptySet);
+
+  const brief = useMarketBrief();
+  const idx = useDashIndices();
+  const fno = useDashFno();
+  const offline = idx.isSample || fno.isSample || brief.chainIsSample;
+  const gaps = useMemo(() => {
+    const emptySections = empty.map((id) => ({ id, title: sectionMeta(id).title }));
+    if (!offline) return collectLiveGaps({ gift: true, pcrPrev: true, maxPainPrev: true, emptySections });
+    const list = collectLiveGaps({ gift: brief.giftAvailable, pcrPrev: brief.hasPrevPcr, maxPainPrev: brief.hasPrevMaxPain, emptySections });
+    for (const item of brief.items) {
+      if (!item.available && !list.some((g) => g.label === item.label)) list.push({ key: `brief:${item.key}`, label: item.label, to: item.to });
+    }
+    return list;
+  }, [empty, offline, brief.giftAvailable, brief.hasPrevPcr, brief.hasPrevMaxPain, brief.items]);
+
+  const onRecovered = useCallback(() => void qc.invalidateQueries(), [qc]);
 
   return (
-    <ErrorBoundary fallbackMessage="Dashboard failed to load">
-      <div className="space-y-3 animate-fade-in">
-        {/* ═══ WELCOME + HEADER ═══ */}
-        <MarketHeader isLive={isLive} isOpen={isOpen} marketStatus={marketStatus} />
-        <DataSourcesBar />
-        <WelcomeBanner />
-
-        {/* ═══ TICKER TAPE ═══ */}
-        <TickerTape indices={indices} giftNifty={giftNifty} />
-
-        {/* ═══ QUICK TRADE ACTIONS ═══ */}
-        <SectionHeader
-          title="Quick Actions"
-          subtitle="Jump to any tool instantly"
-          icon={<Zap className="h-4 w-4" />}
-          tooltip="One-click shortcuts to the most used tools. Click any card to navigate directly."
+    <DensityContext.Provider value={layout.density}>
+      <div className={cn("animate-fade-in", layout.density === "compact" ? "space-y-2" : "space-y-3")} data-density={layout.density}>
+        <PageHeader
+          icon={LayoutDashboard}
+          eyebrow="Overview"
+          title="Market dashboard"
+          description={<DashboardDate />}
+          actions={
+            <>
+              <DataSourcesBar />
+              <LayoutCustomizer
+                state={ws}
+                onChange={onChange}
+                showContext={showContext}
+                onShowContext={onShowContext}
+                onRestartTour={() => dispatchTour({ type: "restart" })}
+                saved={saved}
+              />
+            </>
+          }
         />
+
+        {!tour.done ? (
+          <WidgetBoundary name="Getting started tour">
+            <OnboardingTour state={tour} dispatch={dispatchTour} />
+          </WidgetBoundary>
+        ) : null}
+
+        {showContext ? (
+          <WidgetBoundary name="Market context">
+            <WelcomeBanner onDismiss={() => onShowContext(false)} />
+          </WidgetBoundary>
+        ) : null}
+
         <QuickTradeActions />
 
-        {/* ═══ INDEX CARDS ═══ */}
-        <SectionHeader
-          title="Live Indices"
-          subtitle="'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''\n                                        \n                                            \n                                            find erros andlets solve this"
-          icon={<TrendingUp className="h-4 w-4" />}
-          tooltip="Real-time spot prices for major indices. The mini-chart shows today's intraday movement. Click to open option chain."
-        />
-        <IndexCards indices={indices} />
-
-        {/* ═══ KEY METRICS ═══ */}
-        <SectionHeader
-          title="Key Market Metrics"
-          subtitle="PCR, VIX, Max Pain, Advance/Decline"
-          icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="PCR > 1 = bullish, < 0.7 = bearish. VIX measures fear — rising VIX = more volatility ahead. Max Pain is the strike where option writers profit most."
-        />
-        <KeyMetrics />
-
-        {/* ═══ EXPECTED MOVE + IV RANK ═══ */}
-        <SectionHeader
-          title="Volatility & Expected Move"
-          subtitle="IV-based range estimates and rank"
-          icon={<Target className="h-4 w-4" />}
-          tooltip="Expected Move shows the probable price range by expiry based on IV. IV Rank tells you if current IV is high or low compared to the past year — helps decide whether to buy or sell options."
-        />
-        <div className="grid lg:grid-cols-3 gap-3">
-          <ExpectedMoveWidget
-            symbol="NIFTY"
-            spotPrice={indices[0]?.ltp || getSpotPrice("NIFTY")}
-            iv={liveVix}
-            daysToExpiry={getDTE("NIFTY")}
-          />
-          <ExpectedMoveWidget
-            symbol="BANKNIFTY"
-            spotPrice={indices[1]?.ltp || getSpotPrice("BANKNIFTY")}
-            iv={liveVix * 1.15}
-            daysToExpiry={getDTE("BANKNIFTY")}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <IVRankCard symbol="NIFTY" currentIV={liveVix} />
-            <IVRankCard symbol="BANKNIFTY" currentIV={liveVix * 1.15} />
-            <IVRankCard symbol="FINNIFTY" currentIV={liveVix * 0.95} />
-            <IVRankCard symbol="MIDCPNIFTY" currentIV={liveVix * 1.1} />
+        {visible.length === 0 ? (
+          <div className="rounded-card border border-dashed border-border bg-card p-6 text-center">
+            <p className="text-body font-medium">All sections are hidden in this workspace.</p>
+            <button
+              type="button"
+              onClick={onReset}
+              className="mt-2 inline-flex h-8 items-center rounded-md bg-primary px-3 text-body-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:shadow-ember focus-visible:outline-none"
+            >
+              Restore default layout
+            </button>
           </div>
-        </div>
+        ) : null}
 
-        {/* ═══ GIFT NIFTY + EXPIRY CONTRACTS ═══ */}
-        <SectionHeader
-          title="Expiry & Derivatives"
-          subtitle="GIFT Nifty, NSE & MCX contract expiries"
-          icon={<Activity className="h-4 w-4" />}
-          tooltip="GIFT Nifty indicates pre-market direction. Track time-to-expiry for all contracts — theta decay accelerates in the last 2–3 days."
-        />
-        <GiftNiftyExpiry giftNifty={giftNifty} indicativeNifty={indicativeNifty} nearestExpiries={nearestExpiries} />
+        {populated.map((id) => {
+          const meta = sectionMeta(id);
+          const headingId = `dash-${id}-title`;
+          return (
+            <section key={id} aria-labelledby={headingId}>
+              <SectionHeader
+                id={headingId}
+                title={meta.title}
+                subtitle={meta.subtitle}
+                tooltip={meta.tooltip}
+                icon={ICONS[id]}
+                actions={id === "indices" ? <IndexCardsStatus /> : undefined}
+              />
+              <WidgetBoundary name={meta.title}>{renderSection(id)}</WidgetBoundary>
+            </section>
+          );
+        })}
 
-        {/* ═══ TOP MOVERS ═══ */}
-        <SectionHeader
-          title="Top Movers"
-          subtitle="Today's biggest gainers & losers"
-          icon={<TrendingUp className="h-4 w-4" />}
-          tooltip="Stocks with the largest % change today. Click any row to view its option chain for trading opportunities."
-        />
-        <TopMovers />
+        <NeedsLiveStrip gaps={gaps} onRecovered={onRecovered} />
 
-        {/* ═══ FUTURES + VIX ═══ */}
-        <SectionHeader
-          title="Futures & VIX"
-          subtitle="Premium/discount analysis and volatility trends"
-          icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="Futures premium = bullish sentiment, discount = bearish. VIX chart shows 30-day volatility trend — useful for straddle/strangle timing."
-        />
-        <FuturesVIX />
-
-        {/* ═══ IV RANK SCANNER ═══ */}
-        <SectionHeader
-          title="IV Rank Scanner"
-          subtitle="Multi-symbol IV analysis with buy/sell signals"
-          icon={<Zap className="h-4 w-4" />}
-          tooltip="Scans multiple F&O stocks for IV rank. High IV Rank (>70) = sell premium strategies. Low IV Rank (<30) = buy premium strategies."
-        />
-        <IVRankDashboard />
-
-        {/* ═══ SECTOR HEATMAP ═══ */}
-        <SectionHeader
-          title="Sector Performance"
-          subtitle="Color-coded sector returns"
-          icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="Green = sector up, Red = sector down. Intensity shows magnitude. Helps identify sector rotation and where money is flowing."
-        />
-        <SectorHeatmap />
-
-        {/* ═══ MOST ACTIVE F&O ═══ */}
-        <SectionHeader
-          title="Most Active F&O"
-          subtitle="High volume + OI change signals"
-          icon={<Zap className="h-4 w-4" />}
-          tooltip="Shows stocks with highest F&O activity. Signals: Long Buildup (price ↑ + OI ↑), Short Buildup (price ↓ + OI ↑), Short Covering (price ↑ + OI ↓), Long Unwinding (price ↓ + OI ↓)."
-        />
-        <MostActiveFnO />
-
-        {/* ═══ MARKET BREADTH ═══ */}
-        <SectionHeader
-          title="Market Breadth"
-          subtitle="Sentiment, Advance/Decline, VIX regime & F&O breadth"
-          icon={<BarChart3 className="h-4 w-4" />}
-          tooltip="Composite market health score combining Advance/Decline ratio, VIX levels, and F&O stock breadth. Helps identify whether market internals support the trend."
-        />
-        <MarketBreadth />
+        <p className="pt-4 text-center text-body-sm text-muted-foreground">
+          Data for education and research. Not investment advice. Lot sizes and MCX dates should be verified with the exchange.
+        </p>
       </div>
-    </ErrorBoundary>
+    </DensityContext.Provider>
   );
 }

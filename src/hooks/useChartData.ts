@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-
-const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
+import { proxyFetchJSON, shouldTryProxy } from "@/lib/api/proxyClient";
+import { istDateString } from "@/lib/options";
+import type { ColumnarCandlesDTO, InstrumentMasterDTO } from "@/lib/types/market";
 
 export interface OHLCVCandle {
   time: number; // Unix timestamp in seconds
@@ -11,18 +12,27 @@ export interface OHLCVCandle {
   volume?: number;
 }
 
-// ── Security ID lookup: indices + top F&O stocks ──
-// Hardcoded to avoid downloading the 30MB instrument master CSV for every sparkline.
-// Dhan security IDs for NSE equity stocks (from api-scrip-master.csv).
-const SECURITY_MAP: Record<string, { secId: string; exchSeg: string; instrument: string }> = {
-  // ─── Indices ───
+export interface SecurityRef {
+  secId: string;
+  exchSeg: "IDX_I" | "NSE_EQ";
+  instrument: "INDEX" | "EQUITY";
+}
+
+/**
+ * Dhan security ids for indices and the larger F&O stocks (NSE cash segment), keyed by the NSE
+ * trading symbol. Taken from the Dhan scrip master; re-verify after corporate actions or renames.
+ * Anything missing is resolved at runtime from the instrument master.
+ */
+export const SECURITY_MAP: Record<string, SecurityRef> = {
+  // ─── Indices (IDX_I) ───
   NIFTY:       { secId: "13",    exchSeg: "IDX_I",  instrument: "INDEX" },
   BANKNIFTY:   { secId: "25",    exchSeg: "IDX_I",  instrument: "INDEX" },
   FINNIFTY:    { secId: "27",    exchSeg: "IDX_I",  instrument: "INDEX" },
   MIDCPNIFTY:  { secId: "442",   exchSeg: "IDX_I",  instrument: "INDEX" },
-  INDIAVIX:    { secId: "26",    exchSeg: "IDX_I",  instrument: "INDEX" },
-  SENSEX:      { secId: "1",     exchSeg: "IDX_I",  instrument: "INDEX" },
-  // ─── NIFTY 50 Stocks ───
+  INDIAVIX:    { secId: "21",    exchSeg: "IDX_I",  instrument: "INDEX" },
+  SENSEX:      { secId: "51",    exchSeg: "IDX_I",  instrument: "INDEX" },
+  BANKEX:      { secId: "69",    exchSeg: "IDX_I",  instrument: "INDEX" },
+  // ─── Stocks (NSE_EQ) ───
   RELIANCE:    { secId: "2885",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   TCS:         { secId: "11536", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   HDFCBANK:    { secId: "1333",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
@@ -40,7 +50,8 @@ const SECURITY_MAP: Record<string, { secId: string; exchSeg: string; instrument:
   TITAN:       { secId: "3506",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   SUNPHARMA:   { secId: "3351",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   BAJFINANCE:  { secId: "317",   exchSeg: "NSE_EQ", instrument: "EQUITY" },
-  BAJFINSV:    { secId: "16669", exchSeg: "NSE_EQ", instrument: "EQUITY" },
+  BAJAJFINSV:  { secId: "16675", exchSeg: "NSE_EQ", instrument: "EQUITY" },
+  "BAJAJ-AUTO": { secId: "16669", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   WIPRO:       { secId: "3787",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   HCLTECH:     { secId: "7229",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   TATAMOTORS:  { secId: "3456",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
@@ -49,7 +60,7 @@ const SECURITY_MAP: Record<string, { secId: string; exchSeg: string; instrument:
   POWERGRID:   { secId: "14977", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   ONGC:        { secId: "2475",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   JSWSTEEL:    { secId: "11723", exchSeg: "NSE_EQ", instrument: "EQUITY" },
-  M_M:         { secId: "2031",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
+  "M&M":       { secId: "2031",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   ADANIENT:    { secId: "25",    exchSeg: "NSE_EQ", instrument: "EQUITY" },
   ADANIPORTS:  { secId: "15083", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   ULTRACEMCO:  { secId: "11532", exchSeg: "NSE_EQ", instrument: "EQUITY" },
@@ -68,7 +79,6 @@ const SECURITY_MAP: Record<string, { secId: string; exchSeg: string; instrument:
   SBILIFE:     { secId: "21808", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   BRITANNIA:   { secId: "547",   exchSeg: "NSE_EQ", instrument: "EQUITY" },
   NESTLEIND:   { secId: "17963", exchSeg: "NSE_EQ", instrument: "EQUITY" },
-  BAJAJ_AUTO:  { secId: "16669", exchSeg: "NSE_EQ", instrument: "EQUITY" },
   HDFCLIFE:    { secId: "467",   exchSeg: "NSE_EQ", instrument: "EQUITY" },
   VEDL:        { secId: "3063",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
   HINDALCO:    { secId: "1363",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
@@ -78,8 +88,27 @@ const SECURITY_MAP: Record<string, { secId: string; exchSeg: string; instrument:
   TRENT:       { secId: "1964",  exchSeg: "NSE_EQ", instrument: "EQUITY" },
 };
 
-// Alias: M&M uses underscore in our map
-if (!SECURITY_MAP["M&M"]) SECURITY_MAP["M&M"] = SECURITY_MAP["M_M"];
+/** Older keys that referred to the same instruments. */
+const SYMBOL_ALIASES: Record<string, string> = { M_M: "M&M", BAJFINSV: "BAJAJFINSV", BAJAJ_AUTO: "BAJAJ-AUTO", "BAJAJ AUTO": "BAJAJ-AUTO" };
+
+/** Look up a symbol in SECURITY_MAP (case-insensitive, with aliases). */
+export function lookupSecurity(symbol: string): SecurityRef | undefined {
+  const s = String(symbol || "").trim().toUpperCase();
+  return SECURITY_MAP[s] ?? SECURITY_MAP[SYMBOL_ALIASES[s] ?? ""];
+}
+
+/** Symbols whose security id appears more than once within the same segment (should be empty). */
+export function findDuplicateSecurityIds(map: Record<string, SecurityRef> = SECURITY_MAP): string[] {
+  const seen = new Map<string, string>();
+  const dups: string[] = [];
+  for (const [sym, ref] of Object.entries(map)) {
+    const k = `${ref.exchSeg}:${ref.secId}`;
+    const prev = seen.get(k);
+    if (prev) dups.push(`${prev}/${sym}`);
+    else seen.set(k, sym);
+  }
+  return dups;
+}
 
 // ── In-memory cache for dynamically resolved security IDs ──
 const resolvedSecurityIds: Record<string, { securityId: string; exchangeSegment: string; instrument: string }> = {};
@@ -90,7 +119,7 @@ const resolvedSecurityIds: Record<string, { securityId: string; exchangeSegment:
  */
 async function resolveSecurityId(symbol: string): Promise<{ securityId: string; exchangeSegment: string; instrument: string } | null> {
   // Check hardcoded map first (instant — no network call)
-  const mapped = SECURITY_MAP[symbol];
+  const mapped = lookupSecurity(symbol);
   if (mapped) return { securityId: mapped.secId, exchangeSegment: mapped.exchSeg, instrument: mapped.instrument };
 
   // Check runtime cache
@@ -98,15 +127,10 @@ async function resolveSecurityId(symbol: string): Promise<{ securityId: string; 
 
   // Fallback: download instrument master (only for stocks not in hardcoded map)
   try {
-    const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?endpoint=instruments`, {
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const instruments = data?.instruments || [];
-
+    const data = await proxyFetchJSON<InstrumentMasterDTO>("/api/dhan-proxy", { endpoint: "instruments" }, { timeoutMs: 60000, withDhan: false });
+    const instruments = Array.isArray(data?.instruments) ? data.instruments : [];
     const match = instruments.find(
-      (i: any) => i.symbol === symbol && i.exchangeSegment === "NSE_EQ" && i.instrumentType === "EQUITY"
+      (i) => i.symbol === symbol && i.exchangeSegment === "NSE_EQ" && i.instrumentType === "EQUITY",
     );
     if (match) {
       const resolved = { securityId: match.securityId, exchangeSegment: "NSE_EQ", instrument: "EQUITY" };
@@ -131,14 +155,11 @@ function rangeToParams(range: string): { interval: string; daysBack: number } {
   }
 }
 
-interface ColumnarCandleData {
-  open?: number[];
-  high?: number[];
-  low?: number[];
-  close?: number[];
-  volume?: number[];
-  timestamp?: (number | string)[];
-  start_Time?: (number | string)[];
+type ColumnarCandleData = ColumnarCandlesDTO;
+
+/** IST calendar date (yyyy-mm-dd) `daysBack` days before `now`. */
+export function istDaysAgo(daysBack: number, now: Date = new Date()): string {
+  return istDateString(new Date(now.getTime() - daysBack * 86_400_000));
 }
 
 /**
@@ -158,19 +179,21 @@ export function parseColumnarCandles(rawData: ColumnarCandleData | null | undefi
 
   const candles: OHLCVCandle[] = [];
   for (let i = 0; i < closes.length; i++) {
-    if (closes[i] == null) continue; // Yahoo emits null gaps on non-trading slots
+    const close = closes[i];
+    if (close == null || !Number.isFinite(close)) continue; // Yahoo emits null gaps on non-trading slots
     const ts = timestamps[i];
     const time = typeof ts === "string"
-      ? Math.floor(new Date(ts).getTime() / 1000)
+      ? Math.floor(new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(ts) ? ts : `${ts.replace(" ", "T")}+05:30`).getTime() / 1000)
       : typeof ts === "number"
         ? (ts > 1e12 ? Math.floor(ts / 1000) : ts) // handle ms vs s timestamps
         : Math.floor(Date.now() / 1000);
+    if (!Number.isFinite(time)) continue;
     candles.push({
       time,
-      open: opens[i] ?? closes[i],
-      high: highs[i] ?? closes[i],
-      low: lows[i] ?? closes[i],
-      close: closes[i],
+      open: opens[i] ?? close,
+      high: highs[i] ?? close,
+      low: lows[i] ?? close,
+      close,
       volume: volumes[i] || 0,
     });
   }
@@ -183,25 +206,15 @@ async function fetchDhanHistorical(
   range: string,
 ): Promise<OHLCVCandle[]> {
   const { interval, daysBack } = rangeToParams(range);
-  const now = new Date();
-  const from = new Date(now);
-  from.setDate(from.getDate() - daysBack);
-
-  const params = new URLSearchParams({
+  const json = await proxyFetchJSON<{ data?: ColumnarCandlesDTO } & ColumnarCandlesDTO>("/api/dhan-proxy", {
     endpoint: "historical",
     securityId: resolved.securityId,
     exchangeSegment: resolved.exchangeSegment,
     instrument: resolved.instrument,
     interval,
-    fromDate: `${from.toISOString().split("T")[0]} 09:15`,
-    toDate: `${now.toISOString().split("T")[0]} 15:30`,
+    fromDate: `${istDaysAgo(daysBack)} 09:15`,
+    toDate: `${istDaysAgo(0)} 15:30`,
   });
-
-  const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?${params}`, {
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return [];
-  const json = await res.json();
   return parseColumnarCandles(json?.data || json);
 }
 
@@ -212,22 +225,11 @@ async function fetchDhanHistorical(
  */
 async function fetchYahooHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
   const { interval, daysBack } = rangeToParams(range);
-  const now = new Date();
-  const from = new Date(now);
-  from.setDate(from.getDate() - daysBack);
-
-  const params = new URLSearchParams({
-    symbol: symbol.toUpperCase(),
-    interval,
-    fromDate: from.toISOString().split("T")[0],
-    toDate: now.toISOString().split("T")[0],
-  });
-
-  const res = await fetch(`${PROXY_BASE}/api/yahoo-chart?${params}`, {
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) return [];
-  const json = await res.json();
+  const json = await proxyFetchJSON<{ data?: ColumnarCandlesDTO } & ColumnarCandlesDTO>(
+    "/api/yahoo-chart",
+    { symbol: symbol.toUpperCase(), interval, fromDate: istDaysAgo(daysBack), toDate: istDaysAgo(0) },
+    { withDhan: false },
+  );
   return parseColumnarCandles(json?.data || json);
 }
 
@@ -236,9 +238,11 @@ async function fetchYahooHistorical(symbol: string, range: string): Promise<OHLC
  *   Dhan (when symbol is known + broker keys configured) → Yahoo Finance fallback.
  * Always returns candles when the proxy is reachable, even without broker keys.
  */
-async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+export async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+  // Proxy known to be down (inside the reachability backoff): skip all three sources at once.
+  if (!shouldTryProxy()) return [];
   // Try Dhan first for symbols we can resolve instantly (no 30MB CSV download).
-  const mapped = SECURITY_MAP[symbol];
+  const mapped = lookupSecurity(symbol);
   if (mapped) {
     try {
       const candles = await fetchDhanHistorical(
@@ -273,7 +277,7 @@ async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCand
 }
 
 /**
- * React Query hook for chart data. Fetches OHLCV candles from Dhan API.
+ * React Query hook for chart data: Dhan candles when available, Yahoo Finance otherwise.
  */
 export function useChartData(symbol: string, range: string = "3M", enabled: boolean = true) {
   return useQuery({
@@ -282,7 +286,7 @@ export function useChartData(symbol: string, range: string = "3M", enabled: bool
     enabled: !!symbol && enabled,
     staleTime: 5 * 60 * 1000, // 5 min cache
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: (failures: number) => failures < 1 && shouldTryProxy(),
   });
 }
 
@@ -302,6 +306,6 @@ export function useSparklineData(symbol: string, enabled: boolean = true) {
     enabled: !!symbol && enabled,
     staleTime: 10 * 60 * 1000, // 10 min cache
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: (failures: number) => failures < 1 && shouldTryProxy(),
   });
 }

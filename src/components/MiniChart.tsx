@@ -1,102 +1,125 @@
-import { useRef, useEffect, memo } from "react";
+import { memo, useId, useMemo } from "react";
 import { useSparklineData } from "@/hooks/useChartData";
-import { useIsDark, getChartColors } from "@/hooks/useIsDark";
+import { cn } from "@/lib/utils";
+
+export interface SparklineProps {
+  values: readonly number[];
+  /** Pixel width, or "100%" to fill the parent (the SVG scales without distorting the stroke). */
+  width?: number | "100%";
+  height?: number;
+  /** Optional reference level drawn as a dashed line (for example the previous close). */
+  baseline?: number;
+  /** Colour by direction; "auto" compares the last value with the baseline or the first value. */
+  tone?: "auto" | "bullish" | "bearish" | "neutral";
+  fill?: boolean;
+  className?: string;
+  /** Accessible description; the chart is decorative when omitted. */
+  label?: string;
+}
+
+const STROKE: Record<"bullish" | "bearish" | "neutral", string> = {
+  bullish: "hsl(var(--bullish))",
+  bearish: "hsl(var(--bearish))",
+  neutral: "hsl(var(--muted-foreground))",
+};
+
+/** Tiny inline-SVG sparkline (no chart library). */
+export const Sparkline = memo(function Sparkline({ values, width = 80, height = 28, baseline, tone = "auto", fill = true, className, label }: SparklineProps) {
+  const gid = useId().replace(/:/g, "");
+  const W = 100;
+  const H = height;
+  const geo = useMemo(() => {
+    const pts = values.filter((v) => Number.isFinite(v));
+    if (pts.length < 2) return null;
+    const hasBase = baseline !== undefined && Number.isFinite(baseline) && baseline > 0;
+    let min = Math.min(...pts);
+    let max = Math.max(...pts);
+    if (hasBase) {
+      min = Math.min(min, baseline as number);
+      max = Math.max(max, baseline as number);
+    }
+    const range = max - min || 1;
+    const pad = 2;
+    const y = (v: number) => pad + (H - pad * 2) * (1 - (v - min) / range);
+    const step = W / (pts.length - 1);
+    const line = pts.map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(2)} ${y(v).toFixed(2)}`).join("");
+    const area = `${line}L${W} ${H}L0 ${H}Z`;
+    const ref = hasBase ? y(baseline as number) : null;
+    const up = pts[pts.length - 1] >= (hasBase ? (baseline as number) : pts[0]);
+    return { line, area, ref, up };
+  }, [values, baseline, H]);
+
+  if (!geo) return null;
+  const t = tone === "auto" ? (geo.up ? "bullish" : "bearish") : tone;
+  const color = STROKE[t];
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className={cn("block overflow-visible", className)}
+      role={label ? "img" : undefined}
+      aria-label={label}
+      aria-hidden={label ? undefined : true}
+    >
+      {fill ? (
+        <>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <path d={geo.area} fill={`url(#${gid})`} stroke="none" />
+        </>
+      ) : null}
+      {geo.ref !== null ? (
+        <line x1={0} x2={W} y1={geo.ref} y2={geo.ref} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.6} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+      ) : null}
+      <path d={geo.line} fill="none" stroke={color} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+});
 
 interface MiniChartProps {
   symbol: string;
   width?: number;
   height?: number;
   className?: string;
+  /**
+   * Skip the history request and show a dash, e.g. next to sample quotes, where a real price
+   * history would not match the illustrative last price.
+   */
+  disabled?: boolean;
 }
 
 /**
- * Tiny sparkline chart rendered with canvas.
- * Shows 3-month price trend as a simple line with gradient fill.
+ * Three-month closing-price sparkline for a symbol, drawn as inline SVG.
+ * Shows a shimmer while loading and an em dash when no history is available.
  */
-export const MiniChart = memo(function MiniChart({
-  symbol,
-  width = 80,
-  height = 28,
-  className = "",
-}: MiniChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { data: closes } = useSparklineData(symbol);
-  const isDark = useIsDark();
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !closes || closes.length < 2) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, width, height);
-
-    const min = Math.min(...closes);
-    const max = Math.max(...closes);
-    const range = max - min || 1;
-    const padding = 2;
-    const chartWidth = width - padding * 2;
-    const chartHeight = height - padding * 2;
-
-    const colors = getChartColors(isDark);
-    const isPositive = closes[closes.length - 1] >= closes[0];
-    const lineColor = isPositive ? colors.bullish : colors.bearish;
-    const fillColor = isPositive ? `hsl(${colors.bullishRaw} / 0.15)` : `hsl(${colors.bearishRaw} / 0.12)`;
-
-    // Build path
-    const stepX = chartWidth / (closes.length - 1);
-    const points: [number, number][] = closes.map((val, i) => [
-      padding + i * stepX,
-      padding + chartHeight - ((val - min) / range) * chartHeight,
-    ]);
-
-    // Fill gradient
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
-    ctx.lineTo(points[points.length - 1][0], height);
-    ctx.lineTo(points[0][0], height);
-    ctx.closePath();
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, fillColor);
-    gradient.addColorStop(1, "transparent");
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    // Draw line
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
-    ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 1.2;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-  }, [closes, width, height, isDark]);
-
-  if (!closes || closes.length < 2) {
+export const MiniChart = memo(function MiniChart({ symbol, width = 80, height = 28, className = "", disabled = false }: MiniChartProps) {
+  const { data: closes, isLoading } = useSparklineData(symbol, !disabled);
+  if (disabled || !closes || closes.length < 2) {
+    if (isLoading && !disabled) return <div className={cn("rounded skeleton-shimmer", className)} style={{ width, height }} aria-hidden="true" />;
     return (
-      <div
-        className={`rounded skeleton-shimmer ${className}`}
-        style={{ width, height }}
-      />
+      <span className={cn("inline-flex items-center justify-center text-body-sm text-muted-foreground", className)} style={{ width, height }} title={disabled ? "No price history for sample quotes" : "No price history"}>
+        —
+      </span>
     );
   }
-
+  const first = closes[0];
+  const last = closes[closes.length - 1];
+  const pct = first > 0 ? ((last - first) / first) * 100 : 0;
   return (
-    <canvas
-      ref={canvasRef}
+    <Sparkline
+      values={closes}
+      width={width}
+      height={height}
       className={className}
-      style={{ width, height }}
+      label={`${symbol} 3-month trend, ${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(1)} percent`}
     />
   );
 });
+
+export default MiniChart;

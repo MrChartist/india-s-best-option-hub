@@ -1,120 +1,94 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useFnOStocks } from "@/hooks/useMarketData";
-import { ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+/**
+ * Top five F&O gainers and losers with a three-month sparkline (hidden for sample rows, which have no
+ * history). Symbols link to the option chain.
+ */
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { MiniChart } from "@/components/MiniChart";
+import { ScrollRegion } from "@/components/ScrollRegion";
+import type { FnOStockData } from "@/lib/marketApi";
+import { formatCompactIN, formatNumberIN, formatPct } from "@/lib/options";
+import { cn } from "@/lib/utils";
+import { sourceName, statusFrom } from "./dashboardModel";
+import { DataState, DataStatus } from "./DataState";
+import { useDensityClasses } from "./density";
+import { useDashFno } from "./useDashboardData";
 
 export function TopMovers() {
-  const navigate = useNavigate();
-  const { data, isLoading } = useFnOStocks();
-  const gainers = data?.gainers || [];
-  const losers = data?.losers || [];
-  const isLive = data?.isLive || false;
+  const q = useDashFno();
+  const d = useDensityClasses();
+  const gainers = q.data?.gainers ?? [];
+  const losers = q.data?.losers ?? [];
+  const status = statusFrom({ isLoading: q.isLoading, isError: q.isError, hasData: gainers.length + losers.length > 0, source: q.data?.source, stale: q.data?.stale, isLive: q.data?.isLive });
+  const chip = <DataStatus status={status} lastUpdated={q.data?.asOf} source={sourceName(q.data?.source)} reason={q.data?.reason} />;
 
   return (
-    <div className="grid lg:grid-cols-2 gap-3">
-      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-bullish/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ArrowUpRight className="h-5 w-5 text-bullish drop-shadow-[0_0_8px_rgba(0,255,100,0.5)]" /> Top Gainers
-            <span className="text-xs text-muted-foreground font-normal">({gainers.length})</span>
-            {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto">LIVE</Badge>}
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-auto text-muted-foreground" />}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-1">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs border-b-white/5">
-                <TableHead className="h-9 text-muted-foreground">Symbol</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">LTP</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">Chg%</TableHead>
-                <TableHead className="h-9 text-center text-muted-foreground">Chart</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">Vol</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {gainers.map((s: any) => (
-                <TableRow
-                  key={s.symbol}
-                  className="text-sm font-mono cursor-pointer hover:bg-bullish/[0.04] transition-all duration-150 group border-b-white/5 border-l-2 border-l-transparent hover:border-l-bullish"
-                  onClick={() => navigate(`/option-chain?symbol=${s.symbol}`)}
-                >
-                  <TableCell className="font-medium font-sans py-2 px-4">
-                    <div className="flex items-center gap-1.5">
-                      <ArrowUpRight className="h-4 w-4 text-bullish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-[0_0_5px_rgba(0,255,100,0.5)]" />
-                      {s.symbol}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right py-2 text-foreground">{s.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right py-2">
-                    <span className="bg-bullish/10 text-bullish px-2 py-1 rounded-md text-xs shadow-[inset_0_0_10px_rgba(0,255,100,0.1)] font-medium">+{s.changePercent.toFixed(2)}%</span>
-                  </TableCell>
-                  <TableCell className="py-1.5 text-center">
-                    <div className="inline-block drop-shadow-[0_0_3px_rgba(0,255,100,0.3)]"><MiniChart symbol={s.symbol} width={70} height={26} /></div>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground py-2 px-4">{(s.volume / 100000).toFixed(1)}L</TableCell>
-                </TableRow>
-              ))}
-              {gainers.length === 0 && !isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6 border-b-0">No data available</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden hover:shadow-card-hover transition-all duration-300">
-        <CardHeader className="pb-3 pt-4 px-5 bg-gradient-to-r from-bearish/5 to-transparent">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ArrowDownRight className="h-5 w-5 text-bearish drop-shadow-[0_0_8px_rgba(255,50,50,0.5)]" /> Top Losers
-            <span className="text-xs text-muted-foreground font-normal">({losers.length})</span>
-            {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bearish/30 text-bearish ml-auto">LIVE</Badge>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-1">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs border-b-white/5">
-                <TableHead className="h-9 text-muted-foreground">Symbol</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">LTP</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">Chg%</TableHead>
-                <TableHead className="h-9 text-center text-muted-foreground">Chart</TableHead>
-                <TableHead className="h-9 text-right text-muted-foreground">Vol</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {losers.map((s: any) => (
-                <TableRow
-                  key={s.symbol}
-                  className="text-sm font-mono cursor-pointer hover:bg-bearish/[0.04] transition-all duration-150 group border-b-white/5 border-l-2 border-l-transparent hover:border-l-bearish"
-                  onClick={() => navigate(`/option-chain?symbol=${s.symbol}`)}
-                >
-                  <TableCell className="font-medium font-sans py-2 px-4">
-                    <div className="flex items-center gap-1.5">
-                      <ArrowDownRight className="h-4 w-4 text-bearish shrink-0 opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-[0_0_5px_rgba(255,50,50,0.5)]" />
-                      {s.symbol}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right py-2 text-foreground">{s.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell className="text-right py-2">
-                    <span className="bg-bearish/10 text-bearish px-2 py-1 rounded-md text-xs shadow-[inset_0_0_10px_rgba(255,50,50,0.1)] font-medium">{s.changePercent.toFixed(2)}%</span>
-                  </TableCell>
-                  <TableCell className="py-1.5 text-center">
-                    <div className="inline-block drop-shadow-[0_0_3px_rgba(255,50,50,0.3)]"><MiniChart symbol={s.symbol} width={70} height={26} /></div>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground py-2 px-4">{(s.volume / 100000).toFixed(1)}L</TableCell>
-                </TableRow>
-              ))}
-              {losers.length === 0 && !isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-6 border-b-0">No data available</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+    <div className={cn("grid lg:grid-cols-2", d.gap)}>
+      <MoversCard title="Top gainers" up rows={gainers} status={status} chip={chip} onRetry={() => void q.refetch()} />
+      <MoversCard title="Top losers" up={false} rows={losers} status={status} chip={chip} onRetry={() => void q.refetch()} />
     </div>
   );
 }
+
+function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string; up: boolean; rows: FnOStockData[]; status: ReturnType<typeof statusFrom>; chip: ReactNode; onRetry: () => void }) {
+  const sample = status === "sample";
+  // Sample rows have no price history, so the sparkline column would be "—" on every row: hide it.
+  const showSpark = !sample;
+  const d = useDensityClasses();
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <Card className="overflow-hidden">
+      <div className={cn("flex items-center gap-2", d.headPad)}>
+        <Icon className={cn("h-4 w-4", up ? "text-bullish" : "text-bearish")} aria-hidden="true" />
+        <h3 className="font-display text-lead font-bold">{title}</h3>
+        <div className="ml-auto">{chip}</div>
+      </div>
+      <DataState status={status !== "loading" && status !== "error" && rows.length === 0 ? "empty" : status} onRetry={onRetry} className={d.padX} emptyText={up ? "No gainers right now" : "No losers right now"} emptyHint="F&O stock prices load from NSE during market hours">
+        <ScrollRegion label={`${title} table`}>
+          <table className="w-full text-body">
+            <caption className="sr-only">{title} among F&O stocks</caption>
+            <thead>
+              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
+                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Symbol</th>
+                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>LTP</th>
+                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Change</th>
+                {showSpark ? <th scope="col" className={cn("hidden px-2 text-center font-[650] sm:table-cell", d.cell)}>3M</th> : null}
+                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Volume</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s) => (
+                <tr key={s.symbol} className="border-b border-border last:border-0 hover:bg-accent/40">
+                  <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
+                    <Link to={`/option-chain?symbol=${encodeURIComponent(s.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none" aria-label={`${s.symbol}, open option chain`}>
+                      {s.symbol}
+                    </Link>
+                  </th>
+                  <td className={cn("px-2 text-right font-num tabular-nums", d.cell)}>{formatNumberIN(s.ltp, 2, { minDecimals: 2 })}</td>
+                  <td className={cn("px-2 text-right", d.cell)}>
+                    <span className={cn("inline-flex rounded-chip px-1.5 py-0.5 font-num text-body-sm font-semibold tabular-nums", up ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
+                      <span aria-hidden="true">{up ? "▲" : "▼"}&nbsp;</span>
+                      {formatPct(s.changePercent, { signed: true })}
+                    </span>
+                  </td>
+                  {showSpark ? (
+                    <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
+                      <div className="flex justify-center">
+                        <MiniChart symbol={s.symbol} width={72} height={24} />
+                      </div>
+                    </td>
+                  ) : null}
+                  <td className={cn("px-4 text-right font-num tabular-nums text-muted-foreground", d.cell)}>{s.volume > 0 ? formatCompactIN(s.volume) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollRegion>
+      </DataState>
+    </Card>
+  );
+}
+
+export default TopMovers;

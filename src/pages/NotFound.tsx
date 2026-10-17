@@ -1,56 +1,121 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Home, SearchX } from "lucide-react";
+import { routeIcon } from "@/lib/routeIcons";
 import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft, SearchX } from "lucide-react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { log } from "@/lib/log";
+import { findRoute, LEGACY_REDIRECTS, normalizePathname, ROUTES, suggestRoutes, type RouteDef } from "@/lib/routes";
+
+const POPULAR_PATHS = ["/", "/option-chain", "/strategy-builder"];
+
+function RouteLink({ route, primary }: { route: RouteDef; primary?: boolean }) {
+  const Icon = routeIcon(route.icon);
+  return (
+    <li>
+      <Link
+        to={route.path}
+        className={
+          "group flex items-center gap-3 rounded-tile border px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+          (primary
+            ? "border-primary/40 bg-wash-brand/50 hover:bg-wash-brand"
+            : "border-border bg-card hover:border-primary/40 hover:bg-surface")
+        }
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface text-primary-ink">
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-foreground">{route.title}</span>
+          {route.description && <span className="block truncate text-xs text-muted-foreground">{route.description}</span>}
+        </span>
+        <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{route.path}</span>
+        <ArrowRight
+          className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+          aria-hidden
+        />
+      </Link>
+    </li>
+  );
+}
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  useDocumentTitle("Page not found");
+
+  const path = normalizePathname(location.pathname);
+  const suggestions = useMemo(() => suggestRoutes(location.pathname, { limit: 3 }), [location.pathname]);
+  const fallback = useMemo(
+    () => POPULAR_PATHS.map((p) => findRoute(p)).filter((r): r is RouteDef => Boolean(r)),
+    [],
+  );
+  const best = suggestions[0];
+  const hasLegacy = Boolean(LEGACY_REDIRECTS[path]);
+  // history.length counts entries from other sites too. React Router's browser history stores its own
+  // index in history.state.idx, which is 0 for the first in-app entry (direct load or external link).
+  const canGoBack = typeof window !== "undefined" && ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
+    log.info("404: no route for path", { path: location.pathname, suggestion: best?.path ?? null });
+  }, [location.pathname, best]);
+
+  const list = suggestions.length > 0 ? suggestions : fallback;
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center relative overflow-hidden">
-      {/* Background Ornaments */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
-      <div className="absolute top-[30%] left-[40%] w-32 h-32 bg-primary/10 rounded-full blur-[40px] animate-pulse -z-10 pointer-events-none" />
-
-      <div className="text-center space-y-8 max-w-md mx-auto px-6 animate-in slide-in-from-bottom-4 fade-in duration-700 relative z-10">
-        
-        {/* Animated Icon & 404 text */}
-        <div className="relative group cursor-default">
-          <div className="absolute inset-0 bg-primary/10 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          <h1 className="text-[140px] font-black leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-foreground/80 via-muted-foreground/30 to-muted-foreground/5 select-none animate-float">
-            404
-          </h1>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-20 w-20 rounded-2xl bg-background/50 backdrop-blur-md border border-primary/30 flex items-center justify-center shadow-[0_0_30px_rgba(0,183,211,0.2)] group-hover:shadow-[0_0_50px_rgba(0,183,211,0.4)] transition-all duration-500 hover:scale-110">
-              <SearchX className="h-10 w-10 text-primary" />
-            </div>
-          </div>
+    // Rendered inside DashboardLayout's <main id="main">, so this is a plain block.
+    <div className="flex min-h-[60svh] items-center justify-center px-1 py-8 text-foreground sm:py-12">
+      <div className="mx-auto w-full max-w-xl">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border border-border bg-card shadow-card">
+            <SearchX className="h-5 w-5 text-primary-ink" aria-hidden />
+          </span>
+          <p className="font-num text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Error 404</p>
         </div>
 
-        {/* Message */}
-        <div className="space-y-3">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Out of Bounds</h2>
-          <p className="text-[15px] text-muted-foreground leading-relaxed max-w-sm mx-auto">
-            The endpoint <code className="bg-primary/10 border border-primary/20 px-2 py-0.5 rounded text-[13px] font-mono text-primary shadow-sm">{location.pathname}</code> could not be located in the terminal registry.
-          </p>
-        </div>
+        <h1 className="font-display text-display text-foreground">Page not found</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          There is no page at{" "}
+          <code className="break-all rounded-chip border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-foreground">
+            {location.pathname}
+          </code>
+          .{" "}
+          {best
+            ? hasLegacy
+              ? `It has moved to ${best.title}.`
+              : `Did you mean ${best.title}?`
+            : "It may have been moved or the link may be wrong."}
+        </p>
 
-        {/* Quick Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-          <Button onClick={() => navigate(-1)} variant="outline" className="gap-2 h-10 px-5 hover:text-primary hover:border-primary/50 transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            Go Back
+        <section aria-labelledby="nf-suggestions" className="mt-6">
+          <h2 id="nf-suggestions" className="mb-2 text-label uppercase text-muted-foreground">
+            {suggestions.length > 0 ? "Closest matches" : "Popular pages"}
+          </h2>
+          <ul className="space-y-2">
+            {list.map((r, i) => (
+              <RouteLink key={r.path} route={r} primary={i === 0 && suggestions.length > 0} />
+            ))}
+          </ul>
+        </section>
+
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          {canGoBack && (
+            <Button type="button" variant="outline" className="gap-2" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Go back
+            </Button>
+          )}
+          <Button asChild className="gap-2">
+            <Link to="/">
+              <Home className="h-4 w-4" aria-hidden /> Back to home
+            </Link>
           </Button>
-          <Button onClick={() => navigate("/")} className="gap-2 h-10 px-5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(0,183,211,0.3)] hover:shadow-[0_0_30px_rgba(0,183,211,0.5)] transition-all">
-            <Home className="h-4 w-4" />
-            Dashboard
-          </Button>
         </div>
+
+        <p className="mt-8 text-xs text-muted-foreground">
+          {ROUTES.filter((r) => !r.hidden).length} pages available. Press{" "}
+          <kbd className="rounded-chip border border-border bg-surface px-1 font-mono text-[11px]">g</kbd> then a letter to jump
+          between pages once you are back in the terminal.
+        </p>
       </div>
     </div>
   );

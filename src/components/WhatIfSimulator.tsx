@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
@@ -7,112 +7,124 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sliders, Clock, Percent, Activity } from "lucide-react";
 import type { Position } from "@/lib/mockData";
 import { getSpotPrice } from "@/lib/positionStore";
+import {
+  black76Price,
+  formatDateIST,
+  formatINR,
+  formatPct,
+  forwardFromSpot,
+  getExpiries,
+  getMarketParams,
+  impliedVol76,
+  intrinsic,
+  normalizeExpiry,
+  timeToExpiryYears,
+} from "@/lib/options";
 
 interface Props {
   positions: Position[];
+  /** Optional live spot per symbol; falls back to the stored reference spot. */
+  spots?: Record<string, number>;
 }
 
-// Simplified BS for what-if
-function bsPrice(S: number, K: number, T: number, sigma: number, type: "CE" | "PE"): number {
-  if (T <= 0) return type === "CE" ? Math.max(S - K, 0) : Math.max(K - S, 0);
-  const r = 0.065;
-  const d1 = (Math.log(S / K) + (r + sigma * sigma / 2) * T) / (sigma * Math.sqrt(T));
-  const d2 = d1 - sigma * Math.sqrt(T);
-  const nd1 = normCDF(d1);
-  const nd2 = normCDF(d2);
-  if (type === "CE") return S * nd1 - K * Math.exp(-r * T) * nd2;
-  return K * Math.exp(-r * T) * normCDF(-d2) - S * normCDF(-d1);
+interface Prepared {
+  pos: Position;
+  spot: number;
+  expiry: string;
+  /** Decimal IV solved from the current price, else the stored IV. */
+  iv: number;
+  ivSolved: boolean;
 }
 
-function normCDF(x: number): number {
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
-  const p = 0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  const ax = Math.abs(x) / Math.sqrt(2);
-  const t = 1.0 / (1.0 + p * ax);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
-  return 0.5 * (1.0 + sign * y);
-}
+const PRESETS = [
+  { label: "Budget day", spot: 0, iv: 5, days: 0 },
+  { label: "Election result", spot: 3, iv: 8, days: 0 },
+  { label: "RBI policy", spot: -1, iv: 2, days: 0 },
+  { label: "Sharp sell-off", spot: -5, iv: 8, days: 0 },
+  { label: "Theta decay", spot: 0, iv: -2, days: 3 },
+  { label: "IV crush", spot: 0, iv: -5, days: 1 },
+] as const;
 
-// Derive the dominant underlying from positions
-function deriveBaseSpot(positions: Position[]): number {
-  if (positions.length === 0) return getSpotPrice("NIFTY");
+/**
+ * What-if scenarios for open positions: shift every underlying's spot by a percentage, shift IV and
+ * move the clock forward. Each position uses its own symbol's spot, its own expiry and an IV solved
+ * from its current price (Black-76). A thin wrapper over @/lib/options.
+ */
+export function WhatIfSimulator({ positions, spots }: Props) {
+  const [spotChange, setSpotChange] = useState(0); // %
+  const [ivChange, setIvChange] = useState(0); // vol points
+  const [daysForward, setDaysForward] = useState(0); // calendar days
 
-  // Count occurrences of each symbol
-  const counts: Record<string, number> = {};
-  for (const p of positions) {
-    counts[p.symbol] = (counts[p.symbol] || 0) + 1;
-  }
+  const now = useMemo(() => new Date(), []);
+  const { r } = getMarketParams();
 
-  // Pick the most common symbol
-  const topSymbol = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-  return getSpotPrice(topSymbol);
-}
+  const prepared = useMemo<Prepared[]>(
+    () =>
+      positions.map((pos) => {
+        const spot = spots?.[pos.symbol] && spots[pos.symbol] > 0 ? spots[pos.symbol] : getSpotPrice(pos.symbol);
+        const expiry = normalizeExpiry(pos.expiry || "") || getExpiries(pos.symbol, now, 1)[0]?.date || "";
+        const T = timeToExpiryYears(expiry, now);
+        const fallback = pos.iv > 0 ? pos.iv / 100 : 0.15;
+        let iv = fallback;
+        let ivSolved = false;
+        if (T > 0 && pos.currentPrice > 0 && spot > 0) {
+          const solved = impliedVol76(pos.currentPrice, { F: forwardFromSpot(spot, T, r), K: pos.strike, T, r, type: pos.type });
+          if (Number.isFinite(solved)) {
+            iv = solved;
+            ivSolved = true;
+          }
+        }
+        return { pos, spot, expiry, iv, ivSolved };
+      }),
+    [positions, spots, now, r],
+  );
 
-// Derive DTE from expiry strings
-function deriveDTE(positions: Position[]): number {
-  if (positions.length === 0) return 7;
-
-  // Try to parse the nearest expiry
-  for (const p of positions) {
-    if (p.expiry) {
-      // Try parsing "27 Mar", "27 Mar 2026", etc.
-      const parsed = new Date(p.expiry + (p.expiry.match(/\d{4}/) ? "" : " 2026"));
-      if (!isNaN(parsed.getTime())) {
-        const days = Math.max(0, Math.ceil((parsed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-        if (days > 0 && days < 90) return days;
-      }
-    }
-  }
-
-  return 7; // default
-}
-
-export function WhatIfSimulator({ positions }: Props) {
-  const [spotChange, setSpotChange] = useState(0); // % change
-  const [ivChange, setIvChange] = useState(0); // absolute % change
-  const [daysForward, setDaysForward] = useState(0); // days forward
-
-  const baseSpot = useMemo(() => deriveBaseSpot(positions), [positions]);
-  const baseDTE = useMemo(() => deriveDTE(positions), [positions]);
+  const maxDays = useMemo(() => {
+    const ds = prepared.map((p) => Math.ceil((timeToExpiryYears(p.expiry, now) || 0) * 365)).filter((d) => d > 0);
+    return Math.max(1, ...ds);
+  }, [prepared, now]);
 
   const simulation = useMemo(() => {
-    const newSpot = baseSpot * (1 + spotChange / 100);
-    const newDTE = Math.max(0, baseDTE - daysForward);
-    const T = newDTE / 365;
-
-    return positions.map(pos => {
-      const baseIV = (pos.iv || 14) / 100;
-      const newIV = baseIV + ivChange / 100;
-      const newPrice = bsPrice(newSpot, pos.strike, T, Math.max(0.01, newIV), pos.type);
-      const mult = (pos.action === "BUY" ? 1 : -1) * pos.lots * pos.lotSize;
-      const newPnl = (newPrice - pos.entryPrice) * mult;
-      const pnlChange = newPnl - pos.pnl;
-
+    const at = new Date(now.getTime() + daysForward * 864e5);
+    return prepared.map(({ pos, spot, expiry, iv, ivSolved }) => {
+      const S = spot * (1 + spotChange / 100);
+      const T = timeToExpiryYears(expiry, at);
+      const sigma = Math.max(iv + ivChange / 100, 0.01);
+      const simPrice = T > 0 ? black76Price({ F: forwardFromSpot(S, T, r), K: pos.strike, T, r, sigma, type: pos.type }) : intrinsic(S, pos.strike, pos.type);
+      const sign = pos.action === "BUY" ? 1 : -1;
+      const qty = pos.lots * pos.lotSize;
+      const simPnl = (simPrice - pos.entryPrice) * sign * qty;
+      const currentPnl = (pos.currentPrice - pos.entryPrice) * sign * qty;
       return {
-        ...pos,
-        simPrice: Math.round(newPrice * 100) / 100,
-        simPnl: Math.round(newPnl),
-        pnlChange: Math.round(pnlChange),
-        simPnlPct: pos.entryPrice > 0 ? Math.round(((newPrice - pos.entryPrice) / pos.entryPrice) * 10000) / 100 : 0,
+        pos,
+        expiry,
+        ivSolved,
+        iv,
+        simPrice,
+        simPnl,
+        currentPnl,
+        pnlChange: simPnl - currentPnl,
+        // Signed: a short position that falls in price shows a positive %.
+        simPnlPct: pos.entryPrice > 0 ? ((simPrice - pos.entryPrice) / pos.entryPrice) * sign * 100 : NaN,
       };
     });
-  }, [positions, spotChange, ivChange, daysForward, baseSpot, baseDTE]);
+  }, [prepared, spotChange, ivChange, daysForward, now, r]);
 
-  const totalSimPnl = simulation.reduce((s, p) => s + p.simPnl, 0);
-  const totalCurrentPnl = positions.reduce((s, p) => s + p.pnl, 0);
-  const totalPnlChange = totalSimPnl - totalCurrentPnl;
+  const totalSim = simulation.reduce((s, p) => s + p.simPnl, 0);
+  const totalCurrent = simulation.reduce((s, p) => s + p.currentPnl, 0);
+  const totalChange = totalSim - totalCurrent;
+  const symbols = Array.from(new Set(prepared.map((p) => p.pos.symbol)));
 
   if (positions.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Sliders className="h-4 w-4 text-primary-ink" /> What-if scenarios
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-6">Add positions to use the What-If simulator.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">Add positions to run what-if scenarios.</p>
         </CardContent>
       </Card>
     );
@@ -121,157 +133,121 @@ export function WhatIfSimulator({ positions }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Sliders className="h-4 w-4 text-primary" /> What-If Scenario Simulator
-          <Badge variant="outline" className="text-[11px] font-mono">Base: {baseSpot.toLocaleString("en-IN")} | {baseDTE} DTE</Badge>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
+          <Sliders className="h-4 w-4 text-primary-ink" /> What-if scenarios
+          {symbols.slice(0, 4).map((s) => (
+            <Badge key={s} variant="neutral" className="font-num">
+              {s} {prepared.find((p) => p.pos.symbol === s)?.spot.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+            </Badge>
+          ))}
+          {!spots && <Badge variant="warning" title="Reference spot from the position store, not a live quote">Reference spot</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Quick Scenario Presets */}
-        <div className="flex flex-wrap gap-1.5">
-          <span className="text-[11px] text-muted-foreground self-center mr-1">Presets:</span>
-          {[
-            { label: "📊 Budget Day", spot: 0, iv: 5, days: 0 },
-            { label: "🗳️ Election", spot: 3, iv: 8, days: 0 },
-            { label: "🏦 RBI Policy", spot: -1, iv: 2, days: 0 },
-            { label: "🦢 Black Swan", spot: -5, iv: 8, days: 0 },
-            { label: "⏰ Theta Decay", spot: 0, iv: -2, days: 3 },
-            { label: "📈 Expiry Day", spot: 0, iv: -5, days: Math.max(baseDTE - 1, 0) },
-            { label: "↩️ Reset", spot: 0, iv: 0, days: 0 },
-          ].map(preset => (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Scenario presets">
+          {PRESETS.map((p) => (
             <button
-              key={preset.label}
-              className="text-[11px] px-2 py-1 rounded-md bg-accent/50 hover:bg-accent border border-transparent hover:border-border/50 transition-all duration-150 font-medium"
-              onClick={() => { setSpotChange(preset.spot); setIvChange(preset.iv); setDaysForward(preset.days); }}
+              key={p.label}
+              type="button"
+              className="rounded-chip border border-border bg-card px-2 py-1 text-[11px] font-medium transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:shadow-ember"
+              onClick={() => {
+                setSpotChange(p.spot);
+                setIvChange(p.iv);
+                setDaysForward(Math.min(p.days, maxDays));
+              }}
             >
-              {preset.label}
+              {p.label}
             </button>
+          ))}
+          <button
+            type="button"
+            className="rounded-chip px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setSpotChange(0);
+              setIvChange(0);
+              setDaysForward(0);
+            }}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 rounded-tile bg-surface p-3 md:grid-cols-3">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1 text-xs"><Activity className="h-3 w-3" /> Spot change</Label>
+              <Badge variant="outline" className={`font-num ${spotChange > 0 ? "text-bullish" : spotChange < 0 ? "text-bearish" : ""}`}>{formatPct(spotChange, { decimals: 2, signed: true })}</Badge>
+            </div>
+            <Slider value={[spotChange]} onValueChange={([v]) => setSpotChange(v)} min={-10} max={10} step={0.25} aria-label="Spot change percent" />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1 text-xs"><Percent className="h-3 w-3" /> IV change</Label>
+              <Badge variant="outline" className="font-num">{ivChange >= 0 ? "+" : "−"}{Math.abs(ivChange)} pts</Badge>
+            </div>
+            <Slider value={[ivChange]} onValueChange={([v]) => setIvChange(v)} min={-10} max={10} step={0.5} aria-label="IV change in vol points" />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1 text-xs"><Clock className="h-3 w-3" /> Days forward</Label>
+              <Badge variant="outline" className="font-num">T+{daysForward}d</Badge>
+            </div>
+            <Slider value={[daysForward]} onValueChange={([v]) => setDaysForward(v)} min={0} max={maxDays} step={1} aria-label="Days forward" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Current P&L", v: totalCurrent },
+            { label: "Simulated P&L", v: totalSim },
+            { label: "Change", v: totalChange },
+          ].map((x) => (
+            <div key={x.label} className={`rounded-tile p-2.5 text-center ${x.v >= 0 ? "bg-wash-profit/40" : "bg-wash-loss/40"}`}>
+              <p className="text-[11px] text-muted-foreground">{x.label}</p>
+              <p className={`font-num text-base font-bold ${x.v >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(x.v, { decimals: 0 })}</p>
+            </div>
           ))}
         </div>
 
-        {/* Sliders */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3 rounded-lg bg-accent/30">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
-                <Activity className="h-3 w-3" /> Spot Change
-              </Label>
-              <Badge variant="outline" className={`text-xs font-mono ${spotChange > 0 ? "text-bullish" : spotChange < 0 ? "text-bearish" : ""}`}>
-                {spotChange >= 0 ? "+" : ""}{spotChange.toFixed(1)}%
-              </Badge>
-            </div>
-            <Slider
-              value={[spotChange]}
-              onValueChange={([v]) => setSpotChange(v)}
-              min={-5}
-              max={5}
-              step={0.25}
-            />
-            <p className="text-[11px] text-muted-foreground font-mono text-center">
-              {baseSpot.toLocaleString("en-IN")} → {(baseSpot * (1 + spotChange / 100)).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
-                <Percent className="h-3 w-3" /> IV Change
-              </Label>
-              <Badge variant="outline" className={`text-xs font-mono ${ivChange > 0 ? "text-bearish" : ivChange < 0 ? "text-bullish" : ""}`}>
-                {ivChange >= 0 ? "+" : ""}{ivChange}%
-              </Badge>
-            </div>
-            <Slider
-              value={[ivChange]}
-              onValueChange={([v]) => setIvChange(v)}
-              min={-8}
-              max={8}
-              step={0.5}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Days Forward
-              </Label>
-              <Badge variant="outline" className="text-xs font-mono">
-                T+{daysForward}d
-              </Badge>
-            </div>
-            <Slider
-              value={[daysForward]}
-              onValueChange={([v]) => setDaysForward(v)}
-              min={0}
-              max={Math.max(baseDTE, 1)}
-              step={1}
-            />
-            <p className="text-[11px] text-muted-foreground font-mono text-center">
-              {Math.max(0, baseDTE - daysForward)} DTE remaining
-            </p>
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className={`p-3 rounded-md text-center ${totalCurrentPnl >= 0 ? "bg-bullish/5" : "bg-bearish/5"}`}>
-            <p className="text-[11px] text-muted-foreground">Current P&L</p>
-            <p className={`text-lg font-bold font-mono ${totalCurrentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-              ₹{totalCurrentPnl.toLocaleString("en-IN")}
-            </p>
-          </div>
-          <div className={`p-3 rounded-md text-center ${totalSimPnl >= 0 ? "bg-bullish/5" : "bg-bearish/5"}`}>
-            <p className="text-[11px] text-muted-foreground">Simulated P&L</p>
-            <p className={`text-lg font-bold font-mono ${totalSimPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-              ₹{totalSimPnl.toLocaleString("en-IN")}
-            </p>
-          </div>
-          <div className={`p-3 rounded-md text-center ${totalPnlChange >= 0 ? "bg-bullish/10" : "bg-bearish/10"}`}>
-            <p className="text-[11px] text-muted-foreground">P&L Impact</p>
-            <p className={`text-lg font-bold font-mono ${totalPnlChange >= 0 ? "text-bullish" : "text-bearish"}`}>
-              {totalPnlChange >= 0 ? "+" : ""}₹{totalPnlChange.toLocaleString("en-IN")}
-            </p>
-          </div>
-        </div>
-
-        {/* Per-Position Table */}
-        <Table>
-          <TableHeader>
-            <TableRow className="text-xs">
-              <TableHead>Position</TableHead>
-              <TableHead className="text-right">Entry</TableHead>
-              <TableHead className="text-right">Current</TableHead>
-              <TableHead className="text-right">Sim Price</TableHead>
-              <TableHead className="text-right">Current P&L</TableHead>
-              <TableHead className="text-right">Sim P&L</TableHead>
-              <TableHead className="text-right">Impact</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {simulation.map(pos => (
-              <TableRow key={pos.id} className="text-[11px] font-mono">
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={pos.action === "BUY" ? "default" : "destructive"} className="text-xs h-3.5 px-1">{pos.action}</Badge>
-                    <span className="font-sans text-xs">{pos.symbol} {pos.strike} {pos.type}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">₹{pos.entryPrice}</TableCell>
-                <TableCell className="text-right">₹{pos.currentPrice}</TableCell>
-                <TableCell className="text-right font-medium">₹{pos.simPrice}</TableCell>
-                <TableCell className={`text-right ${pos.pnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                  ₹{pos.pnl.toLocaleString("en-IN")}
-                </TableCell>
-                <TableCell className={`text-right font-medium ${pos.simPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-                  ₹{pos.simPnl.toLocaleString("en-IN")}
-                </TableCell>
-                <TableCell className={`text-right ${pos.pnlChange >= 0 ? "text-bullish" : "text-bearish"}`}>
-                  {pos.pnlChange >= 0 ? "+" : ""}₹{pos.pnlChange.toLocaleString("en-IN")}
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow className="text-xs">
+                <TableHead>Position</TableHead>
+                <TableHead className="text-right">Entry</TableHead>
+                <TableHead className="text-right">Current</TableHead>
+                <TableHead className="text-right">IV</TableHead>
+                <TableHead className="text-right">Sim price</TableHead>
+                <TableHead className="text-right">Sim P&L</TableHead>
+                <TableHead className="text-right">Sim %</TableHead>
+                <TableHead className="text-right">Change</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {simulation.map((s) => (
+                <TableRow key={s.pos.id} className="font-num text-[11px]">
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant={s.pos.action === "BUY" ? "bullish" : "bearish"}>{s.pos.action}</Badge>
+                      <span className="font-sans text-xs">{s.pos.symbol} {s.pos.strike} {s.pos.type}</span>
+                      <span className="text-[10px] text-muted-foreground">{s.expiry ? formatDateIST(s.expiry) : "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">{s.pos.entryPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{s.pos.currentPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right" title={s.ivSolved ? "Solved from the current price" : "Stored IV (could not solve from price)"}>
+                    {(s.iv * 100).toFixed(1)}%{s.ivSolved ? "" : "*"}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{s.simPrice.toFixed(2)}</TableCell>
+                  <TableCell className={`text-right font-medium ${s.simPnl >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(s.simPnl, { decimals: 0 })}</TableCell>
+                  <TableCell className={`text-right ${s.simPnlPct >= 0 ? "text-bullish" : "text-bearish"}`}>{formatPct(s.simPnlPct, { decimals: 1, signed: true })}</TableCell>
+                  <TableCell className={`text-right ${s.pnlChange >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(s.pnlChange, { decimals: 0 })}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Black-76 model prices with each position's own expiry (15:30 IST) and IV solved from its current price. * stored IV used. Data for education and research. Not investment advice.</p>
       </CardContent>
     </Card>
   );

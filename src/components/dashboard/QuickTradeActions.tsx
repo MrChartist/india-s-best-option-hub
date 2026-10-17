@@ -1,62 +1,38 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { TableProperties, BarChart3, Star, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BarChart3, CalendarClock, Filter, Layers, Star, TableProperties, type LucideIcon } from "lucide-react";
 
-const actions = [
-  {
-    label: "Option Chain",
-    icon: TableProperties,
-    path: "/option-chain",
-    desc: "NIFTY / BNIFTY chain",
-    accent: "text-primary border-primary/20 bg-primary/[0.045] hover:border-primary/35",
-  },
-  {
-    label: "OI Analysis",
-    icon: BarChart3,
-    path: "/oi-analysis",
-    desc: "Call/Put OI trends",
-    accent: "text-bullish border-bullish/20 bg-bullish/[0.045] hover:border-bullish/35",
-  },
-  {
-    label: "Watchlist",
-    icon: Star,
-    path: "/watchlist",
-    desc: "Track your scripts",
-    accent: "text-warning border-warning/20 bg-warning/[0.045] hover:border-warning/35",
-  },
-  {
-    label: "Broker API",
-    icon: Settings,
-    path: "/broker-settings",
-    desc: "Connect your broker",
-    accent: "text-primary border-border bg-card hover:border-primary/25",
-  },
+const actions: ReadonlyArray<{ label: string; to: string; icon: LucideIcon }> = [
+  { label: "Option chain", to: "/option-chain", icon: TableProperties },
+  { label: "OI analysis", to: "/oi-analysis", icon: BarChart3 },
+  { label: "Strategy builder", to: "/strategy-builder", icon: Layers },
+  { label: "Expiry day", to: "/expiry-day", icon: CalendarClock },
+  { label: "Screener", to: "/screener", icon: Filter },
+  { label: "Watchlist", to: "/watchlist", icon: Star },
 ];
 
+/** Shortcut chips to the most used tools. */
 export function QuickTradeActions() {
-  const navigate = useNavigate();
-
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {actions.map((a) => (
-        <Card
-          key={a.path}
-          className={`group relative min-h-[106px] cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover ${a.accent}`}
-          onClick={() => navigate(a.path)}
-        >
-          <CardContent className="relative z-10 flex h-full flex-col items-center justify-center gap-2.5 p-4 text-center">
-            <div className="rounded-lg border border-border/60 bg-background/45 p-2 transition-colors duration-200 group-hover:border-current/25">
-              <a.icon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[15px] font-bold leading-tight">{a.label}</p>
-              <p className="mt-1 hidden text-[11px] font-semibold uppercase leading-tight tracking-[0.04em] text-muted-foreground sm:block">
-                {a.desc}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    // Right-edge fade and snap scrolling on narrow screens show that more chips are off screen.
+    <nav
+      aria-label="Quick links"
+      className="-mx-1 snap-x snap-mandatory overflow-x-auto scroll-px-1 px-1 pb-0.5 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]"
+    >
+      <ul className="flex w-max gap-1.5 pr-6 sm:pr-0">
+        {actions.map((a) => (
+          <li key={a.to} className="snap-start">
+            <Link
+              to={a.to}
+              className="inline-flex h-7 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-wash-brand/50 focus-visible:shadow-ember focus-visible:outline-none"
+            >
+              <a.icon className="h-3.5 w-3.5 text-primary-ink" aria-hidden="true" />
+              {a.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
+
+export default QuickTradeActions;

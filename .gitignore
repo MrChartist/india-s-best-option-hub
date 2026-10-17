@@ -44,3 +44,10 @@ coverage/
 .gemini/
 .agents/
 _agents/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Server snapshot recorder output (proxy-server.mjs)
+data/
