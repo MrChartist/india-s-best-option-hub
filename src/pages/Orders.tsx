@@ -8,8 +8,23 @@ import { ListOrdered, Loader2, RefreshCw, X } from "lucide-react";
 import { fetchOrders, cancelOrder } from "@/lib/marketApi";
 import { isLiveTradingEnabled } from "@/lib/brokerConfig";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 const CANCELLABLE_STATUSES = new Set(["PENDING", "TRANSIT"]);
+
+/** The Dhan order-book fields this page reads (Dhan's own response shape, read defensively). */
+interface DhanOrderRow {
+  orderId?: string;
+  orderStatus?: string;
+  tradingSymbol?: string;
+  securityId?: string;
+  transactionType?: string;
+  quantity?: number;
+  price?: number;
+  createTime?: string;
+  exchangeTime?: string;
+}
 
 const STATUS_COLOR: Record<string, string> = {
   TRADED: "text-bullish border-bullish/40",
@@ -25,6 +40,7 @@ const STATUS_COLOR: Record<string, string> = {
 // (optional chaining, "—" fallbacks) since this reflects Dhan's own response
 // shape rather than something this app normalizes.
 export default function Orders() {
+  useDocumentTitle("Orders");
   const queryClient = useQueryClient();
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const liveOn = isLiveTradingEnabled();
@@ -34,6 +50,8 @@ export default function Orders() {
     queryFn: fetchOrders,
     refetchInterval: 15000,
     retry: 1,
+    // With Live Trading off no real orders exist, so there is nothing to poll for.
+    enabled: liveOn,
   });
 
   const handleCancel = async (orderId: string) => {
@@ -49,26 +67,28 @@ export default function Orders() {
     }
   };
 
-  const rows = Array.isArray(orders) ? orders : [];
+  const rows = (Array.isArray(orders) ? orders : []) as DhanOrderRow[];
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <ListOrdered className="h-5 w-5 text-primary" /> Orders
-            {liveOn ? (
-              <Badge variant="outline" className="text-xs h-5 border-bearish/40 text-bearish">LIVE TRADING ON</Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs h-5 border-muted-foreground/40 text-muted-foreground">Live Trading Off</Badge>
-            )}
-          </h1>
-          <p className="text-sm text-muted-foreground">Today's Dhan order book · real orders only, not paper positions</p>
-        </div>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => queryClient.invalidateQueries({ queryKey: ["dhan-orders"] })}>
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </Button>
-      </div>
+    <div className="mx-auto w-full max-w-[1400px] space-y-4">
+      <PageHeader
+        icon={ListOrdered}
+        eyebrow="Trade"
+        title="Orders"
+        description="Today's Dhan order book. Real orders only, not paper positions."
+        source={
+          liveOn ? (
+            <Badge variant="outline" className="h-5 text-xs border-bearish/40 text-bearish">Live trading on</Badge>
+          ) : (
+            <Badge variant="outline" className="h-5 text-xs">Live trading off</Badge>
+          )
+        }
+        actions={
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => queryClient.invalidateQueries({ queryKey: ["dhan-orders"] })}>
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Refresh
+          </Button>
+        }
+      />
 
       {!liveOn && (
         <Card className="border-warning/30 bg-warning/5">
@@ -80,7 +100,7 @@ export default function Orders() {
 
       <Card>
         <CardContent className="p-0 overflow-auto">
-          {isLoading ? (
+          {liveOn && isLoading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading orders...</span>
@@ -104,15 +124,15 @@ export default function Orders() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((o: any) => {
+                {rows.map((o, i) => {
                   const status = o?.orderStatus || "—";
                   return (
-                    <TableRow key={o?.orderId} className="text-xs font-mono">
+                    <TableRow key={o?.orderId ?? i} className="text-xs font-mono">
                       <TableCell>{o?.orderId || "—"}</TableCell>
                       <TableCell className="font-sans">{o?.tradingSymbol || o?.securityId || "—"}</TableCell>
                       <TableCell className={o?.transactionType === "BUY" ? "text-bullish" : "text-bearish"}>{o?.transactionType || "—"}</TableCell>
                       <TableCell className="text-right">{o?.quantity ?? "—"}</TableCell>
-                      <TableCell className="text-right">{Number.isFinite(o?.price) ? o.price.toFixed(2) : "—"}</TableCell>
+                      <TableCell className="text-right">{typeof o?.price === "number" && Number.isFinite(o.price) ? o.price.toFixed(2) : "—"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`text-xs ${STATUS_COLOR[status] || ""}`}>{status}</Badge>
                       </TableCell>
@@ -122,10 +142,11 @@ export default function Orders() {
                           <Button
                             variant="ghost" size="icon" className="h-6 w-6 text-destructive"
                             disabled={cancellingId === o?.orderId}
-                            onClick={() => handleCancel(o.orderId)}
+                            onClick={() => o.orderId && handleCancel(o.orderId)}
                             title="Cancel order"
+                            aria-label={`Cancel order ${o?.orderId ?? ""}`}
                           >
-                            <X className="h-3 w-3" />
+                            <X className="h-3 w-3" aria-hidden />
                           </Button>
                         )}
                       </TableCell>

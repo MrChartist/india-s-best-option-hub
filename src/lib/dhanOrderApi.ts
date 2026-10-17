@@ -8,24 +8,16 @@
  * `import { placeOrder, fetchOrders, cancelOrder } from "@/lib/marketApi"`
  * keeps working unchanged.
  *
- * PROXY_BASE/dhanCredHeaders are redefined here rather than imported from
- * marketApi.ts (module-private there) — the same duplication precedent
- * dhanProxyClient.ts already established elsewhere in this build.
+ * The proxy base URL and Dhan credential headers come from src/lib/api/proxyClient.ts (shared with
+ * every other proxy call); the reachability gate is deliberately not applied to order calls.
  */
 
-import { getActiveBroker } from "./brokerConfig";
+import { PROXY_BASE, SAMPLE_DATA_MODE, dhanHeaders } from "./api/proxyClient";
 import { tokenSessionId, type LiveArmToken } from "./liveArm";
 
-const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
-
 function dhanCredHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
-  }
-  return headers;
+  if (SAMPLE_DATA_MODE) throw new Error("Sample data mode: the trading proxy is disabled");
+  return dhanHeaders();
 }
 
 export interface PlaceOrderParams {

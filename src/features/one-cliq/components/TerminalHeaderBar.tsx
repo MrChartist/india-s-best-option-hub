@@ -3,7 +3,15 @@ import { Link } from "react-router-dom";
 import { Settings2, Keyboard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getActiveBroker } from "@/lib/brokerConfig";
+import { getActiveBroker, getBrokerInfo } from "@/lib/brokerConfig";
+
+/** Broker name plus a masked client id, so the trader can see which account the terminal uses. */
+function brokerLabel(brokerId: string, values: Record<string, string>): string {
+  const name = getBrokerInfo(brokerId)?.name ?? brokerId;
+  const id = values.clientId || values.userId || "";
+  if (!id) return name;
+  return `${name} (${id.length > 4 ? `${id.slice(0, 2)}****${id.slice(-2)}` : id})`;
+}
 
 interface Props {
   feedConnected: boolean;
@@ -34,8 +42,7 @@ export function TerminalHeaderBar({ feedConnected, onShowHelp }: Props) {
 
       {broker ? (
         <Badge variant="outline" className="h-6 font-normal">
-          {/* label already carries a masked client id — see brokerConfig */}
-          {broker.label || broker.brokerId}
+          {brokerLabel(broker.brokerId, broker.values)}
         </Badge>
       ) : (
         <Badge variant="outline" className="h-6 font-normal border-warning/40 text-warning">

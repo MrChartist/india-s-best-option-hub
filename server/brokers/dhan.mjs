@@ -32,11 +32,13 @@ export const UNDERLYING_MAP = {
 };
 
 export async function dhanFetch(path, body, method = "POST", customClientId, customAccessToken) {
-  const clientId = customClientId || process.env.DHAN_CLIENT_ID;
-  const accessToken = customAccessToken || process.env.DHAN_ACCESS_TOKEN;
+  // No implicit .env fallback here: proxy-server.mjs decides when the .env keys may be used
+  // (browser or loopback callers only, see mayUseEnvCreds) and passes them explicitly.
+  const clientId = customClientId;
+  const accessToken = customAccessToken;
 
   if (!clientId || !accessToken) {
-    throw new Error("DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.");
+    throw new Error("Dhan credentials not configured (Broker settings or .env).");
   }
 
   const url = `${DHAN_BASE}${path}`;

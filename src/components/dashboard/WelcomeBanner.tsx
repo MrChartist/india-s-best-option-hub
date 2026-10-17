@@ -1,44 +1,86 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Zap, TrendingUp, ArrowRight, BarChart2 } from "lucide-react";
+/**
+ * One-line, dismissible context notice: IST session and the next change, the next weekly
+ * expiries (NIFTY Tuesday, SENSEX Thursday) and the India VIX regime.
+ */
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { CalendarClock, Info, X } from "lucide-react";
+import { useAllIndices } from "@/hooks/useMarketData";
+import { dteLabel, formatDateIST, formatNumberIN, getExpiries, getMarketSession, nextSessionChange, type MarketSession } from "@/lib/options";
+import { TONE_TEXT, vixRegime } from "./dashboardModel";
+import { useNow } from "./useNow";
 
-export function WelcomeBanner() {
-  const navigate = useNavigate();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+const SESSION_TEXT: Record<MarketSession, string> = {
+  "pre-open": "Pre-open session",
+  open: "Market open",
+  closing: "Closing session",
+  closed: "Market closed",
+  holiday: "Exchange holiday",
+  weekend: "Weekend",
+};
+
+interface Props {
+  onDismiss: () => void;
+}
+
+export function WelcomeBanner({ onDismiss }: Props) {
+  const now = useNow(60_000);
+  const { data } = useAllIndices();
+  const vix = data?.vix?.value ?? null;
+  const regime = vixRegime(vix);
+
+  const ctx = useMemo(() => {
+    const session = getMarketSession(now);
+    const next = nextSessionChange(now);
+    const nifty = getExpiries("NIFTY", now, 1)[0];
+    const sensex = getExpiries("SENSEX", now, 1)[0];
+    return { session, next, nifty, sensex };
+  }, [now]);
+
+  const open = ctx.session === "open";
 
   return (
-    <Card className="relative overflow-hidden border-primary/25 bg-[linear-gradient(115deg,hsl(var(--primary)/0.12)_0%,hsl(var(--card))_36%,hsl(var(--card))_100%)]">
-      <div className="absolute inset-y-0 right-0 hidden w-1/3 border-l border-primary/10 bg-[linear-gradient(135deg,transparent_0%,hsl(var(--primary)/0.08)_100%)] sm:block" />
-      <div className="absolute right-6 top-1/2 hidden -translate-y-1/2 text-primary/10 pointer-events-none lg:block">
-        <BarChart2 size={150} strokeWidth={1.4} />
-      </div>
-
-      <CardContent className="relative z-10 px-5 py-5 sm:px-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-2xl font-semibold leading-tight tracking-tight text-foreground">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              {greeting}, Trader
-            </h2>
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              Live indices, option chain, and OI signals for NSE F&O — all in one terminal.
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <Button
-              size="default"
-              className="gap-2 font-semibold transition-all hover:shadow-glow"
-              onClick={() => navigate("/option-chain")}
-            >
-              <Zap className="h-4 w-4" />
-              Start Trading
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div
+      role="region"
+      aria-label="Market context"
+      className="flex items-start gap-2 rounded-tile border border-border bg-card px-3 py-2 text-body-sm shadow-card sm:items-center"
+    >
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink sm:mt-0" aria-hidden="true" />
+      <p className="min-w-0 flex-1 leading-snug text-muted-foreground">
+        <span className={open ? "font-semibold text-bullish" : "font-semibold text-foreground"}>{SESSION_TEXT[ctx.session]}</span>
+        {ctx.next.label !== "—" ? <span> · {ctx.next.label}</span> : null}
+        {ctx.nifty ? (
+          <>
+            <span aria-hidden="true"> · </span>
+            <CalendarClock className="mb-0.5 inline h-3.5 w-3.5 text-warning" aria-hidden="true" />{" "}
+            <Link to="/expiry-day" className="rounded-sm font-medium text-foreground hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+              NIFTY weekly {formatDateIST(ctx.nifty.date).replace(/ \d{4}$/, "")}
+            </Link>{" "}
+            <span className="font-num tabular-nums">({dteLabel(ctx.nifty.date, now)})</span>
+          </>
+        ) : null}
+        {ctx.sensex ? (
+          <span className="hidden md:inline">
+            {" "}· SENSEX {formatDateIST(ctx.sensex.date).replace(/ \d{4}$/, "")} <span className="font-num tabular-nums">({dteLabel(ctx.sensex.date, now)})</span>
+          </span>
+        ) : null}
+        {regime && vix !== null ? (
+          <span>
+            {" "}· VIX <span className="font-num font-semibold tabular-nums text-foreground">{formatNumberIN(vix, 2)}</span>{" "}
+            <span className={TONE_TEXT[regime.tone]}>{regime.label.toLowerCase()}</span>
+          </span>
+        ) : null}
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="-m-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+        aria-label="Dismiss market context line"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
+
+export default WelcomeBanner;

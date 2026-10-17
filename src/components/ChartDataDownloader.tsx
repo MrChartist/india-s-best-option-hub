@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,124 +10,125 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
-  Download, Loader2, CheckCircle2, AlertCircle, Search, CandlestickChart,
-  FileDown, Clock, BarChart3, TrendingUp, Database, XCircle, CheckSquare, Square,
+  Download, Loader2, CheckCircle2, Search, CandlestickChart, FileDown, Clock, BarChart3,
+  TrendingUp, Database, XCircle, CheckSquare, Square, MinusCircle, StopCircle,
 } from "lucide-react";
 import { fetchHistoricalCandles, fetchYahooChart } from "@/lib/marketApi";
-import {
-  saveCandleHistory, setMetadata, getCandleHistory,
-  type CandleHistory, type CandleData,
-} from "@/lib/localDatabase";
+import { saveCandleHistory, setMetadata, type CandleHistory, type CandleData } from "@/lib/localDatabase";
+import { SECURITY_MAP, istDaysAgo } from "@/hooks/useChartData";
+import { istTimestamp } from "@/lib/snapshotStore";
+import type { ColumnarCandlesDTO } from "@/lib/types/market";
 
-// ── All F&O Stocks + Indices ──
-const ALL_SYMBOLS: { symbol: string; securityId: string; segment: string; instrument: string; category: "Index" | "F&O Stock" }[] = [
-  // Indices
-  { symbol: "NIFTY", securityId: "13", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  { symbol: "BANKNIFTY", securityId: "25", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  { symbol: "FINNIFTY", securityId: "27", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  { symbol: "MIDCPNIFTY", securityId: "442", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  { symbol: "INDIAVIX", securityId: "26", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  { symbol: "SENSEX", securityId: "1", segment: "IDX_I", instrument: "INDEX", category: "Index" },
-  // Top F&O Stocks
-  { symbol: "RELIANCE", securityId: "2885", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TCS", securityId: "11536", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "HDFCBANK", securityId: "1333", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "INFY", securityId: "1594", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ICICIBANK", securityId: "4963", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "SBIN", securityId: "3045", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "BHARTIARTL", securityId: "10604", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ITC", securityId: "1660", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "KOTAKBANK", securityId: "1922", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "LT", securityId: "11483", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "AXISBANK", securityId: "5900", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "HINDUNILVR", securityId: "1394", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TATAMOTORS", securityId: "3456", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TATASTEEL", securityId: "3499", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "BAJFINANCE", securityId: "317", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "SUNPHARMA", securityId: "3351", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "MARUTI", securityId: "10999", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TITAN", securityId: "3506", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "WIPRO", securityId: "3787", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "HCLTECH", securityId: "7229", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "NTPC", securityId: "11630", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "POWERGRID", securityId: "14977", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ONGC", securityId: "2475", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "JSWSTEEL", securityId: "11723", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ASIANPAINT", securityId: "236", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ADANIPORTS", securityId: "15083", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "ULTRACEMCO", securityId: "11532", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TECHM", securityId: "13538", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "INDUSINDBK", securityId: "5258", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "DRREDDY", securityId: "881", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "CIPLA", securityId: "694", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "EICHERMOT", securityId: "910", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "DIVISLAB", securityId: "10940", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "BPCL", securityId: "526", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "COALINDIA", securityId: "20374", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "APOLLOHOSP", securityId: "157", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "HEROMOTOCO", securityId: "1348", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "BRITANNIA", securityId: "547", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "NESTLEIND", securityId: "17963", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "HINDALCO", securityId: "1363", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "VEDL", securityId: "3063", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "BANKBARODA", securityId: "4668", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "PNB", securityId: "10666", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "DLF", securityId: "14732", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-  { symbol: "TRENT", securityId: "1964", segment: "NSE_EQ", instrument: "EQUITY", category: "F&O Stock" },
-];
+interface SymbolRow {
+  symbol: string;
+  securityId: string;
+  segment: string;
+  instrument: string;
+  category: "Index" | "F&O stock";
+}
 
-// Timeframe → date range mapping
+const ALL_SYMBOLS: SymbolRow[] = Object.entries(SECURITY_MAP).map(([symbol, ref]) => ({
+  symbol,
+  securityId: ref.secId,
+  segment: ref.exchSeg,
+  instrument: ref.instrument,
+  category: ref.exchSeg === "IDX_I" ? "Index" : "F&O stock",
+}));
+
 const TIMEFRAMES = [
-  { label: "1 Day", value: "1D", days: 2 },
-  { label: "1 Week", value: "1W", days: 10 },
-  { label: "1 Month", value: "1M", days: 35 },
-  { label: "3 Months", value: "3M", days: 95 },
-  { label: "6 Months", value: "6M", days: 185 },
-  { label: "1 Year", value: "1Y", days: 370 },
+  { label: "1 day", value: "1D", days: 2 },
+  { label: "1 week", value: "1W", days: 10 },
+  { label: "1 month", value: "1M", days: 35 },
+  { label: "3 months", value: "3M", days: 95 },
+  { label: "6 months", value: "6M", days: 185 },
+  { label: "1 year", value: "1Y", days: 370 },
 ];
 
-// Interval → Dhan API interval code
 const INTERVALS = [
-  { label: "1 Min", value: "1", minTimeframe: "1D" },
-  { label: "5 Min", value: "5", minTimeframe: "1D" },
-  { label: "15 Min", value: "15", minTimeframe: "1W" },
-  { label: "1 Hour", value: "60", minTimeframe: "1M" },
-  { label: "Daily", value: "D", minTimeframe: "1M" },
+  { label: "1 min", value: "1" },
+  { label: "5 min", value: "5" },
+  { label: "15 min", value: "15" },
+  { label: "1 hour", value: "60" },
+  { label: "Daily", value: "D" },
 ];
 
-type SymbolStatus = "pending" | "downloading" | "done" | "error" | "skipped";
+type SymbolStatus = "done" | "error" | "skipped";
 
 interface DownloadResult {
   symbol: string;
   status: SymbolStatus;
   candles: number;
+  source?: "yahoo" | "dhan";
   error?: string;
+}
+
+/** Convert a columnar payload to stored candles (ms timestamps, null gaps dropped). */
+function toCandles(raw: ColumnarCandlesDTO): CandleData[] {
+  const closes = raw.close ?? [];
+  const times = raw.timestamp ?? raw.start_Time ?? [];
+  const out: CandleData[] = [];
+  for (let i = 0; i < closes.length; i++) {
+    const close = closes[i];
+    if (close == null || !Number.isFinite(close)) continue;
+    const t = times[i];
+    const tsNum = typeof t === "number" ? t : typeof t === "string" ? new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(t) ? t : `${t.replace(" ", "T")}+05:30`).getTime() : NaN;
+    if (!Number.isFinite(tsNum)) continue;
+    out.push({
+      timestamp: tsNum > 1e12 ? tsNum : tsNum * 1000,
+      open: raw.open?.[i] ?? close,
+      high: raw.high?.[i] ?? close,
+      low: raw.low?.[i] ?? close,
+      close,
+      volume: raw.volume?.[i] ?? 0,
+      oi: raw.oi?.[i] ?? undefined,
+    });
+  }
+  return out.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function candlesToCSV(rows: Array<{ symbol: string; candles: CandleData[] }>): string {
+  const lines = ["symbol,time_ist,open,high,low,close,volume,oi"];
+  for (const r of rows) {
+    for (const c of r.candles) lines.push([r.symbol, istTimestamp(c.timestamp), c.open, c.high, c.low, c.close, c.volume, c.oi ?? ""].join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadText(filename: string, text: string) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function ChartDataDownloader() {
   const [search, setSearch] = useState("");
-  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set(ALL_SYMBOLS.map(s => s.symbol)));
+  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(() => new Set(ALL_SYMBOLS.filter((s) => s.category === "Index").map((s) => s.symbol)));
   const [timeframe, setTimeframe] = useState("3M");
-  // Named candleInterval (not `interval`) to avoid shadowing the global
-  // window.setInterval — a real footgun in a file that manages timed loops.
-  const [candleInterval, setCandleInterval] = useState("D");
+  const [interval, setIntervalValue] = useState("D");
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<DownloadResult[]>([]);
   const [currentSymbol, setCurrentSymbol] = useState("");
+  const candleStore = useRef(new Map<string, CandleData[]>());
+  const cancelRef = useRef(false);
 
-  // Filter symbols by search
   const filteredSymbols = useMemo(() => {
     if (!search) return ALL_SYMBOLS;
     const q = search.toUpperCase();
-    return ALL_SYMBOLS.filter(s => s.symbol.includes(q) || s.category.toUpperCase().includes(q));
+    return ALL_SYMBOLS.filter((s) => s.symbol.includes(q) || s.category.toUpperCase().includes(q));
   }, [search]);
 
   const selectedCount = selectedSymbols.size;
-  const totalSymbols = ALL_SYMBOLS.length;
+  const intervalLabel = INTERVALS.find((i) => i.value === interval)?.label ?? interval;
+  const timeframeLabel = TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? timeframe;
+  const intradayTooLong = interval !== "D" && ["6M", "1Y"].includes(timeframe);
 
   const toggleSymbol = (symbol: string) => {
-    setSelectedSymbols(prev => {
+    setSelectedSymbols((prev) => {
       const next = new Set(prev);
       if (next.has(symbol)) next.delete(symbol);
       else next.add(symbol);
@@ -135,431 +136,261 @@ export function ChartDataDownloader() {
     });
   };
 
-  const selectAll = () => setSelectedSymbols(new Set(ALL_SYMBOLS.map(s => s.symbol)));
-  const deselectAll = () => setSelectedSymbols(new Set());
-  const selectIndices = () => {
-    const indices = ALL_SYMBOLS.filter(s => s.category === "Index").map(s => s.symbol);
-    setSelectedSymbols(new Set(indices));
-  };
-
-  const getDateRange = () => {
-    const tf = TIMEFRAMES.find(t => t.value === timeframe);
-    const days = tf?.days || 95;
-    const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - days);
-    return {
-      fromDate: from.toISOString().split("T")[0],
-      toDate: now.toISOString().split("T")[0],
-    };
-  };
-
-  // Export single symbol as CSV
-  const exportCSV = useCallback((symbol: string, candles: CandleData[]) => {
-    const header = "Date,Time,Open,High,Low,Close,Volume\n";
-    const rows = candles.map(c => {
-      const d = new Date(c.timestamp);
-      return `${d.toLocaleDateString("en-IN")},${d.toLocaleTimeString("en-IN", { hour12: false })},${c.open},${c.high},${c.low},${c.close},${c.volume}`;
-    }).join("\n");
-
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${symbol}_${timeframe}_${candleInterval}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [timeframe, candleInterval]);
-
-  // Export a single already-downloaded symbol by reading it back out of
-  // IndexedDB (the download loop only keeps counts in `results`, not the
-  // actual candles, so export has to re-fetch from storage).
-  const exportSymbolCSV = useCallback(async (sym: { symbol: string; securityId: string }) => {
-    const history = await getCandleHistory(sym.securityId, `${candleInterval}_${timeframe}`);
-    if (!history?.candles?.length) {
-      toast.error(`No stored data for ${sym.symbol} — download it first`);
-      return;
-    }
-    exportCSV(sym.symbol, history.candles);
-  }, [candleInterval, timeframe, exportCSV]);
-
-  // Batch download
   const handleDownload = async () => {
-    const symbols = ALL_SYMBOLS.filter(s => selectedSymbols.has(s.symbol));
+    const symbols = ALL_SYMBOLS.filter((s) => selectedSymbols.has(s.symbol));
     if (symbols.length === 0) {
       toast.error("Select at least one symbol");
       return;
     }
-
+    cancelRef.current = false;
     setIsDownloading(true);
     setResults([]);
     setCurrentIndex(0);
+    candleStore.current.clear();
 
-    const { fromDate, toDate } = getDateRange();
-    // Send "D" as-is — the proxy will route to /charts/historical for daily candles
-    const dhanInterval = candleInterval;
+    const days = TIMEFRAMES.find((t) => t.value === timeframe)?.days ?? 95;
+    const fromDate = istDaysAgo(days);
+    const toDate = istDaysAgo(0);
     const newResults: DownloadResult[] = [];
 
     for (let i = 0; i < symbols.length; i++) {
+      if (cancelRef.current) break;
       const sym = symbols[i];
       setCurrentIndex(i + 1);
       setCurrentSymbol(sym.symbol);
+      let raw: ColumnarCandlesDTO | null = null;
+      let source: "yahoo" | "dhan" | undefined;
+      let lastError = "";
 
       try {
-        let rawData: any = null;
-        let source = "yahoo";
-
-        // ── Try Yahoo Finance first (free, no API key, no rate limits) ──
+        const y = await fetchYahooChart(sym.symbol, interval, fromDate, toDate);
+        if ((y?.data?.close ?? []).some((v) => v != null)) {
+          raw = y.data;
+          source = "yahoo";
+        }
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : "Yahoo failed";
+      }
+      if (!raw) {
         try {
-          const yahooResult = await fetchYahooChart(
-            sym.symbol,
-            dhanInterval,
-            fromDate,
-            toDate,
-          );
-          const yd = yahooResult?.data || yahooResult;
-          if (yd && 'close' in yd && Array.isArray(yd.close) && yd.close.filter((v: any) => v != null).length > 0) {
-            rawData = yd;
-            source = "yahoo";
+          const d = await fetchHistoricalCandles(sym.securityId, sym.segment, sym.instrument, interval, fromDate, toDate);
+          if ((d?.data?.close ?? []).some((v) => v != null)) {
+            raw = d.data;
+            source = "dhan";
           }
-        } catch (yahooErr: any) {
-          console.warn(`Yahoo failed for ${sym.symbol}:`, yahooErr.message);
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : "Dhan failed";
         }
+      }
 
-        // ── Fallback to Dhan if Yahoo didn't return data ──
-        if (!rawData) {
-          try {
-            const dhanResult = await fetchHistoricalCandles(
-              sym.securityId,
-              sym.segment,
-              sym.instrument,
-              dhanInterval,
-              fromDate,
-              toDate,
-            );
-            const dd = dhanResult?.data || dhanResult;
-            if (dd && 'close' in dd && Array.isArray(dd.close) && dd.close.length > 0) {
-              rawData = dd;
-              source = "dhan";
-            }
-          } catch (dhanErr: any) {
-            console.warn(`Dhan also failed for ${sym.symbol}:`, dhanErr.message);
-          }
-        }
-
-        if (rawData?.close && Array.isArray(rawData.close) && rawData.close.filter((v: any) => v != null).length > 0) {
-          const candles: CandleData[] = rawData.close
-            .map((_: number, idx: number) => {
-              // Skip null candles (Yahoo sometimes returns null for holidays)
-              if (rawData.close[idx] == null) return null;
-              // Yahoo timestamps are Unix seconds, Dhan may also be seconds
-              const ts = rawData.timestamp?.[idx] || rawData.start_Time?.[idx] || 0;
-              const timestamp = ts > 1e12 ? ts : ts * 1000; // Convert to ms if in seconds
-              return {
-                timestamp,
-                open: rawData.open?.[idx] || rawData.close[idx],
-                high: rawData.high?.[idx] || rawData.close[idx],
-                low: rawData.low?.[idx] || rawData.close[idx],
-                close: rawData.close[idx],
-                volume: rawData.volume?.[idx] || 0,
-                oi: rawData.oi?.[idx],
-              };
-            })
-            .filter(Boolean) as CandleData[];
-
-          // Store in IndexedDB
+      if (raw) {
+        const candles = toCandles(raw);
+        try {
           const history: CandleHistory = {
             securityId: sym.securityId,
             symbol: sym.symbol,
             exchangeSegment: sym.segment,
-            interval: `${candleInterval}_${timeframe}`,
+            interval: `${interval}_${timeframe}`,
             candles,
             lastUpdated: Date.now(),
           };
           await saveCandleHistory(history);
-
-          newResults.push({ symbol: sym.symbol, status: "done", candles: candles.length });
-        } else {
-          newResults.push({ symbol: sym.symbol, status: "skipped", candles: 0, error: "No data from Yahoo or Dhan" });
+          candleStore.current.set(sym.symbol, candles);
+          newResults.push({ symbol: sym.symbol, status: "done", candles: candles.length, source });
+        } catch (e) {
+          newResults.push({ symbol: sym.symbol, status: "error", candles: 0, error: e instanceof Error ? e.message : "Could not save" });
         }
-      } catch (err: any) {
-        newResults.push({ symbol: sym.symbol, status: "error", candles: 0, error: err.message || "Fetch failed" });
+      } else {
+        newResults.push({ symbol: sym.symbol, status: lastError ? "error" : "skipped", candles: 0, error: lastError || "No candles from Yahoo or Dhan" });
       }
-
       setResults([...newResults]);
-
-      // Rate limit: 300ms between requests
-      if (i < symbols.length - 1) {
-        await new Promise(r => setTimeout(r, 350));
-      }
+      if (i < symbols.length - 1) await new Promise((r) => setTimeout(r, 350));
     }
 
-    await setMetadata("lastChartDownload", new Date().toISOString());
-    
-    const successCount = newResults.filter(r => r.status === "done").length;
-    const totalCandles = newResults.reduce((s, r) => s + r.candles, 0);
-    toast.success(`Downloaded ${successCount}/${symbols.length} symbols — ${totalCandles.toLocaleString()} candles stored`, { duration: 6000 });
+    try {
+      await setMetadata("lastChartDownload", new Date().toISOString());
+    } catch {
+      /* metadata is best-effort */
+    }
+    const ok = newResults.filter((r) => r.status === "done").length;
+    const total = newResults.reduce((s, r) => s + r.candles, 0);
+    if (cancelRef.current) toast.info(`Stopped after ${newResults.length} symbols`);
+    else toast.success(`Saved ${ok} of ${symbols.length} symbols, ${total.toLocaleString("en-IN")} candles`, { duration: 6000 });
     setIsDownloading(false);
     setCurrentSymbol("");
   };
 
-  // Export all successfully-downloaded symbols as one combined CSV, reading
-  // each symbol's candles back out of IndexedDB (they aren't kept in memory
-  // after the download loop finishes).
-  const handleExportAll = async () => {
-    const successResults = results.filter(r => r.status === "done");
-    if (successResults.length === 0) {
-      toast.error("No data to export. Run download first.");
+  const exportOne = (symbol: string) => {
+    const candles = candleStore.current.get(symbol);
+    if (!candles?.length) return;
+    downloadText(`${symbol}_${timeframe}_${interval}.csv`, candlesToCSV([{ symbol, candles }]));
+  };
+
+  const exportAll = () => {
+    const rows = [...candleStore.current.entries()].map(([symbol, candles]) => ({ symbol, candles }));
+    if (rows.length === 0) {
+      toast.error("Nothing to export yet. Run a download first.");
       return;
     }
-
-    const header = "Symbol,Date,Time,Open,High,Low,Close,Volume\n";
-    const chunks = await Promise.all(successResults.map(async (r) => {
-      const sym = ALL_SYMBOLS.find(s => s.symbol === r.symbol);
-      if (!sym) return "";
-      const history = await getCandleHistory(sym.securityId, `${candleInterval}_${timeframe}`);
-      if (!history?.candles?.length) return "";
-      return history.candles.map(c => {
-        const d = new Date(c.timestamp);
-        return `${sym.symbol},${d.toLocaleDateString("en-IN")},${d.toLocaleTimeString("en-IN", { hour12: false })},${c.open},${c.high},${c.low},${c.close},${c.volume}`;
-      }).join("\n");
-    }));
-
-    const rows = chunks.filter(Boolean).join("\n");
-    if (!rows) {
-      toast.error("Stored data not found — try downloading again.");
-      return;
-    }
-
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `fno_data_${timeframe}_${candleInterval}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${successResults.length} symbols to CSV`);
+    downloadText(`candles_${timeframe}_${interval}_${istDaysAgo(0)}.csv`, candlesToCSV(rows));
   };
 
   const progressPct = isDownloading ? (currentIndex / Math.max(selectedCount, 1)) * 100 : 0;
-  const doneCount = results.filter(r => r.status === "done").length;
-  const errorCount = results.filter(r => r.status === "error").length;
+  const doneCount = results.filter((r) => r.status === "done").length;
+  const errorCount = results.filter((r) => r.status === "error").length;
+  const skippedCount = results.filter((r) => r.status === "skipped").length;
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CandlestickChart className="h-5 w-5 text-primary" />
-          Chart Data Downloader
-          <Badge variant="outline" className="text-xs h-5 px-1.5 ml-auto">
-            {selectedCount}/{totalSymbols} selected
-          </Badge>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex flex-wrap items-center gap-2">
+          <CandlestickChart className="h-5 w-5 text-primary" aria-hidden />
+          Chart data downloader
+          <Badge variant="outline" className="ml-auto">{selectedCount}/{ALL_SYMBOLS.length} selected</Badge>
         </CardTitle>
         <CardDescription className="text-xs">
-          Download OHLCV chart data for all F&O stocks and indices. Select timeframe and interval, then batch download to local database for offline charting.
+          Save OHLCV candles for indices and large F&O stocks to this browser for offline charts. Yahoo Finance is tried first; Dhan is used when Yahoo has nothing.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* ── Timeframe & Interval Selectors ── */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3 w-3" /> Timeframe (Date Range)
+            <Label htmlFor="cdd-timeframe" className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" aria-hidden /> Date range
             </Label>
             <Select value={timeframe} onValueChange={setTimeframe} disabled={isDownloading}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger id="cdd-timeframe" className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {TIMEFRAMES.map(tf => (
-                  <SelectItem key={tf.value} value={tf.value} className="text-xs">{tf.label}</SelectItem>
-                ))}
+                {TIMEFRAMES.map((tf) => <SelectItem key={tf.value} value={tf.value} className="text-xs">{tf.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <BarChart3 className="h-3 w-3" /> Candle Interval
+            <Label htmlFor="cdd-interval" className="text-xs text-muted-foreground flex items-center gap-1">
+              <BarChart3 className="h-3 w-3" aria-hidden /> Candle interval
             </Label>
-            <Select value={candleInterval} onValueChange={setCandleInterval} disabled={isDownloading}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={interval} onValueChange={setIntervalValue} disabled={isDownloading}>
+              <SelectTrigger id="cdd-interval" className="h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {INTERVALS.map(iv => (
-                  <SelectItem key={iv.value} value={iv.value} className="text-xs">{iv.label}</SelectItem>
-                ))}
+                {INTERVALS.map((iv) => <SelectItem key={iv.value} value={iv.value} className="text-xs">{iv.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </div>
+        {intradayTooLong && (
+          <p className="text-xs text-warning">Intraday candles are limited to about 90 days by Dhan and 60 days by Yahoo, so older bars will be missing.</p>
+        )}
 
-        {/* ── Symbol Selection ── */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search symbols..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="h-7 text-xs pl-7"
-                disabled={isDownloading}
-              />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+              <Input placeholder="Search symbols" aria-label="Search symbols" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-xs pl-7" disabled={isDownloading} />
             </div>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={selectAll} disabled={isDownloading}>
-              <CheckSquare className="h-3 w-3" /> All
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSelectedSymbols(new Set(ALL_SYMBOLS.map((s) => s.symbol)))} disabled={isDownloading}>
+              <CheckSquare className="h-3 w-3" aria-hidden /> All
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={selectIndices} disabled={isDownloading}>
-              <TrendingUp className="h-3 w-3" /> Indices
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSelectedSymbols(new Set(ALL_SYMBOLS.filter((s) => s.category === "Index").map((s) => s.symbol)))} disabled={isDownloading}>
+              <TrendingUp className="h-3 w-3" aria-hidden /> Indices
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={deselectAll} disabled={isDownloading}>
-              <Square className="h-3 w-3" /> None
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setSelectedSymbols(new Set())} disabled={isDownloading}>
+              <Square className="h-3 w-3" aria-hidden /> None
             </Button>
           </div>
 
-          <ScrollArea className="h-[180px] rounded-md border border-border/70 p-2">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
-              {filteredSymbols.map(sym => {
-                const result = results.find(r => r.symbol === sym.symbol);
-                const statusIcon = result?.status === "done"
-                  ? <CheckCircle2 className="h-3 w-3 text-bullish" />
-                  : result?.status === "error"
-                  ? <XCircle className="h-3 w-3 text-bearish" />
-                  : result?.status === "downloading"
-                  ? <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                  : null;
-
-                return (
-                  <div
-                    key={sym.symbol}
-                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors border ${
-                      selectedSymbols.has(sym.symbol)
-                        ? "bg-primary/5 border-primary/20 text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    } ${currentSymbol === sym.symbol ? "ring-1 ring-primary" : ""}`}
-                  >
-                    <label className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
-                      <Checkbox
-                        checked={selectedSymbols.has(sym.symbol)}
-                        onCheckedChange={() => toggleSymbol(sym.symbol)}
-                        disabled={isDownloading}
-                        className="h-3 w-3"
-                      />
-                      <span className="font-mono font-medium truncate">{sym.symbol}</span>
-                      {sym.category === "Index" && (
-                        <Badge variant="outline" className="text-xs h-4 px-1 shrink-0">IDX</Badge>
-                      )}
-                      {statusIcon}
+          <ScrollArea className="h-[180px] rounded-md border border-border p-2">
+            {filteredSymbols.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-2">No symbols match "{search}".</p>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
+                {filteredSymbols.map((sym) => {
+                  const result = results.find((r) => r.symbol === sym.symbol);
+                  return (
+                    <label
+                      key={sym.symbol}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer border transition-colors ${
+                        selectedSymbols.has(sym.symbol) ? "bg-primary/5 border-primary/20 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+                      } ${currentSymbol === sym.symbol ? "ring-1 ring-primary" : ""}`}
+                    >
+                      <Checkbox checked={selectedSymbols.has(sym.symbol)} onCheckedChange={() => toggleSymbol(sym.symbol)} disabled={isDownloading} aria-label={`Select ${sym.symbol}`} />
+                      <span className="font-medium truncate">{sym.symbol}</span>
+                      {sym.category === "Index" && <span className="text-[10px] text-muted-foreground">IDX</span>}
+                      {result?.status === "done" && <CheckCircle2 className="h-3 w-3 text-bullish ml-auto shrink-0" aria-label="Saved" />}
+                      {result?.status === "error" && <XCircle className="h-3 w-3 text-bearish ml-auto shrink-0" aria-label="Failed" />}
+                      {result?.status === "skipped" && <MinusCircle className="h-3 w-3 text-muted-foreground ml-auto shrink-0" aria-label="No data" />}
                     </label>
-                    {result?.status === "done" && (
-                      <button
-                        type="button"
-                        title={`Export ${sym.symbol} as CSV`}
-                        onClick={() => exportSymbolCSV(sym)}
-                        className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <FileDown className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </ScrollArea>
         </div>
 
-        {/* ── Progress ── */}
         {isDownloading && (
-          <div className="space-y-2 p-3 rounded-lg bg-card border border-border/70 animate-in fade-in">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2 p-3 rounded-lg bg-card border border-border" aria-live="polite">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                Downloading {currentSymbol}...
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden />
+                Downloading {currentSymbol}
               </span>
-              <span className="text-xs text-muted-foreground font-mono">
-                {currentIndex}/{selectedCount} — {Math.round(progressPct)}%
-              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">{currentIndex}/{selectedCount} · {Math.round(progressPct)}%</span>
             </div>
             <Progress value={progressPct} className="h-1.5" />
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1 text-bullish">
-                <CheckCircle2 className="h-3 w-3" /> {doneCount} done
-              </span>
-              <span className="flex items-center gap-1 text-bearish">
-                <XCircle className="h-3 w-3" /> {errorCount} failed
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {selectedCount - currentIndex} remaining
-              </span>
-            </div>
+            <p className="text-xs text-muted-foreground">{doneCount} saved · {errorCount} failed · {skippedCount} without data</p>
           </div>
         )}
 
-        {/* ── Results Summary ── */}
         {!isDownloading && results.length > 0 && (
-          <div className="space-y-2 p-3 rounded-lg bg-card border border-border/70">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2 p-3 rounded-lg bg-card border border-border">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-bullish" />
-                Download Complete
+                <CheckCircle2 className="h-3.5 w-3.5 text-bullish" aria-hidden /> Download finished
               </span>
-              <Badge variant="outline" className="text-xs">
-                {doneCount} success · {errorCount} errors · {results.reduce((s, r) => s + r.candles, 0).toLocaleString()} candles
-              </Badge>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {doneCount} saved · {errorCount} failed · {results.reduce((s, r) => s + r.candles, 0).toLocaleString("en-IN")} candles
+              </span>
             </div>
-            {errorCount > 0 && (
-              <div className="text-xs text-bearish">
-                Failed: {results.filter(r => r.status === "error").map(r => r.symbol).join(", ")}
-              </div>
-            )}
-            {doneCount > 0 && (
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full" onClick={handleExportAll}>
-                <FileDown className="h-3 w-3" /> Export All as CSV
-              </Button>
-            )}
+            <ul className="max-h-40 overflow-y-auto divide-y divide-border text-xs">
+              {results.map((r) => (
+                <li key={r.symbol} className="flex items-center gap-2 py-1">
+                  <span className="font-medium w-28 truncate">{r.symbol}</span>
+                  {r.status === "done" ? (
+                    <>
+                      <span className="text-muted-foreground tabular-nums">{r.candles.toLocaleString("en-IN")} candles</span>
+                      <Badge variant="outline" className="uppercase">{r.source}</Badge>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 ml-auto text-xs gap-1" onClick={() => exportOne(r.symbol)} aria-label={`Export ${r.symbol} as CSV`}>
+                        <FileDown className="h-3 w-3" aria-hidden /> CSV
+                      </Button>
+                    </>
+                  ) : (
+                    <span className={r.status === "error" ? "text-bearish truncate" : "text-muted-foreground truncate"}>{r.error}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
-        {/* ── Action Buttons ── */}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleDownload}
-            disabled={isDownloading || selectedCount === 0}
-            className="flex-1 gap-2"
-            size="sm"
-          >
-            {isDownloading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Downloading... ({currentIndex}/{selectedCount})
-              </>
-            ) : (
-              <>
-                <Download className="h-3.5 w-3.5" />
-                Download {selectedCount} Symbols ({timeframe} / {INTERVALS.find(i => i.value === candleInterval)?.label})
-              </>
-            )}
+        <div className="flex flex-col sm:flex-row gap-2">
+          {isDownloading ? (
+            <Button onClick={() => (cancelRef.current = true)} variant="outline" className="flex-1 gap-2" size="sm">
+              <StopCircle className="h-3.5 w-3.5" aria-hidden /> Stop after this symbol
+            </Button>
+          ) : (
+            <Button onClick={handleDownload} disabled={selectedCount === 0} className="flex-1 gap-2" size="sm">
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Download {selectedCount} symbols ({timeframeLabel}, {intervalLabel})
+            </Button>
+          )}
+          <Button onClick={exportAll} variant="outline" size="sm" className="gap-2" disabled={isDownloading || doneCount === 0}>
+            <FileDown className="h-3.5 w-3.5" aria-hidden /> Export all CSV
           </Button>
         </div>
 
-        {/* ── Info ── */}
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Download Details:</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {[
-              { icon: <Database className="h-2.5 w-2.5" />, text: "Stored in IndexedDB (offline access)" },
-              { icon: <CandlestickChart className="h-2.5 w-2.5" />, text: `${TIMEFRAMES.find(t => t.value === timeframe)?.label} of OHLCV candles` },
-              { icon: <BarChart3 className="h-2.5 w-2.5" />, text: `${INTERVALS.find(i => i.value === candleInterval)?.label} interval candles` },
-              { icon: <FileDown className="h-2.5 w-2.5" />, text: "Export individual symbols as CSV" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                {item.icon}
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><Database className="h-3 w-3" aria-hidden /> Stored in this browser (IndexedDB)</span>
+          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" aria-hidden /> Dates and CSV times are in IST</span>
         </div>
       </CardContent>
     </Card>

@@ -1,23 +1,17 @@
 /**
- * Thin fetch helper for the /api/dhan-proxy endpoints that don't yet have a
- * dedicated client function in marketApi.ts (risk engine, panic layer,
- * basket resolve — 1CLIQ-TRADE-SPEC.md §3/§5/§9).
+ * Fetch helper for the 1Cliq trading endpoints on /api/dhan-proxy (orders, portfolio, risk engine,
+ * panic layer, basket resolve; 1CLIQ-TRADE-SPEC.md §3/§5/§9).
  *
- * marketApi.ts already has an equivalent PROXY_BASE/credential-header pair,
- * but keeps them module-private, and that file is owned by another agent in
- * this build — duplicating the ~15 lines here is cheaper and safer than
- * editing it out of scope. If the two ever drift, this is the file to fold
- * back into marketApi.ts's shared helper.
+ * Uses the shared proxy base and Dhan credential headers from src/lib/api/proxyClient.ts, but
+ * deliberately NOT its reachability gate: a panic Close All / Cancel All must always be attempted,
+ * even when the gate currently believes the proxy is down. In sample-data mode (VITE_DATA_MODE=sample)
+ * nothing is sent at all.
  *
- * Every proxy error path (see proxy-server.mjs's outer catch) replies with
- * `{ error, message, code }` — errors here surface that verbatim `message`
- * so a broker rejection or a guard refusal reads the same everywhere in the
- * app, never a generic "request failed".
+ * Every proxy error path replies with `{ error, message, code }`; errors here surface that verbatim
+ * `message`, so a broker rejection or a guard refusal reads the same everywhere in the app.
  */
 
-import { getActiveBroker } from "./brokerConfig";
-
-const PROXY_BASE = import.meta.env.VITE_PROXY_URL || "http://localhost:4002";
+import { PROXY_BASE, SAMPLE_DATA_MODE, dhanHeaders } from "./api/proxyClient";
 
 export class DhanProxyError extends Error {
   code: string | null;
@@ -31,13 +25,11 @@ export class DhanProxyError extends Error {
 }
 
 function dhanCredHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const activeBroker = getActiveBroker();
-  if (activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken) {
-    headers["x-dhan-client-id"] = activeBroker.values.clientId;
-    headers["x-dhan-access-token"] = activeBroker.values.accessToken;
-  }
-  return headers;
+  return dhanHeaders();
+}
+
+function assertProxyEnabled(): void {
+  if (SAMPLE_DATA_MODE) throw new DhanProxyError("Sample data mode: the trading proxy is disabled", 0, "SAMPLE_MODE");
 }
 
 async function toResult<T>(res: Response): Promise<T> {
@@ -59,6 +51,7 @@ async function toResult<T>(res: Response): Promise<T> {
 
 /** GET a dhan-proxy endpoint, with the active Dhan account's credentials attached. */
 export async function getDhanEndpoint<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+  assertProxyEnabled();
   const qp = new URLSearchParams({ endpoint, ...params });
   const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?${qp.toString()}`, { headers: dhanCredHeaders() });
   return toResult<T>(res);
@@ -66,6 +59,7 @@ export async function getDhanEndpoint<T>(endpoint: string, params: Record<string
 
 /** POST a dhan-proxy endpoint with a JSON body, with the active Dhan account's credentials attached. */
 export async function postDhanEndpoint<T>(endpoint: string, body: unknown, params: Record<string, string> = {}): Promise<T> {
+  assertProxyEnabled();
   const qp = new URLSearchParams({ endpoint, ...params });
   const res = await fetch(`${PROXY_BASE}/api/dhan-proxy?${qp.toString()}`, {
     method: "POST",

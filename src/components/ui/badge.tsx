@@ -3,15 +3,28 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Chip-style badge. Buildup mapping used across the app:
+ * Long buildup → bullish, Short buildup → bearish, Short covering → info, Long unwinding → warning.
+ */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-chip border px-1.5 text-label uppercase transition-colors focus:outline-none focus-visible:shadow-ember [&_svg]:size-3",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        // Light mode: primary-ink on wash-brand is only ~3.75:1, which fails WCAG AA
+        // for 11px text (this is the "SAMPLE DATA" disclosure chip). orange-900 on
+        // orange-100 is ~8:1 and still reads as brand orange. Dark mode keeps
+        // primary-ink (orange-300 on orange-900), which already passes.
+        default: "border-transparent bg-wash-brand text-[hsl(var(--orange-900))] dark:text-primary-ink",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline: "border-border text-foreground",
+        bullish: "border-transparent bg-wash-profit text-bullish",
+        bearish: "border-transparent bg-wash-loss text-bearish",
+        warning: "border-warning/40 bg-transparent text-warning",
+        info: "border-transparent bg-wash-info text-info",
+        neutral: "border-transparent bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {
@@ -22,9 +35,9 @@ const badgeVariants = cva(
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
-const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(({ className, variant, ...props }, ref) => {
-  return <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />;
-});
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(({ className, variant, ...props }, ref) => (
+  <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
+));
 Badge.displayName = "Badge";
 
 export { Badge, badgeVariants };

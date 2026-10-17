@@ -11,11 +11,14 @@
  *   - never fires an EXECUTING binding unless the terminal is HOT
  *   - rejects OS key-repeat, so a held arrow key sends exactly one order
  *   - requires a second press within CONFIRM_WINDOW_MS for double-tap bindings
+ *   - leaves the key after a bare "g" to the global "g then letter" page navigation, so "g o"
+ *     (OI analysis) navigates instead of toggling one-click arming
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveBinding, CONFIRM_WINDOW_MS, type KeyBinding, type TerminalAction } from "../lib/keymap";
 import { isTypingTarget } from "../lib/isTypingTarget";
+import { SEQUENCE_TIMEOUT_MS } from "@/hooks/useKeyboardShortcuts";
 import type { ArmState } from "../types";
 
 export interface HotkeyHandlers {
@@ -44,12 +47,24 @@ export function useTerminalHotkeys(armState: ArmState, handlers: HotkeyHandlers,
 
   useEffect(() => {
     if (!enabled) return;
+    let lastBareG = 0;
 
     const onKeyDown = (e: KeyboardEvent) => {
       // OS key-repeat. Rejecting this is what stops a held arrow key from
       // machine-gunning orders; the rate limiter is the backstop, not the fix.
       if (e.repeat) return;
       if (isTypingTarget(e.target)) return;
+
+      // Second key of a global "g then letter" navigation: not ours. Only plain letters are
+      // released this way; safety keys (Escape, F6, F7) always reach the terminal.
+      const bare = !e.ctrlKey && !e.metaKey && !e.altKey;
+      const pendingG = Date.now() - lastBareG <= SEQUENCE_TIMEOUT_MS;
+      lastBareG = 0;
+      if (bare && pendingG && /^[a-z]$/.test(e.key)) return;
+      if (bare && !e.shiftKey && e.key === "g") {
+        lastBareG = Date.now();
+        return;
+      }
 
       const binding = resolveBinding(e);
       if (!binding) return;

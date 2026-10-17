@@ -1,69 +1,157 @@
 import { useEffect, useState } from "react";
-import { Activity, Clock, Code2, Terminal } from "lucide-react";
-import { useLiveIndices, useMarketStatus } from "../hooks/useMarketData";
+import { ArrowUpRight, Circle, Clock, Github } from "lucide-react";
+import { useLiveIndices } from "@/hooks/useMarketData";
+import { useProxyStatus } from "@/lib/api/proxyClient";
+import { formatTimeIST } from "@/lib/options";
+import { cn } from "@/lib/utils";
+
+const GITHUB_URL = "https://github.com/MrChartist/india-s-best-option-hub";
+const SITE_URL = "https://mrchartist.com";
+
+interface SnapshotStats {
+  count: number;
+  symbols: string[];
+  recording: boolean;
+  lastTs: number | null;
+}
+
+async function readSnapshotStats(): Promise<SnapshotStats | null> {
+  try {
+    // Dynamic import keeps the IndexedDB snapshot store out of the app-shell chunk.
+    const mod = await import("@/lib/snapshotStore");
+    if (typeof mod.getSnapshotStats !== "function") return null;
+    const stats = await mod.getSnapshotStats();
+    if (!stats || typeof stats.count !== "number") return null;
+    return stats;
+  } catch {
+    return null;
+  }
+}
+
+/** Polls the local snapshot store every minute. Returns null when unavailable. */
+function useSnapshotStats(): SnapshotStats | null {
+  const [stats, setStats] = useState<SnapshotStats | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const tick = () => {
+      readSnapshotStats().then((s) => {
+        if (alive) setStats(s);
+      });
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+  return stats;
+}
+
+/** Minute-resolution IST clock (60 s interval, aligned to the next minute boundary). */
+function MinuteClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let interval: number | undefined;
+    const align = window.setTimeout(() => {
+      setNow(new Date());
+      interval = window.setInterval(() => setNow(new Date()), 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => {
+      window.clearTimeout(align);
+      if (interval !== undefined) window.clearInterval(interval);
+    };
+  }, []);
+  return (
+    <span className="flex items-center gap-1.5">
+      <Clock className="h-3 w-3" aria-hidden="true" />
+      <time dateTime={now.toISOString()} className="font-num tabular-nums">
+        {formatTimeIST(now)}
+      </time>
+    </span>
+  );
+}
+
+function RecordingStatus({ stats }: { stats: SnapshotStats | null }) {
+  if (!stats) return null;
+  const label = stats.recording
+    ? `Recording · ${stats.count.toLocaleString("en-IN")} snapshots`
+    : stats.count > 0
+      ? `${stats.count.toLocaleString("en-IN")} snapshots saved`
+      : "Not recording";
+  const title = stats.lastTs ? `Last snapshot ${formatTimeIST(stats.lastTs)}` : "No snapshots stored on this device yet";
+  return (
+    <span className="hidden items-center gap-1.5 sm:flex" title={title}>
+      <Circle
+        className={cn("h-2 w-2", stats.recording ? "fill-bearish text-bearish" : "fill-muted-foreground-subtle text-muted-foreground-subtle")}
+        aria-hidden="true"
+      />
+      <span>{label}</span>
+    </span>
+  );
+}
 
 export const StatusFooter = () => {
   const { data: indicesResult } = useLiveIndices();
-  const { data: marketResult } = useMarketStatus();
+  const proxy = useProxyStatus();
   const isConnected = indicesResult?.isLive || false;
-  const isLive = marketResult?.isOpen || false;
-  const [time, setTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const stats = useSnapshotStats();
+  const feedLabel = isConnected
+    ? "Feed live"
+    : proxy.sampleMode
+      ? "Sample mode"
+      : proxy.status === "offline"
+        ? "Proxy offline · sample data"
+        : proxy.status === "unknown"
+          ? "Connecting…"
+          : "Feed offline";
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-50 flex h-9 items-center justify-between gap-2 overflow-hidden border-t border-border/80 bg-background/95 px-3 text-xs font-mono text-muted-foreground backdrop-blur-md sm:px-4">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-        <div className="flex shrink-0 items-center gap-1.5 text-primary">
-          <Terminal size={12} />
-          <span>v1.0.0</span>
-        </div>
-
-        <div className="flex min-w-0 items-center gap-1.5">
-          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${isConnected ? "bg-bullish" : "bg-muted"}`} />
-          <span className="truncate">
-            <span className="hidden sm:inline">DHAN API: </span>
-            {isConnected ? "CONNECTED" : "OFFLINE"}
-          </span>
-        </div>
-
-        <div className="hidden items-center gap-1.5 sm:flex">
-          <Activity size={12} className={isLive ? "text-warning" : "text-muted-foreground"} />
-          <span>NSE: {isLive ? "LIVE" : "CLOSED"}</span>
-        </div>
+    <footer
+      className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-card/60 px-3 py-1.5 text-micro font-medium normal-case tracking-normal text-muted-foreground sm:px-4"
+      aria-label="Status and disclaimer"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex items-center gap-1.5">
+          <span
+            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isConnected ? "bg-bullish" : "bg-bearish")}
+            aria-hidden="true"
+          />
+          <span>{feedLabel}</span>
+        </span>
+        <RecordingStatus stats={stats} />
+        <span className="hidden lg:inline">Data for education and research. Not investment advice.</span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 sm:gap-6">
-        <div className="hidden items-center gap-3 md:flex">
-          <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">Ctrl K</kbd> Search
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">R</kbd> Refresh
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">1-6</kbd> Navigate
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 sm:border-l sm:border-border sm:pl-4">
-          <Clock size={12} />
-          <span>{time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-        </div>
-
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="hidden items-center gap-2 xl:flex">
+          <kbd className="rounded-chip bg-muted px-1.5 py-0.5">Ctrl K</kbd> Search
+          <kbd className="rounded-chip bg-muted px-1.5 py-0.5">R</kbd> Refresh
+        </span>
+        <MinuteClock />
         <a
-          href="https://github.com/MrChartist/india-s-best-option-hub"
+          href={SITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden items-center gap-1.5 border-l border-border pl-4 transition-colors hover:text-primary sm:flex"
+          className="hidden items-center gap-0.5 rounded-sm transition-colors duration-fast hover:text-primary-ink sm:flex"
         >
-          <Code2 size={12} />
-          <span>Star on GitHub</span>
+          mrchartist.com
+          <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 rounded-sm transition-colors duration-fast hover:text-primary-ink"
+          aria-label="Source code on GitHub (opens in a new tab)"
+        >
+          <Github className="h-3 w-3" aria-hidden="true" />
+          <span className="hidden md:inline">GitHub</span>
         </a>
       </div>
+
+      <p className="w-full lg:hidden">Data for education and research. Not investment advice.</p>
     </footer>
   );
 };

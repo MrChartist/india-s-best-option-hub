@@ -1,58 +1,38 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { TableProperties, BarChart3, Star, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BarChart3, CalendarClock, Filter, Layers, Star, TableProperties, type LucideIcon } from "lucide-react";
 
-const actions = [
-  {
-    label: "Option Chain",
-    icon: TableProperties,
-    path: "/option-chain",
-    desc: "NIFTY / BNIFTY chain",
-  },
-  {
-    label: "OI Analysis",
-    icon: BarChart3,
-    path: "/oi-analysis",
-    desc: "Call/Put OI trends",
-  },
-  {
-    label: "Watchlist",
-    icon: Star,
-    path: "/watchlist",
-    desc: "Track your scripts",
-  },
-  {
-    label: "Broker API",
-    icon: Settings,
-    path: "/broker-settings",
-    desc: "Connect your broker",
-  },
+const actions: ReadonlyArray<{ label: string; to: string; icon: LucideIcon }> = [
+  { label: "Option chain", to: "/option-chain", icon: TableProperties },
+  { label: "OI analysis", to: "/oi-analysis", icon: BarChart3 },
+  { label: "Strategy builder", to: "/strategy-builder", icon: Layers },
+  { label: "Expiry day", to: "/expiry-day", icon: CalendarClock },
+  { label: "Screener", to: "/screener", icon: Filter },
+  { label: "Watchlist", to: "/watchlist", icon: Star },
 ];
 
+/** Shortcut chips to the most used tools. */
 export function QuickTradeActions() {
-  const navigate = useNavigate();
-
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {actions.map((a) => (
-        <Card
-          key={a.path}
-          className="group min-h-[106px] cursor-pointer transition-all duration-200 hover:border-primary/20 hover:shadow-card-hover"
-          onClick={() => navigate(a.path)}
-        >
-          <CardContent className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center">
-            <div className="rounded-lg border border-border/70 bg-muted/30 p-2 text-primary transition-colors duration-200 group-hover:border-primary/25">
-              <a.icon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-base font-semibold leading-tight">{a.label}</p>
-              <p className="mt-1 hidden text-xs font-semibold uppercase leading-tight tracking-wider text-muted-foreground sm:block">
-                {a.desc}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    // Right-edge fade and snap scrolling on narrow screens show that more chips are off screen.
+    <nav
+      aria-label="Quick links"
+      className="-mx-1 snap-x snap-mandatory overflow-x-auto scroll-px-1 px-1 pb-0.5 scrollbar-hide [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]"
+    >
+      <ul className="flex w-max gap-1.5 pr-6 sm:pr-0">
+        {actions.map((a) => (
+          <li key={a.to} className="snap-start">
+            <Link
+              to={a.to}
+              className="inline-flex h-7 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-wash-brand/50 focus-visible:shadow-ember focus-visible:outline-none"
+            >
+              <a.icon className="h-3.5 w-3.5 text-primary-ink" aria-hidden="true" />
+              {a.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
+
+export default QuickTradeActions;

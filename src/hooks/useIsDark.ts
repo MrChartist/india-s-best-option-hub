@@ -7,20 +7,34 @@ import { useEffect, useState } from "react";
  * of truth for canvas / lightweight-charts that must repaint on change).
  */
 export function useIsDark(): boolean {
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
+  return useChartThemeKey().startsWith("dark");
+}
+
+function readThemeKey(): string {
+  if (typeof document === "undefined") return "light:default";
+  const root = document.documentElement;
+  return `${root.classList.contains("dark") ? "dark" : "light"}:${root.getAttribute("data-palette") || "default"}`;
+}
+
+/**
+ * Theme key for canvas charts: "dark:default", "light:cvd", ... It changes when
+ * either the colour mode (`dark` class) or the colour-blind palette
+ * (`data-palette` on <html>) changes, so charts that read CSS variables once
+ * (lightweight-charts) know to re-read getChartColors().
+ */
+export function useChartThemeKey(): string {
+  const [key, setKey] = useState(readThemeKey);
 
   useEffect(() => {
     const root = document.documentElement;
-    const update = () => setIsDark(root.classList.contains("dark"));
+    const update = () => setKey(readThemeKey());
     update();
     const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(root, { attributes: true, attributeFilter: ["class", "data-palette"] });
     return () => observer.disconnect();
   }, []);
 
-  return isDark;
+  return key;
 }
 
 /**
@@ -29,16 +43,13 @@ export function useIsDark(): boolean {
  * as an argument purely so callers re-resolve colors whenever the theme flips.
  */
 export function getChartColors(_isDark?: boolean) {
+  // Mr. Chartist dark-mode values, used only when CSS variables cannot be read (SSR/tests).
   const fallback = {
-    bullish: "145 100% 45%",
-    bearish: "0 84% 60%",
-    primary: "189 93% 48%",
-    text: "215 15% 55%",
-    grid: "210 12% 15%",
-    warning: "32 63% 45%",
-    levelPoc: "199 89% 48%",
-    levelValueArea: "217 91% 60%",
-    levelIvBand: "271 81% 56%",
+    bullish: "148.9 45.5% 63.3%",
+    bearish: "3 72% 66%",
+    primary: "17.9 85.5% 53.9%",
+    text: "72 6% 64%",
+    grid: "212 14% 12%",
   };
 
   if (typeof window === "undefined") {
@@ -48,13 +59,8 @@ export function getChartColors(_isDark?: boolean) {
       primary: `hsl(${fallback.primary})`,
       text: `hsl(${fallback.text})`,
       grid: `hsl(${fallback.grid})`,
-      warning: `hsl(${fallback.warning})`,
-      levelPoc: `hsl(${fallback.levelPoc})`,
-      levelValueArea: `hsl(${fallback.levelValueArea})`,
-      levelIvBand: `hsl(${fallback.levelIvBand})`,
       bullishRaw: fallback.bullish,
       bearishRaw: fallback.bearish,
-      warningRaw: fallback.warning,
     };
   }
 
@@ -63,7 +69,6 @@ export function getChartColors(_isDark?: boolean) {
 
   const bullishRaw = raw("--bullish", fallback.bullish);
   const bearishRaw = raw("--bearish", fallback.bearish);
-  const warningRaw = raw("--warning", fallback.warning);
 
   return {
     bullish: `hsl(${bullishRaw})`,
@@ -71,12 +76,7 @@ export function getChartColors(_isDark?: boolean) {
     primary: `hsl(${raw("--primary", fallback.primary)})`,
     text: `hsl(${raw("--muted-foreground", fallback.text)})`,
     grid: `hsl(${raw("--chart-grid", fallback.grid)})`,
-    warning: `hsl(${warningRaw})`,
-    levelPoc: `hsl(${raw("--level-poc", fallback.levelPoc)})`,
-    levelValueArea: `hsl(${raw("--level-value-area", fallback.levelValueArea)})`,
-    levelIvBand: `hsl(${raw("--level-iv-band", fallback.levelIvBand)})`,
     bullishRaw,
     bearishRaw,
-    warningRaw,
   };
 }

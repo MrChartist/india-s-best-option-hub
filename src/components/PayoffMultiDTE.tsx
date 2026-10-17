@@ -1,12 +1,27 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { Clock, Percent } from "lucide-react";
 import type { StrategyLeg } from "@/lib/mockData";
+import { axisProps, chartColors, gridProps, payoffFills, tooltipStyle } from "@/lib/chartTheme";
+import {
+  addCalendarDays,
+  breakevens,
+  formatCompactIN,
+  formatINR,
+  formatStrike,
+  istDateString,
+  maxProfitLoss,
+  payoffDateKey,
+  payoffSeries,
+  strategyValueAt,
+  toISTDate,
+  type Leg,
+} from "@/lib/options";
 
 interface Props {
   legs: StrategyLeg[];
@@ -14,209 +29,113 @@ interface Props {
   lotSize: number;
   stepSize: number;
   daysToExpiry?: number;
+  /** Optional: underlying symbol (default NIFTY). */
+  symbol?: string;
+  /** Optional: ISO expiry. Overrides daysToExpiry. */
+  expiry?: string;
+  /** Optional: IV in percent used for legs without one (default 14). */
+  ivPct?: number;
 }
 
-// Black-Scholes option pricing for T+X curves
-function bs_d1(S: number, K: number, T: number, r: number, sigma: number): number {
-  if (T <= 0 || sigma <= 0) return S >= K ? 10 : -10;
-  return (Math.log(S / K) + (r + sigma * sigma / 2) * T) / (sigma * Math.sqrt(T));
-}
-
-function normCDF(x: number): number {
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
-  const p = 0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x) / Math.sqrt(2);
-  const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return 0.5 * (1.0 + sign * y);
-}
-
-function bsPrice(S: number, K: number, T: number, r: number, sigma: number, type: "CE" | "PE"): number {
-  if (T <= 0) return type === "CE" ? Math.max(S - K, 0) : Math.max(K - S, 0);
-  const d1 = bs_d1(S, K, T, r, sigma);
-  const d2 = d1 - sigma * Math.sqrt(T);
-  if (type === "CE") return S * normCDF(d1) - K * Math.exp(-r * T) * normCDF(d2);
-  return K * Math.exp(-r * T) * normCDF(-d2) - S * normCDF(-d1);
-}
-
-export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpiry = 7 }: Props) {
-  const [ivOverride, setIvOverride] = useState(0); // IV change in %
+/**
+ * T+0 / T+n / expiry payoff curves. A thin wrapper over @/lib/options (Black-76, time to 15:30 IST);
+ * the Strategy Builder's PayoffChart is the full version with a continuous date slider.
+ */
+export function PayoffMultiDTE({ legs, spotPrice, lotSize, stepSize, daysToExpiry = 7, symbol = "NIFTY", expiry, ivPct = 14 }: Props) {
+  const [ivShift, setIvShift] = useState(0); // vol points
   const [showT0, setShowT0] = useState(true);
-  const [showT3, setShowT3] = useState(true);
+  const [showMid, setShowMid] = useState(true);
   const [showExpiry, setShowExpiry] = useState(true);
 
-  const dteOptions = useMemo(() => {
-    const opts = [
-      { label: "T+0 (Today)", days: daysToExpiry, key: "t0", color: "hsl(var(--primary))" },
-      // Clamp at 0 — without it, a position expiring today/tomorrow produced
-      // a negative number in the label (e.g. "T+-1 Days").
-      { label: `T+${Math.max(0, Math.min(3, daysToExpiry - 1))} Days`, days: Math.max(1, daysToExpiry - 3), key: "t3", color: "hsl(var(--warning))" },
-      { label: "At Expiry", days: 0, key: "expiry", color: "hsl(var(--bearish))" },
-    ];
-    return opts;
-  }, [daysToExpiry]);
+  const now = useMemo(() => new Date(), []);
+  const exp = expiry || addCalendarDays(istDateString(now), Math.max(0, Math.round(daysToExpiry)));
+  const midDays = Math.max(1, Math.floor(Math.max(daysToExpiry, 1) / 2));
 
-  const payoffData = useMemo(() => {
-    const center = Math.round(spotPrice / stepSize) * stepSize;
-    const range: number[] = [];
-    for (let s = center - stepSize * 20; s <= center + stepSize * 20; s += stepSize / 2) {
-      range.push(s);
-    }
+  const contractLegs = useMemo<Leg[]>(
+    () => legs.map((l) => ({ symbol, type: l.type, side: l.action, strike: l.strike, expiry: exp, lots: l.lots, lotSize, premium: l.premium, iv: ivPct / 100 })),
+    [legs, symbol, exp, lotSize, ivPct],
+  );
 
-    const r = 0.065; // risk-free rate
-    const baseIV = 0.14 + ivOverride / 100; // ~14% base + user override
+  const { data, midKey, nowKey } = useMemo(() => {
+    const step = stepSize > 0 ? stepSize : 50;
+    const center = Math.round(spotPrice / step) * step;
+    const grid: number[] = [];
+    for (let s = center - step * 20; s <= center + step * 20; s += step / 2) if (s > 0) grid.push(s);
+    const midAt = new Date(Math.min(now.getTime() + midDays * 864e5, toISTDate(exp, "15:30").getTime()));
+    const rows = payoffSeries(contractLegs, grid, { dates: [now, midAt], ivShift: ivShift / 100, now });
+    return { data: rows, midKey: payoffDateKey(midAt), nowKey: payoffDateKey(now) };
+  }, [contractLegs, spotPrice, stepSize, ivShift, now, exp, midDays]);
 
-    return range.map(spot => {
-      const row: any = { spot };
-
-      dteOptions.forEach(dte => {
-        const T = dte.days / 365;
-        let totalPnl = 0;
-
-        for (const leg of legs) {
-          const mult = (leg.action === "BUY" ? 1 : -1) * leg.lots * lotSize;
-          const currentPrice = bsPrice(spot, leg.strike, T, r, baseIV, leg.type);
-          const entryPaid = leg.premium;
-          totalPnl += (currentPrice - entryPaid) * mult;
-        }
-
-        row[dte.key] = Math.round(totalPnl);
-      });
-
-      return row;
-    });
-  }, [legs, spotPrice, lotSize, stepSize, ivOverride, dteOptions]);
-
-  // Find key stats
   const stats = useMemo(() => {
-    const expiryData = payoffData.map(d => d.expiry);
-    const maxProfit = Math.max(...expiryData);
-    const maxLoss = Math.min(...expiryData);
-    const breakevens = payoffData.filter((d, i) => {
-      if (i === 0) return false;
-      const prev = payoffData[i - 1].expiry;
-      return (prev < 0 && d.expiry >= 0) || (prev >= 0 && d.expiry < 0);
-    }).map(d => d.spot);
-
-    // Compute "Current P&L" at the *exact* live spot price rather than
-    // picking the nearest point on the sampled grid — the grid is centered
-    // on spotPrice rounded to the nearest stepSize, so the old lookup could
-    // be off by up to half a step (material for a near-the-money leg).
-    const r = 0.065;
-    const baseIV = 0.14 + ivOverride / 100;
-    const T0 = daysToExpiry / 365;
-    let currentPnl = 0;
-    for (const leg of legs) {
-      const mult = (leg.action === "BUY" ? 1 : -1) * leg.lots * lotSize;
-      const price = bsPrice(spotPrice, leg.strike, T0, r, baseIV, leg.type);
-      currentPnl += (price - leg.premium) * mult;
-    }
-    currentPnl = Math.round(currentPnl);
-
-    return { maxProfit, maxLoss, breakevens, currentPnl };
-  }, [payoffData, legs, spotPrice, lotSize, daysToExpiry, ivOverride]);
-
-  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "6px", fontSize: "11px" };
+    const mpl = maxProfitLoss(contractLegs);
+    return { ...mpl, breakevens: breakevens(contractLegs), current: strategyValueAt(contractLegs, spotPrice, { now, ivShift: ivShift / 100 }) };
+  }, [contractLegs, spotPrice, now, ivShift]);
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" /> Multi-DTE Payoff Curve
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Clock className="h-4 w-4 text-primary-ink" /> Payoff over time
           </CardTitle>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 bg-primary rounded" />
-              <Label className="text-xs">
-                <Switch checked={showT0} onCheckedChange={setShowT0} className="mr-1 scale-75" />
-                T+0
-              </Label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 bg-warning rounded" />
-              <Label className="text-xs">
-                <Switch checked={showT3} onCheckedChange={setShowT3} className="mr-1 scale-75" />
-                T+3
-              </Label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-0.5 bg-bearish rounded" />
-              <Label className="text-xs">
-                <Switch checked={showExpiry} onCheckedChange={setShowExpiry} className="mr-1 scale-75" />
-                Expiry
-              </Label>
-            </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <Label className="flex items-center gap-1.5 text-xs"><Switch checked={showT0} onCheckedChange={setShowT0} className="scale-75" /> Today</Label>
+            <Label className="flex items-center gap-1.5 text-xs"><Switch checked={showMid} onCheckedChange={setShowMid} className="scale-75" /> T+{midDays}</Label>
+            <Label className="flex items-center gap-1.5 text-xs"><Switch checked={showExpiry} onCheckedChange={setShowExpiry} className="scale-75" /> Expiry</Label>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* IV Override Slider */}
         <div className="flex items-center gap-4 px-2">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Percent className="h-3.5 w-3.5 text-muted-foreground" />
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">IV Change:</Label>
-          </div>
-          <Slider
-            value={[ivOverride]}
-            onValueChange={([v]) => setIvOverride(v)}
-            min={-10}
-            max={10}
-            step={0.5}
-            className="flex-1"
-          />
-          <Badge variant="outline" className={`text-xs font-mono shrink-0 ${ivOverride > 0 ? "text-bearish" : ivOverride < 0 ? "text-bullish" : ""}`}>
-            {ivOverride >= 0 ? "+" : ""}{ivOverride}%
+          <Label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+            <Percent className="h-3.5 w-3.5" /> IV change
+          </Label>
+          <Slider value={[ivShift]} onValueChange={([v]) => setIvShift(v)} min={-10} max={10} step={0.5} className="flex-1" aria-label="IV change in vol points" />
+          <Badge variant="outline" className="shrink-0 font-num">
+            {ivShift >= 0 ? "+" : "−"}
+            {Math.abs(ivShift)} pts
           </Badge>
         </div>
 
-        {/* Chart */}
-        <div className="h-[380px]">
+        <div className="h-[340px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={payoffData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
-              <XAxis dataKey="spot" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-              <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+            <LineChart data={data}>
+              <CartesianGrid {...gridProps} />
+              <XAxis {...axisProps} dataKey="spot" type="number" domain={["dataMin", "dataMax"]} tickFormatter={(v: number) => formatStrike(v)} />
+              <YAxis {...axisProps} width={56} tickFormatter={(v: number) => formatCompactIN(v, { decimals: 1 })} />
               <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={(value: number, name: string) => {
-                  const labels: Record<string, string> = { t0: "T+0", t3: "T+3", expiry: "Expiry" };
-                  return [`₹${value.toLocaleString("en-IN")}`, labels[name] || name];
-                }}
+                labelFormatter={(l) => `Spot ${formatStrike(Number(l))}`}
+                formatter={(value: number, key: string) => [formatINR(value, { decimals: 0 }), key === "expiry" ? "Expiry" : key === nowKey ? "Today" : `T+${midDays}`]}
               />
-              <Legend wrapperStyle={{ fontSize: "10px" }} />
-              <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeWidth={1} />
-              <ReferenceLine x={spotPrice} stroke="hsl(var(--primary))" strokeDasharray="5 5" label={{ value: "Spot", fill: "hsl(var(--primary))", fontSize: 9 }} />
-              {stats.breakevens.map((be, i) => (
-                <ReferenceLine key={i} x={be} stroke="hsl(var(--warning))" strokeDasharray="3 3" label={{ value: `BE ${be}`, fill: "hsl(var(--warning))", fontSize: 8 }} />
+              <ReferenceLine y={0} stroke={payoffFills.zeroLine} />
+              <ReferenceLine x={spotPrice} stroke={payoffFills.spotLine} strokeDasharray="4 4" label={{ value: "Spot", fill: chartColors.primary, fontSize: 10 }} />
+              {stats.breakevens.map((be) => (
+                <ReferenceLine key={be} x={be} stroke={payoffFills.breakeven} strokeDasharray="3 3" />
               ))}
-              {showT0 && <Line type="monotone" dataKey="t0" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} name="T+0" />}
-              {showT3 && <Line type="monotone" dataKey="t3" stroke="hsl(var(--warning))" strokeWidth={2} dot={false} name="T+3" strokeDasharray="5 5" />}
-              {showExpiry && <Line type="monotone" dataKey="expiry" stroke="hsl(var(--bearish))" strokeWidth={1.5} dot={false} name="Expiry" />}
+              {showT0 && <Line type="monotone" dataKey={nowKey} stroke={payoffFills.todayLine} strokeWidth={2.25} dot={false} isAnimationActive={false} />}
+              {showMid && <Line type="monotone" dataKey={midKey} stroke={chartColors.info} strokeWidth={1.75} strokeDasharray="5 4" dot={false} isAnimationActive={false} />}
+              {showExpiry && <Line type="linear" dataKey="expiry" stroke={payoffFills.expiryLine} strokeWidth={1.5} dot={false} isAnimationActive={false} />}
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Key Stats */}
-        <div className="grid grid-cols-4 gap-3">
-          <div className="p-3 rounded-md bg-accent/30 text-center">
-            <p className="text-xs text-muted-foreground">Current P&L (T+0)</p>
-            <p className={`text-sm font-semibold font-mono ${stats.currentPnl >= 0 ? "text-bullish" : "text-bearish"}`}>
-              ₹{stats.currentPnl.toLocaleString("en-IN")}
-            </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-tile bg-surface p-2 text-center">
+            <p className="text-[11px] text-muted-foreground">P&L today</p>
+            <p className={`font-num text-sm font-bold ${stats.current >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(stats.current, { decimals: 0 })}</p>
           </div>
-          <div className="p-3 rounded-md bg-bullish/5 text-center">
-            <p className="text-xs text-muted-foreground">Max Profit</p>
-            <p className="text-sm font-semibold font-mono text-bullish">₹{stats.maxProfit.toLocaleString("en-IN")}</p>
+          <div className="rounded-tile bg-wash-profit/40 p-2 text-center">
+            <p className="text-[11px] text-muted-foreground">Max profit</p>
+            <p className="font-num text-sm font-bold text-bullish">{stats.unlimitedProfit ? "Unlimited" : formatINR(stats.maxProfit, { decimals: 0 })}</p>
           </div>
-          <div className="p-3 rounded-md bg-bearish/5 text-center">
-            <p className="text-xs text-muted-foreground">Max Loss</p>
-            <p className="text-sm font-semibold font-mono text-bearish">₹{stats.maxLoss.toLocaleString("en-IN")}</p>
+          <div className="rounded-tile bg-wash-loss/40 p-2 text-center">
+            <p className="text-[11px] text-muted-foreground">Max loss</p>
+            <p className="font-num text-sm font-bold text-bearish">{stats.unlimitedLoss ? "Unlimited" : formatINR(stats.maxLoss, { decimals: 0 })}</p>
           </div>
-          <div className="p-3 rounded-md bg-accent/30 text-center">
-            <p className="text-xs text-muted-foreground">Breakevens</p>
-            <p className="text-xs font-mono">{stats.breakevens.length > 0 ? stats.breakevens.map(b => b.toLocaleString("en-IN")).join(", ") : "—"}</p>
+          <div className="rounded-tile bg-surface p-2 text-center">
+            <p className="text-[11px] text-muted-foreground">Breakevens</p>
+            <p className="font-num text-xs">{stats.breakevens.length ? stats.breakevens.map((b) => formatStrike(Math.round(b))).join(", ") : "—"}</p>
           </div>
         </div>
       </CardContent>

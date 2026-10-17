@@ -1,34 +1,43 @@
 /**
- * Local CORS Proxy Server for Mr. Chartist Options Terminal
- * 
- * Features:
- *   1. HTTP Proxy — forwards to Dhan API v2 and NSE India (CORS handled)
- *   2. WebSocket Relay — connects to Dhan Live Market Feed, parses binary,
- *      and broadcasts real-time JSON ticks to browser clients via ws://localhost:4002/ws
- * 
- * Usage:
- *   npm run proxy          # standalone
- *   npm run dev:live       # combined with Vite dev server
- * 
- * @port 4002 (configurable via PROXY_PORT env var)
+ * Local proxy server for the Mr. Chartist Options Terminal.
+ *
+ *   1. HTTP proxy to Dhan API v2, NSE India (www + archives), TradingView scanner and Yahoo Finance,
+ *      with CORS handled, caching, request coalescing, rate queues and last-good fallbacks.
+ *   2. Envelope routes under /api/x/* that always answer { data, meta: { source, asOf, stale, reason? } }.
+ *      Row shapes are documented in docs/DATA_ENDPOINTS.md.
+ *   3. WebSocket relay: connects to the Dhan live market feed, parses the binary packets and
+ *      broadcasts JSON ticks to browser clients on ws://127.0.0.1:4002/ws. Every tick is published
+ *      to the in-process tickBus (server-side risk engine) before the browser fan-out.
+ *   4. 1Cliq trading endpoints on /api/dhan-proxy?endpoint=… (orders, portfolio, risk engine, panic
+ *      layer, basket resolve; see SECTION 2b) and the generic multi-broker data proxy
+ *      (/api/broker-proxy, /api/broker-test-connection; server/brokers/registry.mjs).
+ *
+ * Security defaults: binds 127.0.0.1 (PROXY_HOST to change), CORS and WebSocket Origin allowlist
+ * (localhost:8080/5173/4001 plus PROXY_ALLOWED_ORIGINS), Host-header allowlist against DNS
+ * rebinding (loopback names, origin hosts, PROXY_ALLOWED_HOSTS), .env Dhan keys only for browser
+ * or loopback callers, per-IP token bucket, strict input whitelists, upstream timeouts and
+ * truncated error bodies. Trading endpoints additionally require POST + JSON for anything that
+ * changes state, accept Origin-less (non-browser) callers only from loopback, and are never cached.
+ *
+ * Usage:  npm run proxy   |   npm run dev:live
+ * Env:    PROXY_PORT (4002), PROXY_HOST (127.0.0.1), PROXY_ALLOWED_ORIGINS (comma list),
+ *         PROXY_ALLOWED_HOSTS (comma list of extra Host names),
+ *         DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN (optional; browser keys are sent per request instead),
+ *         RECORD_SYMBOLS (comma list; turns on the snapshot recorder), RECORD_INTERVAL_SEC (60–180),
+ *         RECORD_EXPIRIES (1–3), RECORD_RETENTION_DAYS (default 30), RECORD_DIR (default ./data/snapshots)
  */
 
 import http from "node:http";
-import { URL } from "node:url";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
+import { URL, fileURLToPath, pathToFileURL } from "node:url";
+import { readFileSync, mkdirSync, readdirSync, existsSync, unlinkSync, promises as fsp } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { inflateRawSync } from "node:zlib";
 import { WebSocketServer, WebSocket } from "ws";
-import { INDEX_SECURITY_IDS, UNDERLYING_MAP, dhanFetch, fetchFuturesQuotes as dhanFetchFuturesQuotes, fetchRolloverData as dhanFetchRolloverData, fetchMCXExpiryList } from "./server/brokers/dhan.mjs";
 import { createBrokerRegistry } from "./server/brokers/registry.mjs";
-import { computeBasis } from "./server/lib/futuresUtils.mjs";
 import { placeOrder as dhanPlaceOrder, getOrders as dhanGetOrders, getOrderStatus as dhanGetOrderStatus, cancelOrder as dhanCancelOrder } from "./server/lib/dhanOrders.mjs";
 import { getPositions as dhanGetPositions, getHoldings as dhanGetHoldings, getFunds as dhanGetFunds, getTrades as dhanGetTrades, modifyOrder as dhanModifyOrder } from "./server/lib/dhanPortfolio.mjs";
-import { recordSnapshot, getSeries } from "./server/lib/dailySnapshotStore.mjs";
-import { parseDhanFrame, tickKey } from "./server/lib/dhanPacketParser.mjs";
-import { createSubscriptionManager } from "./server/lib/feedSubscriptions.mjs";
 import { validateOrder, recordOrder } from "./server/lib/orderGuard.mjs";
-import { marketSession } from "./server/lib/marketHours.mjs";
 import * as tickBus from "./server/lib/tickBus.mjs";
 import * as riskEngine from "./server/lib/riskEngine.mjs";
 import * as panicLayer from "./server/lib/panicLayer.mjs";
@@ -37,8 +46,9 @@ import * as tradingLockState from "./server/lib/tradingLockState.mjs";
 import * as auditLog from "./server/lib/auditLog.mjs";
 import * as basketEngine from "./server/lib/basketEngine.mjs";
 
-// ── Load .env manually (no external deps needed) ──
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ── Load .env manually (no external deps) ──
 try {
   const envFile = readFileSync(resolve(__dirname, ".env"), "utf-8");
   for (const line of envFile.split("\n")) {
@@ -48,170 +58,824 @@ try {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     let val = trimmed.slice(eqIdx + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
     if (!process.env[key]) process.env[key] = val;
   }
-} catch { /* .env file is optional */ }
+} catch { /* .env is optional */ }
 
+const VERSION = "2.0.0";
 const PORT = parseInt(process.env.PROXY_PORT || "4002", 10);
+const HOST = process.env.PROXY_HOST || "127.0.0.1";
+const DHAN_BASE = "https://api.dhan.co/v2";
 const NSE_BASE = "https://www.nseindia.com";
+const NSE_ARCHIVES = "https://nsearchives.nseindia.com";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-// Every existing route is GET + query params — fine for read-only data, but
-// order details (symbol, qty, price, side) must never ride in a URL query
-// string for something this sensitive (browser history, server access logs,
-// any intermediate proxy would otherwise see it in plaintext). Order routes
-// are the first callers of this.
-function readJsonBody(req) {
-  return new Promise((resolvePromise, rejectPromise) => {
-    let raw = "";
-    req.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 1_000_000) { // 1MB guard — no order body is ever this large
-        rejectPromise(new Error("Request body too large"));
-        req.destroy();
-      }
-    });
-    req.on("end", () => {
-      if (!raw) return resolvePromise({});
-      try { resolvePromise(JSON.parse(raw)); } catch { rejectPromise(new Error("Invalid JSON body")); }
-    });
-    req.on("error", rejectPromise);
-  });
+const DEFAULT_ORIGINS = [8080, 5173, 4001].flatMap((p) => [`http://localhost:${p}`, `http://127.0.0.1:${p}`]);
+const ALLOWED_ORIGINS = new Set([
+  ...DEFAULT_ORIGINS,
+  ...(process.env.PROXY_ALLOWED_ORIGINS || "").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean),
+]);
+
+// ══════════════════════════════════════════════
+// ── SECTION 1: Utilities ──
+// ══════════════════════════════════════════════
+
+export function truncate(s, n = 200) {
+  const str = String(s ?? "");
+  return str.length > n ? `${str.slice(0, n)}…` : str;
 }
 
-// This proxy is meant to run unattended through the whole market session — a
-// single unforeseen unhandled rejection/exception (e.g. from a code path that
-// isn't wrapped in try/catch) would otherwise kill the entire process and cut
-// off live data for everyone until someone notices and restarts it manually.
-// Log and keep running instead.
-process.on("unhandledRejection", (reason) => {
-  console.error("  ❌ [Unhandled Rejection]", reason instanceof Error ? reason.stack : reason);
-});
-process.on("uncaughtException", (err) => {
-  console.error("  ❌ [Uncaught Exception]", err?.stack || err);
-});
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ══════════════════════════════════════════════
-// ── SECTION 1: In-Memory Cache ──
-// ══════════════════════════════════════════════
+export class UpstreamError extends Error {
+  constructor(source, status, message, retryAfterMs = 0) {
+    super(message);
+    this.name = "UpstreamError";
+    this.source = source;
+    this.status = status;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
 
-const cache = new Map();
+/** Parse a Retry-After header (seconds or HTTP date) into ms, capped at 10 minutes. */
+export function parseRetryAfter(value, now = Date.now()) {
+  if (!value) return 0;
+  const secs = Number(value);
+  if (Number.isFinite(secs)) return Math.min(Math.max(secs, 0) * 1000, 600000);
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? Math.min(Math.max(at - now, 0), 600000) : 0;
+}
 
-// Last-known-good cache — persists valid data for 18h (across market close)
-// This ensures after-hours users still see the last available option chain, PCR, max pain etc.
-const lastGoodCache = new Map();
-const LAST_GOOD_TTL = 18 * 60 * 60 * 1000; // 18 hours
+// ── True LRU cache ──
+export class LRUCache {
+  constructor(max = 500) {
+    this.max = max;
+    this.map = new Map();
+  }
+  get(key) {
+    const e = this.map.get(key);
+    if (!e) return null;
+    if (Date.now() >= e.expiry) {
+      this.map.delete(key);
+      return null;
+    }
+    this.map.delete(key);
+    this.map.set(key, e);
+    return e.value;
+  }
+  set(key, value, ttlMs) {
+    if (this.map.has(key)) this.map.delete(key);
+    this.map.set(key, { value, expiry: Date.now() + ttlMs });
+    while (this.map.size > this.max) this.map.delete(this.map.keys().next().value);
+  }
+  delete(key) {
+    this.map.delete(key);
+  }
+  get size() {
+    return this.map.size;
+  }
+}
 
-// ── Disk-backed persistent cache directory ──
+const cache = new LRUCache(600);
+
+// ── In-flight request coalescing ──
+const inflight = new Map();
+export function coalesce(key, fn) {
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const p = Promise.resolve()
+    .then(fn)
+    .finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+// ── Per-upstream rate queue (serialises calls with a minimum gap) ──
+/**
+ * Bounded: when `maxDepth` jobs are already waiting the call is rejected with a 429, and a job
+ * that waited longer than `maxWaitMs` before its turn is dropped (its caller has most likely
+ * timed out) instead of spending upstream quota.
+ */
+export class RateQueue {
+  constructor(minIntervalMs, { maxDepth = Infinity, maxWaitMs = Infinity, source = "queue" } = {}) {
+    this.minIntervalMs = minIntervalMs;
+    this.maxDepth = maxDepth;
+    this.maxWaitMs = maxWaitMs;
+    this.source = source;
+    this.last = 0;
+    this.pending = 0;
+    this.chain = Promise.resolve();
+  }
+  get depth() {
+    return this.pending;
+  }
+  schedule(fn) {
+    if (this.pending >= this.maxDepth) {
+      return Promise.reject(new UpstreamError(this.source, 429, `${this.source} queue full (${this.pending} waiting); retry shortly`, this.minIntervalMs));
+    }
+    this.pending++;
+    const enqueuedAt = Date.now();
+    const run = this.chain.then(async () => {
+      try {
+        if (Date.now() - enqueuedAt > this.maxWaitMs) {
+          throw new UpstreamError(this.source, 429, `${this.source} queue wait exceeded ${Math.round(this.maxWaitMs / 1000)}s; request dropped`, this.minIntervalMs);
+        }
+        const wait = this.last + this.minIntervalMs - Date.now();
+        if (wait > 0) await sleep(wait);
+        this.last = Date.now();
+      } finally {
+        this.pending--;
+      }
+      return fn();
+    });
+    this.chain = run.catch(() => undefined);
+    return run;
+  }
+}
+
+const queues = {
+  dhanOC: new RateQueue(3000, { maxDepth: 8, maxWaitMs: 20000, source: "dhan" }), // Dhan option chain: 1 request per 3 s
+  dhan: new RateQueue(250, { maxDepth: 80, maxWaitMs: 20000, source: "dhan" }),
+  nse: new RateQueue(350),
+  nseArchive: new RateQueue(300),
+  yahoo: new RateQueue(150),
+  tv: new RateQueue(200),
+};
+
+// ── Upstream health ──
+const upstreamHealth = {
+  dhan: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
+  nse: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
+  bse: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
+  yahoo: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
+  tv: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
+};
+
+function markSuccess(source) {
+  const h = upstreamHealth[source];
+  if (h) h.lastSuccess = Date.now();
+}
+
+function markFailure(source, err) {
+  const h = upstreamHealth[source];
+  if (!h) return;
+  h.lastFailure = Date.now();
+  h.lastError = truncate(err?.message || String(err), 160);
+  if (err?.retryAfterMs) h.blockedUntil = Date.now() + err.retryAfterMs;
+}
+
+function isBlocked(source) {
+  const h = upstreamHealth[source];
+  return !!(h?.blockedUntil && Date.now() < h.blockedUntil);
+}
+
+/**
+ * fetch() with a timeout, health tracking, Retry-After handling and truncated error bodies.
+ * Returns the Response on 2xx; throws UpstreamError otherwise.
+ */
+async function upstreamFetch(source, url, init = {}, timeoutMs = 15000) {
+  if (isBlocked(source)) {
+    throw new UpstreamError(source, 429, `${source} rate-limited; retry after ${Math.ceil((upstreamHealth[source].blockedUntil - Date.now()) / 1000)}s`, upstreamHealth[source].blockedUntil - Date.now());
+  }
+  let res;
+  try {
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    const err = new UpstreamError(source, 0, e?.name === "TimeoutError" ? `${source} timed out after ${timeoutMs} ms` : `${source} unreachable: ${truncate(e?.message, 120)}`);
+    markFailure(source, err);
+    throw err;
+  }
+  if (!res.ok) {
+    let body = "";
+    try { body = await res.text(); } catch { /* ignore */ }
+    const retryAfterMs = res.status === 429 ? parseRetryAfter(res.headers.get("retry-after")) || 60000 : 0;
+    const clean = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const err = new UpstreamError(source, res.status, `${source} HTTP ${res.status}: ${truncate(clean, 160)}`, retryAfterMs);
+    markFailure(source, err);
+    throw err;
+  }
+  return res;
+}
+
+// ── Last-good store (memory + disk, atomic writes) ──
+const LAST_GOOD_TTL = 18 * 60 * 60 * 1000;
+const LONG_LAST_GOOD_TTL = 14 * 24 * 60 * 60 * 1000; // immutable archive files
 const CACHE_DIR = resolve(__dirname, ".cache");
 try { mkdirSync(CACHE_DIR, { recursive: true }); } catch { /* ignore */ }
 
-function diskCacheKeyToFilename(key) {
-  return key.replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
+// Bounded: keys include user-controlled values (chain-multi expiry lists, dates), so memory and
+// the .cache directory are capped. Least recently used entries are evicted, file included.
+const LAST_GOOD_MAX = 600;
+// Disk writes are async and throttled per key: a 3 s option-chain poll persists at most once a minute.
+const LAST_GOOD_PERSIST_MS = 60 * 1000;
+const lastGood = new Map();
+const lgPersistedAt = new Map(); // key → last disk write time
+const lgDirty = new Map(); // key → entry waiting for its throttle window
+const lgWriteQueue = new Map(); // key → entry ready to write
+let lgWriting = false;
+
+function lgFile(key) {
+  return join(CACHE_DIR, `${key.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 180)}.json`);
 }
 
-function setLastGoodToDisk(key, data) {
-  try {
-    const filepath = join(CACHE_DIR, diskCacheKeyToFilename(key));
-    writeFileSync(filepath, JSON.stringify({ data, timestamp: Date.now() }), "utf-8");
-  } catch (e) {
-    console.warn(`  ⚠️ Failed to write cache to disk for ${key}:`, e.message);
+function lgTtl(key) {
+  return key.startsWith("archive:") ? LONG_LAST_GOOD_TTL : LAST_GOOD_TTL;
+}
+
+function lgRemoveFile(key) {
+  fsp.unlink(lgFile(key)).catch(() => undefined);
+}
+
+/** Insert into the in-memory LRU, evicting (and deleting the file of) the oldest entries. */
+function rememberLastGood(key, entry) {
+  if (lastGood.has(key)) lastGood.delete(key);
+  lastGood.set(key, entry);
+  while (lastGood.size > LAST_GOOD_MAX) {
+    const oldest = lastGood.keys().next().value;
+    lastGood.delete(oldest);
+    lgPersistedAt.delete(oldest);
+    lgDirty.delete(oldest);
+    lgWriteQueue.delete(oldest);
+    lgRemoveFile(oldest);
   }
 }
 
-function getLastGoodFromDisk(key) {
+async function drainLastGoodWrites() {
+  if (lgWriting) return;
+  lgWriting = true;
   try {
-    const filepath = join(CACHE_DIR, diskCacheKeyToFilename(key));
-    if (!existsSync(filepath)) return null;
-    const raw = JSON.parse(readFileSync(filepath, "utf-8"));
-    if (raw && raw.data && raw.timestamp && Date.now() - raw.timestamp < LAST_GOOD_TTL) {
-      return raw;
-    }
-  } catch { /* ignore corrupt files */ }
-  return null;
-}
-
-// Rehydrate lastGoodCache from disk on startup
-try {
-  const files = readdirSync(CACHE_DIR).filter(f => f.endsWith(".json"));
-  for (const file of files) {
-    try {
-      const raw = JSON.parse(readFileSync(join(CACHE_DIR, file), "utf-8"));
-      if (raw?.data && raw?.timestamp && Date.now() - raw.timestamp < LAST_GOOD_TTL) {
-        // Reconstruct the key from the filename (reverse of the sanitization)
-        lastGoodCache.set(file.replace(/\.json$/, ""), raw);
+    while (lgWriteQueue.size > 0) {
+      const [key, entry] = lgWriteQueue.entries().next().value;
+      lgWriteQueue.delete(key);
+      const file = lgFile(key);
+      const tmp = `${file}.${process.pid}.tmp`;
+      try {
+        await fsp.writeFile(tmp, JSON.stringify(entry), "utf-8");
+        await fsp.rename(tmp, file);
+        // Evicted while the write was in flight: do not leave an orphan file behind.
+        if (!lastGood.has(key)) lgRemoveFile(key);
+      } catch (e) {
+        fsp.unlink(tmp).catch(() => undefined);
+        console.warn(`  ⚠️ Could not persist last-good ${truncate(key, 60)}: ${truncate(e.message, 80)}`);
       }
-    } catch { /* skip corrupt entries */ }
-  }
-  if (lastGoodCache.size > 0) {
-    console.log(`  📦 Rehydrated ${lastGoodCache.size} last-good cache entries from disk`);
-  }
-} catch { /* .cache dir doesn't exist yet, will be created on first write */ }
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (entry && Date.now() < entry.expiry) return entry.data;
-  if (entry) cache.delete(key);
-  return null;
-}
-
-function setCache(key, data, ttlMs) {
-  cache.set(key, { data, expiry: Date.now() + ttlMs });
-  if (cache.size > 200) {
-    const oldest = cache.keys().next().value;
-    if (oldest) cache.delete(oldest);
+    }
+  } finally {
+    lgWriting = false;
   }
 }
 
-function setLastGood(key, data) {
-  lastGoodCache.set(diskCacheKeyToFilename(key), { data, timestamp: Date.now() });
-  setLastGoodToDisk(key, data); // Persist to disk
+function persistLastGood(key, entry) {
+  lgDirty.delete(key);
+  lgPersistedAt.set(key, Date.now());
+  lgWriteQueue.set(key, entry);
+  void drainLastGoodWrites();
 }
+
+function setLastGood(key, data, source) {
+  const entry = { key, data, source, timestamp: Date.now() };
+  rememberLastGood(key, entry);
+  const last = lgPersistedAt.get(key) || 0;
+  if (Date.now() - last >= LAST_GOOD_PERSIST_MS) persistLastGood(key, entry);
+  else lgDirty.set(key, entry); // flushed by the interval below
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of lgDirty) {
+    if (now - (lgPersistedAt.get(key) || 0) >= LAST_GOOD_PERSIST_MS) persistLastGood(key, entry);
+  }
+}, 15000).unref();
 
 function getLastGood(key) {
-  // Try in-memory first
-  const diskKey = diskCacheKeyToFilename(key);
-  const entry = lastGoodCache.get(diskKey);
-  if (entry && Date.now() - entry.timestamp < LAST_GOOD_TTL) return entry;
-  if (entry) lastGoodCache.delete(diskKey);
-  
-  // Fallback to disk
-  const diskEntry = getLastGoodFromDisk(key);
-  if (diskEntry) {
-    lastGoodCache.set(diskKey, diskEntry); // Rehydrate in-memory
-    return diskEntry;
-  }
+  const mem = lastGood.get(key);
+  if (mem && Date.now() - mem.timestamp < lgTtl(key)) return mem;
+  if (mem) lastGood.delete(key);
+  try {
+    const file = lgFile(key);
+    if (!existsSync(file)) return null;
+    const raw = JSON.parse(readFileSync(file, "utf-8"));
+    if (raw?.key === key && raw.data !== undefined && Date.now() - raw.timestamp < lgTtl(key)) {
+      rememberLastGood(key, raw);
+      return raw;
+    }
+  } catch { /* corrupt file */ }
   return null;
+}
+
+// Rehydrate from disk using the key stored inside each file (not the sanitised filename).
+// Expired, corrupt and over-cap files are deleted so the directory cannot grow without limit.
+try {
+  const found = [];
+  for (const f of readdirSync(CACHE_DIR)) {
+    const full = join(CACHE_DIR, f);
+    if (f.endsWith(".tmp")) { try { unlinkSync(full); } catch { /* ignore */ } continue; }
+    if (!f.endsWith(".json")) continue;
+    try {
+      const raw = JSON.parse(readFileSync(full, "utf-8"));
+      if (typeof raw?.key === "string" && raw.data !== undefined && Date.now() - raw.timestamp < lgTtl(raw.key)) found.push(raw);
+      else unlinkSync(full);
+    } catch {
+      try { unlinkSync(full); } catch { /* ignore */ }
+    }
+  }
+  found.sort((a, b) => a.timestamp - b.timestamp); // oldest first, so the LRU evicts them first
+  for (const raw of found) {
+    rememberLastGood(raw.key, raw);
+    lgPersistedAt.set(raw.key, raw.timestamp);
+  }
+  if (lastGood.size > 0) console.log(`  📦 Rehydrated ${lastGood.size} last-good entries from disk`);
+} catch { /* first run */ }
+
+// ── Per-IP token bucket ──
+const buckets = new Map();
+const BUCKET_CAPACITY = 80;
+const BUCKET_REFILL_PER_SEC = 25;
+
+export function takeToken(ip, now = Date.now(), store = buckets) {
+  let b = store.get(ip);
+  if (!b) {
+    b = { tokens: BUCKET_CAPACITY, ts: now };
+    store.set(ip, b);
+  }
+  b.tokens = Math.min(BUCKET_CAPACITY, b.tokens + ((now - b.ts) / 1000) * BUCKET_REFILL_PER_SEC);
+  b.ts = now;
+  if (b.tokens < 1) return false;
+  b.tokens -= 1;
+  return true;
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [ip, b] of buckets) if (b.ts < cutoff) buckets.delete(ip);
+}, 60000).unref();
+
+// ── Input whitelists ──
+export class InputError extends Error {}
+
+const SYMBOL_RE = /^[A-Z0-9&-]{1,20}$/;
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+const NSE_DATE_RE = /^\d{1,2}-[A-Za-z]{3}-\d{4}$/;
+const INTERVALS = new Set(["1", "5", "15", "25", "60", "D"]);
+const SEGMENTS = new Set(["IDX_I", "NSE_EQ", "NSE_FNO", "BSE_EQ", "BSE_FNO", "NSE_CURRENCY", "BSE_CURRENCY", "MCX_COMM"]);
+const INSTRUMENTS = new Set(["INDEX", "EQUITY", "FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK", "FUTCUR", "OPTCUR"]);
+
+export function vSymbol(v, fallback) {
+  const s = String(v ?? fallback ?? "").trim().toUpperCase();
+  if (!SYMBOL_RE.test(s)) throw new InputError(`Invalid symbol: ${truncate(v, 30)}`);
+  return s;
+}
+
+const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const MON_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "21-Oct-2025" | "2025-10-21" → "2025-10-21"; "" when unparseable. */
+export function toIso(input) {
+  const s = String(input ?? "").trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{1,2})[-\s]([A-Za-z]{3})[A-Za-z]*[-\s](\d{4})$/.exec(s);
+  if (m && MONTHS[m[2].toLowerCase()]) return `${m[3]}-${String(MONTHS[m[2].toLowerCase()]).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return "";
+}
+
+/** "2025-10-21" → "21-Oct-2025" (NSE API format). */
+export function isoToNse(iso) {
+  const [y, mo, d] = iso.split("-").map(Number);
+  return `${String(d).padStart(2, "0")}-${MON_NAMES[mo - 1]}-${y}`;
+}
+
+export function vExpiry(v, { optional = true } = {}) {
+  if (v === null || v === undefined || v === "") {
+    if (optional) return "";
+    throw new InputError("Missing expiry");
+  }
+  const s = String(v).trim();
+  if (!ISO_RE.test(s) && !NSE_DATE_RE.test(s)) throw new InputError(`Invalid expiry: ${truncate(v, 30)}`);
+  const iso = toIso(s);
+  if (!iso) throw new InputError(`Invalid expiry: ${truncate(v, 30)}`);
+  return iso;
+}
+
+export function vDate(v, { optional = true } = {}) {
+  if (v === null || v === undefined || v === "") {
+    if (optional) return "";
+    throw new InputError("Missing date");
+  }
+  const s = String(v).trim();
+  if (!ISO_RE.test(s)) throw new InputError(`Invalid date (use yyyy-mm-dd): ${truncate(v, 30)}`);
+  const d = new Date(`${s}T00:00:00Z`);
+  if (!Number.isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new InputError(`Invalid date: ${s}`);
+  return s;
+}
+
+export function vInt(v, { min, max, fallback }) {
+  if (v === null || v === undefined || v === "") return fallback;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min || n > max) throw new InputError(`Expected an integer between ${min} and ${max}`);
+  return n;
+}
+
+function vEnum(v, set, fallback, label) {
+  const s = v === null || v === undefined || v === "" ? fallback : String(v);
+  if (!set.has(s)) throw new InputError(`Invalid ${label}: ${truncate(v, 20)}`);
+  return s;
+}
+
+function vDateTime(v) {
+  if (!v) return "";
+  const s = String(v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(s)) throw new InputError("Invalid date/time (use yyyy-mm-dd or yyyy-mm-dd HH:MM)");
+  return s;
+}
+
+// ── IST calendar helpers ──
+export function istNow(now = new Date()) {
+  const d = new Date(now.getTime() + 330 * 60000);
+  return { iso: d.toISOString().slice(0, 10), hh: d.getUTCHours(), mm: d.getUTCMinutes(), weekday: d.getUTCDay() };
+}
+
+export function addDaysIso(iso, n) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+
+/** Weekdays on or before `fromIso`, newest first. */
+export function recentWeekdays(fromIso, count) {
+  const out = [];
+  let d = fromIso;
+  for (let i = 0; out.length < count && i < count * 2 + 10; i++) {
+    const wd = weekdayOf(d);
+    if (wd !== 0 && wd !== 6) out.push(d);
+    d = addDaysIso(d, -1);
+  }
+  return out;
+}
+
+const ddmmyyyy = (iso) => `${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}`;
+const ddDashMmDashYyyy = (iso) => `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}`;
+
+// ── CSV and ZIP helpers ──
+
+/** Minimal RFC-4180 CSV parser (quoted fields, escaped quotes, CRLF). */
+export function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else q = false;
+      } else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else field += c;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.some((f) => f.trim() !== ""));
+}
+
+const toNum = (v) => {
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  const n = parseFloat(String(v ?? "").replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Extract the first file from a ZIP buffer (stored or deflated) using the central directory. */
+export function unzipFirst(buf, pattern = /\.csv$/i) {
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("Not a ZIP file");
+  const entries = buf.readUInt16LE(eocd + 10);
+  let p = buf.readUInt32LE(eocd + 16);
+  let chosen = null;
+  for (let i = 0; i < entries; i++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    const method = buf.readUInt16LE(p + 10);
+    const compSize = buf.readUInt32LE(p + 20);
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const commentLen = buf.readUInt16LE(p + 32);
+    const localOffset = buf.readUInt32LE(p + 42);
+    const name = buf.toString("utf8", p + 46, p + 46 + nameLen);
+    if (!chosen || (pattern.test(name) && !pattern.test(chosen.name))) chosen = { method, compSize, localOffset, name };
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  if (!chosen) throw new Error("Empty ZIP");
+  const lo = chosen.localOffset;
+  if (buf.readUInt32LE(lo) !== 0x04034b50) throw new Error("Bad ZIP local header");
+  const start = lo + 30 + buf.readUInt16LE(lo + 26) + buf.readUInt16LE(lo + 28);
+  const data = buf.subarray(start, start + chosen.compSize);
+  if (chosen.method === 0) return data.toString("utf8");
+  if (chosen.method === 8) return inflateRawSync(data).toString("utf8");
+  throw new Error(`Unsupported ZIP compression method ${chosen.method}`);
 }
 
 // ══════════════════════════════════════════════
 // ── SECTION 2: Dhan REST API ──
 // ══════════════════════════════════════════════
 
+// Dhan IDX_I security ids (verify against the Dhan scrip master).
+const INDEX_SECURITY_IDS = {
+  NIFTY: 13,
+  BANKNIFTY: 25,
+  FINNIFTY: 27,
+  MIDCPNIFTY: 442,
+  INDIAVIX: 21,
+  SENSEX: 51,
+  BANKEX: 69,
+};
+
+const UNDERLYING_MAP = {
+  NIFTY: { underlyingScrip: 13, seg: "IDX_I" },
+  BANKNIFTY: { underlyingScrip: 25, seg: "IDX_I" },
+  FINNIFTY: { underlyingScrip: 27, seg: "IDX_I" },
+  MIDCPNIFTY: { underlyingScrip: 442, seg: "IDX_I" },
+  SENSEX: { underlyingScrip: 51, seg: "IDX_I" },
+  BANKEX: { underlyingScrip: 69, seg: "IDX_I" },
+};
+
+const CLIENT_ID_RE = /^[A-Za-z0-9]{3,32}$/;
+const TOKEN_RE = /^[A-Za-z0-9._-]{20,4096}$/;
+
+function resolveDhanCreds(clientId, accessToken) {
+  const c = clientId || process.env.DHAN_CLIENT_ID || "";
+  const t = accessToken || process.env.DHAN_ACCESS_TOKEN || "";
+  if (!c || !t) return null;
+  if (!CLIENT_ID_RE.test(c) || !TOKEN_RE.test(t)) throw new InputError("Dhan credentials have an invalid format");
+  return { clientId: c, accessToken: t };
+}
+
+/**
+ * Short, non-reversible tag for a credential pair. Dhan cache, in-flight and last-good keys carry
+ * it so a caller never receives data fetched with someone else's token.
+ */
+export function credTag(creds) {
+  if (!creds) return "";
+  return createHash("sha256").update(`${creds.clientId}:${creds.accessToken}`).digest("hex").slice(0, 12);
+}
+
+async function dhanFetch(path, body, creds, { queue = queues.dhan, timeoutMs = 15000 } = {}) {
+  if (!creds) throw new UpstreamError("dhan", 401, "Dhan credentials not configured (Broker settings or .env)");
+  return queue.schedule(async () => {
+    const res = await upstreamFetch("dhan", `${DHAN_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "access-token": creds.accessToken, "client-id": creds.clientId },
+      body: JSON.stringify(body),
+    }, timeoutMs);
+    const json = await res.json();
+    if (json?.status === "failure" || json?.errorCode) {
+      const err = new UpstreamError("dhan", 400, `Dhan: ${truncate(json.errorMessage || json.remarks || json.errorCode || "request failed", 160)}`);
+      markFailure("dhan", err);
+      throw err;
+    }
+    markSuccess("dhan");
+    return json;
+  });
+}
+
+async function dhanExpiryList(symbol, creds) {
+  const u = UNDERLYING_MAP[symbol];
+  if (!u) throw new InputError(`Unsupported symbol for Dhan: ${symbol}. Supported: ${Object.keys(UNDERLYING_MAP).join(", ")}`);
+  if (!creds) throw new UpstreamError("dhan", 401, "Dhan credentials not configured (Broker settings or .env)");
+  const tag = credTag(creds);
+  const key = `dhan:expiry:${tag}:${symbol}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const json = await dhanFetch("/optionchain/expirylist", { UnderlyingScrip: u.underlyingScrip, UnderlyingSeg: u.seg }, creds);
+    const list = Array.isArray(json?.data) ? json.data.map(toIso).filter(Boolean).sort() : [];
+    const out = { status: "success", data: list };
+    if (list.length > 0) {
+      cache.set(key, out, 300000);
+      setLastGood(`lastgood:dhan:expiry:${tag}:${symbol}`, out, "dhan");
+    }
+    return out;
+  });
+}
+
+async function dhanOptionChain(symbol, expiry, creds) {
+  const u = UNDERLYING_MAP[symbol];
+  if (!u) throw new InputError(`Unsupported symbol for Dhan: ${symbol}`);
+  if (!creds) throw new UpstreamError("dhan", 401, "Dhan credentials not configured (Broker settings or .env)");
+  let exp = expiry;
+  if (!exp) {
+    const list = await dhanExpiryList(symbol, creds);
+    exp = list.data[0];
+    if (!exp) throw new UpstreamError("dhan", 404, "Dhan returned no expiries");
+  }
+  const tag = credTag(creds);
+  const key = `dhan:oc:${tag}:${symbol}:${exp}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const json = await dhanFetch("/optionchain", { UnderlyingScrip: u.underlyingScrip, UnderlyingSeg: u.seg, Expiry: exp }, creds, { queue: queues.dhanOC });
+    const oc = json?.data?.oc;
+    if (!oc || Object.keys(oc).length === 0) throw new UpstreamError("dhan", 204, "Dhan returned an empty option chain");
+    const out = { status: "success", data: json.data, expiry: exp };
+    cache.set(key, out, 3000);
+    setLastGood(`lastgood:dhan:oc:${tag}:${symbol}:${exp}`, out, "dhan");
+    return out;
+  });
+}
+
+function dhanErrorPayload(e) {
+  return { status: "error", reason: truncate(e?.message || "Dhan request failed", 240) };
+}
+
+const DHAN_CRED_ENDPOINTS = new Set(["option-chain", "expiry-list", "ltp", "historical"]);
+
+async function handleDhanProxy(params, creds) {
+  const endpoint = params.get("endpoint");
+  // Answer before touching any cache: cached Dhan data belongs to whoever fetched it.
+  if (!creds && DHAN_CRED_ENDPOINTS.has(endpoint)) {
+    return { status: 401, body: { status: "error", reason: "Dhan credentials not configured (Broker settings or .env)" } };
+  }
+  const tag = credTag(creds);
+  switch (endpoint) {
+    case "option-chain": {
+      const symbol = vSymbol(params.get("symbol"), "NIFTY");
+      const expiry = vExpiry(params.get("expiry"));
+      try {
+        return { status: 200, body: await dhanOptionChain(symbol, expiry, creds) };
+      } catch (e) {
+        if (e instanceof InputError) throw e;
+        const lgKey = expiry ? `lastgood:dhan:oc:${tag}:${symbol}:${expiry}` : null;
+        let lg = lgKey ? getLastGood(lgKey) : null;
+        if (!lg && !expiry) {
+          const exp = getLastGood(`lastgood:dhan:expiry:${tag}:${symbol}`)?.data?.data?.[0];
+          if (exp) lg = getLastGood(`lastgood:dhan:oc:${tag}:${symbol}:${exp}`);
+        }
+        if (lg) return { status: 200, body: { ...lg.data, stale: true, afterHours: true, cachedAt: lg.timestamp, reason: truncate(e.message, 160) } };
+        return { status: 502, body: dhanErrorPayload(e) };
+      }
+    }
+    case "expiry-list": {
+      const symbol = vSymbol(params.get("symbol"), "NIFTY");
+      try {
+        return { status: 200, body: await dhanExpiryList(symbol, creds) };
+      } catch (e) {
+        if (e instanceof InputError) throw e;
+        const lg = getLastGood(`lastgood:dhan:expiry:${tag}:${symbol}`);
+        if (lg) return { status: 200, body: { ...lg.data, stale: true, cachedAt: lg.timestamp } };
+        return { status: 502, body: dhanErrorPayload(e) };
+      }
+    }
+    case "ltp": {
+      const symbol = vSymbol(params.get("symbol"), "NIFTY");
+      const secId = INDEX_SECURITY_IDS[symbol];
+      if (!secId) throw new InputError(`Unknown index: ${symbol}`);
+      const key = `dhan:ltp:${tag}:${symbol}`;
+      const hit = cache.get(key);
+      if (hit) return { status: 200, body: hit };
+      try {
+        const json = await coalesce(key, () => dhanFetch("/marketfeed/ltp", { IDX_I: [secId] }, creds));
+        cache.set(key, json, 2000);
+        return { status: 200, body: json };
+      } catch (e) {
+        return { status: 502, body: dhanErrorPayload(e) };
+      }
+    }
+    case "instruments":
+      return { status: 200, body: await instrumentMaster() };
+    case "historical": {
+      const secId = String(params.get("securityId") || "");
+      if (!/^\d{1,10}$/.test(secId)) throw new InputError("Invalid securityId");
+      const exchSeg = vEnum(params.get("exchangeSegment"), SEGMENTS, "IDX_I", "exchangeSegment");
+      const instrument = vEnum(params.get("instrument"), INSTRUMENTS, "INDEX", "instrument");
+      const interval = vEnum(params.get("interval"), INTERVALS, "5", "interval");
+      const fromDate = vDateTime(params.get("fromDate"));
+      const toDate = vDateTime(params.get("toDate"));
+      try {
+        return { status: 200, body: await dhanHistorical({ secId, exchSeg, instrument, interval, fromDate, toDate }, creds) };
+      } catch (e) {
+        return { status: 502, body: dhanErrorPayload(e) };
+      }
+    }
+    default:
+      throw new InputError("Unknown endpoint. Use: option-chain, expiry-list, ltp, instruments, historical");
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── SECTION 2b: Trading — orders, portfolio, risk engine, panic layer, baskets (1Cliq) ──
+// ══════════════════════════════════════════════
+//
+// Real money. These endpoints never use the response cache, the in-flight coalescer or the
+// last-good store: a failed request must surface the broker's real error verbatim, and a stale
+// Funds/Positions figure in an execution terminal is the worst available failure mode
+// (1CLIQ-TRADE-SPEC.md §10). They answer on /api/dhan-proxy?endpoint=<name> and go through the
+// same Host allowlist, Origin allowlist and per-IP token bucket as every other route, plus:
+//   - mutating endpoints are POST-only with a JSON body (order details never ride in a URL);
+//   - a request without an Origin header (non-browser client) is accepted only from loopback;
+//   - Dhan credentials come from resolveDhanCreds() under the same .env policy as data routes,
+//     and are passed explicitly to server/** (server/brokers/dhan.mjs has no .env fallback).
+
+/** Endpoints that change state. POST only, JSON body. */
+export const TRADE_POST_ENDPOINTS = new Set([
+  "place-order", "cancel-order", "modify-order", "basket-deploy",
+  "risk-arm", "risk-disarm", "panic-close-all", "panic-cancel-all", "panic-set-lock",
+]);
+/** Read-only trading endpoints. GET. Never cached. */
+export const TRADE_GET_ENDPOINTS = new Set([
+  "orders", "order-status", "positions", "holdings", "funds", "trades", "risk-status", "panic-lock-state",
+]);
+/** Trading endpoints that never touch the broker (in-process risk engine / lock state). */
+const TRADE_NO_CREDS = new Set(["risk-status", "risk-arm", "risk-disarm", "panic-lock-state", "panic-set-lock"]);
+
+const ORDER_ID_RE = /^[A-Za-z0-9-]{1,40}$/;
+const tickKeyOf = (segment, securityId) => `${segment}:${securityId}`;
+const TRADE_BODY_LIMIT = 64 * 1024;
+
+class TradeError extends Error {
+  constructor(statusCode, code, message) {
+    super(message);
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+}
+
+/** Read and parse a JSON request body (64 KB cap). Rejects non-JSON content types. */
+export function readJsonBody(req, limit = TRADE_BODY_LIMIT) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const type = String(req.headers["content-type"] || "").toLowerCase();
+    if (!type.startsWith("application/json")) {
+      rejectPromise(new TradeError(415, "UNSUPPORTED_MEDIA_TYPE", "Send a JSON body (Content-Type: application/json)"));
+      req.resume();
+      return;
+    }
+    let raw = "";
+    let size = 0;
+    let done = false;
+    req.on("data", (chunk) => {
+      if (done) return;
+      size += chunk.length;
+      if (size > limit) {
+        done = true;
+        rejectPromise(new TradeError(413, "BODY_TOO_LARGE", "Request body too large"));
+        req.resume();
+        return;
+      }
+      raw += chunk;
+    });
+    req.on("end", () => {
+      if (done) return;
+      done = true;
+      if (!raw) return resolvePromise({});
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+        resolvePromise(parsed);
+      } catch {
+        rejectPromise(new TradeError(400, "BAD_JSON", "Invalid JSON body"));
+      }
+    });
+    req.on("error", (e) => {
+      if (done) return;
+      done = true;
+      rejectPromise(e);
+    });
+  });
+}
+
+function vOrderId(v) {
+  const s = String(v ?? "");
+  if (!ORDER_ID_RE.test(s)) throw new InputError("Invalid orderId");
+  return s;
+}
+
 // ── Panic-layer wiring (1CLIQ-TRADE-SPEC.md §5) ──
-// server/lib/panicLayer.mjs is broker-agnostic (injected executor/fetcher
-// functions, no knowledge of Dhan's field names or REST paths). These
-// functions are the translation layer that lets it act on this account's
-// real book, and are the only place Dhan-specific position/order shapes are
-// read for the panic path.
+// server/lib/panicLayer.mjs is broker-agnostic (injected executor/fetcher functions). These are the
+// translation layer onto this account's real Dhan book, and the only place Dhan-specific
+// position/order shapes are read for the panic path.
 
 const DHAN_OPEN_ORDER_STATUSES = new Set(["TRANSIT", "PENDING", "PART_TRADED"]);
 
-/** Dhan's own open-orders view — "open" here means still resting, not yet terminal. */
+/** Dhan's own open-orders view: "open" means still resting, not yet terminal. */
 async function fetchDhanOpenOrders(creds) {
   const orders = await dhanGetOrders(creds);
   return (Array.isArray(orders) ? orders : []).filter((o) => DHAN_OPEN_ORDER_STATUSES.has(o?.orderStatus));
 }
 
 /**
- * Map one Dhan GET /positions record onto panicLayer's OpenPosition shape.
- * Field names verified against Dhan's live v2 docs (dhanhq.co/docs/v2/portfolio/,
- * checked this session, not assumed from memory — see dhanOrders.mjs's header
- * for why that verification matters here): `netQty` is signed exchange
- * quantity, `multiplier` is the contract's lot size, `drvOptionType`
- * ("CALL"/"PUT") is present only for option legs.
+ * Map one Dhan GET /positions record onto panicLayer's OpenPosition shape. `netQty` is signed
+ * exchange quantity, `multiplier` the contract's lot size, `drvOptionType` ("CALL"/"PUT") is
+ * present only for option legs (Dhan v2 portfolio docs).
  */
 function mapDhanPositionToOpenPosition(p) {
   const netQty = Number(p.netQty) || 0;
@@ -234,7 +898,7 @@ function mapDhanPositionToOpenPosition(p) {
 
 /** Every currently open (non-flat, non-CLOSED) position on this Dhan account. */
 async function fetchDhanOpenPositions(creds) {
-  const raw = await dhanFetch("/positions", null, "GET", creds.clientId, creds.accessToken);
+  const raw = await dhanGetPositions(creds);
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
   return list
     .filter((p) => p?.positionType !== "CLOSED" && Number(p?.netQty) !== 0)
@@ -242,12 +906,9 @@ async function fetchDhanOpenPositions(creds) {
 }
 
 /**
- * panicLayer's orderExecutor for real Dhan close orders. Reuses
- * dhanOrders.mjs's buildOrderBody()/placeOrder() — the exact code path
- * "place-order" already uses — instead of hand-rolling a second order-body
- * builder, so B1's "lot size only ever comes from a resolved value" property
- * holds here too. MARKET/IOC is the panic-specific override from spec §5
- * (unlike the DAY-validity default for ordinary order entry in spec §8).
+ * panicLayer's orderExecutor for real Dhan close orders. Reuses dhanOrders.mjs's placeOrder() (the
+ * exact path "place-order" uses), so lot size only ever comes from a resolved value. MARKET/IOC is
+ * the panic-specific override from spec §5.
  */
 function makeDhanCloseExecutor(creds) {
   return async function dhanCloseExecutor(intent) {
@@ -271,29 +932,18 @@ function makeDhanCancelExecutor(creds) {
   };
 }
 
-/** A stable intentId for the audit trail even when the client didn't send one. */
+/** A stable intentId for the audit trail even when the client did not send one. */
 function panicIntentId(body, prefix) {
-  if (body && typeof body.intentId === "string" && body.intentId) return body.intentId;
+  if (body && typeof body.intentId === "string" && /^[A-Za-z0-9._:-]{1,80}$/.test(body.intentId)) return body.intentId;
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── Basket deploy support (1CLIQ-TRADE-SPEC.md §9) ──
+// ── Basket resolve support (1CLIQ-TRADE-SPEC.md §9) ──
 
-// Enough expiries to cover weeksOut 0/1/2 and a "monthly" spec (NSE's
-// monthly is always one of the first handful of weeklies in the current
-// calendar month) without fetching Dhan's entire listed expiry calendar on
-// every basket resolve.
+// Enough expiries to cover weeksOut 0/1/2 and a "monthly" spec without fetching the whole calendar.
 const BASKET_CHAIN_EXPIRY_LOOKAHEAD = 6;
 
-/**
- * Minimal raw Dhan `oc` map -> basketEngine's ChainOptionRow[] adapter — only
- * the 3 fields resolveBasket() actually reads (securityId, exchangeSegment,
- * delta). src/lib/marketApi.ts's parseDhanOptionChain() does the fuller
- * UI-facing parse of this same raw shape; that file is TypeScript/browser-
- * facing so it can't be imported from this server module (one-purpose-per-
- * file — see CLAUDE.md), hence this deliberately minimal server-only
- * duplicate of just the fields basket resolution needs.
- */
+/** Raw Dhan `oc` map → basketEngine's ChainOptionRow[] (only the fields resolveBasket reads). */
 function dhanOcToChainRows(oc) {
   if (!oc || typeof oc !== "object") return [];
   const toLeg = (l) => {
@@ -309,585 +959,147 @@ function dhanOcToChainRows(oc) {
   }));
 }
 
-/** Strike step size derived from the chain's own listed strikes (e.g. 50 for
- * NIFTY, 100 for BANKNIFTY) — never hardcoded, so this never becomes a
- * second stale constant alongside the B1 lot-size bug fixed elsewhere in
- * this build. */
+/** Strike step from the chain's own listed strikes; never a hardcoded constant. */
 function inferStepSizeFromRows(rows) {
   if (!Array.isArray(rows) || rows.length < 2) return null;
   const strikes = [...new Set(rows.map((r) => r.strikePrice))].sort((a, b) => a - b);
   return strikes.length >= 2 ? strikes[1] - strikes[0] : null;
 }
 
-async function handleDhanProxy(params, userClientId, userAccessToken, body = null) {
-  const endpoint = params.get("endpoint");
-  const symbol = (params.get("symbol") || "NIFTY").toUpperCase();
-  const expiry = params.get("expiry");
-  const userPrefix = userClientId ? `user:${userClientId}:` : "";
-  const cacheKey = `dhan:${userPrefix}${endpoint}:${symbol}:${expiry || ""}`;
+function requireCreds(creds) {
+  if (!creds) throw new TradeError(401, "NO_CREDENTIALS", "Dhan credentials not configured (Broker settings or .env)");
+  return creds;
+}
 
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
+/**
+ * One trading endpoint. `creds` is already resolved under the proxy's credential policy (null when
+ * none may be used); `body` is the parsed JSON body for POST endpoints, null for GET.
+ * Returns { status, body }.
+ */
+export async function handleTradeEndpoint(endpoint, params, creds, body) {
+  if (!TRADE_NO_CREDS.has(endpoint)) requireCreds(creds);
+  const by = creds?.clientId || "unknown";
 
   switch (endpoint) {
-    case "option-chain": {
-      const underlying = UNDERLYING_MAP[symbol];
-      if (!underlying) throw new Error(`Unknown symbol: ${symbol}. Supported: ${Object.keys(UNDERLYING_MAP).join(", ")}`);
-      const lastGoodKey = `lastgood:oc:${symbol}:${expiry || "nearest"}`;
-
-      try {
-        let expiryDate = expiry;
-        if (!expiryDate) {
-          try {
-            const expiryListKey = `dhan:expiry-list:${symbol}:`;
-            let expiryList = getCached(expiryListKey);
-            if (!expiryList) {
-              expiryList = await dhanFetch("/optionchain/expirylist", {
-                UnderlyingScrip: underlying.underlyingScrip,
-                UnderlyingSeg: underlying.expirySegment,
-              }, "POST", userClientId, userAccessToken);
-              setCache(expiryListKey, expiryList, 300000);
-            }
-            if (expiryList?.data?.length > 0) expiryDate = expiryList.data[0];
-          } catch (expiryErr) {
-            // Expiry list failed — will try OC without specific expiry
-            console.log(`  ⚠️ Expiry list fetch failed for ${symbol}: ${expiryErr.message}`);
-          }
-        }
-
-        const body = {
-          UnderlyingScrip: underlying.underlyingScrip,
-          UnderlyingSeg: underlying.ocSegment,
-        };
-        if (expiryDate) body.Expiry = expiryDate;
-
-        let result;
-        try {
-          result = await dhanFetch("/optionchain", body, "POST", userClientId, userAccessToken);
-        } catch (ocErr) {
-          // If "Invalid Expiry Date" error, retry without expiry
-          if (ocErr.message.includes("Invalid Expiry") && expiryDate) {
-            console.log(`  🔄 Retrying OC for ${symbol} without expiry date...`);
-            const retryBody = { UnderlyingScrip: underlying.underlyingScrip, UnderlyingSeg: underlying.ocSegment };
-            result = await dhanFetch("/optionchain", retryBody, "POST", userClientId, userAccessToken);
-          } else {
-            throw ocErr;
-          }
-        }
-        
-        // Check if chain has actual data (not empty)
-        const hasData = result?.data?.oc && Object.keys(result.data.oc).length > 0;
-        if (hasData) {
-          // Save to last-good cache for after-hours serving
-          setLastGood(lastGoodKey, result);
-          setCache(cacheKey, result, 5000);
-          return { data: result, cacheHit: false };
-        }
-        
-        // Dhan returned empty — check last-good cache
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 Serving last-good OC for ${symbol} (cached ${Math.round((Date.now() - lastGood.timestamp) / 60000)}min ago)`);
-          const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
-          setCache(cacheKey, afterHoursResult, 30000);
-          return { data: afterHoursResult, cacheHit: false };
-        }
-        
-        // No last-good — return the empty result (not a 500!)
-        setCache(cacheKey, result, 30000); // Cache empty result for 30s to avoid hammering
-        return { data: result, cacheHit: false };
-      } catch (e) {
-        // Dhan API failed — try last-good cache
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 Dhan error, serving last-good OC for ${symbol}: ${e.message}`);
-          const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
-          return { data: afterHoursResult, cacheHit: false };
-        }
-        // No cache — return clean empty response instead of 500
-        const is429 = e.message.includes("429") || e.message.includes("Too many");
-        const cacheTTL = is429 ? 120000 : 60000; // 2min for rate-limits, 1min for others
-        console.log(`  ⚠️ OC unavailable for ${symbol} (no cache): ${e.message}${is429 ? " [rate-limited, backing off 2min]" : ""}`);
-        const emptyResult = { status: "success", data: { oc: {} }, afterHours: true };
-        setCache(cacheKey, emptyResult, cacheTTL);
-        return { data: emptyResult, cacheHit: false };
-      }
-    }
-
-    case "expiry-list": {
-      const underlying = UNDERLYING_MAP[symbol];
-      const lastGoodKey = `lastgood:expiry:${symbol}`;
-
-      // MCX commodities (CRUDEOIL, GOLD, SILVER, NATURALGAS, ...) have no
-      // "UnderlyingScrip" in Dhan's option-chain API — their real expiry
-      // calendar comes from the public instrument master instead, and needs
-      // no access token, so it isn't subject to the same auth failures.
-      if (!underlying) {
-        const result = await fetchMCXExpiryList(symbol);
-        if (result?.data?.length > 0) setLastGood(lastGoodKey, result);
-        setCache(cacheKey, result, 3600000); // 1hr — commodity expiries barely move intraday
-        return { data: result, cacheHit: false };
-      }
-
-      try {
-        const result = await dhanFetch("/optionchain/expirylist", {
-          UnderlyingScrip: underlying.underlyingScrip,
-          UnderlyingSeg: underlying.expirySegment,
-        }, "POST", userClientId, userAccessToken);
-        if (result?.data?.length > 0) {
-          setLastGood(lastGoodKey, result);
-        }
-        setCache(cacheKey, result, 300000); // 5min cache for expiry list
-        return { data: result, cacheHit: false };
-      } catch (e) {
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 Serving last-good expiry list for ${symbol}: ${e.message}`);
-          return { data: lastGood.data, cacheHit: false };
-        }
-        throw e;
-      }
-    }
-
-    case "ltp": {
-      const secInfo = INDEX_SECURITY_IDS[symbol];
-      if (!secInfo) throw new Error(`Unknown index: ${symbol}`);
-
-      const result = await dhanFetch("/marketfeed/ltp", {
-        [secInfo.exchSeg]: [secInfo.secId],
-      }, "POST", userClientId, userAccessToken);
-      setCache(cacheKey, result, 2000);
-      return { data: result, cacheHit: false };
-    }
-
-    case "instruments": {
-      // Download Dhan instrument master CSV (public URL, no auth needed)
-      const instrumentCacheKey = "dhan:instruments-master";
-      const cached = getCached(instrumentCacheKey);
-      if (cached) return { data: cached, cacheHit: true };
-
-      console.log("  📥 Downloading Dhan instrument master CSV...");
-      const csvUrl = "https://images.dhan.co/api-data/api-scrip-master.csv";
-      const csvRes = await fetch(csvUrl);
-      if (!csvRes.ok) throw new Error(`Failed to download instrument master: ${csvRes.status}`);
-      const csvText = await csvRes.text();
-
-      // Parse CSV — Actual columns (16 total):
-      // SEM_EXM_EXCH_ID, SEM_SEGMENT, SEM_SMST_SECURITY_ID, SEM_INSTRUMENT_NAME,
-      // SEM_EXPIRY_CODE, SEM_TRADING_SYMBOL, SEM_LOT_UNITS, SEM_CUSTOM_SYMBOL,
-      // SEM_EXPIRY_DATE, SEM_STRIKE_PRICE, SEM_OPTION_TYPE, SEM_TICK_SIZE,
-      // SEM_EXPIRY_FLAG, SEM_EXCH_INSTRUMENT_TYPE, SEM_SERIES, SM_SYMBOL_NAME
-      //
-      // CSV segment mapping: exchange + segment code → combined segment name
-      // NSE + E → NSE_EQ, NSE + D → NSE_FNO, NSE + I → IDX_I, BSE + E → BSE_EQ, MCX + M → MCX_COMM
-      const SEGMENT_MAP = {
-        "NSE:E": "NSE_EQ",
-        "NSE:D": "NSE_FNO",
-        "NSE:I": "IDX_I",
-        "NSE:C": "NSE_CUR",
-        "NSE:M": "NSE_MF",
-        "BSE:E": "BSE_EQ",
-        "BSE:D": "BSE_FNO",
-        "BSE:I": "BSE_IDX",
-        "BSE:C": "BSE_CUR",
-        "MCX:M": "MCX_COMM",
-      };
-      const ALLOWED_SEGMENTS = new Set(["NSE_EQ", "NSE_FNO", "IDX_I"]);
-
-      const lines = csvText.split("\n");
-      const header = lines[0].split(",").map(h => h.trim());
-      
-      const instruments = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        if (cols.length < 8) continue;
-        
-        const exchId = cols[header.indexOf("SEM_EXM_EXCH_ID")]?.trim();
-        const segCode = cols[header.indexOf("SEM_SEGMENT")]?.trim();
-        const secId = cols[header.indexOf("SEM_SMST_SECURITY_ID")]?.trim();
-        const instrName = cols[header.indexOf("SEM_INSTRUMENT_NAME")]?.trim();
-        const tradingSymbol = cols[header.indexOf("SEM_TRADING_SYMBOL")]?.trim();
-        const lotUnitsRaw = cols[header.indexOf("SEM_LOT_UNITS")]?.trim();
-        const lotSize = parseInt(parseFloat(lotUnitsRaw) || 1);
-        const customSymbol = cols[header.indexOf("SEM_CUSTOM_SYMBOL")]?.trim();
-        const expiryDate = cols[header.indexOf("SEM_EXPIRY_DATE")]?.trim();
-        const strikePrice = parseFloat(cols[header.indexOf("SEM_STRIKE_PRICE")]?.trim()) || 0;
-        const optionType = cols[header.indexOf("SEM_OPTION_TYPE")]?.trim();
-
-        // Map exchange + segment code → combined segment name
-        const exchangeSegment = SEGMENT_MAP[`${exchId}:${segCode}`];
-        if (!exchangeSegment || !ALLOWED_SEGMENTS.has(exchangeSegment)) continue;
-
-        // Extract base symbol from custom symbol (e.g., "EICHERMOT 26 MAY 5200 PUT" → "EICHERMOT")
-        const baseSymbol = customSymbol?.split(" ")[0] || tradingSymbol?.split("-")[0] || tradingSymbol;
-
-        instruments.push({
-          securityId: secId,
-          symbol: baseSymbol,
-          tradingSymbol,
-          exchangeSegment,
-          instrumentType: instrName,
-          lotSize,
-          expiryDate: expiryDate && expiryDate !== "0001-01-01" ? expiryDate : undefined,
-          strikePrice: strikePrice || undefined,
-          optionType: optionType && optionType !== "XX" ? optionType : undefined,
-        });
-      }
-
-      console.log(`  ✅ Parsed ${instruments.length} instruments from CSV`);
-      setCache(instrumentCacheKey, { instruments, count: instruments.length }, 3600000); // 1hr cache
-      return { data: { instruments, count: instruments.length }, cacheHit: false };
-    }
-
-    case "futures-quotes": {
-      // Real stock/index futures LTP, OI, OI-change and buildup signal — powers
-      // the Scanner page. Always Dhan+NSE regardless of the user's active broker
-      // (same as the rest of the dashboard-wide data), since it's a bulk-universe
-      // scan rather than a single-symbol trade lookup.
-      const symbolsParam = params.get("symbols");
-      if (!symbolsParam) throw new Error("Missing symbols parameter");
-      const symbols = [...new Set(symbolsParam.split(",").map(s => s.trim().toUpperCase()).filter(Boolean))];
-      const futuresCacheKey = `dhan:futures-quotes:${symbols.slice().sort().join(",")}`;
-      const cachedFutures = getCached(futuresCacheKey);
-      if (cachedFutures) return { data: cachedFutures, cacheHit: true };
-      const lastGoodKey = "lastgood:futures-quotes:all";
-
-      try {
-        const indexSymbols = symbols.filter(s => INDEX_SECURITY_IDS[s]);
-        const [futuresResult, cashResult, indexLtpResult] = await Promise.all([
-          dhanFetchFuturesQuotes({ clientId: userClientId, accessToken: userAccessToken }, symbols),
-          handleNSEProxy(new URLSearchParams({ endpoint: "equity-derivatives" })).catch(() => null),
-          indexSymbols.length > 0
-            ? dhanFetch("/marketfeed/ltp", {
-                IDX_I: indexSymbols.map(s => INDEX_SECURITY_IDS[s].secId),
-              }, "POST", userClientId, userAccessToken).catch(() => null)
-            : Promise.resolve(null),
-        ]);
-
-        const spotBySymbol = new Map();
-        for (const row of cashResult?.data?.data || []) {
-          if (row?.symbol && Number.isFinite(row.lastPrice)) spotBySymbol.set(row.symbol, row.lastPrice);
-        }
-        if (indexLtpResult?.data?.IDX_I) {
-          for (const sym of indexSymbols) {
-            const secId = String(INDEX_SECURITY_IDS[sym].secId);
-            const ltp = indexLtpResult.data.IDX_I[secId]?.last_price;
-            if (Number.isFinite(ltp)) spotBySymbol.set(sym, ltp);
-          }
-        }
-
-        const enriched = (futuresResult?.data || []).map(row => {
-          const spotLtp = spotBySymbol.get(row.symbol) ?? null;
-          const { basis, basisPercent } = computeBasis(row.futuresLtp, spotLtp);
-          return { ...row, spotLtp, basis, basisPercent };
-        });
-
-        if (enriched.length > 0) {
-          setLastGood(lastGoodKey, enriched);
-          setCache(futuresCacheKey, enriched, 15000);
-          return { data: enriched, cacheHit: false };
-        }
-
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 Serving last-good futures-quotes (empty live result)`);
-          setCache(futuresCacheKey, lastGood.data, 30000);
-          return { data: lastGood.data, cacheHit: false };
-        }
-        return { data: enriched, cacheHit: false };
-      } catch (e) {
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 futures-quotes error, serving last-good: ${e.message}`);
-          return { data: lastGood.data, cacheHit: false };
-        }
-        console.log(`  ⚠️ futures-quotes unavailable (no cache): ${e.message}`);
-        setCache(futuresCacheKey, [], 30000);
-        return { data: [], cacheHit: false };
-      }
-    }
-
-    case "rollover": {
-      // Near-month vs next-month OI split — how much of the market has
-      // already shifted into the next series ahead of expiry.
-      const symbolsParam = params.get("symbols");
-      if (!symbolsParam) throw new Error("Missing symbols parameter");
-      const symbols = [...new Set(symbolsParam.split(",").map(s => s.trim().toUpperCase()).filter(Boolean))];
-      const rolloverCacheKey = `dhan:rollover:${symbols.slice().sort().join(",")}`;
-      const cachedRollover = getCached(rolloverCacheKey);
-      if (cachedRollover) return { data: cachedRollover, cacheHit: true };
-      const lastGoodKey = "lastgood:rollover:all";
-
-      try {
-        const result = await dhanFetchRolloverData({ clientId: userClientId, accessToken: userAccessToken }, symbols);
-        const data = result?.data || [];
-        if (data.length > 0) {
-          setLastGood(lastGoodKey, data);
-          setCache(rolloverCacheKey, data, 60000); // OI shifts slowly — 1min is plenty
-          return { data, cacheHit: false };
-        }
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 Serving last-good rollover data (empty live result)`);
-          return { data: lastGood.data, cacheHit: false };
-        }
-        return { data: [], cacheHit: false };
-      } catch (e) {
-        const lastGood = getLastGood(lastGoodKey);
-        if (lastGood) {
-          console.log(`  📦 rollover error, serving last-good: ${e.message}`);
-          return { data: lastGood.data, cacheHit: false };
-        }
-        console.log(`  ⚠️ rollover unavailable (no cache): ${e.message}`);
-        return { data: [], cacheHit: false };
-      }
-    }
-
     case "place-order": {
-      // Real money. No caching, no retry, no last-good fallback — a failed
-      // request must surface Dhan's real error (e.g. the static-IP rejection)
-      // to the user verbatim, never silently retried or masked by stale data.
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
       const order = body || {};
-
-      // The validation ladder runs HERE, on the server, not only in the UI.
-      // It also resolves the authoritative lot size from the exchange
-      // instrument master — the client's lotSize is ignored entirely.
-      const key = tickKey(order.exchangeSegment || "NSE_FNO", order.securityId);
+      // The validation ladder runs here, on the server, not only in the UI. It also resolves the
+      // authoritative lot size from the exchange instrument master; the client's lotSize is ignored.
+      const key = tickKeyOf(order.exchangeSegment || "NSE_FNO", order.securityId);
       const verdict = await validateOrder(order, {
-        clientId: userClientId || "unknown",
+        clientId: by,
         liveArmed: order.liveArmed === true,
         ltp: latestTicks.get(key)?.ltp ?? null,
         limits: order.limits || null,
       });
-
       if (!verdict.ok) {
-        console.log(`  🛑 Order blocked [${verdict.code}]: ${verdict.message}`);
-        const err = new Error(verdict.message);
-        err.statusCode = 422;
-        err.code = verdict.code;
-        throw err;
+        console.log(`  🛑 Order blocked [${verdict.code}]: ${truncate(verdict.message, 160)}`);
+        throw new TradeError(422, verdict.code, verdict.message);
       }
-
-      recordOrder(userClientId || "unknown", order);
+      recordOrder(by, order);
       const result = await dhanPlaceOrder(creds, order, verdict.lotSize);
-      return {
-        data: { ...result, resolvedLotSize: verdict.lotSize, quantity: verdict.quantity, warnings: verdict.warnings },
-        cacheHit: false,
-      };
+      return { status: 200, body: { ...result, resolvedLotSize: verdict.lotSize, quantity: verdict.quantity, warnings: verdict.warnings } };
     }
+    case "orders":
+      return { status: 200, body: await dhanGetOrders(creds) };
+    case "order-status":
+      return { status: 200, body: await dhanGetOrderStatus(creds, vOrderId(params.get("orderId"))) };
+    case "cancel-order":
+      return { status: 200, body: await dhanCancelOrder(creds, vOrderId(body?.orderId ?? params.get("orderId"))) };
 
-    case "orders": {
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetOrders(creds);
-      return { data: result, cacheHit: false };
-    }
-
-    case "order-status": {
-      const orderId = params.get("orderId");
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetOrderStatus(creds, orderId);
-      return { data: result, cacheHit: false };
-    }
-
-    case "cancel-order": {
-      const orderId = body?.orderId || params.get("orderId");
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanCancelOrder(creds, orderId);
-      return { data: result, cacheHit: false };
-    }
-
-    // ── Portfolio reads (1CLIQ-TRADE-SPEC.md §B3/§11 Phase 3) — the four
-    // tabs that previously had no backend at all. Thin pass-throughs to
-    // dhanPortfolio.mjs; never cached, same reasoning as orders/order-status/
-    // cancel-order above — a stale Funds or Positions figure in an execution
-    // terminal is the worst available failure mode (spec §10).
-
-    case "positions": {
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetPositions(creds);
-      return { data: result, cacheHit: false };
-    }
-
-    case "holdings": {
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetHoldings(creds);
-      return { data: result, cacheHit: false };
-    }
-
-    case "funds": {
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetFunds(creds);
-      return { data: result, cacheHit: false };
-    }
-
+    // ── Portfolio reads (spec §B3/§11 Phase 3): thin pass-throughs, never cached ──
+    case "positions":
+      return { status: 200, body: await dhanGetPositions(creds) };
+    case "holdings":
+      return { status: 200, body: await dhanGetHoldings(creds) };
+    case "funds":
+      return { status: 200, body: await dhanGetFunds(creds) };
     case "trades": {
       const orderId = params.get("orderId");
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      const result = await dhanGetTrades(creds, orderId);
-      return { data: result, cacheHit: false };
+      return { status: 200, body: await dhanGetTrades(creds, orderId ? vOrderId(orderId) : undefined) };
     }
-
     case "modify-order": {
-      const orderId = body?.orderId || params.get("orderId");
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
-      // orderId/dhanClientId are deliberately never read from the body's own
-      // fields — dhanPortfolio.mjs's buildModifyOrderBody() always wins with
-      // the authoritative orderId/clientId resolved above, so a caller can't
-      // smuggle a different order or account in through the payload it's editing.
+      const orderId = vOrderId(body?.orderId ?? params.get("orderId"));
+      // orderId/dhanClientId are never read from the payload being edited: buildModifyOrderBody()
+      // always wins with the authoritative values, so a caller cannot smuggle another order or account in.
       const { orderId: _ignoredOrderId, dhanClientId: _ignoredClientId, ...changes } = body || {};
-      const result = await dhanModifyOrder(creds, orderId, changes);
-      return { data: result, cacheHit: false };
+      return { status: 200, body: await dhanModifyOrder(creds, orderId, changes) };
     }
 
-    // ── Basket resolution (1CLIQ-TRADE-SPEC.md §9/§11 Phase 4) — resolve-and-
-    // report ONLY; this never places an order. It exists so a trader (or a
-    // future live-deploy button) can see exactly which legs would come back
-    // paper-only before any money moves. Reuses THIS function's own
-    // "expiry-list"/"option-chain" cases (recursive calls below) for the
-    // fetch+cache+last-good machinery instead of a second Dhan call path.
-
+    // ── Basket resolution (spec §9/§11 Phase 4): resolve and report ONLY, never places an order ──
     case "basket-deploy": {
       const basket = body?.basket;
-      if (!basket || !Array.isArray(basket.legs) || basket.legs.length === 0) {
-        const err = new Error("Missing basket.legs — nothing to resolve");
-        err.statusCode = 422;
-        err.code = "BASKET_INVALID";
-        throw err;
+      if (!basket || !Array.isArray(basket.legs) || basket.legs.length === 0 || basket.legs.length > 20) {
+        throw new TradeError(422, "BASKET_INVALID", "basket.legs must hold 1-20 legs");
       }
-
+      const symbol = vSymbol(params.get("symbol"), "NIFTY");
       const intentId = panicIntentId(body, "basket-resolve");
-
-      const expiryListParams = new URLSearchParams(params);
-      expiryListParams.set("endpoint", "expiry-list");
-      const { data: expiryListResult } = await handleDhanProxy(expiryListParams, userClientId, userAccessToken, null);
-      const allExpiries = Array.isArray(expiryListResult?.data) ? expiryListResult.data : [];
-
-      const lookaheadExpiries = allExpiries.slice(0, BASKET_CHAIN_EXPIRY_LOOKAHEAD);
-      // Also fetch any absolute expirySpec date a leg names explicitly, even
-      // if it falls outside the lookahead window (e.g. a far-dated monthly).
+      const expiryList = await dhanExpiryList(symbol, creds);
+      const allExpiries = Array.isArray(expiryList?.data) ? expiryList.data : [];
+      const lookahead = allExpiries.slice(0, BASKET_CHAIN_EXPIRY_LOOKAHEAD);
+      // Also fetch any absolute expirySpec date a leg names explicitly, even outside the window.
       for (const leg of basket.legs) {
-        const d = leg?.expirySpec?.kind === "absolute" ? leg.expirySpec.date : null;
-        if (d && !lookaheadExpiries.includes(d)) lookaheadExpiries.push(d);
+        const d = leg?.expirySpec?.kind === "absolute" ? toIso(String(leg.expirySpec.date || "")) : null;
+        if (d && allExpiries.includes(d) && !lookahead.includes(d)) lookahead.push(d);
       }
-
       const byExpiry = {};
       let spot = null;
-      await Promise.all(lookaheadExpiries.map(async (expiryDate) => {
-        const chainParams = new URLSearchParams(params);
-        chainParams.set("endpoint", "option-chain");
-        chainParams.set("expiry", expiryDate);
+      await Promise.all(lookahead.map(async (exp) => {
         try {
-          const { data: ocResult } = await handleDhanProxy(chainParams, userClientId, userAccessToken, null);
-          byExpiry[expiryDate] = dhanOcToChainRows(ocResult?.data?.oc);
-          if (spot == null && Number.isFinite(ocResult?.data?.last_price)) spot = ocResult.data.last_price;
+          const oc = await dhanOptionChain(symbol, exp, creds);
+          byExpiry[exp] = dhanOcToChainRows(oc?.data?.oc);
+          if (spot == null && Number.isFinite(oc?.data?.last_price)) spot = oc.data.last_price;
         } catch (e) {
-          // Leave this expiry empty rather than aborting the whole basket —
-          // resolveBasket() will honestly report "strike not found" / block
-          // whatever leg needed it, instead of the request failing outright.
-          console.log(`  ⚠️ basket-deploy: chain fetch failed for ${symbol} ${expiryDate}: ${e.message}`);
-          byExpiry[expiryDate] = [];
+          // Leave this expiry empty: resolveBasket() then honestly blocks whichever leg needed it.
+          console.log(`  ⚠️ basket-deploy: chain fetch failed for ${symbol} ${exp}: ${truncate(e.message, 120)}`);
+          byExpiry[exp] = [];
         }
       }));
-
       const chain = { expiries: allExpiries, byExpiry };
       const stepSize = Number.isFinite(body?.stepSize) && body.stepSize > 0
         ? body.stepSize
-        : inferStepSizeFromRows(byExpiry[lookaheadExpiries[0]]) ?? 50;
-
+        : inferStepSizeFromRows(byExpiry[lookahead[0]]) ?? 50;
       const resolved = basketEngine.resolveBasket(basket, chain, spot, stepSize);
-
       auditLog.appendAuditEvent({
         intentId,
         type: "BASKET_RESOLVE",
         payload: { symbol, spot, stepSize, blockedForLive: resolved.blockedForLive, blockedLegIds: resolved.blockedLegIds },
       });
-
-      return { data: { ...resolved, spot, stepSize, symbol }, cacheHit: false };
+      return { status: 200, body: { ...resolved, spot, stepSize, symbol } };
     }
 
-    // ── Server-side risk engine (1CLIQ-TRADE-SPEC.md §3/§4) ──
-    // Paper-only so far — riskEngine.mjs's exitExecutor is an injectable stub;
-    // no agent has wired real order placement into it yet (see its header).
-
+    // ── Server-side risk engine (spec §3/§4). Paper-only: riskEngine's exitExecutor is a stub ──
     case "risk-status": {
-      // Never cached (see the getCached() call above this switch) — the whole
-      // point of the dead-man's switch is that the badge reflects THIS instant.
-      const status = riskEngine.getStatus();
-      return {
-        data: {
-          alive: status.alive,
-          lastTickAgeMs: status.lastTickAgeMs,
-          armedCount: status.armedCount,
-          dhanConnected: dhanWSConnected,
-        },
-        cacheHit: false,
-      };
+      const s = riskEngine.getStatus();
+      return { status: 200, body: { alive: s.alive, lastTickAgeMs: s.lastTickAgeMs, armedCount: s.armedCount, dhanConnected: dhanWSConnected } };
     }
-
     case "risk-arm": {
-      // riskEngine.armPosition() runs riskMath.validateArmConfig() (plus the
-      // rest of its own ladder) before creating anything — a rejection here
-      // means nothing was armed, and the reason is the message to show the user.
+      // armPosition() runs its own validation ladder; a rejection means nothing was armed.
       const result = riskEngine.armPosition(body || {});
-      if (!result.ok) {
-        const err = new Error(result.reason);
-        err.statusCode = 422;
-        err.code = "RISK_ARM_REJECTED";
-        throw err;
-      }
-      return { data: result, cacheHit: false };
+      if (!result.ok) throw new TradeError(422, "RISK_ARM_REJECTED", result.reason);
+      return { status: 200, body: result };
     }
-
     case "risk-disarm": {
-      const id = body?.id ?? params.get("id");
-      const result = riskEngine.disarmPosition(id);
-      if (!result.ok) {
-        const err = new Error(result.reason);
-        err.statusCode = 422;
-        err.code = "RISK_DISARM_REJECTED";
-        throw err;
-      }
-      return { data: result, cacheHit: false };
+      const result = riskEngine.disarmPosition(body?.id ?? params.get("id"));
+      if (!result.ok) throw new TradeError(422, "RISK_DISARM_REJECTED", result.reason);
+      return { status: 200, body: result };
     }
 
-    // ── Panic layer (1CLIQ-TRADE-SPEC.md §5) — Close All / Cancel All / the
-    // trading lock. All four are callable regardless of tradingLockState: a
-    // lock blocks getting INTO new positions, never getting OUT of existing
-    // ones, so none of these cases consult tradingLockState before acting.
-
+    // ── Panic layer (spec §5): Close All / Cancel All / the trading lock. Callable regardless of the
+    // lock state: a lock blocks getting INTO positions, never getting OUT of them. ──
     case "panic-close-all": {
-      // F6 is defined (spec §5) as the COMBINED panic action: cancel every
-      // resting order first — so nothing can fill behind our back while
-      // we're flattening — THEN close every position. That ordering is
-      // enforced HERE, in the handler, not trusted from two separate client
-      // requests: a client bug or a dropped request could otherwise reverse it.
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
+      // F6 is the combined action: cancel every resting order first (so nothing fills behind our
+      // back), THEN close every position. The order is enforced here, not trusted from two requests.
       const intentId = panicIntentId(body, "panic-close");
       const onEvent = (evt) => auditLog.appendAuditEvent({ intentId, type: `PANIC_${evt.type}`, payload: evt });
-      auditLog.appendAuditEvent({ intentId, type: "PANIC_CLOSE_ALL_REQUESTED", payload: { source: body?.source || "F6" } });
-
-      // Fold in anything a racing order placement already flagged as stale
-      // (see panicGate.mjs's header). These queues are empty in practice
-      // today — no order-placement path calls incrementEpoch()/
-      // recordStaleFill() yet — but the drain is wired here so a future one
-      // can start using it without a second wiring pass through this file.
+      auditLog.appendAuditEvent({ intentId, type: "PANIC_CLOSE_ALL_REQUESTED", payload: { source: String(body?.source || "F6").slice(0, 40) } });
       const strayCancels = panicGate.drainPendingCancelQueue().filter((o) => o && (o.orderId || o.id));
       const strayCloses = panicGate.drainPendingCloseQueue();
       if (strayCancels.length || strayCloses.length) {
-        // A stray TRADED fill is a real position now — fetchDhanOpenPositions()
-        // below will pick it up on its own; this event just makes it visible
-        // rather than silently relying on that.
         auditLog.appendAuditEvent({ intentId, type: "PANIC_STRAY_FILLS_DETECTED", payload: { strayCancels, strayCloses } });
       }
-
-      // openOrders/openPositions are ALWAYS the fresh, authoritative broker
-      // fetch — never taken from the client body. A client-supplied position
-      // array would carry client-supplied lotSize/lots straight into
-      // buildCloseIntent() and on into a real dhanPlaceOrder() call, bypassing
-      // resolveLotSize()/orderGuard.validateOrder() entirely: the same B1
-      // stale/forged-quantity failure mode the rest of this codebase was
-      // hardened against, reopened through the panic path.
+      // openOrders/openPositions are ALWAYS the fresh, authoritative broker fetch, never the client
+      // body: a client-supplied position list would carry client lot sizes into a real order.
       const openOrders = await fetchDhanOpenOrders(creds);
       const cancelResult = await panicLayer.cancelAll(
         [...openOrders, ...strayCancels],
@@ -895,7 +1107,6 @@ async function handleDhanProxy(params, userClientId, userAccessToken, body = nul
         () => fetchDhanOpenOrders(creds),
         { onEvent },
       );
-
       const openPositions = await fetchDhanOpenPositions(creds);
       const closeResult = await panicLayer.closeAll(
         openPositions,
@@ -903,1148 +1114,2172 @@ async function handleDhanProxy(params, userClientId, userAccessToken, body = nul
         () => fetchDhanOpenPositions(creds),
         { onEvent },
       );
-
-      auditLog.appendAuditEvent({
-        intentId, type: "PANIC_CLOSE_ALL_COMPLETE",
-        payload: { cancelSuccess: cancelResult.success, closeSuccess: closeResult.success },
-      });
-      return { data: { cancelAll: cancelResult, closeAll: closeResult }, cacheHit: false };
+      auditLog.appendAuditEvent({ intentId, type: "PANIC_CLOSE_ALL_COMPLETE", payload: { cancelSuccess: cancelResult.success, closeSuccess: closeResult.success } });
+      return { status: 200, body: { cancelAll: cancelResult, closeAll: closeResult } };
     }
-
     case "panic-cancel-all": {
-      // F7 — cancel resting orders only; open positions are untouched.
-      const creds = { clientId: userClientId, accessToken: userAccessToken };
+      // F7: cancel resting orders only; open positions are untouched.
       const intentId = panicIntentId(body, "panic-cancel");
       const onEvent = (evt) => auditLog.appendAuditEvent({ intentId, type: `PANIC_${evt.type}`, payload: evt });
-      auditLog.appendAuditEvent({ intentId, type: "PANIC_CANCEL_ALL_REQUESTED", payload: { source: body?.source || "F7" } });
-
+      auditLog.appendAuditEvent({ intentId, type: "PANIC_CANCEL_ALL_REQUESTED", payload: { source: String(body?.source || "F7").slice(0, 40) } });
       const strayCancels = panicGate.drainPendingCancelQueue().filter((o) => o && (o.orderId || o.id));
-      // Always the fresh broker fetch — see the panic-close-all case above for why.
-      const openOrders = await fetchDhanOpenOrders(creds);
+      const openOrders = await fetchDhanOpenOrders(creds); // always the fresh broker fetch
       const result = await panicLayer.cancelAll(
         [...openOrders, ...strayCancels],
         makeDhanCancelExecutor(creds),
         () => fetchDhanOpenOrders(creds),
         { onEvent },
       );
-
       auditLog.appendAuditEvent({ intentId, type: "PANIC_CANCEL_ALL_COMPLETE", payload: { success: result.success } });
-      return { data: result, cacheHit: false };
+      return { status: 200, body: result };
     }
-
-    case "panic-lock-state": {
-      // Never cached (see the getCached() call above this switch) — same
-      // reasoning as risk-status: the badge must reflect THIS instant.
-      return { data: tradingLockState.getLockState(), cacheHit: false };
-    }
-
+    case "panic-lock-state":
+      return { status: 200, body: tradingLockState.getLockState() };
     case "panic-set-lock": {
-      // User-initiated only. Loss-triggered states (locked-by-mtm-loss,
-      // locked-by-daily-loss-limit) are set by the risk engine itself, not
-      // this endpoint, and cleared only through requestUnlock()'s cooling +
-      // typed-figure ritual below — there is deliberately no bare
-      // "set to unlocked" bypass for those two states.
+      // User-initiated only. Loss-triggered states are set by the engine and cleared only through
+      // requestUnlock()'s cooling-off + typed-figure ritual; there is no bare "unlock" bypass.
       const desired = body?.state;
       const current = tradingLockState.getLockState();
       const intentId = panicIntentId(body, "lock");
-
-      if (desired === tradingLockState.LOCK_STATES.LOCKED_BY_USER) {
-        const record = tradingLockState.setLockState(desired, { by: userClientId || "unknown" });
+      const S = tradingLockState.LOCK_STATES;
+      if (desired === S.LOCKED_BY_USER) {
+        const record = tradingLockState.setLockState(desired, { by });
         auditLog.appendAuditEvent({ intentId, type: "TRADING_LOCK_SET", payload: record });
-        return { data: record, cacheHit: false };
+        return { status: 200, body: record };
       }
-
-      if (desired === tradingLockState.LOCK_STATES.UNLOCKED) {
-        const isLossTriggered =
-          current.state === tradingLockState.LOCK_STATES.LOCKED_BY_MTM_LOSS ||
-          current.state === tradingLockState.LOCK_STATES.LOCKED_BY_DAILY_LOSS_LIMIT;
-
-        if (isLossTriggered) {
-          // coolingElapsedMs and actualRealisedLoss are computed SERVER-side,
-          // never taken from the request body — a scripted client could
-          // otherwise send {coolingElapsedMs: 999999, actualRealisedLoss: 0}
-          // and clear a loss-triggered lock instantly, defeating the whole
-          // "friction is the product" cooling-off design (spec §5). Only
-          // `typedFigure` (what the trader typed) is allowed to come from the
-          // client — it's checked against the server's own recorded figure.
-          // `current.meta.realisedLoss` must be set by whatever sets this
-          // lock state (the risk engine's MTM/daily-loss monitor, not yet
-          // wired); until it is, this fails closed — no meta figure means
-          // requestUnlock's typed/actual comparison can never match.
+      if (desired === S.UNLOCKED) {
+        const lossTriggered = current.state === S.LOCKED_BY_MTM_LOSS || current.state === S.LOCKED_BY_DAILY_LOSS_LIMIT;
+        if (lossTriggered) {
+          // coolingElapsedMs and actualRealisedLoss are computed SERVER-side, never taken from the
+          // body; only `typedFigure` comes from the client. No recorded figure means this fails closed.
           const coolingElapsedMs = Number.isFinite(current.since) ? Date.now() - current.since : 0;
-          const actualRealisedLoss = current.meta?.realisedLoss;
-          const check = tradingLockState.requestUnlock(current.state, body?.typedFigure, actualRealisedLoss, coolingElapsedMs);
-          if (!check.ok) {
-            const err = new Error(check.reason);
-            err.statusCode = 422;
-            err.code = "UNLOCK_REJECTED";
-            throw err;
-          }
+          const check = tradingLockState.requestUnlock(current.state, body?.typedFigure, current.meta?.realisedLoss, coolingElapsedMs);
+          if (!check.ok) throw new TradeError(422, "UNLOCK_REJECTED", check.reason);
         }
-
-        const record = tradingLockState.setLockState(desired, { by: userClientId || "unknown" });
+        const record = tradingLockState.setLockState(desired, { by });
         auditLog.appendAuditEvent({ intentId, type: "TRADING_LOCK_CLEARED", payload: record });
-        return { data: record, cacheHit: false };
+        return { status: 200, body: record };
       }
-
-      const err = new Error(
-        `panic-set-lock only accepts "${tradingLockState.LOCK_STATES.LOCKED_BY_USER}" or "${tradingLockState.LOCK_STATES.UNLOCKED}" from a client — the other states are engine-set.`,
-      );
-      err.statusCode = 422;
-      err.code = "BAD_LOCK_STATE";
-      throw err;
+      throw new TradeError(422, "BAD_LOCK_STATE", `panic-set-lock only accepts "${S.LOCKED_BY_USER}" or "${S.UNLOCKED}" from a client; the other states are engine-set.`);
     }
-
-    case "historical": {
-      // Fetch intraday or daily historical candle data
-      const secId = params.get("securityId");
-      const exchSeg = params.get("exchangeSegment") || "IDX_I";
-      const instrument = params.get("instrument") || "INDEX";
-      const interval = params.get("interval") || "5";
-      const fromDate = params.get("fromDate");
-      const toDate = params.get("toDate");
-
-      if (!secId) throw new Error("Missing securityId parameter");
-
-      const isDailyCandle = interval === "D";
-
-      // Default: last 2 trading days for intraday, 1 year for daily
-      const now = new Date();
-      const defaultDaysBack = isDailyCandle ? 365 : 3;
-      const defaultFrom = new Date(now);
-      defaultFrom.setDate(defaultFrom.getDate() - defaultDaysBack);
-      
-      let from = fromDate || `${defaultFrom.toISOString().split("T")[0]} 09:15`;
-      const to = toDate || `${now.toISOString().split("T")[0]} 15:30`;
-
-      // Enforce Dhan's 90-day limit for intraday charts (DH-905)
-      if (!isDailyCandle) {
-        const fromDateObj = new Date(from.split(" ")[0]);
-        const toDateObj = new Date(to.split(" ")[0]);
-        const daysDiff = Math.ceil((toDateObj - fromDateObj) / (1000 * 60 * 60 * 24));
-        if (daysDiff > 90) {
-          const clampedFrom = new Date(toDateObj);
-          clampedFrom.setDate(clampedFrom.getDate() - 89);
-          from = `${clampedFrom.toISOString().split("T")[0]} 09:15`;
-          console.log(`  📐 Clamped intraday date range to 90 days (was ${daysDiff}d)`);
-        }
-      }
-
-      const historicalCacheKey = `dhan:hist:${secId}:${interval}:${from}:${to}`;
-      const cachedHist = getCached(historicalCacheKey);
-      if (cachedHist) return { data: cachedHist, cacheHit: true };
-
-      // "D" = Daily candles → /charts/historical (no interval param needed)
-      // Anything else ("1","5","15","60") = intraday → /charts/intraday
-      const apiPath = isDailyCandle ? "/charts/historical" : "/charts/intraday";
-
-      const body = {
-        securityId: secId,
-        exchangeSegment: exchSeg,
-        instrument,
-        fromDate: from.includes(" ") ? from : `${from} 09:15`,
-        toDate: to.includes(" ") ? to : `${to} 15:30`,
-        expiryCode: 0,
-        oi: exchSeg === "NSE_FNO",
-      };
-      // Only add interval for intraday calls
-      if (!isDailyCandle) {
-        body.interval = interval;
-      }
-
-      console.log(`  📊 Fetching ${isDailyCandle ? "daily" : "intraday"} chart: ${secId} (${from} → ${to}), interval=${interval}`);
-      const result = await dhanFetch(apiPath, body, "POST", userClientId, userAccessToken);
-      setCache(historicalCacheKey, result, isDailyCandle ? 300000 : 60000); // 5min cache for daily, 1min for intraday
-      return { data: result, cacheHit: false };
-    }
-
     default:
-      throw new Error(`Unknown endpoint: ${endpoint}. Use: option-chain, expiry-list, ltp, instruments, historical, futures-quotes, rollover, place-order, orders, order-status, cancel-order, positions, holdings, funds, trades, modify-order, basket-deploy`);
+      throw new InputError("Unknown trading endpoint");
   }
 }
 
 // ══════════════════════════════════════════════
-// ── SECTION 3: NSE API ──
+// ── SECTION 2c: Generic multi-broker proxy (server/brokers/registry.mjs) ──
 // ══════════════════════════════════════════════
-
-let nseSessionCookies = "";
-let nseSessionExpiry = 0;
-
-async function getNSESession() {
-  if (nseSessionCookies && Date.now() < nseSessionExpiry) return nseSessionCookies;
-
-  try {
-    const res = await fetch(NSE_BASE, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        Connection: "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-      },
-      redirect: "follow",
-    });
-    
-    // Extract ALL set-cookie headers
-    const rawHeaders = res.headers.raw ? res.headers.raw() : {};
-    const setCookieHeaders = rawHeaders["set-cookie"] || [];
-    
-    // Fallback: try standard getSetCookie()
-    let cookies = [];
-    if (setCookieHeaders.length > 0) {
-      cookies = setCookieHeaders.map(c => c.split(";")[0].trim()).filter(Boolean);
-    } else {
-      // Node 18+ approach
-      const setCookie = res.headers.get("set-cookie") || "";
-      cookies = setCookie
-        .split(",")
-        .map(c => c.split(";")[0].trim())
-        .filter(c => c.includes("="));
-    }
-    
-    nseSessionCookies = cookies.join("; ");
-    nseSessionExpiry = Date.now() + 90000; // 90s session
-    await res.text(); // Consume response body
-    
-    if (nseSessionCookies) {
-      console.log(`  🍪 NSE session established (${cookies.length} cookies)`);
-    } else {
-      console.warn("  ⚠️ NSE session: no cookies received");
-    }
-    
-    return nseSessionCookies;
-  } catch (e) {
-    console.error(`  ❌ NSE session error: ${e.message}`);
-    return "";
-  }
-}
-
-// NSE quietly removed /api/equity-stockIndices (confirmed 404 as of this pass) —
-// the closest still-working replacement is the gainers/losers "variations"
-// endpoint, whose F&O-securities bucket ("FOSec") covers nearly the full F&O
-// universe (any name with zero price movement on the day wouldn't appear in
-// either bucket, a rare, acceptable gap). It carries no OI field at all, so
-// openInterest/changeinOpenInterest are honestly reported as 0 rather than
-// invented — callers already render 0/missing OI as "—".
-async function fetchNSESecuritiesInFO() {
-  const cookies = await getNSESession();
-  const headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    Accept: "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    Referer: "https://www.nseindia.com/market-data/live-equity-market",
-    Cookie: cookies,
-  };
-  const [gainersRes, losersRes] = await Promise.all([
-    fetch(`${NSE_BASE}/api/live-analysis-variations?index=gainers`, { headers }),
-    fetch(`${NSE_BASE}/api/live-analysis-variations?index=loosers`, { headers }),
-  ]);
-  if (!gainersRes.ok || !losersRes.ok) {
-    throw new Error(`NSE HTTP ${gainersRes.status}/${losersRes.status}`);
-  }
-  const [gainers, losers] = await Promise.all([gainersRes.json(), losersRes.json()]);
-
-  const bySymbol = new Map();
-  for (const bucket of [gainers?.FOSec?.data, losers?.FOSec?.data]) {
-    for (const row of bucket || []) {
-      if (!row?.symbol) continue;
-      bySymbol.set(row.symbol, {
-        symbol: row.symbol,
-        lastPrice: row.ltp,
-        change: row.net_price,
-        pChange: row.perChange,
-        open: row.open_price,
-        dayHigh: row.high_price,
-        dayLow: row.low_price,
-        previousClose: row.prev_price,
-        totalTradedVolume: row.trade_quantity,
-        openInterest: 0,
-        changeinOpenInterest: 0,
-        meta: { industry: "" },
-      });
-    }
-  }
-  return { data: Array.from(bySymbol.values()) };
-}
-
-async function handleNSEProxy(params) {
-  const endpoint = params.get("endpoint");
-  const symbol = params.get("symbol");
-  const cacheKey = `nse:${endpoint}:${symbol || ""}`;
-
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
-
-  // Two-request merge (gainers+losers) doesn't fit the generic single-apiPath
-  // retry loop below, so it's handled separately with the same cache/last-good pattern.
-  if (endpoint === "equity-derivatives") {
-    const lastGoodKey = `lastgood:nse:${endpoint}:`;
-    try {
-      const data = await fetchNSESecuritiesInFO();
-      if (data.data.length > 0) setLastGood(lastGoodKey, data);
-      setCache(cacheKey, data, 30000);
-      return { data, cacheHit: false };
-    } catch (e) {
-      const lastGood = getLastGood(lastGoodKey);
-      if (lastGood) {
-        console.log(`  📦 Serving last-good equity-derivatives: ${e.message}`);
-        return { data: lastGood.data, cacheHit: false };
-      }
-      console.log(`  ⚠️ equity-derivatives unavailable (no cache): ${e.message}`);
-      return { data: { data: [] }, cacheHit: false };
-    }
-  }
-
-  let apiPath;
-  switch (endpoint) {
-    case "option-chain":
-      if (symbol && ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTY NEXT 50"].includes(symbol.toUpperCase())) {
-        apiPath = `/api/option-chain-indices?symbol=${encodeURIComponent(symbol.toUpperCase())}`;
-      } else if (symbol) {
-        apiPath = `/api/option-chain-equities?symbol=${encodeURIComponent(symbol.toUpperCase())}`;
-      } else {
-        apiPath = `/api/option-chain-indices?symbol=NIFTY`;
-      }
-      break;
-    case "indices":
-      apiPath = "/api/allIndices";
-      break;
-    case "market-status":
-      apiPath = "/api/marketStatus";
-      break;
-    case "market-data-pre-open":
-      apiPath = "/api/market-data-pre-open?key=FO";
-      break;
-    case "fii-dii":
-      apiPath = "/api/fiidiiTradeReact";
-      break;
-    default:
-      throw new Error(`Unknown NSE endpoint: ${endpoint}`);
-  }
-
-  const lastGoodKey = `lastgood:nse:${endpoint}:${symbol || ""}`;
-  
-  // Try NSE with session retry
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const cookies = await getNSESession();
-      const nseRes = await fetch(`${NSE_BASE}${apiPath}`, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          Accept: "application/json, text/plain, */*",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate",
-          Referer: "https://www.nseindia.com/option-chain",
-          Cookie: cookies,
-        },
-      });
-
-      if (!nseRes.ok) {
-        throw new Error(`NSE HTTP ${nseRes.status}`);
-      }
-
-      const contentType = nseRes.headers.get("content-type") || "";
-      if (!contentType.includes("json")) {
-        // NSE returned HTML (likely a captcha or redirect) — invalidate session
-        nseSessionCookies = "";
-        nseSessionExpiry = 0;
-        if (attempt === 0) {
-          console.log(`  🔄 NSE returned non-JSON for ${endpoint}, retrying with fresh session...`);
-          continue; // retry
-        }
-        throw new Error("NSE returned non-JSON response (possible captcha)");
-      }
-
-      const data = await nseRes.json();
-      
-      // Validate the data is not empty/malformed
-      const isValidOC = endpoint === "option-chain" ? (data?.records?.data?.length > 0) : true;
-      const isValidData = data && Object.keys(data).length > 0 && isValidOC;
-      
-      if (isValidData) {
-        setLastGood(lastGoodKey, data);
-      }
-      
-      const ttl = endpoint === "fii-dii" ? 300000 : 30000;
-      setCache(cacheKey, data, ttl);
-      return { data, cacheHit: false };
-    } catch (nseErr) {
-      if (attempt === 0) {
-        // Invalidate session and retry
-        nseSessionCookies = "";
-        nseSessionExpiry = 0;
-        console.log(`  ⚠️ NSE fetch failed for ${endpoint} (attempt ${attempt + 1}): ${nseErr.message}`);
-        continue;
-      }
-      console.warn(`  ❌ NSE fetch failed for ${endpoint}: ${nseErr.message}`);
-    }
-  }
-  
-  // Both attempts failed — try last-good cache
-  const lastGood = getLastGood(lastGoodKey);
-  if (lastGood) {
-    console.log(`  📦 Serving last-good NSE data for ${endpoint}:${symbol || ""}`);
-    setCache(cacheKey, lastGood.data, 60000);
-    return { data: lastGood.data, cacheHit: false };
-  }
-  
-  // No cache — return empty object
-  return { data: {}, cacheHit: false };
-}
-
-// ══════════════════════════════════════════════
-// ── SECTION 3c: Yahoo Finance Historical Charts ──
-// ══════════════════════════════════════════════
-
-// Yahoo symbol mapping for Indian stocks & indices
-const YAHOO_SYMBOL_MAP = {
-  // Indices
-  "NIFTY": "^NSEI",
-  "BANKNIFTY": "^NSEBANK",
-  "FINNIFTY": "NIFTY_FIN_SERVICE.NS",
-  "MIDCPNIFTY": "NIFTY_MID_SELECT.NS",
-  "INDIAVIX": "^INDIAVIX",
-  "SENSEX": "^BSESN",
-  // F&O Stocks — append .NS for NSE
-};
-
-function toYahooSymbol(symbol) {
-  if (YAHOO_SYMBOL_MAP[symbol]) return YAHOO_SYMBOL_MAP[symbol];
-  // Default: append .NS for NSE equities
-  return `${symbol}.NS`;
-}
-
-// Yahoo Finance interval mapping
-function toYahooInterval(interval) {
-  switch (interval) {
-    case "1": return "1m";
-    case "5": return "5m";
-    case "15": return "15m";
-    case "60": return "1h";
-    case "D": return "1d";
-    default: return "1d";
-  }
-}
-
-async function handleYahooChart(params) {
-  const symbol = params.get("symbol");
-  const interval = params.get("interval") || "D";
-  const fromDate = params.get("fromDate");
-  const toDate = params.get("toDate");
-
-  if (!symbol) throw new Error("Missing symbol parameter");
-
-  const yahooSymbol = toYahooSymbol(symbol.toUpperCase());
-  const yahooInterval = toYahooInterval(interval);
-
-  const cacheKey = `yahoo:chart:${yahooSymbol}:${yahooInterval}:${fromDate}:${toDate}`;
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
-
-  // Build Yahoo Finance chart URL
-  const now = Math.floor(Date.now() / 1000);
-  let period1, period2;
-
-  if (fromDate) {
-    period1 = Math.floor(new Date(fromDate).getTime() / 1000);
-  } else {
-    period1 = now - (365 * 24 * 60 * 60); // Default 1 year
-  }
-  period2 = toDate ? Math.floor(new Date(toDate).getTime() / 1000) : now;
-
-  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?period1=${period1}&period2=${period2}&interval=${yahooInterval}&includePrePost=false`;
-
-  console.log(`  📈 Yahoo Finance: ${symbol} → ${yahooSymbol} (${yahooInterval}, ${fromDate || "1y"} → ${toDate || "now"})`);
-
-  const res = await fetch(yahooUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Yahoo Finance error [${res.status}]: ${errText.substring(0, 200)}`);
-  }
-
-  const raw = await res.json();
-  const result = raw?.chart?.result?.[0];
-  if (!result) throw new Error("Yahoo Finance returned empty result");
-
-  const timestamps = result.timestamp || [];
-  const quotes = result.indicators?.quote?.[0] || {};
-
-  // Convert to our standard format (matching Dhan's structure)
-  const data = {
-    status: "success",
-    source: "yahoo",
-    data: {
-      open: quotes.open || [],
-      high: quotes.high || [],
-      low: quotes.low || [],
-      close: quotes.close || [],
-      volume: quotes.volume || [],
-      timestamp: timestamps,
-    },
-  };
-
-  const ttl = interval === "D" ? 300000 : 60000; // 5min for daily, 1min for intraday
-  setCache(cacheKey, data, ttl);
-  console.log(`  ✅ Yahoo Finance: ${symbol} — ${timestamps.length} candles fetched`);
-  return { data, cacheHit: false };
-}
-
-// ── Global Market Cues — the pre-market ritual every Indian trader runs
-// (US/Asian markets, crude, dollar index) before the NSE session opens.
-// Reuses Yahoo's chart endpoint (already proven for candles above) purely for
-// its `meta` block, which already carries regularMarketPrice/previousClose —
-// no separate quote API needed.
-const GLOBAL_CUES_SYMBOLS = {
-  DOW: "^DJI",
-  NASDAQ: "^IXIC",
-  SPX500: "^GSPC",
-  NIKKEI: "^N225",
-  HANGSENG: "^HSI",
-  CRUDE_WTI: "CL=F",
-  DXY: "DX-Y.NYB",
-};
-
-async function fetchYahooQuoteMeta(yahooSymbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=5d&interval=1d`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      Accept: "application/json",
-    },
-  });
-  if (!res.ok) throw new Error(`Yahoo Finance error [${res.status}]`);
-  const raw = await res.json();
-  const meta = raw?.chart?.result?.[0]?.meta;
-  if (!meta || !Number.isFinite(meta.regularMarketPrice)) throw new Error("Yahoo Finance returned no price");
-  return {
-    price: meta.regularMarketPrice,
-    previousClose: Number.isFinite(meta.previousClose) ? meta.previousClose : meta.chartPreviousClose,
-    marketTime: meta.regularMarketTime ?? null,
-  };
-}
-
-async function handleGlobalCues() {
-  const cacheKey = "yahoo:global-cues";
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
-  const lastGoodKey = "lastgood:yahoo:global-cues";
-
-  const entries = Object.entries(GLOBAL_CUES_SYMBOLS);
-  const results = await Promise.allSettled(entries.map(([, sym]) => fetchYahooQuoteMeta(sym)));
-
-  // Partial results are reported as-is — a name Yahoo failed to resolve is
-  // simply absent from the response, never backfilled with a guess.
-  const data = {};
-  results.forEach((r, i) => {
-    const [key] = entries[i];
-    if (r.status !== "fulfilled") {
-      console.log(`  ⚠️ Global cue ${key} failed: ${r.reason?.message}`);
-      return;
-    }
-    const { price, previousClose, marketTime } = r.value;
-    const hasPrevClose = Number.isFinite(previousClose) && previousClose !== 0;
-    data[key] = {
-      price,
-      previousClose: hasPrevClose ? previousClose : null,
-      change: hasPrevClose ? Math.round((price - previousClose) * 100) / 100 : null,
-      changePercent: hasPrevClose ? Math.round(((price - previousClose) / previousClose) * 10000) / 100 : null,
-      marketTime,
-    };
-  });
-
-  if (Object.keys(data).length > 0) {
-    setLastGood(lastGoodKey, data);
-    setCache(cacheKey, data, 60000); // 1min — pre-market cues don't need tick-level freshness
-    return { data, cacheHit: false };
-  }
-
-  const lastGood = getLastGood(lastGoodKey);
-  if (lastGood) {
-    console.log(`  📦 Serving last-good global cues`);
-    return { data: lastGood.data, cacheHit: false };
-  }
-  return { data: {}, cacheHit: false };
-}
-
-// ══════════════════════════════════════════════
-// ── SECTION 4: Dhan WebSocket Live Market Feed ──
-// ══════════════════════════════════════════════
-
-// Instruments to subscribe for real-time data. These are PINNED — they are never
-// released by the subscription manager, so the index strip always has a feed even
-// when no terminal component is mounted.
-const WS_INSTRUMENTS = [
-  { ExchangeSegment: "IDX_I", SecurityId: "13" },   // NIFTY 50
-  { ExchangeSegment: "IDX_I", SecurityId: "25" },   // NIFTY BANK
-  { ExchangeSegment: "IDX_I", SecurityId: "27" },   // NIFTY FIN SERVICE
-  { ExchangeSegment: "IDX_I", SecurityId: "442" },  // MIDCAP NIFTY
-  { ExchangeSegment: "IDX_I", SecurityId: "26" },   // INDIA VIX
-];
-
-// Latest tick cache, keyed "SEGMENT:securityId" — NOT by securityId alone.
-// securityId is only unique within a segment, so the old key let an option
-// contract overwrite an index spot price (the value a spot-referenced stop-loss
-// reads). See server/lib/dhanPacketParser.mjs.
-const latestTicks = new Map();
-
-// ── Dhan WebSocket Connection Manager ──
-
-let dhanWS = null;
-let dhanWSReconnectTimer = null;
-let dhanWSReconnectDelay = 1000;
-let dhanWSConnected = false;
-let dhanWSCredentials = { clientId: null, accessToken: null };
-
-// Refcounted subscriptions, so the browser can watch arbitrary option strikes
-// instead of only the five pinned indices. See server/lib/feedSubscriptions.mjs.
-const feedSubs = createSubscriptionManager({
-  isOpen: () => dhanWS?.readyState === WebSocket.OPEN,
-  send: (msg) => { try { dhanWS.send(JSON.stringify(msg)); } catch { /* socket died mid-flush */ } },
-  onCapacityExceeded: (count, key) => {
-    console.warn(`  ⚠️  Feed subscription cap reached (${count}) — refused ${key}`);
-    broadcastToClients({ type: "feedCapacity", subscribed: count, refused: key });
-  },
-});
-feedSubs.pin(WS_INSTRUMENTS);
-
-// In-process tick fan-out (server/lib/tickBus.mjs). riskEngine.mjs subscribes
-// onto this directly so stop-loss evaluation never depends on a browser tab
-// being open and unthrottled — see tickBus.mjs's header for why publish()
-// runs before the browser WebSocket fan-out below, never after.
-
-function connectDhanWebSocket(clientId, accessToken) {
-  if (dhanWS && (dhanWS.readyState === WebSocket.OPEN || dhanWS.readyState === WebSocket.CONNECTING)) {
-    console.log("  ℹ️  Dhan WebSocket already connected/connecting");
-    return;
-  }
-
-  if (!clientId || !accessToken) {
-    console.log("  ⚠️  No Dhan credentials for WebSocket — skipping");
-    return;
-  }
-
-  // Tear down any stale socket (e.g. one still in CLOSING state) before
-  // replacing the module-level reference. Without this, an orphaned socket
-  // keeps its "open"/"message"/"close" listeners attached and can still fire
-  // them against the shared dhanWS/dhanWSConnected globals later, fighting
-  // with whatever connection `dhanWS` now actually points to.
-  if (dhanWS) {
-    dhanWS.removeAllListeners();
-    try { dhanWS.terminate(); } catch { /* already closed */ }
-  }
-
-  // A fresh connect attempt (manual "configure" from the browser, or a retry)
-  // supersedes any pending scheduled reconnect.
-  if (dhanWSReconnectTimer) {
-    clearTimeout(dhanWSReconnectTimer);
-    dhanWSReconnectTimer = null;
-  }
-
-  dhanWSCredentials = { clientId, accessToken };
-
-  const wsUrl = `wss://api-feed.dhan.co?version=2&token=${accessToken}&clientId=${clientId}&authType=2`;
-  console.log(`  🔌 Connecting to Dhan WebSocket...`);
-
-  try {
-    dhanWS = new WebSocket(wsUrl);
-  } catch (err) {
-    console.error("  ❌ Dhan WebSocket connection error:", err.message);
-    scheduleDhanReconnect();
-    return;
-  }
-
-  dhanWS.on("open", () => {
-    console.log("  ✅ Dhan WebSocket connected!");
-    dhanWSConnected = true;
-    dhanWSReconnectDelay = 1000;
-
-    // Replay the whole desired set, not just the boot list — after a reconnect
-    // the user may be watching option strikes that were subscribed at runtime.
-    const replayed = feedSubs.replayAll();
-    console.log(`  📡 Subscribed to ${replayed} instruments (full mode)`);
-
-    broadcastToClients({ type: "status", connected: true, instrumentCount: replayed });
-  });
-
-  dhanWS.on("message", (data) => {
-    try {
-      // One frame can carry many instrument updates. Parsing only the first
-      // packet (the old behaviour) silently dropped most ticks once more than a
-      // handful of instruments were subscribed.
-      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-      const packets = parseDhanFrame(buf);
-
-      for (const parsed of packets) {
-        if (parsed.type === "disconnect") {
-          console.warn(`  ⚠️  Dhan WebSocket disconnection packet, code: ${parsed.disconnectCode}`);
-          continue;
-        }
-
-        // Composite key — securityId alone collides across segments.
-        const existing = latestTicks.get(parsed.key) || {};
-        const merged = { ...existing, ...parsed, timestamp: Date.now() };
-
-        if (merged.prevClose && merged.ltp) {
-          merged.change = merged.ltp - merged.prevClose;
-          merged.changePercent = (merged.change / merged.prevClose) * 100;
-        }
-
-        latestTicks.set(parsed.key, merged);
-
-        // In-process consumers (riskEngine, via tickBus) run BEFORE the
-        // browser fan-out below, so an exit is never delayed by however many
-        // browser clients are attached (1CLIQ-TRADE-SPEC.md §3 diagram).
-        tickBus.publish(merged);
-
-        broadcastToClients(merged);
-      }
-    } catch (err) {
-      // Silently ignore parse errors for unusual packets
-    }
-  });
-
-  dhanWS.on("close", (code, reason) => {
-    console.log(`  🔴 Dhan WebSocket closed (${code}): ${reason || "no reason"}`);
-    dhanWSConnected = false;
-    broadcastToClients({ type: "status", connected: false });
-    scheduleDhanReconnect();
-  });
-
-  dhanWS.on("error", (err) => {
-    console.error("  ❌ Dhan WebSocket error:", err.message);
-    dhanWSConnected = false;
-    // If rate-limited (429), use longer backoff
-    if (err.message && err.message.includes("429")) {
-      dhanWSReconnectDelay = 120000; // 2 minutes
-      console.log("  ⏳ Rate-limited by Dhan. Will retry in 120s...");
-    }
-  });
-
-  // Respond to server pings automatically (ws library handles this by default)
-}
-
-function scheduleDhanReconnect() {
-  if (dhanWSReconnectTimer) clearTimeout(dhanWSReconnectTimer);
-  // Only double the delay if not already set higher (e.g. by rate-limit handler)
-  const doubled = Math.min(dhanWSReconnectDelay * 2, 30000);
-  dhanWSReconnectDelay = Math.max(dhanWSReconnectDelay, doubled);
-  console.log(`  🔄 Reconnecting in ${dhanWSReconnectDelay / 1000}s...`);
-  dhanWSReconnectTimer = setTimeout(() => {
-    connectDhanWebSocket(dhanWSCredentials.clientId, dhanWSCredentials.accessToken);
-  }, dhanWSReconnectDelay);
-}
-
-// ── Local WebSocket Server (Browser ↔ Proxy) ──
-
-const localWSS = new WebSocketServer({ noServer: true });
-
-function broadcastToClients(data) {
-  const json = JSON.stringify(data);
-  localWSS.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(json);
-    }
-  });
-}
-
-localWSS.on("connection", (ws) => {
-  console.log("  🌐 Browser WebSocket client connected");
-
-  // Every instrument this specific client holds a reference on, so a refresh or
-  // a closed tab releases exactly what it took and nothing else.
-  const held = new Map(); // "SEGMENT:id" -> {ExchangeSegment, SecurityId}
-
-  ws.send(JSON.stringify({
-    type: "status",
-    connected: dhanWSConnected,
-    instrumentCount: feedSubs.stats().subscribed,
-  }));
-
-  // Send all latest cached ticks immediately so browser has data instantly
-  for (const [, tickData] of latestTicks) {
-    ws.send(JSON.stringify(tickData));
-  }
-
-  ws.on("message", (msg) => {
-    try {
-      const parsed = JSON.parse(msg.toString());
-
-      if (parsed.type === "configure") {
-        const { clientId, accessToken } = parsed;
-        if (clientId && accessToken) {
-          console.log("  🔑 Received Dhan credentials from browser, connecting WebSocket...");
-          connectDhanWebSocket(clientId, accessToken);
-        }
-      }
-
-      // Dynamic subscription — this is what lets the terminal watch arbitrary
-      // option strikes instead of polling them every few seconds.
-      if (parsed.type === "subscribe" && Array.isArray(parsed.instruments)) {
-        for (const inst of parsed.instruments) {
-          const segment = inst.ExchangeSegment || inst.exchangeSegment;
-          const secId = inst.SecurityId ?? inst.securityId;
-          if (!segment || secId == null) continue;
-          const key = tickKey(segment, secId);
-          if (held.has(key)) continue; // this client already holds it
-          if (feedSubs.acquire(segment, secId)) {
-            held.set(key, { ExchangeSegment: segment, SecurityId: String(secId) });
-            // Deliver whatever we already have so the UI is not blank until the
-            // next tick — a far-OTM strike may not print for minutes.
-            const cached = latestTicks.get(key);
-            if (cached) ws.send(JSON.stringify(cached));
-          }
-        }
-      }
-
-      if (parsed.type === "unsubscribe" && Array.isArray(parsed.instruments)) {
-        for (const inst of parsed.instruments) {
-          const segment = inst.ExchangeSegment || inst.exchangeSegment;
-          const secId = inst.SecurityId ?? inst.securityId;
-          if (!segment || secId == null) continue;
-          const key = tickKey(segment, secId);
-          if (!held.delete(key)) continue;
-          feedSubs.release(segment, secId);
-        }
-      }
-    } catch {
-      // Ignore invalid messages
-    }
-  });
-
-  ws.on("close", () => {
-    // Release this client's references so a closed tab does not leak
-    // subscriptions against the feed's instrument budget.
-    for (const inst of held.values()) feedSubs.release(inst.ExchangeSegment, inst.SecurityId);
-    held.clear();
-    console.log("  🔌 Browser WebSocket client disconnected");
-  });
-});
-
-// ══════════════════════════════════════════════
-// ── SECTION 4b: Generic Multi-Broker Proxy ──
-// ══════════════════════════════════════════════
-// Dispatches option-chain/expiry-list/ltp requests to whichever broker module
-// the user has connected (see server/brokers/registry.mjs for the contract).
-// /api/dhan-proxy above stays untouched as the original, richer Dhan-specific
-// path; this generic path is what other brokers (and Dhan, via broker=dhan)
-// use so newly-added brokers get the same cache/last-good-fallback treatment.
+// option-chain / expiry-list / ltp for whichever broker the user connected. Cache and last-good keys
+// carry a hash of the credentials (like credTag), so a caller never receives data fetched with
+// someone else's session. Dhan keeps its richer /api/dhan-proxy path.
 
 const brokerRegistry = createBrokerRegistry();
+const BROKER_ID_RE = /^[a-z0-9]{2,20}$/;
+const BROKER_ENDPOINTS = new Set(["option-chain", "expiry-list", "ltp"]);
 
-async function handleBrokerProxy(brokerId, params, creds) {
-  const mod = brokerRegistry.get(brokerId);
-  const endpoint = params.get("endpoint");
-  // futures-quotes takes a batch of symbols, not one — keep its cache key distinct.
-  const symbolsParam = params.get("symbols");
-  const symbol = (params.get("symbol") || "NIFTY").toUpperCase();
-  const expiry = params.get("expiry");
-  const credsMarker = creds ? Object.values(creds).join("|").slice(0, 16) : "shared";
-  const keySuffix = endpoint === "futures-quotes"
-    ? (symbolsParam || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).sort().join(",")
-    : `${symbol}:${expiry || ""}`;
-  const cacheKey = `broker:${brokerId}:${credsMarker}:${endpoint}:${keySuffix}`;
-  const lastGoodKey = `lastgood:broker:${brokerId}:${endpoint}:${keySuffix}`;
-
-  const cached = getCached(cacheKey);
-  if (cached) return { data: cached, cacheHit: true };
-
+/** Decode the base64-JSON x-broker-credentials header into a flat string map, or null. */
+export function decodeBrokerCreds(header) {
+  if (!header || typeof header !== "string" || header.length > 8192) return null;
   try {
-    let result;
-    switch (endpoint) {
-      case "expiry-list":
-        result = await mod.fetchExpiryList(creds, symbol);
-        break;
-      case "option-chain": {
-        let expiryDate = expiry;
-        if (!expiryDate) {
-          try {
-            const expiryList = await mod.fetchExpiryList(creds, symbol);
-            if (expiryList?.data?.length > 0) expiryDate = expiryList.data[0];
-          } catch { /* proceed without a specific expiry — some brokers default to nearest */ }
-        }
-        result = await mod.fetchOptionChain(creds, symbol, expiryDate);
-        break;
-      }
-      case "ltp":
-        result = await mod.fetchLTP(creds, symbol);
-        break;
-      case "futures-quotes": {
-        if (typeof mod.fetchFuturesQuotes !== "function") {
-          throw new Error(`${brokerId} does not support futures quotes yet`);
-        }
-        const symbols = (symbolsParam || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
-        result = await mod.fetchFuturesQuotes(creds, symbols);
-        break;
-      }
-      default:
-        throw new Error(`Unknown endpoint: ${endpoint}. Use: option-chain, expiry-list, ltp, futures-quotes`);
+    const parsed = JSON.parse(Buffer.from(header, "base64").toString("utf-8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const out = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "string" && /^[A-Za-z0-9_]{1,40}$/.test(k)) out[k] = v.slice(0, 4096);
     }
-
-    const hasData = endpoint === "option-chain"
-      ? !!(result?.data?.oc && Object.keys(result.data.oc).length > 0)
-      : endpoint === "futures-quotes"
-        ? Array.isArray(result?.data) && result.data.length > 0
-        : true;
-
-    if (hasData) {
-      setLastGood(lastGoodKey, result);
-      setCache(cacheKey, result, endpoint === "expiry-list" ? 300000 : 5000);
-      return { data: result, cacheHit: false };
-    }
-
-    const lastGood = getLastGood(lastGoodKey);
-    if (lastGood) {
-      const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
-      setCache(cacheKey, afterHoursResult, 30000);
-      return { data: afterHoursResult, cacheHit: false };
-    }
-
-    setCache(cacheKey, result, 30000);
-    return { data: result, cacheHit: false };
-  } catch (e) {
-    const lastGood = getLastGood(lastGoodKey);
-    if (lastGood) {
-      console.log(`  📦 ${brokerId} error, serving last-good ${endpoint} for ${symbol}: ${e.message}`);
-      const afterHoursResult = { ...lastGood.data, afterHours: true, cachedAt: lastGood.timestamp };
-      return { data: afterHoursResult, cacheHit: false };
-    }
-    console.log(`  ⚠️ ${brokerId} ${endpoint} unavailable for ${symbol} (no cache): ${e.message}`);
-    const emptyResult = endpoint === "option-chain"
-      ? { status: "error", data: { oc: {} }, message: e.message }
-      : { status: "error", data: [], message: e.message };
-    setCache(cacheKey, emptyResult, 60000);
-    return { data: emptyResult, cacheHit: false };
-  }
-}
-
-/** Decode the base64-JSON x-broker-credentials header into the raw `values` object, or null. */
-function decodeBrokerCreds(req) {
-  const header = req.headers["x-broker-credentials"];
-  if (!header) return null;
-  try {
-    return JSON.parse(Buffer.from(header, "base64").toString("utf-8"));
+    return Object.keys(out).length > 0 ? out : null;
   } catch {
     return null;
   }
 }
 
+function brokerCredTag(creds) {
+  if (!creds) return "none";
+  const sorted = Object.keys(creds).sort().map((k) => `${k}=${creds[k]}`).join("&");
+  return createHash("sha256").update(sorted).digest("hex").slice(0, 12);
+}
+
+function vBrokerId(v) {
+  const id = String(v || "dhan").toLowerCase();
+  if (!BROKER_ID_RE.test(id) || !brokerRegistry.has(id)) throw new InputError(`Unknown broker. Supported: ${brokerRegistry.list().join(", ")}`);
+  return id;
+}
+
+async function handleBrokerProxy(brokerId, params, creds) {
+  const endpoint = params.get("endpoint");
+  if (!BROKER_ENDPOINTS.has(endpoint)) throw new InputError("Unknown endpoint. Use: option-chain, expiry-list, ltp");
+  if (!creds) return { status: 401, body: { status: "error", reason: `No ${brokerId} credentials sent` } };
+  const mod = brokerRegistry.get(brokerId);
+  const symbol = vSymbol(params.get("symbol"), "NIFTY");
+  const expiry = vExpiry(params.get("expiry"));
+  const tag = brokerCredTag(creds);
+  const key = `broker:${brokerId}:${tag}:${endpoint}:${symbol}:${expiry || ""}`;
+  const lgKey = `lastgood:${key}`;
+  const hit = cache.get(key);
+  if (hit) return { status: 200, body: hit };
+  try {
+    const result = await coalesce(key, async () => {
+      switch (endpoint) {
+        case "expiry-list":
+          return mod.fetchExpiryList(creds, symbol);
+        case "option-chain": {
+          let exp = expiry;
+          if (!exp) {
+            try {
+              const list = await mod.fetchExpiryList(creds, symbol);
+              exp = list?.data?.[0];
+            } catch { /* some brokers default to the nearest expiry */ }
+          }
+          return mod.fetchOptionChain(creds, symbol, exp);
+        }
+        default:
+          return mod.fetchLTP(creds, symbol);
+      }
+    });
+    const hasData = endpoint === "option-chain" ? !!(result?.data?.oc && Object.keys(result.data.oc).length > 0) : !!result;
+    if (hasData) {
+      cache.set(key, result, endpoint === "expiry-list" ? 300000 : 3000);
+      setLastGood(lgKey, result, brokerId);
+      return { status: 200, body: result };
+    }
+    const lg = getLastGood(lgKey);
+    if (lg) return { status: 200, body: { ...lg.data, stale: true, afterHours: true, cachedAt: lg.timestamp } };
+    return { status: 502, body: { status: "error", reason: `${brokerId} returned no data` } };
+  } catch (e) {
+    if (e instanceof InputError) throw e;
+    const lg = getLastGood(lgKey);
+    if (lg) return { status: 200, body: { ...lg.data, stale: true, afterHours: true, cachedAt: lg.timestamp, reason: truncate(e.message, 160) } };
+    return { status: 502, body: { status: "error", reason: truncate(e?.message || `${brokerId} request failed`, 240) } };
+  }
+}
+
+async function dhanHistorical({ secId, exchSeg, instrument, interval, fromDate, toDate }, creds) {
+  const isDaily = interval === "D";
+  const today = istNow().iso;
+  let from = fromDate || `${addDaysIso(today, isDaily ? -365 : -3)}${isDaily ? "" : " 09:15"}`;
+  const to = toDate || `${today}${isDaily ? "" : " 15:30"}`;
+  if (!isDaily) {
+    // Dhan allows at most 90 days per intraday request (DH-905).
+    const fromIso = from.slice(0, 10);
+    const toIsoStr = to.slice(0, 10);
+    const days = Math.round((Date.parse(toIsoStr) - Date.parse(fromIso)) / 86400000);
+    if (days > 89) from = `${addDaysIso(toIsoStr, -89)} 09:15`;
+  }
+  const key = `dhan:hist:${credTag(creds)}:${secId}:${exchSeg}:${interval}:${from}:${to}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const body = {
+      securityId: secId,
+      exchangeSegment: exchSeg,
+      instrument,
+      fromDate: isDaily ? from.slice(0, 10) : from.includes(" ") ? from : `${from} 09:15`,
+      toDate: isDaily ? to.slice(0, 10) : to.includes(" ") ? to : `${to} 15:30`,
+      oi: exchSeg === "NSE_FNO",
+    };
+    if (isDaily) body.expiryCode = 0;
+    else body.interval = interval;
+    const json = await dhanFetch(isDaily ? "/charts/historical" : "/charts/intraday", body, creds);
+    const out = { status: "success", source: "dhan", data: json?.data && typeof json.data === "object" && !Array.isArray(json.data) ? json.data : json };
+    cache.set(key, out, isDaily ? 300000 : 60000);
+    return out;
+  });
+}
+
+async function instrumentMaster() {
+  const key = "dhan:instruments-master";
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const res = await upstreamFetch("dhan", "https://images.dhan.co/api-data/api-scrip-master.csv", { headers: { "User-Agent": UA } }, 90000);
+    const rows = parseCsv(await res.text());
+    markSuccess("dhan");
+    const header = (rows.shift() || []).map((h) => h.trim());
+    const col = (name) => header.indexOf(name);
+    const idx = {
+      exch: col("SEM_EXM_EXCH_ID"), seg: col("SEM_SEGMENT"), id: col("SEM_SMST_SECURITY_ID"), instr: col("SEM_INSTRUMENT_NAME"),
+      ts: col("SEM_TRADING_SYMBOL"), lot: col("SEM_LOT_UNITS"), cs: col("SEM_CUSTOM_SYMBOL"), exp: col("SEM_EXPIRY_DATE"),
+      strike: col("SEM_STRIKE_PRICE"), opt: col("SEM_OPTION_TYPE"),
+    };
+    const SEGMENT_MAP = { "NSE:E": "NSE_EQ", "NSE:D": "NSE_FNO", "NSE:I": "IDX_I", "BSE:I": "IDX_I", "BSE:D": "BSE_FNO" };
+    const ALLOWED = new Set(["NSE_EQ", "NSE_FNO", "IDX_I", "BSE_FNO"]);
+    const instruments = [];
+    for (const c of rows) {
+      const exchangeSegment = SEGMENT_MAP[`${c[idx.exch]?.trim()}:${c[idx.seg]?.trim()}`];
+      if (!exchangeSegment || !ALLOWED.has(exchangeSegment)) continue;
+      const tradingSymbol = c[idx.ts]?.trim() || "";
+      const customSymbol = c[idx.cs]?.trim() || "";
+      const expiry = (c[idx.exp] || "").trim().slice(0, 10);
+      const strike = toNum(c[idx.strike]);
+      const opt = (c[idx.opt] || "").trim();
+      instruments.push({
+        securityId: (c[idx.id] || "").trim(),
+        symbol: customSymbol.split(" ")[0] || tradingSymbol.split("-")[0] || tradingSymbol,
+        tradingSymbol,
+        exchangeSegment,
+        instrumentType: (c[idx.instr] || "").trim(),
+        lotSize: Math.max(1, Math.round(toNum(c[idx.lot]) || 1)),
+        expiryDate: expiry && !expiry.startsWith("0001") ? expiry : undefined,
+        strikePrice: strike > 0 ? strike : undefined,
+        optionType: opt && opt !== "XX" ? opt : undefined,
+      });
+    }
+    const out = { instruments, count: instruments.length };
+    cache.set(key, out, 3600000);
+    console.log(`  ✅ Instrument master: ${instruments.length} rows`);
+    return out;
+  });
+}
+
 // ══════════════════════════════════════════════
-// ── SECTION 5: HTTP Server ──
+// ── SECTION 3: NSE India ──
 // ══════════════════════════════════════════════
 
-// Reflect the Origin only when it matches localhost/LAN (dev + Vite's `host:
-// 0.0.0.0` LAN testing) or the production domain. A bare "*" here would let
-// ANY webpage open in the user's browser call this proxy — which holds live
-// broker sessions/credentials and forwards them to Dhan — from any tab, a
-// classic "localhost drive-by" attack against locally-running dev servers.
-const ALLOWED_ORIGIN_PATTERNS = [
-  /^https?:\/\/localhost(:\d+)?$/i,
-  /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
-  /^https?:\/\/\[::1\](:\d+)?$/i,
-  /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^https:\/\/([a-z0-9-]+\.)*mrchartist\.com$/i,
-];
+let nseCookie = "";
+let nseCookieExpiry = 0;
+let nseSessionPromise = null;
+/** www.nseindia.com sometimes blocks a client outright (Akamai 403). Back off instead of hammering. */
+let nseWwwBlockedUntil = 0;
+const NSE_BLOCK_BACKOFF_MS = 60000;
 
-function corsHeadersFor(req) {
-  const origin = req.headers.origin;
-  const allowed = !!origin && ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin));
-  const headers = {
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-dhan-client-id, x-dhan-access-token, x-broker-credentials",
-    Vary: "Origin",
+function assertNseWwwOpen() {
+  if (Date.now() < nseWwwBlockedUntil) {
+    const secs = Math.ceil((nseWwwBlockedUntil - Date.now()) / 1000);
+    throw new UpstreamError("nse", 403, `NSE website is blocking this network (HTTP 403). Retrying in ${secs}s`);
+  }
+}
+
+/** Collect Set-Cookie values (Node 19.7+ getSetCookie, with a fallback). */
+export function collectCookies(headers) {
+  let list = [];
+  if (typeof headers.getSetCookie === "function") list = headers.getSetCookie();
+  else {
+    const raw = headers.get("set-cookie") || "";
+    list = raw.split(/,(?=\s*[A-Za-z0-9_-]+=)/);
+  }
+  return list.map((c) => c.split(";")[0].trim()).filter((c) => c.includes("="));
+}
+
+function invalidateNseSession() {
+  nseCookie = "";
+  nseCookieExpiry = 0;
+}
+
+/** Shared NSE session: concurrent callers wait on one warm-up instead of racing. */
+async function getNseSession(force = false) {
+  if (!force && nseCookie && Date.now() < nseCookieExpiry) return nseCookie;
+  if (nseSessionPromise) return nseSessionPromise;
+  assertNseWwwOpen();
+  nseSessionPromise = (async () => {
+    const jar = new Map();
+    for (const page of ["/", "/option-chain"]) {
+      try {
+        const res = await upstreamFetch("nse", `${NSE_BASE}${page}`, {
+          headers: {
+            "User-Agent": UA,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-IN,en;q=0.9",
+            ...(jar.size ? { Cookie: [...jar.values()].join("; ") } : {}),
+          },
+          redirect: "follow",
+        }, 8000);
+        for (const c of collectCookies(res.headers)) jar.set(c.split("=")[0], c);
+        await res.text();
+      } catch (e) {
+        if (page === "/") {
+          if (e?.status === 403) {
+            nseWwwBlockedUntil = Date.now() + NSE_BLOCK_BACKOFF_MS;
+            console.warn("  ⚠️ NSE website returned 403 (blocked). Backing off for 60 s; archive files still work.");
+            throw e;
+          }
+          console.warn(`  ⚠️ NSE warm-up failed: ${truncate(e.message, 120)}`);
+        }
+      }
+    }
+    nseCookie = [...jar.values()].join("; ");
+    nseCookieExpiry = Date.now() + (nseCookie ? 4 * 60 * 1000 : 15000);
+    return nseCookie;
+  })().finally(() => { nseSessionPromise = null; });
+  return nseSessionPromise;
+}
+
+/** GET an NSE JSON API with the shared session, retrying once with a fresh session. */
+async function nseJson(path, { referer = `${NSE_BASE}/option-chain`, timeoutMs = 15000 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      assertNseWwwOpen();
+      const cookie = await getNseSession(attempt > 0);
+      const json = await queues.nse.schedule(async () => {
+        const res = await upstreamFetch("nse", `${NSE_BASE}${path}`, {
+          headers: { "User-Agent": UA, Accept: "application/json, text/plain, */*", "Accept-Language": "en-IN,en;q=0.9", Referer: referer, Cookie: cookie },
+        }, timeoutMs);
+        const ct = res.headers.get("content-type") || "";
+        const text = await res.text();
+        if (!ct.includes("json") && !/^\s*[[{]/.test(text)) throw new UpstreamError("nse", 403, "NSE returned HTML instead of JSON (session or bot check)");
+        return JSON.parse(text);
+      });
+      markSuccess("nse");
+      return json;
+    } catch (e) {
+      lastErr = e;
+      if (e?.status === 429 || Date.now() < nseWwwBlockedUntil) break;
+      if (e?.status === 403 && attempt > 0) nseWwwBlockedUntil = Date.now() + NSE_BLOCK_BACKOFF_MS;
+      invalidateNseSession();
+    }
+  }
+  throw lastErr;
+}
+
+/** GET a file from nsearchives (CSV/ZIP). Returns a Buffer. 404 → UpstreamError(404). */
+async function nseArchive(path, { timeoutMs = 30000 } = {}) {
+  // Archives do not need a session; reuse the cookie only when one is already warm.
+  const cookie = nseCookie && Date.now() < nseCookieExpiry ? nseCookie : "";
+  const buf = await queues.nseArchive.schedule(async () => {
+    const res = await upstreamFetch("nse", `${NSE_ARCHIVES}${path}`, {
+      headers: { "User-Agent": UA, Accept: "*/*", Referer: `${NSE_BASE}/`, ...(cookie ? { Cookie: cookie } : {}) },
+    }, timeoutMs);
+    return Buffer.from(await res.arrayBuffer());
+  });
+  markSuccess("nse");
+  return buf;
+}
+
+const NSE_INDEX_SYMBOLS = new Set(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50"]);
+const BSE_ONLY = new Set(["SENSEX", "BANKEX"]);
+
+async function nseExpiries(symbol) {
+  const key = `nse:expiries:${symbol}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const json = await nseJson(`/api/option-chain-contract-info?symbol=${encodeURIComponent(symbol)}`);
+    const list = (json?.expiryDates || []).map(toIso).filter(Boolean).sort();
+    if (list.length === 0) throw new UpstreamError("nse", 204, "NSE returned no expiries");
+    cache.set(key, list, 300000);
+    return list;
+  });
+}
+
+/** Normalise a v3 response (single expiry) into the legacy option-chain shape. */
+export function normaliseNseV3(json, expiryIso) {
+  const rows = json?.records?.data || json?.filtered?.data || [];
+  const data = rows.map((r) => ({ ...r, expiryDate: r.expiryDate || r.expiryDates || (expiryIso ? isoToNse(expiryIso) : undefined) }));
+  return {
+    records: {
+      expiryDates: json?.records?.expiryDates?.length ? json.records.expiryDates : expiryIso ? [isoToNse(expiryIso)] : [],
+      data,
+      underlyingValue: json?.records?.underlyingValue,
+      timestamp: json?.records?.timestamp,
+    },
+    filtered: json?.filtered ? { CE: json.filtered.CE, PE: json.filtered.PE } : undefined,
   };
-  // Non-browser clients (curl, health checks, server-to-server) send no Origin
-  // header at all — CORS doesn't apply to them either way, so "*" is harmless.
-  if (!origin || allowed) headers["Access-Control-Allow-Origin"] = origin || "*";
-  return headers;
+}
+
+/** NSE option chain: option-chain-v3 for one expiry, falling back to the legacy endpoint. */
+async function nseOptionChain(symbol, expiryIso) {
+  if (BSE_ONLY.has(symbol)) throw new UpstreamError("nse", 404, `${symbol} trades on BSE; NSE has no chain. Add Dhan keys for BSE indices.`);
+  const isIndex = NSE_INDEX_SYMBOLS.has(symbol);
+  const key = `nse:oc:${symbol}:${expiryIso || "near"}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    let out = null;
+    let v3Err = null;
+    try {
+      const expiries = await nseExpiries(symbol);
+      const exp = expiryIso && expiries.includes(expiryIso) ? expiryIso : expiries[0];
+      const json = await nseJson(`/api/option-chain-v3?type=${isIndex ? "Indices" : "Equity"}&symbol=${encodeURIComponent(symbol)}&expiry=${isoToNse(exp)}`);
+      out = normaliseNseV3(json, exp);
+      out.records.expiryDates = expiries.map(isoToNse);
+      if (!out.records.data.length) throw new UpstreamError("nse", 204, "NSE v3 returned an empty chain");
+    } catch (e) {
+      v3Err = e;
+      out = null;
+    }
+    if (!out && Date.now() < nseWwwBlockedUntil) throw v3Err;
+    if (!out) {
+      const json = await nseJson(isIndex ? `/api/option-chain-indices?symbol=${encodeURIComponent(symbol)}` : `/api/option-chain-equities?symbol=${encodeURIComponent(symbol)}`);
+      if (!json?.records?.data?.length) throw v3Err || new UpstreamError("nse", 204, "NSE returned an empty chain");
+      out = json;
+    }
+    cache.set(key, out, 15000);
+    setLastGood(`lastgood:nse:oc:${symbol}:${expiryIso || "near"}`, out, "nse");
+    return out;
+  });
+}
+
+const NSE_SIMPLE = {
+  indices: { path: "/api/allIndices", ttl: 15000 },
+  "market-status": { path: "/api/marketStatus", ttl: 15000 },
+  "equity-derivatives": { path: "/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O", ttl: 30000 },
+  "market-data-pre-open": { path: "/api/market-data-pre-open?key=FO", ttl: 60000 },
+  "fii-dii": { path: "/api/fiidiiTradeReact", ttl: 300000 },
+};
+
+async function handleNSEProxy(params) {
+  const endpoint = params.get("endpoint");
+  if (endpoint === "option-chain") {
+    const symbol = vSymbol(params.get("symbol"), "NIFTY");
+    const expiry = vExpiry(params.get("expiry"));
+    try {
+      return { status: 200, body: await nseOptionChain(symbol, expiry) };
+    } catch (e) {
+      const lg = getLastGood(`lastgood:nse:oc:${symbol}:${expiry || "near"}`);
+      if (lg) return { status: 200, body: { ...lg.data, stale: true, cachedAt: lg.timestamp } };
+      return { status: 502, body: { error: "NSE option chain unavailable", reason: truncate(e.message, 200) } };
+    }
+  }
+  const def = NSE_SIMPLE[endpoint];
+  if (!def) throw new InputError(`Unknown NSE endpoint: ${truncate(endpoint, 30)}`);
+  const key = `nse:${endpoint}`;
+  const hit = cache.get(key);
+  if (hit) return { status: 200, body: hit };
+  try {
+    const json = await coalesce(key, () => nseJson(def.path, { referer: `${NSE_BASE}/` }));
+    if (!json || (typeof json === "object" && Object.keys(json).length === 0)) throw new UpstreamError("nse", 204, "NSE returned an empty response");
+    cache.set(key, json, def.ttl);
+    setLastGood(`lastgood:nse:${endpoint}`, json, "nse");
+    return { status: 200, body: json };
+  } catch (e) {
+    const lg = getLastGood(`lastgood:nse:${endpoint}`);
+    if (lg) {
+      const body = Array.isArray(lg.data) ? lg.data : { ...lg.data, stale: true, cachedAt: lg.timestamp };
+      return { status: 200, body };
+    }
+    return { status: 502, body: { error: `NSE ${endpoint} unavailable`, reason: truncate(e.message, 200) } };
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── SECTION 3b: TradingView scanner ──
+// ══════════════════════════════════════════════
+
+const FNO_TICKERS = [
+  "RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","HINDUNILVR","SBIN","BHARTIARTL","ITC","KOTAKBANK","LT","AXISBANK",
+  "ASIANPAINT","MARUTI","TATAMOTORS","SUNPHARMA","TITAN","WIPRO","ULTRACEMCO","BAJFINANCE","HCLTECH","NTPC","POWERGRID",
+  "ONGC","ADANIENT","ADANIPORTS","COALINDIA","DRREDDY","NESTLEIND","CIPLA","BAJAJFINSV","GRASIM","JSWSTEEL","BRITANNIA",
+  "TECHM","INDUSINDBK","HINDALCO","M_M","APOLLOHOSP","EICHERMOT","DIVISLAB","BPCL","HEROMOTOCO","TATASTEEL","SBILIFE",
+  "HDFCLIFE","SHRIRAMFIN","TRENT","BAJAJ_AUTO","BANKBARODA","PNB","CANBK","IDFCFIRSTB","FEDERALBNK","BANDHANBNK",
+  "RBLBANK","AUBANK","MANAPPURAM","MUTHOOTFIN","CHOLAFIN","LICHSGFIN","CANFINHOME","RECLTD","PFC","HAL","BEL","BHEL",
+  "IRCTC","ETERNAL","PAYTM","DLF","GODREJPROP","OBEROIRLTY","VEDL","JINDALSTEL","SAIL","NMDC","IOC","GAIL","TATAPOWER",
+  "SIEMENS","ABB","VOLTAS","HAVELLS","POLYCAB","LTIM","MPHASIS","COFORGE","PERSISTENT","TORNTPHARM","LUPIN","AUROPHARMA",
+  "BIOCON","GODREJCP","DABUR","MARICO","COLPAL","MCX","INDIGO","TVSMOTOR","MRF","ASHOKLEY","DIXON","CROMPTON","JUBLFOOD",
+].map((s) => `NSE:${s}`);
+const INDEX_TICKERS = ["NSE:NIFTY", "NSE:BANKNIFTY", "NSE:CNXFINANCE", "BSE:SENSEX"];
+
+async function handleTradingViewScan(params) {
+  const scanType = vEnum(params.get("type"), new Set(["stocks", "indices"]), "stocks", "type");
+  const key = `tv:scan:${scanType}`;
+  const hit = cache.get(key);
+  if (hit) return { status: 200, body: hit };
+  const isIndices = scanType === "indices";
+  const columns = ["name", "description", "close", "change", "change_abs", "volume", "open", "high", "low", "Perf.W", "Perf.1M", "market_cap_basic", "average_volume_10d_calc", ...(isIndices ? [] : ["sector"])];
+  try {
+    const out = await coalesce(key, () => queues.tv.schedule(async () => {
+      const res = await upstreamFetch("tv", "https://scanner.tradingview.com/india/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": UA, Referer: "https://www.tradingview.com/" },
+        body: JSON.stringify({ symbols: { tickers: isIndices ? INDEX_TICKERS : FNO_TICKERS }, columns }),
+      });
+      const raw = await res.json();
+      markSuccess("tv");
+      const stocks = (raw.data || []).map((item) => {
+        const d = item.d || [];
+        const o = {};
+        columns.forEach((c, i) => { o[c] = d[i]; });
+        const [exchange, sym] = String(item.s || "").split(":");
+        const symbol = (sym || o.name || "").replace(/_/g, (m, i, s) => (s === "M_M" ? "&" : "-"));
+        return {
+          symbol, name: o.description || symbol, exchange: exchange || "NSE", ltp: o.close || 0, change: o.change || 0,
+          changeAbs: o.change_abs || 0, changePercent: o.change || 0, volume: o.volume || 0, open: o.open || 0, high: o.high || 0,
+          low: o.low || 0, weekChange: o["Perf.W"] || 0, monthChange: o["Perf.1M"] || 0, marketCap: o.market_cap_basic || 0,
+          avgVolume10d: o.average_volume_10d_calc || 0, sector: o.sector || "",
+        };
+      });
+      return { stocks, totalCount: raw.totalCount, timestamp: Date.now() };
+    }));
+    cache.set(key, out, 15000);
+    setLastGood(`lastgood:tv:${scanType}`, out, "tv");
+    return { status: 200, body: out };
+  } catch (e) {
+    const lg = getLastGood(`lastgood:tv:${scanType}`);
+    if (lg) return { status: 200, body: { ...lg.data, stale: true, cachedAt: lg.timestamp } };
+    return { status: 502, body: { error: "TradingView scanner unavailable", reason: truncate(e.message, 200) } };
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── SECTION 3c: Yahoo Finance charts ──
+// ══════════════════════════════════════════════
+
+const YAHOO_SYMBOL_MAP = {
+  NIFTY: "^NSEI", BANKNIFTY: "^NSEBANK", FINNIFTY: "NIFTY_FIN_SERVICE.NS", MIDCPNIFTY: "NIFTY_MID_SELECT.NS",
+  INDIAVIX: "^INDIAVIX", SENSEX: "^BSESN", BANKEX: "BSE-BANK.BO",
+};
+const YAHOO_INTERVAL = { 1: "1m", 5: "5m", 15: "15m", 25: "30m", 60: "1h", D: "1d" };
+
+async function yahooChart(symbol, interval, fromIso, toIso) {
+  const ySym = YAHOO_SYMBOL_MAP[symbol] || `${symbol}.NS`;
+  const yInt = YAHOO_INTERVAL[interval] || "1d";
+  const now = Math.floor(Date.now() / 1000);
+  // Dates are IST calendar days: start at 00:00 IST, end at 23:59 IST.
+  const p1 = fromIso ? Math.floor(Date.parse(`${fromIso}T00:00:00+05:30`) / 1000) : now - 365 * 86400;
+  const p2 = toIso ? Math.min(now, Math.floor(Date.parse(`${toIso}T23:59:59+05:30`) / 1000)) : now;
+  const key = `yahoo:${ySym}:${yInt}:${p1}:${p2}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, () => queues.yahoo.schedule(async () => {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ySym)}?period1=${p1}&period2=${p2}&interval=${yInt}&includePrePost=false`;
+    const res = await upstreamFetch("yahoo", url, { headers: { "User-Agent": UA, Accept: "application/json" } });
+    const raw = await res.json();
+    const result = raw?.chart?.result?.[0];
+    if (!result) throw new UpstreamError("yahoo", 204, "Yahoo returned an empty result");
+    markSuccess("yahoo");
+    const q = result.indicators?.quote?.[0] || {};
+    const out = {
+      status: "success",
+      source: "yahoo",
+      data: { open: q.open || [], high: q.high || [], low: q.low || [], close: q.close || [], volume: q.volume || [], timestamp: result.timestamp || [] },
+    };
+    cache.set(key, out, interval === "D" ? 300000 : 60000);
+    return out;
+  }));
+}
+
+async function handleYahooChart(params) {
+  const symbol = vSymbol(params.get("symbol"));
+  const interval = vEnum(params.get("interval"), INTERVALS, "D", "interval");
+  const fromDate = vDate(params.get("fromDate"));
+  const toDate = vDate(params.get("toDate"));
+  try {
+    return { status: 200, body: await yahooChart(symbol, interval, fromDate, toDate) };
+  } catch (e) {
+    return { status: 502, body: { error: "Yahoo Finance unavailable", reason: truncate(e.message, 200) } };
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── SECTION 3d: Envelope routes (/api/x/*) ──
+// ══════════════════════════════════════════════
+
+/**
+ * Cache → fetch (coalesced) → last-good. Always resolves to { status, body: envelope }.
+ * fetcher returns { data, source?, asOf? }.
+ */
+async function envelope(key, ttlMs, defaultSource, fetcher) {
+  const hit = cache.get(`x:${key}`);
+  if (hit) return { status: 200, body: { data: hit.data, meta: { source: hit.source, asOf: hit.asOf, stale: false } } };
+  try {
+    const r = await coalesce(`x:${key}`, fetcher);
+    const entry = { data: r.data, source: r.source || defaultSource, asOf: r.asOf || Date.now() };
+    cache.set(`x:${key}`, entry, ttlMs);
+    setLastGood(key.startsWith("archive:") ? key : `lastgood:x:${key}`, entry, entry.source);
+    const meta = { source: entry.source, asOf: entry.asOf, stale: false };
+    if (r.reason) meta.reason = r.reason;
+    return { status: 200, body: { data: entry.data, meta } };
+  } catch (e) {
+    if (e instanceof InputError) throw e;
+    const lg = getLastGood(key.startsWith("archive:") ? key : `lastgood:x:${key}`);
+    const reason = truncate(e?.message || "upstream failed", 200);
+    if (lg) return { status: 200, body: { data: lg.data.data, meta: { source: "cache", asOf: lg.data.asOf || lg.timestamp, stale: true, reason } } };
+    return { status: 502, body: { data: null, meta: { source: defaultSource, asOf: Date.now(), stale: true, reason } } };
+  }
+}
+
+// ── participant OI / volume ──
+
+const PARTICIPANTS = { CLIENT: "Client", DII: "DII", FII: "FII", PRO: "Pro" };
+
+/** Parse fao_participant_oi / fao_participant_vol CSV into rows. */
+export function parseParticipantCsv(text, dateIso) {
+  const rows = parseCsv(text);
+  const hi = rows.findIndex((r) => /client\s*type/i.test(r[0] || ""));
+  if (hi < 0) throw new Error("Participant file has no header row");
+  const norm = (s) => String(s).toLowerCase().replace(/[^a-z]/g, "");
+  const header = rows[hi].map(norm);
+  const col = (name) => header.indexOf(name);
+  const c = {
+    futIdxLong: col("futureindexlong"), futIdxShort: col("futureindexshort"),
+    futStkLong: col("futurestocklong"), futStkShort: col("futurestockshort"),
+    optIdxCallLong: col("optionindexcalllong"), optIdxPutLong: col("optionindexputlong"),
+    optIdxCallShort: col("optionindexcallshort"), optIdxPutShort: col("optionindexputshort"),
+  };
+  if (Object.values(c).some((i) => i < 0)) throw new Error("Participant file is missing expected columns");
+  const out = [];
+  for (const r of rows.slice(hi + 1)) {
+    const p = PARTICIPANTS[String(r[0] || "").trim().toUpperCase()];
+    if (!p) continue;
+    const row = { date: dateIso, participant: p };
+    for (const [k, i] of Object.entries(c)) row[k] = toNum(r[i]);
+    out.push(row);
+  }
+  if (out.length === 0) throw new Error("Participant file has no participant rows");
+  return out;
+}
+
+async function participantFile(kind, dateIso) {
+  const key = `archive:participant-${kind}:${dateIso}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const lg = getLastGood(key);
+    if (lg) return lg.data;
+    const buf = await nseArchive(`/content/nsccl/fao_participant_${kind}_${ddmmyyyy(dateIso)}.csv`);
+    const rows = parseParticipantCsv(buf.toString("utf8"), dateIso);
+    cache.set(key, rows, 12 * 3600000);
+    setLastGood(key, rows, "nse");
+    return rows;
+  });
+}
+
+/** Latest available participant file on or before `dateIso` (walks back over weekdays). */
+async function latestParticipant(kind, dateIso) {
+  let lastErr = null;
+  for (const d of recentWeekdays(dateIso, 6)) {
+    try {
+      return await participantFile(kind, d);
+    } catch (e) {
+      lastErr = e;
+      if (e?.status && e.status !== 404 && e.status !== 403) break;
+    }
+  }
+  throw lastErr || new Error("No participant file found");
+}
+
+/** Default "latest" date: today after 19:00 IST, otherwise yesterday. */
+function defaultArchiveDate() {
+  const t = istNow();
+  return t.hh >= 19 ? t.iso : addDaysIso(t.iso, -1);
+}
+
+async function participantHistory(days) {
+  const out = [];
+  const dates = recentWeekdays(defaultArchiveDate(), Math.ceil(days * 1.5) + 4);
+  for (const d of dates) {
+    if (out.length >= days) break;
+    try {
+      out.push(...(await participantFile("oi", d)));
+      // keep counting distinct dates below
+    } catch (e) {
+      if (e?.status === 429) break;
+    }
+    const distinct = new Set(out.map((r) => r.date)).size;
+    if (distinct >= days) break;
+  }
+  const keep = [...new Set(out.map((r) => r.date))].sort().slice(-days);
+  return out.filter((r) => keep.includes(r.date)).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.participant.localeCompare(b.participant)));
+}
+
+// ── FII statistics (derived from participant OI and volume) ──
+
+export function deriveFiiStats(oiRows, volRows) {
+  const fii = oiRows.find((r) => r.participant === "FII");
+  if (!fii) throw new Error("No FII row in participant OI");
+  const vol = volRows?.find((r) => r.participant === "FII");
+  const seg = (segment, l, s) => {
+    const longOi = fii[l];
+    const shortOi = fii[s];
+    const buyVol = vol ? vol[l] : null;
+    const sellVol = vol ? vol[s] : null;
+    return {
+      date: fii.date, segment, longOi, shortOi, netOi: longOi - shortOi,
+      longPct: longOi + shortOi > 0 ? Math.round((longOi / (longOi + shortOi)) * 10000) / 100 : 0,
+      buyVol, sellVol, netVol: buyVol !== null && sellVol !== null ? buyVol - sellVol : null,
+    };
+  };
+  return [
+    seg("Index Futures", "futIdxLong", "futIdxShort"),
+    seg("Index Calls", "optIdxCallLong", "optIdxCallShort"),
+    seg("Index Puts", "optIdxPutLong", "optIdxPutShort"),
+    seg("Stock Futures", "futStkLong", "futStkShort"),
+  ];
+}
+
+// ── Ban list, MWPL, lot sizes ──
+
+export function parseBanList(text) {
+  const dateMatch = /trade date\s*([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4})/i.exec(text);
+  const symbols = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\s*\d+\s*,\s*([A-Z0-9&-]+)\s*$/.exec(line);
+    if (m) symbols.push(m[1]);
+  }
+  return { date: dateMatch ? toIso(dateMatch[1]) : "", symbols };
+}
+
+export function parseMwplCsv(text) {
+  const rows = parseCsv(text);
+  const hi = rows.findIndex((r) => r.some((c) => /mwpl/i.test(c)) && r.some((c) => /symbol/i.test(c)));
+  if (hi < 0) throw new Error("MWPL file has no header row");
+  const h = rows[hi].map((c) => c.trim().toLowerCase());
+  const iSym = h.findIndex((c) => c.includes("nse symbol")) >= 0 ? h.findIndex((c) => c.includes("nse symbol")) : h.findIndex((c) => c.includes("symbol"));
+  const iMwpl = h.findIndex((c) => c === "mwpl" || c.startsWith("mwpl"));
+  const iOi = h.findIndex((c) => c.includes("open interest"));
+  const iLimit = h.findIndex((c) => c.includes("limit"));
+  const out = [];
+  for (const r of rows.slice(hi + 1)) {
+    const symbol = String(r[iSym] || "").trim().toUpperCase();
+    const mwpl = toNum(r[iMwpl]);
+    const oi = toNum(r[iOi]);
+    if (!symbol || !(mwpl > 0)) continue;
+    out.push({ symbol, mwplPct: Math.round((oi / mwpl) * 10000) / 100, mwpl, oi, limitNextDay: iLimit >= 0 ? toNum(r[iLimit]) : undefined });
+  }
+  return out.sort((a, b) => b.mwplPct - a.mwplPct);
+}
+
+export function parseLotSizes(text) {
+  const rows = parseCsv(text);
+  const hi = rows.findIndex((r) => String(r[1] || "").trim().toUpperCase() === "SYMBOL");
+  if (hi < 0) throw new Error("Lot size file has no header row");
+  const months = rows[hi].slice(2).map((m) => m.trim()).filter(Boolean);
+  const out = [];
+  for (const r of rows.slice(hi + 1)) {
+    const symbol = String(r[1] || "").trim().toUpperCase();
+    if (!symbol || symbol === "SYMBOL") continue;
+    const byMonth = months.map((month, i) => ({ month, lotSize: toNum(r[i + 2]) })).filter((x) => x.lotSize > 0);
+    if (byMonth.length === 0) continue;
+    out.push({ symbol, underlying: String(r[0] || "").trim(), lotSize: byMonth[0].lotSize, byMonth });
+  }
+  return out;
+}
+
+// ── Bhavcopy (UDiFF F&O) ──
+
+export function parseBhavcopyFo(text) {
+  const rows = parseCsv(text);
+  const h = (rows.shift() || []).map((c) => c.trim());
+  const i = (n) => h.indexOf(n);
+  const c = { sym: i("TckrSymb"), exp: i("XpryDt"), strike: i("StrkPric"), opt: i("OptnTp"), tp: i("FinInstrmTp"), close: i("ClsPric"), settle: i("SttlmPric"), oi: i("OpnIntrst"), chg: i("ChngInOpnIntrst"), vol: i("TtlTradgVol"), und: i("UndrlygPric") };
+  if (c.sym < 0 || c.exp < 0) throw new Error("Bhavcopy header not recognised (expected UDiFF format)");
+  const out = [];
+  for (const r of rows) {
+    const tp = String(r[c.tp] || "").trim().toUpperCase();
+    const opt = String(r[c.opt] || "").trim().toUpperCase();
+    const type = opt === "CE" || opt === "PE" ? opt : tp.endsWith("F") ? "FUT" : null;
+    if (!type) continue;
+    out.push({
+      symbol: String(r[c.sym] || "").trim().toUpperCase(),
+      expiry: toIso(r[c.exp]),
+      strike: type === "FUT" ? 0 : toNum(r[c.strike]),
+      type,
+      close: toNum(r[c.close]),
+      settle: toNum(r[c.settle]),
+      oi: toNum(r[c.oi]),
+      chgOi: toNum(r[c.chg]),
+      volume: toNum(r[c.vol]),
+      underlyingClose: toNum(r[c.und]),
+    });
+  }
+  return out;
+}
+
+async function bhavcopyRows(dateIso) {
+  const key = `bhav:${dateIso}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  return coalesce(key, async () => {
+    const yyyymmdd = dateIso.replace(/-/g, "");
+    const buf = await nseArchive(`/content/fo/BhavCopy_NSE_FO_0_0_0_${yyyymmdd}_F_0000.csv.zip`, { timeoutMs: 60000 });
+    const rows = parseBhavcopyFo(unzipFirst(buf));
+    cache.set(key, rows, 6 * 3600000);
+    return rows;
+  });
+}
+
+// ── NSE JSON lists ──
+
+const n2 = (v) => Math.round(toNum(v) * 100) / 100;
+
+export function normaliseMostActive(items) {
+  return (items || []).map((d) => {
+    const ot = String(d.optionType || "").toLowerCase();
+    const optionType = ot.startsWith("c") ? "CE" : ot.startsWith("p") ? "PE" : String(d.instrumentType || d.instrument || "").toUpperCase().startsWith("FUT") ? "FUT" : null;
+    return {
+      symbol: String(d.underlying || d.symbol || "").toUpperCase(),
+      instrument: String(d.instrumentType || d.instrument || ""),
+      expiry: toIso(d.expiryDate || ""),
+      strike: toNum(d.strikePrice) > 0 ? toNum(d.strikePrice) : null,
+      optionType,
+      ltp: n2(d.lastPrice),
+      pChange: n2(d.pChange),
+      contracts: toNum(d.numberOfContractsTraded ?? d.volume),
+      turnoverLakh: n2(d.totalTurnover),
+      premiumTurnoverLakh: d.premiumTurnover !== undefined ? n2(d.premiumTurnover) : null,
+      oi: toNum(d.openInterest),
+      underlyingValue: n2(d.underlyingValue),
+    };
+  });
+}
+
+const SPURT_CATEGORY = {
+  "Rise-in-OI-Rise": "Long build-up",
+  "Rise-in-OI-Slide": "Short build-up",
+  "Slide-in-OI-Rise": "Short covering",
+  "Slide-in-OI-Slide": "Long unwinding",
+};
+
+export function normaliseOiSpurts(json, type) {
+  const spurtRow = (d, category) => {
+    const latestOi = toNum(d.latestOI ?? d.latestOi);
+    const prevOi = toNum(d.prevOI ?? d.previousOI ?? d.prevOi);
+    const chgOi = d.changeInOI !== undefined ? toNum(d.changeInOI) : d.oiChange !== undefined ? toNum(d.oiChange) : latestOi - prevOi;
+    const ot = String(d.optionType || "").toUpperCase();
+    return {
+      symbol: String(d.symbol || d.underlying || "").toUpperCase(),
+      instrument: d.instrument || d.instrumentType || undefined,
+      expiry: d.expiryDate ? toIso(d.expiryDate) : undefined,
+      strike: toNum(d.strikePrice) > 0 ? toNum(d.strikePrice) : undefined,
+      optionType: ot === "CE" || ot === "PE" ? ot : ot.startsWith("C") ? "CE" : ot.startsWith("P") ? "PE" : d.instrument && String(d.instrument).startsWith("FUT") ? "FUT" : undefined,
+      category,
+      ltp: d.ltp !== undefined ? n2(d.ltp) : d.lastPrice !== undefined ? n2(d.lastPrice) : undefined,
+      pChange: d.pChange !== undefined ? n2(d.pChange) : undefined,
+      latestOi, prevOi, chgOi,
+      chgOiPct: prevOi > 0 ? Math.round((chgOi / prevOi) * 10000) / 100 : n2(d.avgInOI ?? d.pctChange),
+      volume: toNum(d.volume ?? d.totalTradedVolume),
+      underlyingValue: d.underlyingValue !== undefined ? n2(d.underlyingValue) : undefined,
+    };
+  };
+  if (type === "underlyings") return (json?.data || []).map((d) => spurtRow(d));
+  const out = [];
+  for (const block of json?.data || []) {
+    for (const [k, list] of Object.entries(block || {})) {
+      if (!Array.isArray(list)) continue;
+      for (const d of list) out.push(spurtRow(d, SPURT_CATEGORY[k] || k));
+    }
+  }
+  return out;
+}
+
+export function normaliseDeals(list) {
+  return (list || []).map((d) => ({
+    date: toIso(d.date || ""),
+    symbol: String(d.symbol || "").toUpperCase(),
+    name: d.name || "",
+    client: d.clientName || "",
+    side: /sell/i.test(d.buySell || "") ? "SELL" : "BUY",
+    qty: toNum(d.qty),
+    price: n2(d.watp ?? d.tradePrice),
+    remarks: d.remarks && d.remarks !== "-" ? d.remarks : undefined,
+  }));
+}
+
+// ── Chain rows for chain-multi (same shape as the client's OptionDataExt) ──
+
+function legFromNse(l) {
+  if (!l) return { ltp: 0, oi: 0, oiChange: 0, volume: 0, iv: 0, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: 0, askPrice: 0 };
+  const ltp = toNum(l.lastPrice);
+  const change = l.change !== undefined ? n2(l.change) : undefined;
+  const leg = {
+    ltp, oi: toNum(l.openInterest), oiChange: toNum(l.changeinOpenInterest), volume: toNum(l.totalTradedVolume),
+    iv: toNum(l.impliedVolatility), delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: toNum(l.bidprice), askPrice: toNum(l.askPrice),
+  };
+  if (change !== undefined) { leg.change = change; if (ltp > 0) leg.prevClose = n2(ltp - change); }
+  if (l.pChange !== undefined || l.pchange !== undefined) leg.pChange = n2(l.pChange ?? l.pchange);
+  if (l.bidQty !== undefined) leg.bidQty = toNum(l.bidQty);
+  if (l.askQty !== undefined) leg.askQty = toNum(l.askQty);
+  if (l.identifier) leg.securityId = String(l.identifier);
+  return leg;
+}
+
+function legFromDhan(l) {
+  if (!l) return { ltp: 0, oi: 0, oiChange: 0, volume: 0, iv: 0, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: 0, askPrice: 0 };
+  const g = l.greeks || {};
+  const ltp = toNum(l.last_price ?? l.ltp);
+  const oi = toNum(l.oi);
+  const leg = {
+    ltp, oi, oiChange: l.previous_oi !== undefined ? oi - toNum(l.previous_oi) : 0, volume: toNum(l.volume),
+    iv: toNum(l.implied_volatility), delta: toNum(g.delta), gamma: toNum(g.gamma), theta: toNum(g.theta), vega: toNum(g.vega),
+    bidPrice: toNum(l.top_bid_price), askPrice: toNum(l.top_ask_price),
+  };
+  const pc = toNum(l.previous_close_price);
+  if (pc > 0) { leg.prevClose = pc; if (ltp > 0) { leg.change = n2(ltp - pc); leg.pChange = n2(((ltp - pc) / pc) * 100); } }
+  if (l.top_bid_quantity !== undefined) leg.bidQty = toNum(l.top_bid_quantity);
+  if (l.top_ask_quantity !== undefined) leg.askQty = toNum(l.top_ask_quantity);
+  if (l.security_id !== undefined) leg.securityId = String(l.security_id);
+  return leg;
+}
+
+export function chainRowsFromNse(json, expiryIso) {
+  const rows = (json?.records?.data || []).filter((r) => !expiryIso || toIso(r.expiryDate || r.expiryDates || "") === expiryIso);
+  return rows.map((r) => ({ strikePrice: toNum(r.strikePrice), ce: legFromNse(r.CE), pe: legFromNse(r.PE) })).filter((r) => r.strikePrice > 0).sort((a, b) => a.strikePrice - b.strikePrice);
+}
+
+function chainRowsFromDhan(data) {
+  return Object.entries(data?.oc || {}).map(([k, v]) => ({ strikePrice: toNum(k), ce: legFromDhan(v?.ce), pe: legFromDhan(v?.pe) })).filter((r) => r.strikePrice > 0).sort((a, b) => a.strikePrice - b.strikePrice);
+}
+
+async function chainMulti(symbol, expiriesParam, creds) {
+  const pick = (list) => {
+    if (expiriesParam === "all") return list.slice(0, 8);
+    if (expiriesParam === "next3") return list.slice(0, 3);
+    const wanted = expiriesParam.split(",").map((s) => vExpiry(s.trim())).filter(Boolean).slice(0, 8);
+    return wanted.filter((w) => list.includes(w));
+  };
+  if (creds && UNDERLYING_MAP[symbol]) {
+    try {
+      const list = (await dhanExpiryList(symbol, creds)).data;
+      const exps = pick(list);
+      const out = [];
+      let spot = 0;
+      for (const e of exps) {
+        const oc = await dhanOptionChain(symbol, e, creds);
+        spot = spot || toNum(oc.data?.last_price);
+        out.push({ expiry: e, chain: chainRowsFromDhan(oc.data) });
+      }
+      if (out.some((x) => x.chain.length)) return { data: { symbol, spot, expiries: out }, source: "dhan" };
+    } catch (e) {
+      if (e instanceof InputError) throw e;
+      if (BSE_ONLY.has(symbol)) throw e;
+    }
+  }
+  const list = await nseExpiries(symbol);
+  const exps = pick(list);
+  const out = [];
+  let spot = 0;
+  for (const e of exps) {
+    const json = await nseOptionChain(symbol, e);
+    spot = spot || toNum(json?.records?.underlyingValue) || toNum(json?.records?.data?.[0]?.CE?.underlyingValue);
+    out.push({ expiry: e, chain: chainRowsFromNse(json, e) });
+  }
+  if (!out.some((x) => x.chain.length)) throw new UpstreamError("nse", 204, "No chain data for the requested expiries");
+  return { data: { symbol, spot, expiries: out }, source: "nse" };
+}
+
+// ── Opt-in server snapshot recorder ──
+//
+// RECORD_SYMBOLS=NIFTY,BANKNIFTY turns it on. During NSE market hours (Mon–Fri 09:15–15:30 IST,
+// NSE F&O holidays skipped when the holiday list is reachable) the proxy fetches the nearest
+// RECORD_EXPIRIES (1–3, default 1) chains every RECORD_INTERVAL_SEC (60–180, default 60) and appends
+// one NDJSON line per symbol/expiry to ./data/snapshots/<SYMBOL>/<yyyy-mm-dd>.ndjson (RECORD_DIR to
+// move it). A chain identical to the previous one (frozen feed, holiday) is not written. Files older
+// than RECORD_RETENTION_DAYS (default 30) are deleted. Read back with GET /api/x/snapshots (JSON
+// envelope) or /api/x/snapshots.csv; /api/x/snapshots/status describes the recorder.
+
+/** Parse recorder settings from the environment. Invalid symbols are dropped; numbers are clamped. */
+export function parseRecordConfig(env = process.env, baseDir = __dirname) {
+  const symbols = [...new Set(String(env.RECORD_SYMBOLS || "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => SYMBOL_RE.test(s)))].slice(0, 10);
+  const num = (v, min, max, dflt) => {
+    const n = Number(v);
+    if (v === undefined || v === null || v === "" || !Number.isFinite(n)) return dflt;
+    return Math.min(max, Math.max(min, Math.round(n)));
+  };
+  return {
+    enabled: symbols.length > 0,
+    symbols,
+    intervalSec: num(env.RECORD_INTERVAL_SEC, 60, 180, 60),
+    expiries: num(env.RECORD_EXPIRIES, 1, 3, 1),
+    retentionDays: num(env.RECORD_RETENTION_DAYS, 1, 365, 30),
+    dir: resolve(baseDir, env.RECORD_DIR || "data/snapshots"),
+  };
+}
+
+/** True Mon–Fri between 09:15 and 15:30 IST inclusive (holidays are checked separately). */
+export function isRecordingWindow(now = new Date()) {
+  const t = istNow(now);
+  if (t.weekday === 0 || t.weekday === 6) return false;
+  const m = t.hh * 60 + t.mm;
+  return m >= 9 * 60 + 15 && m <= 15 * 60 + 30;
+}
+
+const r2 = (v) => Math.round(toNum(v) * 100) / 100;
+const qtyOrNull = (v) => (v === undefined || v === null || !Number.isFinite(Number(v)) ? null : toNum(v));
+
+/**
+ * One NDJSON line object for a chain: rows are compact tuples
+ * [strike, side (0 = CE, 1 = PE), ltp, oi, volume, iv%, bid, ask, bidQty|null, askQty|null].
+ * Legs with no price, OI, volume or quote are left out (same rule as the browser store).
+ */
+export function chainToSnapshotLine({ ts, symbol, expiry, spot, source, chain }) {
+  const rows = [];
+  const sorted = (Array.isArray(chain) ? chain : []).filter((r) => r && toNum(r.strikePrice) > 0).sort((a, b) => a.strikePrice - b.strikePrice);
+  for (const r of sorted) {
+    for (const [side, leg] of [[0, r.ce], [1, r.pe]]) {
+      if (!leg) continue;
+      const ltp = r2(leg.ltp);
+      const oi = toNum(leg.oi);
+      const vol = toNum(leg.volume);
+      const bid = r2(leg.bidPrice);
+      const ask = r2(leg.askPrice);
+      if (ltp <= 0 && oi <= 0 && vol <= 0 && bid <= 0 && ask <= 0) continue;
+      rows.push([toNum(r.strikePrice), side, ltp, oi, vol, r2(leg.iv), bid, ask, qtyOrNull(leg.bidQty), qtyOrNull(leg.askQty)]);
+    }
+  }
+  return { v: 1, ts, symbol, expiry, spot: r2(spot), source: source || "unknown", rows };
+}
+
+/** Parse one NDJSON line into the browser ChainSnapshot shape, or null when it is malformed. */
+export function decodeSnapshotLine(text) {
+  let o;
+  try { o = JSON.parse(text); } catch { return null; }
+  if (!o || o.v !== 1 || !Number.isFinite(o.ts) || typeof o.symbol !== "string" || typeof o.expiry !== "string" || !Array.isArray(o.rows)) return null;
+  const rows = [];
+  for (const t of o.rows) {
+    if (!Array.isArray(t) || t.length < 8 || !(toNum(t[0]) > 0)) continue;
+    const row = { strike: toNum(t[0]), side: t[1] === 1 ? "PE" : "CE", ltp: toNum(t[2]), oi: toNum(t[3]), vol: toNum(t[4]), iv: toNum(t[5]), bid: toNum(t[6]), ask: toNum(t[7]) };
+    if (t[8] !== null && t[8] !== undefined) row.bidQty = toNum(t[8]);
+    if (t[9] !== null && t[9] !== undefined) row.askQty = toNum(t[9]);
+    rows.push(row);
+  }
+  return { id: `${o.symbol}|${o.expiry}|${o.ts}`, symbol: o.symbol, expiry: o.expiry, ts: o.ts, spot: toNum(o.spot), source: o.source || "unknown", rows };
+}
+
+/** Cheap fingerprint of a line's rows: identical consecutive chains are not written twice. */
+export function snapshotFingerprint(line) {
+  const h = createHash("sha1");
+  h.update(String(line.spot));
+  for (const r of line.rows) h.update(`${r[0]},${r[1]},${r[2]},${r[3]},${r[4]};`);
+  return h.digest("hex");
+}
+
+export function snapshotFileFor(dir, symbol, dateIso) {
+  return join(dir, symbol, `${dateIso}.ndjson`);
+}
+
+const IST_MS = 330 * 60000;
+const istIsoOf = (ms) => new Date(ms + IST_MS).toISOString().slice(0, 10);
+const istStartOf = (iso) => Date.parse(`${iso}T00:00:00Z`) - IST_MS;
+
+/** Validate /api/x/snapshots query params. from/to accept epoch ms or yyyy-mm-dd (IST days). */
+export function parseSnapshotQuery(params, now = Date.now()) {
+  const get = (k) => (typeof params?.get === "function" ? params.get(k) : params?.[k]);
+  const symbol = vSymbol(get("symbol"));
+  const expiry = vExpiry(get("expiry"));
+  const time = (v, endOfDay) => {
+    if (v === null || v === undefined || v === "") return null;
+    const s = String(v).trim();
+    if (ISO_RE.test(s)) {
+      const iso = vDate(s, { optional: false });
+      return istStartOf(iso) + (endOfDay ? 86400000 - 1 : 0);
+    }
+    if (!/^\d{10,14}$/.test(s)) throw new InputError("from/to must be epoch milliseconds or yyyy-mm-dd");
+    return Number(s);
+  };
+  const to = time(get("to"), true) ?? now;
+  const from = time(get("from"), false) ?? istStartOf(istIsoOf(to));
+  if (from > to) throw new InputError("from must be before to");
+  if (to - from > 31 * 86400000) throw new InputError("Range too long (31 days at most)");
+  const limit = vInt(get("limit"), { min: 1, max: 5000, fallback: 2000 });
+  const strikeRaw = get("strike");
+  const strike = strikeRaw === null || strikeRaw === undefined || strikeRaw === "" ? null : Number(strikeRaw);
+  if (strike !== null && !(Number.isFinite(strike) && strike > 0 && strike < 1e7)) throw new InputError("Invalid strike");
+  const typeRaw = get("type");
+  const type = typeRaw === null || typeRaw === undefined || typeRaw === "" ? null : String(typeRaw).toUpperCase();
+  if (type !== null && type !== "CE" && type !== "PE") throw new InputError("type must be CE or PE");
+  return { symbol, expiry, from, to, limit, strike, type };
+}
+
+/** IST dates (yyyy-mm-dd) touched by [from, to], oldest first. */
+export function istDaysInRange(from, to) {
+  const out = [];
+  for (let d = istIsoOf(from); d <= istIsoOf(to) && out.length < 40; d = addDaysIso(d, 1)) out.push(d);
+  return out;
+}
+
+/** Apply expiry, time and row filters (pure). Returns snapshots oldest first. */
+export function filterSnapshots(snaps, q) {
+  const out = [];
+  for (const s of snaps) {
+    if (!s || s.ts < q.from || s.ts > q.to) continue;
+    if (q.expiry && s.expiry !== q.expiry) continue;
+    const rows = q.strike !== null || q.type !== null ? s.rows.filter((r) => (q.strike === null || r.strike === q.strike) && (q.type === null || r.side === q.type)) : s.rows;
+    if (rows.length === 0) continue;
+    out.push(rows === s.rows ? s : { ...s, rows });
+  }
+  return out.sort((a, b) => a.ts - b.ts);
+}
+
+/** Read and filter recorded snapshots from disk. Missing files are skipped. */
+export async function readRecordedSnapshots(dir, q) {
+  const all = [];
+  for (const day of istDaysInRange(q.from, q.to)) {
+    let text = "";
+    try { text = await fsp.readFile(snapshotFileFor(dir, q.symbol, day), "utf8"); } catch { continue; }
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      const s = decodeSnapshotLine(line);
+      if (s) all.push(s);
+    }
+  }
+  const filtered = filterSnapshots(all, q);
+  const truncated = filtered.length > q.limit;
+  return { snapshots: truncated ? filtered.slice(0, q.limit) : filtered, truncated };
+}
+
+const csvCell = (v) => {
+  if (v === undefined || v === null || (typeof v === "number" && !Number.isFinite(v))) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const istStamp = (ts) => new Date(ts + IST_MS).toISOString().slice(0, 19).replace("T", " ");
+
+/** Same columns as the browser's snapshot CSV export (src/lib/snapshotStore.ts). */
+export const SERVER_SNAPSHOT_CSV_HEADER = "time_ist,ts,symbol,expiry,spot,strike,side,ltp,oi,volume,iv,bid,ask,bid_qty,ask_qty";
+
+export function snapshotsToCsvText(snaps) {
+  const lines = [SERVER_SNAPSHOT_CSV_HEADER];
+  for (const s of snaps) {
+    const t = istStamp(s.ts);
+    for (const r of s.rows) lines.push([t, s.ts, s.symbol, s.expiry, s.spot, r.strike, r.side, r.ltp, r.oi, r.vol, r.iv, r.bid, r.ask, r.bidQty, r.askQty].map(csvCell).join(","));
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export async function appendSnapshotLine(dir, line) {
+  const file = snapshotFileFor(dir, line.symbol, istIsoOf(line.ts));
+  await fsp.mkdir(dirname(file), { recursive: true });
+  await fsp.appendFile(file, `${JSON.stringify(line)}\n`, "utf8");
+  return file;
+}
+
+/** Delete day files older than keepDays (by file name date). Returns the number removed. */
+export async function pruneSnapshotFiles(dir, keepDays, now = Date.now()) {
+  const cutoff = addDaysIso(istIsoOf(now), -keepDays);
+  let removed = 0;
+  let symbols = [];
+  try { symbols = await fsp.readdir(dir); } catch { return 0; }
+  for (const sym of symbols) {
+    if (!SYMBOL_RE.test(sym)) continue;
+    let files = [];
+    try { files = await fsp.readdir(join(dir, sym)); } catch { continue; }
+    for (const f of files) {
+      const m = /^(\d{4}-\d{2}-\d{2})\.ndjson$/.exec(f);
+      if (m && m[1] < cutoff) {
+        try { await fsp.unlink(join(dir, sym, f)); removed++; } catch { /* in use */ }
+      }
+    }
+  }
+  return removed;
+}
+
+const recorderState = {
+  config: parseRecordConfig(),
+  running: false,
+  lastRunAt: null,
+  lastWriteAt: null,
+  lastError: null,
+  writes: 0,
+  skippedSame: 0,
+  timer: null,
+  prunedOn: "",
+};
+const lastFingerprint = new Map();
+
+async function isNseHolidayToday() {
+  try {
+    const out = await handleX("holidays", new URLSearchParams("segment=FO"), null);
+    const rows = out?.body?.data;
+    if (!Array.isArray(rows)) return false;
+    const today = istNow().iso;
+    return rows.some((h) => h.date === today);
+  } catch {
+    return false;
+  }
+}
+
+async function recordOnce(now = new Date()) {
+  const cfg = recorderState.config;
+  recorderState.lastRunAt = now.getTime();
+  const today = istNow(now).iso;
+  if (recorderState.prunedOn !== today) {
+    recorderState.prunedOn = today;
+    pruneSnapshotFiles(cfg.dir, cfg.retentionDays, now.getTime()).catch(() => undefined);
+  }
+  if (!isRecordingWindow(now) || (await isNseHolidayToday())) return;
+  const creds = envDhanCreds();
+  for (const symbol of cfg.symbols) {
+    try {
+      let list = [];
+      if (creds && UNDERLYING_MAP[symbol]) {
+        try { list = (await dhanExpiryList(symbol, creds)).data; } catch { list = []; }
+      }
+      if (list.length === 0 && !BSE_ONLY.has(symbol)) list = await nseExpiries(symbol);
+      const wanted = list.filter((e) => e >= today).slice(0, cfg.expiries);
+      if (wanted.length === 0) continue;
+      const res = await chainMulti(symbol, wanted.join(","), creds);
+      for (const e of res.data.expiries) {
+        if (!e.chain.length) continue;
+        const line = chainToSnapshotLine({ ts: Date.now(), symbol, expiry: e.expiry, spot: res.data.spot, source: res.source, chain: e.chain });
+        if (line.rows.length === 0) continue;
+        const key = `${symbol}|${e.expiry}`;
+        const fp = snapshotFingerprint(line);
+        if (lastFingerprint.get(key) === fp) { recorderState.skippedSame++; continue; }
+        await appendSnapshotLine(cfg.dir, line);
+        lastFingerprint.set(key, fp);
+        recorderState.writes++;
+        recorderState.lastWriteAt = line.ts;
+      }
+      recorderState.lastError = null;
+    } catch (e) {
+      recorderState.lastError = `${symbol}: ${truncate(e?.message || "fetch failed", 160)}`;
+    }
+  }
+}
+
+export function startRecorder() {
+  const cfg = recorderState.config;
+  if (!cfg.enabled || recorderState.running) return false;
+  recorderState.running = true;
+  const loop = async () => {
+    try { await recordOnce(); } catch (e) { recorderState.lastError = truncate(e?.message, 160); }
+    if (recorderState.running) recorderState.timer = setTimeout(loop, cfg.intervalSec * 1000);
+  };
+  recorderState.timer = setTimeout(loop, 2000);
+  return true;
+}
+
+export function stopRecorder() {
+  recorderState.running = false;
+  if (recorderState.timer) clearTimeout(recorderState.timer);
+  recorderState.timer = null;
+}
+
+function recorderStatus() {
+  const cfg = recorderState.config;
+  return {
+    enabled: cfg.enabled,
+    running: recorderState.running,
+    symbols: cfg.symbols,
+    intervalSec: cfg.intervalSec,
+    expiries: cfg.expiries,
+    retentionDays: cfg.retentionDays,
+    inWindow: isRecordingWindow(),
+    lastRunAt: recorderState.lastRunAt,
+    lastWriteAt: recorderState.lastWriteAt,
+    writes: recorderState.writes,
+    skippedSame: recorderState.skippedSame,
+    lastError: recorderState.lastError,
+  };
+}
+
+async function handleSnapshots(params) {
+  const q = parseSnapshotQuery(params);
+  const { snapshots, truncated } = await readRecordedSnapshots(recorderState.config.dir, q);
+  const meta = { source: "cache", asOf: snapshots.length ? snapshots[snapshots.length - 1].ts : Date.now(), stale: false };
+  if (!recorderState.config.enabled) meta.reason = "Server recorder is off (set RECORD_SYMBOLS to enable); showing any files already on disk";
+  return { status: 200, body: { data: { symbol: q.symbol, expiry: q.expiry || null, from: q.from, to: q.to, snapshots, truncated }, meta } };
+}
+
+// ── /api/x router ──
+
+async function handleX(route, params, creds) {
+  switch (route) {
+    case "lot-sizes":
+      return envelope("lot-sizes", 6 * 3600000, "nse", async () => {
+        const buf = await nseArchive("/content/fo/fo_mktlots.csv");
+        return { data: parseLotSizes(buf.toString("utf8")) };
+      });
+
+    case "holidays": {
+      const segment = vEnum(params.get("segment"), new Set(["FO", "CM", "CD", "COM"]), "FO", "segment");
+      return envelope(`holidays:${segment}`, 12 * 3600000, "nse", async () => {
+        const json = await nseJson("/api/holiday-master?type=trading", { referer: `${NSE_BASE}/resources/exchange-communication-holidays` });
+        const rows = (json?.[segment] || []).map((h) => ({ date: toIso(h.tradingDate), weekday: h.weekDay || "", description: h.description || "", segment })).filter((h) => h.date);
+        if (rows.length === 0) throw new UpstreamError("nse", 204, "NSE returned no holidays");
+        return { data: rows.sort((a, b) => (a.date < b.date ? -1 : 1)) };
+      });
+    }
+
+    case "participant-oi":
+    case "participant-vol": {
+      const kind = route === "participant-oi" ? "oi" : "vol";
+      const date = vDate(params.get("date"));
+      return envelope(`participant-${kind}:${date || "latest"}`, date ? 12 * 3600000 : 30 * 60000, "nse", async () => {
+        const rows = date ? await participantFile(kind, date) : await latestParticipant(kind, defaultArchiveDate());
+        return { data: rows, asOf: Date.parse(`${rows[0].date}T18:30:00+05:30`) };
+      });
+    }
+
+    case "participant-oi/history": {
+      const days = vInt(params.get("days"), { min: 1, max: 60, fallback: 20 });
+      return envelope(`participant-oi-history:${days}`, 30 * 60000, "nse", async () => {
+        const rows = await participantHistory(days);
+        if (rows.length === 0) throw new UpstreamError("nse", 404, "No participant OI files found");
+        return { data: rows, asOf: Date.parse(`${rows[rows.length - 1].date}T18:30:00+05:30`) };
+      });
+    }
+
+    case "fii-stats": {
+      const date = vDate(params.get("date"));
+      return envelope(`fii-stats:${date || "latest"}`, 30 * 60000, "nse", async () => {
+        const oi = date ? await participantFile("oi", date) : await latestParticipant("oi", defaultArchiveDate());
+        let vol = null;
+        try { vol = await participantFile("vol", oi[0].date); } catch { vol = null; }
+        return {
+          data: deriveFiiStats(oi, vol),
+          asOf: Date.parse(`${oi[0].date}T18:30:00+05:30`),
+          reason: "Derived from NSE participant-wise OI and volume (FII rows)",
+        };
+      });
+    }
+
+    case "ban-list":
+      return envelope("ban-list", 30 * 60000, "nse", async () => {
+        const buf = await nseArchive("/content/fo/fo_secban.csv");
+        return { data: parseBanList(buf.toString("utf8")) };
+      });
+
+    case "mwpl":
+      return envelope("mwpl", 60 * 60000, "nse", async () => {
+        let lastErr = null;
+        for (const d of recentWeekdays(istNow().iso, 6)) {
+          try {
+            const buf = await nseArchive(`/archives/nsccl/mwpl/combineoi_${ddmmyyyy(d)}.zip`);
+            return { data: parseMwplCsv(unzipFirst(buf)), asOf: Date.parse(`${d}T18:30:00+05:30`) };
+          } catch (e) {
+            lastErr = e;
+            if (e?.status && e.status !== 404 && e.status !== 403) break;
+          }
+        }
+        throw lastErr || new Error("No MWPL file found");
+      });
+
+    case "vix-history": {
+      const days = vInt(params.get("days"), { min: 5, max: 730, fallback: 365 });
+      return envelope(`vix-history:${days}`, 60 * 60000, "nse", async () => {
+        const to = istNow().iso;
+        const from = addDaysIso(to, -days);
+        try {
+          const rows = [];
+          for (let start = from; start <= to; start = addDaysIso(start, 365)) {
+            const end = addDaysIso(start, 364) < to ? addDaysIso(start, 364) : to;
+            const json = await nseJson(`/api/historical/vixhistory?from=${ddDashMmDashYyyy(start)}&to=${ddDashMmDashYyyy(end)}`, { referer: `${NSE_BASE}/reports-indices-historical-vix` });
+            for (const d of json?.data || []) {
+              const date = toIso(d.EOD_TIMESTAMP || d.TIMESTAMP || "");
+              const close = toNum(d.EOD_CLOSE_INDEX_VAL);
+              if (date && close > 0) rows.push({ date, close, open: toNum(d.EOD_OPEN_INDEX_VAL) || undefined, high: toNum(d.EOD_HIGH_INDEX_VAL) || undefined, low: toNum(d.EOD_LOW_INDEX_VAL) || undefined });
+            }
+          }
+          if (rows.length === 0) throw new UpstreamError("nse", 204, "NSE returned no VIX history");
+          const uniq = [...new Map(rows.map((r) => [r.date, r])).values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+          return { data: uniq, source: "nse" };
+        } catch (nseErr) {
+          const y = await yahooChart("INDIAVIX", "D", from, to);
+          const rows = [];
+          y.data.timestamp.forEach((t, i) => {
+            const close = y.data.close[i];
+            if (close == null) return;
+            const opt = (v) => (v == null ? undefined : n2(v));
+            rows.push({ date: istNow(new Date(t * 1000)).iso, close: n2(close), open: opt(y.data.open[i]), high: opt(y.data.high[i]), low: opt(y.data.low[i]) });
+          });
+          if (rows.length === 0) throw nseErr;
+          return { data: rows, source: "yahoo", reason: `NSE unavailable (${truncate(nseErr.message, 80)}); Yahoo Finance used` };
+        }
+      });
+    }
+
+    case "oi-spurts": {
+      const type = vEnum(params.get("type"), new Set(["underlyings", "contracts"]), "underlyings", "type");
+      return envelope(`oi-spurts:${type}`, 3 * 60000, "nse", async () => {
+        const json = await nseJson(`/api/live-analysis-oi-spurts-${type}`, { referer: `${NSE_BASE}/market-data/oi-spurts` });
+        return { data: normaliseOiSpurts(json, type) };
+      });
+    }
+
+    case "most-active": {
+      const type = vEnum(params.get("type"), new Set(["contracts", "futures"]), "contracts", "type");
+      const sort = vEnum(params.get("sort"), new Set(["volume", "value"]), "volume", "sort");
+      return envelope(`most-active:${type}:${sort}`, 2 * 60000, "nse", async () => {
+        const json = await nseJson(`/api/snapshot-derivatives-equity?index=${type}&limit=20`, { referer: `${NSE_BASE}/market-data/most-active-contracts` });
+        return { data: normaliseMostActive(json?.[sort]?.data) };
+      });
+    }
+
+    case "bhavcopy-fo": {
+      const date = vDate(params.get("date"));
+      const symbol = params.get("symbol") ? vSymbol(params.get("symbol")) : "";
+      const exp = vExpiry(params.get("expiry"));
+      return envelope(`bhavcopy-fo:${date || "latest"}:${symbol}:${exp}`, 6 * 3600000, "nse", async () => {
+        let rows = null;
+        let usedDate = date;
+        if (date) rows = await bhavcopyRows(date);
+        else {
+          let lastErr = null;
+          for (const d of recentWeekdays(defaultArchiveDate(), 6)) {
+            try { rows = await bhavcopyRows(d); usedDate = d; break; } catch (e) { lastErr = e; if (e?.status && e.status !== 404 && e.status !== 403) break; }
+          }
+          if (!rows) throw lastErr || new Error("No bhavcopy found");
+        }
+        const filtered = rows.filter((r) => (!symbol || r.symbol === symbol) && (!exp || r.expiry === exp));
+        return { data: filtered, asOf: Date.parse(`${usedDate}T18:30:00+05:30`) };
+      });
+    }
+
+    case "event-calendar":
+      return envelope("event-calendar", 6 * 3600000, "nse", async () => {
+        const json = await nseJson("/api/event-calendar", { referer: `${NSE_BASE}/companies-listing/corporate-filings-event-calendar` });
+        const list = Array.isArray(json) ? json : json?.data || [];
+        return { data: list.map((d) => ({ symbol: String(d.symbol || "").toUpperCase(), company: d.company || "", purpose: d.purpose || "", description: d.bm_desc || "", date: toIso(d.date || "") })).filter((d) => d.symbol && d.date) };
+      });
+
+    case "bulk-deals":
+    case "block-deals": {
+      const field = route === "bulk-deals" ? "BULK_DEALS_DATA" : "BLOCK_DEALS_DATA";
+      return envelope(route, 15 * 60000, "nse", async () => {
+        const json = await nseJson("/api/snapshot-capital-market-largedeal", { referer: `${NSE_BASE}/market-data/large-deals` });
+        return { data: normaliseDeals(json?.[field]) };
+      });
+    }
+
+    case "snapshots":
+      return handleSnapshots(params);
+
+    case "snapshots/status":
+      return { status: 200, body: { data: recorderStatus(), meta: { source: "cache", asOf: Date.now(), stale: false } } };
+
+    case "chain-multi": {
+      const symbol = vSymbol(params.get("symbol"), "NIFTY");
+      const raw = String(params.get("expiries") || "next3");
+      if (raw !== "next3" && raw !== "all" && !/^[0-9A-Za-z,-]{10,120}$/.test(raw)) throw new InputError("expiries must be next3, all or a comma list of dates");
+      return envelope(`chain-multi:${symbol}:${raw}:${creds ? `d${credTag(creds)}` : "n"}`, 15000, creds ? "dhan" : "nse", () => chainMulti(symbol, raw, creds));
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ══════════════════════════════════════════════
+// ── SECTION 4: Dhan WebSocket live market feed ──
+// ══════════════════════════════════════════════
+
+const EXCHANGE_SEGMENTS = { 0: "IDX_I", 1: "NSE_EQ", 2: "NSE_FNO", 3: "NSE_CURRENCY", 4: "BSE_EQ", 5: "MCX_COMM", 7: "BSE_CURRENCY", 8: "BSE_FNO" };
+const SEGMENT_NAMES = new Set(Object.values(EXCHANGE_SEGMENTS));
+const SECURITY_ID_TO_SYMBOL = Object.fromEntries(Object.entries(INDEX_SECURITY_IDS).map(([s, id]) => [id, s]));
+
+/** Fixed packet sizes from the Dhan v2 live feed spec (bytes, including the 8-byte header). */
+const PACKET_SIZES = { 2: 16, 4: 50, 5: 12, 6: 16, 7: 8, 8: 162, 50: 10 };
+
+export const DISCONNECT_MESSAGES = {
+  805: "Too many Dhan feed connections for this account.",
+  806: "Dhan Data APIs are not enabled on this account.",
+  807: "Dhan access token has expired.",
+  808: "Dhan rejected the client ID or access token.",
+  809: "Dhan access token is invalid.",
+  810: "Dhan client ID is invalid.",
+};
+
+/** Parse one packet at `offset`. Prices are float32, quantities int32, little-endian. */
+function parsePacket(view, offset) {
+  const code = view.getUint8(offset);
+  const segNum = view.getUint8(offset + 3);
+  const securityId = view.getUint32(offset + 4, true);
+  const exchangeSegment = EXCHANGE_SEGMENTS[segNum] || `SEG_${segNum}`;
+  const base = {
+    responseCode: code,
+    exchangeSegment,
+    securityId,
+    key: `${exchangeSegment}:${securityId}`,
+    symbol: (exchangeSegment === "IDX_I" && SECURITY_ID_TO_SYMBOL[securityId]) || `ID_${securityId}`,
+  };
+  const f32 = (o) => Math.round(view.getFloat32(offset + o, true) * 100) / 100;
+  const i32 = (o) => view.getInt32(offset + o, true);
+  const i16 = (o) => view.getInt16(offset + o, true);
+  switch (code) {
+    case 2:
+      return { ...base, type: "ticker", ltp: f32(8), ltt: i32(12) };
+    case 4:
+      return {
+        ...base, type: "quote", ltp: f32(8), ltq: i16(12), ltt: i32(14), avgPrice: f32(18), volume: i32(22),
+        totalSellQty: i32(26), totalBuyQty: i32(30), open: f32(34), close: f32(38), high: f32(42), low: f32(46),
+      };
+    case 5:
+      return { ...base, type: "oi", oi: i32(8) };
+    case 6:
+      return { ...base, type: "prevClose", prevClose: f32(8), prevOI: i32(12) };
+    case 8: {
+      const depth = [];
+      for (let lvl = 0; lvl < 5; lvl++) {
+        const o = 62 + lvl * 20;
+        depth.push({ bidQty: i32(o), askQty: i32(o + 4), bidOrders: i16(o + 8), askOrders: i16(o + 10), bid: f32(o + 12), ask: f32(o + 16) });
+      }
+      return {
+        ...base, type: "full", ltp: f32(8), ltq: i16(12), ltt: i32(14), avgPrice: f32(18), volume: i32(22),
+        totalSellQty: i32(26), totalBuyQty: i32(30), oi: i32(34), oiDayHigh: i32(38), oiDayLow: i32(42),
+        open: f32(46), close: f32(50), high: f32(54), low: f32(58), depth,
+      };
+    }
+    case 50:
+      return { ...base, type: "disconnect", disconnectCode: i16(8) };
+    default:
+      return null;
+  }
+}
+
+/** Parse a WebSocket frame that may hold several concatenated packets. */
+export function parseDhanFrame(buffer) {
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  const view = new DataView(buf.buffer, buf.byteOffset, buf.length);
+  const out = [];
+  let offset = 0;
+  while (offset + 8 <= buf.length) {
+    const code = view.getUint8(offset);
+    const headerLen = view.getUint16(offset + 1, true);
+    const size = PACKET_SIZES[code] || (headerLen >= 8 ? headerLen : 0);
+    if (!size || offset + size > buf.length) break;
+    const p = parsePacket(view, offset);
+    if (p) out.push(p);
+    offset += size;
+  }
+  return out;
+}
+
+/**
+ * Upstream feed subscriptions, reference-counted per browser socket.
+ *
+ * Dhan caps one feed connection at 5000 instruments; we keep a 4000 budget. Pinned keys (the
+ * index feeds) are never released. Other keys are released when no socket uses them any more
+ * (explicit unsubscribe or socket close). If one long-lived socket keeps subscribing new
+ * instruments, the least recently subscribed unpinned keys are evicted to make room instead of
+ * failing every later subscribe until the proxy restarts.
+ */
+export class SubscriptionRegistry {
+  constructor({ limit = 4000, pinned = [] } = {}) {
+    this.limit = limit;
+    this.entries = new Map(); // key → instrument, in least-recently-subscribed-first order
+    this.refs = new Map(); // key → Set<owner>
+    this.byOwner = new Map(); // owner → Set<key>
+    this.pinned = new Set();
+    for (const i of pinned) {
+      const key = SubscriptionRegistry.keyOf(i);
+      this.pinned.add(key);
+      this.entries.set(key, i);
+    }
+  }
+
+  static keyOf(i) {
+    return `${i.ExchangeSegment}:${i.SecurityId}`;
+  }
+
+  get size() {
+    return this.entries.size;
+  }
+
+  has(key) {
+    return this.entries.has(key);
+  }
+
+  values() {
+    return this.entries.values();
+  }
+
+  /** Add `owner`'s interest in `list`. Returns { added, released } instrument lists for upstream. */
+  subscribe(owner, list) {
+    const keys = [...new Map(list.map((i) => [SubscriptionRegistry.keyOf(i), i])).entries()];
+    const freshCount = keys.filter(([k]) => !this.entries.has(k)).length;
+    const requested = new Set(keys.map(([k]) => k));
+    const need = this.entries.size + freshCount - this.limit;
+    if (need > 0) {
+      let evictable = 0;
+      for (const key of this.entries.keys()) if (!this.pinned.has(key) && !requested.has(key)) evictable++;
+      if (evictable < need) throw new InputError("Subscription limit reached");
+    }
+    const added = [];
+    const released = [];
+    let owned = this.byOwner.get(owner);
+    if (!owned) { owned = new Set(); this.byOwner.set(owner, owned); }
+    // Touch the keys that are already present first, so they are not chosen for eviction.
+    for (const [key, inst] of keys) {
+      if (!this.entries.has(key)) continue;
+      const cur = this.entries.get(key);
+      this.entries.delete(key);
+      this.entries.set(key, cur || inst);
+    }
+    let overflow = this.entries.size + freshCount - this.limit;
+    if (overflow > 0) {
+      for (const key of [...this.entries.keys()]) {
+        if (overflow <= 0) break;
+        if (this.pinned.has(key) || requested.has(key)) continue;
+        released.push(this.#drop(key));
+        overflow--;
+      }
+    }
+    for (const [key, inst] of keys) {
+      if (!this.entries.has(key)) { this.entries.set(key, inst); added.push(inst); }
+      let set = this.refs.get(key);
+      if (!set) { set = new Set(); this.refs.set(key, set); }
+      set.add(owner);
+      owned.add(key);
+    }
+    return { added, released };
+  }
+
+  /** Remove `owner`'s interest in `list`. Returns instruments no longer used by anyone. */
+  unsubscribe(owner, list) {
+    const owned = this.byOwner.get(owner);
+    if (!owned) return [];
+    const released = [];
+    for (const i of list) {
+      const key = SubscriptionRegistry.keyOf(i);
+      if (!owned.has(key)) continue;
+      owned.delete(key);
+      const r = this.#unref(owner, key);
+      if (r) released.push(r);
+    }
+    if (owned.size === 0) this.byOwner.delete(owner);
+    return released;
+  }
+
+  /** Drop every subscription held by `owner` (socket closed). Returns released instruments. */
+  release(owner) {
+    const owned = this.byOwner.get(owner);
+    if (!owned) return [];
+    this.byOwner.delete(owner);
+    const released = [];
+    for (const key of owned) {
+      const r = this.#unref(owner, key);
+      if (r) released.push(r);
+    }
+    return released;
+  }
+
+  #unref(owner, key) {
+    const set = this.refs.get(key);
+    if (set) {
+      set.delete(owner);
+      if (set.size > 0) return null;
+      this.refs.delete(key);
+    }
+    if (this.pinned.has(key) || !this.entries.has(key)) return null;
+    const inst = this.entries.get(key);
+    this.entries.delete(key);
+    return inst;
+  }
+
+  #drop(key) {
+    const inst = this.entries.get(key);
+    this.entries.delete(key);
+    for (const owner of this.refs.get(key) || []) {
+      const owned = this.byOwner.get(owner);
+      if (owned) { owned.delete(key); if (owned.size === 0) this.byOwner.delete(owner); }
+    }
+    this.refs.delete(key);
+    return inst;
+  }
+}
+
+const latestTicks = new Map(); // "segment:id" → merged tick
+const subscribed = new SubscriptionRegistry({
+  limit: 4000,
+  pinned: Object.values(INDEX_SECURITY_IDS).map((id) => ({ ExchangeSegment: "IDX_I", SecurityId: String(id) })),
+});
+
+let dhanWS = null;
+let dhanWSTimer = null;
+let dhanWSDelay = 1000;
+let dhanWSConnected = false;
+let dhanWSCreds = null;
+let dhanWSHalted = false;
+let lastDisconnectCode = null;
+
+function feedStatus() {
+  return {
+    type: "status",
+    connected: dhanWSConnected,
+    dhanConnected: dhanWSConnected,
+    disconnectCode: lastDisconnectCode,
+    message: lastDisconnectCode ? DISCONNECT_MESSAGES[lastDisconnectCode] || `Dhan disconnect code ${lastDisconnectCode}` : null,
+    instrumentCount: subscribed.size,
+  };
+}
+
+function sendSubscriptions(list) {
+  if (!dhanWS || dhanWS.readyState !== WebSocket.OPEN) return;
+  for (let i = 0; i < list.length; i += 100) {
+    const chunk = list.slice(i, i + 100);
+    dhanWS.send(JSON.stringify({ RequestCode: 21, InstrumentCount: chunk.length, InstrumentList: chunk }));
+  }
+}
+
+/** Tell Dhan to stop streaming instruments no browser socket uses, and forget their last ticks. */
+function releaseInstruments(list) {
+  if (!list.length) return;
+  for (const i of list) latestTicks.delete(SubscriptionRegistry.keyOf(i));
+  if (!dhanWS || dhanWS.readyState !== WebSocket.OPEN) return;
+  for (let i = 0; i < list.length; i += 100) {
+    const chunk = list.slice(i, i + 100);
+    // RequestCode 22 = unsubscribe (full packet), the counterpart of 21.
+    dhanWS.send(JSON.stringify({ RequestCode: 22, InstrumentCount: chunk.length, InstrumentList: chunk }));
+  }
+}
+
+function connectDhanWebSocket(creds) {
+  if (!creds) return;
+  const same = dhanWSCreds && dhanWSCreds.clientId === creds.clientId && dhanWSCreds.accessToken === creds.accessToken;
+  if (same && dhanWS && (dhanWS.readyState === WebSocket.OPEN || dhanWS.readyState === WebSocket.CONNECTING)) return;
+  if (same && dhanWSHalted) return; // wait for different credentials
+  if (!same) {
+    dhanWSHalted = false;
+    lastDisconnectCode = null;
+    dhanWSDelay = 1000;
+  }
+  dhanWSCreds = creds;
+  if (dhanWS) {
+    try { dhanWS.removeAllListeners(); dhanWS.terminate(); } catch { /* ignore */ }
+    dhanWS = null;
+  }
+  if (dhanWSTimer) { clearTimeout(dhanWSTimer); dhanWSTimer = null; }
+
+  console.log("  🔌 Connecting to the Dhan live feed…");
+  try {
+    dhanWS = new WebSocket(`wss://api-feed.dhan.co?version=2&token=${encodeURIComponent(creds.accessToken)}&clientId=${encodeURIComponent(creds.clientId)}&authType=2`);
+  } catch (e) {
+    console.error(`  ❌ Dhan feed connection error: ${truncate(e.message, 100)}`);
+    scheduleDhanReconnect();
+    return;
+  }
+
+  dhanWS.on("open", () => {
+    dhanWSConnected = true;
+    dhanWSDelay = 1000;
+    markSuccess("dhan");
+    console.log("  ✅ Dhan live feed connected");
+    sendSubscriptions([...subscribed.values()]);
+    broadcast(feedStatus());
+  });
+
+  dhanWS.on("message", (data) => {
+    let packets;
+    try { packets = parseDhanFrame(data); } catch { return; }
+    for (const p of packets) {
+      if (p.type === "disconnect") {
+        handleDisconnectCode(p.disconnectCode);
+        continue;
+      }
+      const prev = latestTicks.get(p.key) || {};
+      const merged = { ...prev, ...p, timestamp: Date.now() };
+      if (merged.prevClose && merged.ltp) {
+        merged.change = Math.round((merged.ltp - merged.prevClose) * 100) / 100;
+        merged.changePercent = Math.round(((merged.ltp - merged.prevClose) / merged.prevClose) * 10000) / 100;
+      }
+      latestTicks.set(p.key, merged);
+      // In-process consumers (the server risk engine, via tickBus) run BEFORE the browser fan-out,
+      // so an exit is never delayed by however many browser clients are attached (spec §3).
+      tickBus.publish(merged);
+      broadcast(merged);
+    }
+  });
+
+  dhanWS.on("close", (code) => {
+    dhanWSConnected = false;
+    console.log(`  🔴 Dhan live feed closed (${code})`);
+    broadcast(feedStatus());
+    scheduleDhanReconnect();
+  });
+
+  dhanWS.on("error", (err) => {
+    dhanWSConnected = false;
+    markFailure("dhan", err);
+    if (String(err?.message).includes("429")) dhanWSDelay = 120000;
+  });
+}
+
+/** Close the upstream feed and forget its credentials (no reconnect). */
+function disconnectDhanWebSocket() {
+  if (dhanWSTimer) { clearTimeout(dhanWSTimer); dhanWSTimer = null; }
+  if (dhanWS) {
+    try { dhanWS.removeAllListeners(); dhanWS.on("error", () => undefined); dhanWS.terminate(); } catch { /* ignore */ }
+    dhanWS = null;
+  }
+  const wasActive = !!dhanWSCreds;
+  dhanWSCreds = null;
+  dhanWSConnected = false;
+  dhanWSHalted = false;
+  lastDisconnectCode = null;
+  dhanWSDelay = 1000;
+  if (wasActive) {
+    console.log("  🔌 Dhan live feed stopped (no credentials)");
+    broadcast(feedStatus());
+  }
+}
+
+function handleDisconnectCode(code) {
+  lastDisconnectCode = code;
+  console.warn(`  ⚠️ Dhan feed disconnect code ${code}: ${DISCONNECT_MESSAGES[code] || "unknown"}`);
+  markFailure("dhan", new Error(`Feed disconnect ${code}`));
+  if (code === 805) dhanWSDelay = 120000; // too many connections: back off hard
+  else if (code >= 806 && code <= 810) dhanWSHalted = true; // needs new credentials or account change
+  broadcast(feedStatus());
+}
+
+function scheduleDhanReconnect() {
+  if (dhanWSTimer) clearTimeout(dhanWSTimer);
+  if (dhanWSHalted || !dhanWSCreds) return;
+  dhanWSDelay = Math.max(dhanWSDelay, Math.min(dhanWSDelay * 2, 30000));
+  dhanWSTimer = setTimeout(() => connectDhanWebSocket(dhanWSCreds), dhanWSDelay);
+}
+
+// ── Local WebSocket server (browser ↔ proxy) ──
+
+const localWSS = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+
+function broadcast(data) {
+  const json = JSON.stringify(data);
+  for (const client of localWSS.clients) if (client.readyState === WebSocket.OPEN) client.send(json);
+}
+
+/** Validate a browser subscribe payload. Returns a clean list or throws InputError. */
+export function validateSubscribe(instruments) {
+  if (!Array.isArray(instruments) || instruments.length === 0 || instruments.length > 100) throw new InputError("instruments must be an array of 1-100 items");
+  return instruments.map((i) => {
+    const seg = String(i?.ExchangeSegment ?? "");
+    const id = String(i?.SecurityId ?? "");
+    if (!SEGMENT_NAMES.has(seg) || !/^\d{1,10}$/.test(id)) throw new InputError("Invalid instrument in subscribe payload");
+    return { ExchangeSegment: seg, SecurityId: id };
+  });
+}
+
+// Browser sockets that supplied their own Dhan credentials, in the order they configured.
+// The most recent one owns the single upstream feed; when it leaves or clears its keys the feed
+// falls back to the next most recent socket, then to .env credentials, then stops.
+const feedCredsBySocket = new Map(); // ws → { clientId, accessToken }
+
+function envDhanCreds() {
+  try { return resolveDhanCreds("", ""); } catch { return null; }
+}
+
+function sameCreds(a, b) {
+  return !!a && !!b && a.clientId === b.clientId && a.accessToken === b.accessToken;
+}
+
+function reselectFeedCreds() {
+  const owners = [...feedCredsBySocket.values()];
+  const next = owners[owners.length - 1] || envDhanCreds();
+  if (!next) return disconnectDhanWebSocket();
+  if (sameCreds(next, dhanWSCreds)) return;
+  connectDhanWebSocket(next);
+}
+
+function releaseFeedCreds(ws) {
+  if (!feedCredsBySocket.has(ws)) return;
+  const owned = sameCreds(feedCredsBySocket.get(ws), dhanWSCreds);
+  feedCredsBySocket.delete(ws);
+  if (owned) reselectFeedCreds();
+}
+
+localWSS.on("connection", (ws) => {
+  let msgCount = 0;
+  const msgWindow = setInterval(() => { msgCount = 0; }, 10000);
+  const cleanup = () => {
+    clearInterval(msgWindow);
+    releaseFeedCreds(ws);
+    releaseInstruments(subscribed.release(ws));
+  };
+  // ws emits 'error' for protocol violations (frame over maxPayload, invalid UTF-8, bad opcode).
+  // Without a listener Node throws and the whole proxy exits.
+  ws.on("error", () => {
+    cleanup();
+    try { ws.terminate(); } catch { /* ignore */ }
+  });
+  ws.on("close", cleanup);
+
+  ws.send(JSON.stringify(feedStatus()));
+  for (const tick of latestTicks.values()) ws.send(JSON.stringify(tick));
+
+  ws.on("message", (raw) => {
+    if (++msgCount > 30) return; // ignore floods
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (!msg || typeof msg !== "object") return;
+    try {
+      if (msg.type === "configure") {
+        if (!msg.clientId || !msg.accessToken) throw new InputError("configure needs clientId and accessToken");
+        const creds = resolveDhanCreds(String(msg.clientId), String(msg.accessToken));
+        if (creds) {
+          feedCredsBySocket.delete(ws); // re-insert so this socket becomes the most recent owner
+          feedCredsBySocket.set(ws, creds);
+          connectDhanWebSocket(creds);
+        }
+      } else if (msg.type === "unconfigure") {
+        // Sent by the browser when the user removes their keys.
+        releaseFeedCreds(ws);
+      } else if (msg.type === "subscribe") {
+        const list = validateSubscribe(msg.instruments);
+        const { added, released } = subscribed.subscribe(ws, list);
+        releaseInstruments(released);
+        sendSubscriptions(added);
+      } else if (msg.type === "unsubscribe") {
+        const list = validateSubscribe(msg.instruments);
+        releaseInstruments(subscribed.unsubscribe(ws, list));
+      }
+    } catch (e) {
+      ws.send(JSON.stringify({ type: "error", message: truncate(e.message, 120) }));
+    }
+  });
+});
+
+// ══════════════════════════════════════════════
+// ── SECTION 5: HTTP server ──
+// ══════════════════════════════════════════════
+
+function isAllowedOrigin(origin) {
+  return !origin || ALLOWED_ORIGINS.has(origin);
+}
+
+function clientIp(req) {
+  return req.socket?.remoteAddress || "unknown";
+}
+
+export function isLoopbackAddress(addr) {
+  const a = String(addr || "");
+  return a === "::1" || a.startsWith("127.") || a.startsWith("::ffff:127.");
+}
+
+function hostnameOf(hostHeader) {
+  const h = String(hostHeader || "").trim().toLowerCase();
+  if (!h) return "";
+  if (h.startsWith("[")) {
+    const end = h.indexOf("]");
+    return end > 0 ? h.slice(1, end) : "";
+  }
+  return h.replace(/:\d*$/, "");
+}
+
+// Host-header allowlist (DNS-rebinding defence): loopback names, the bind address when it is a
+// specific host, every host named in the Origin allowlist, plus PROXY_ALLOWED_HOSTS.
+const ALLOWED_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+if (HOST && HOST !== "0.0.0.0" && HOST !== "::") ALLOWED_HOSTS.add(hostnameOf(HOST.includes(":") && !HOST.startsWith("[") ? `[${HOST}]` : HOST));
+for (const o of ALLOWED_ORIGINS) {
+  try { ALLOWED_HOSTS.add(hostnameOf(new URL(o).host)); } catch { /* ignore malformed */ }
+}
+for (const h of (process.env.PROXY_ALLOWED_HOSTS || "").split(",")) {
+  const name = hostnameOf(h);
+  if (name) ALLOWED_HOSTS.add(name);
+}
+
+export function isAllowedHost(hostHeader, allowed = ALLOWED_HOSTS) {
+  const name = hostnameOf(hostHeader);
+  return !!name && allowed.has(name);
+}
+
+/**
+ * Whether a request may fall back to the .env Dhan credentials. Browsers always send Origin on
+ * cross-origin requests, so a request without one is a non-browser client; only trust it when it
+ * comes from this machine. Requests that bring their own header credentials are unaffected.
+ */
+function mayUseEnvCreds(req) {
+  return !!req.headers.origin || isLoopbackAddress(clientIp(req));
+}
+
+function send(res, status, body, extraHeaders = {}) {
+  if (res.headersSent) return;
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...extraHeaders });
+  res.end(JSON.stringify(body));
+}
+
+function isTradeEndpointPath(path, params) {
+  if (path !== "/api/dhan-proxy") return false;
+  const e = params.get("endpoint");
+  return TRADE_POST_ENDPOINTS.has(e) || TRADE_GET_ENDPOINTS.has(e);
+}
+
+function healthPayload() {
+  return {
+    status: "ok",
+    version: VERSION,
+    uptime: process.uptime(),
+    websocket: {
+      dhanConnected: dhanWSConnected,
+      browserClients: localWSS.clients.size,
+      instrumentsSubscribed: subscribed.size,
+      cachedTicks: latestTicks.size,
+      lastDisconnectCode,
+    },
+    upstreams: upstreamHealth,
+    // Back-compat flags: sources.dhan = credentials present in .env.
+    sources: { dhan: !!(process.env.DHAN_CLIENT_ID && process.env.DHAN_ACCESS_TOKEN), nse: true, tradingview: true, yahoo: true },
+    cache: { entries: cache.size, lastGood: lastGood.size, inflight: inflight.size },
+    recorder: recorderStatus(),
+    security: { host: HOST, allowedOrigins: [...ALLOWED_ORIGINS] },
+    brokers: brokerRegistry.list(),
+    riskEngine: riskEngine.getStatus(),
+  };
 }
 
 const server = http.createServer(async (req, res) => {
-  const corsHeaders = corsHeadersFor(req);
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, corsHeaders);
-    return res.end();
+  const origin = req.headers.origin;
+  if (!isAllowedHost(req.headers.host)) return send(res, 403, { error: "Host not allowed", reason: "Add this host to PROXY_ALLOWED_HOSTS" });
+  if (!isAllowedOrigin(origin)) return send(res, 403, { error: "Origin not allowed", reason: `Add ${truncate(origin, 80)} to PROXY_ALLOWED_ORIGINS` });
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-dhan-client-id, x-dhan-access-token, x-broker-credentials");
+    res.setHeader("Access-Control-Max-Age", "600");
   }
+  if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
+  if (req.method !== "GET" && req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
+  if (!takeToken(clientIp(req))) return send(res, 429, { error: "Too many requests", reason: "Slow down: per-IP rate limit" }, { "Retry-After": "1" });
 
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+  let url;
+  try { url = new URL(req.url, `http://${HOST}:${PORT}`); } catch { return send(res, 400, { error: "Bad URL" }); }
   const params = url.searchParams;
+  const path = url.pathname.replace(/\/+$/, "") || "/";
 
-  res.setHeader("Content-Type", "application/json");
-  Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+  // POST exists only for the 1Cliq trading endpoints (JSON body). Everything else stays GET-only.
+  const tradeEndpoint = path === "/api/dhan-proxy" ? params.get("endpoint") : null;
+  const isTradePost = !!tradeEndpoint && TRADE_POST_ENDPOINTS.has(tradeEndpoint);
+  const isTradeGet = !!tradeEndpoint && TRADE_GET_ENDPOINTS.has(tradeEndpoint);
+  if (req.method === "POST" && !isTradePost) return send(res, 405, { error: "Method not allowed" });
+  if (req.method === "GET" && isTradePost) return send(res, 405, { error: "Method not allowed", reason: "Use POST with a JSON body" }, { Allow: "POST" });
 
   try {
-    if (url.pathname === "/api/dhan-proxy") {
-      const userClientId = req.headers["x-dhan-client-id"];
-      const userAccessToken = req.headers["x-dhan-access-token"];
-      const body = (req.method === "POST" || req.method === "DELETE") ? await readJsonBody(req) : null;
-      const { data, cacheHit } = await handleDhanProxy(params, userClientId, userAccessToken, body);
-      res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-      res.writeHead(200);
-      res.end(JSON.stringify(data));
-    } else if (url.pathname === "/api/nse-proxy") {
-      const { data, cacheHit } = await handleNSEProxy(params);
-      res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-      res.writeHead(200);
-      res.end(JSON.stringify(data));
-    } else if (url.pathname === "/api/yahoo-chart") {
-      const { data, cacheHit } = await handleYahooChart(params);
-      res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-      res.writeHead(200);
-      res.end(JSON.stringify(data));
-    } else if (url.pathname === "/api/global-cues") {
-      const { data, cacheHit } = await handleGlobalCues();
-      res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-      res.writeHead(200);
-      res.end(JSON.stringify(data));
-    } else if (url.pathname === "/api/test-connection") {
-      // Test Dhan API connection with user credentials
-      const userClientId = req.headers["x-dhan-client-id"];
-      const userAccessToken = req.headers["x-dhan-access-token"];
-      try {
-        const result = await dhanFetch("/optionchain/expirylist", {
-          UnderlyingScrip: 13, UnderlyingSeg: "NSE_FNO",
-        }, "POST", userClientId, userAccessToken);
-        res.writeHead(200);
-        res.end(JSON.stringify({ status: "success", message: "Dhan API connected", data: result }));
-      } catch (err) {
-        res.writeHead(200); // 200 so frontend can read the error
-        res.end(JSON.stringify({ status: "error", message: err.message }));
-      }
-    } else if (url.pathname === "/api/broker-proxy") {
-      const brokerId = params.get("broker") || "dhan";
-      if (!brokerRegistry.has(brokerId)) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: `Unknown broker: ${brokerId}. Supported: ${brokerRegistry.list().join(", ")}` }));
-      } else {
-        const creds = decodeBrokerCreds(req);
-        const { data, cacheHit } = await handleBrokerProxy(brokerId, params, creds);
-        res.setHeader("X-Cache", cacheHit ? "HIT" : "MISS");
-        res.writeHead(200);
-        res.end(JSON.stringify(data));
-      }
-    } else if (url.pathname === "/api/broker-test-connection") {
-      const brokerId = params.get("broker") || "dhan";
-      if (!brokerRegistry.has(brokerId)) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: `Unknown broker: ${brokerId}. Supported: ${brokerRegistry.list().join(", ")}` }));
-      } else {
-        const creds = decodeBrokerCreds(req);
-        const mod = brokerRegistry.get(brokerId);
-        const result = await mod.testConnection(creds || {});
-        res.writeHead(200);
-        res.end(JSON.stringify(result));
-      }
-    } else if (url.pathname === "/api/delta-strike-snapshot" && req.method === "POST") {
-      const body = await readJsonBody(req);
-      const symbol = body?.symbol;
-      const expiry = body?.expiry;
-      const entries = body?.entries;
-      if (typeof symbol !== "string" || !symbol || typeof expiry !== "string" || !expiry || !Array.isArray(entries) || entries.length === 0) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: "symbol, expiry (non-empty strings), and entries (non-empty array) are required" }));
-      } else {
-        let recorded = 0;
-        for (const entry of entries) {
-          if (!entry || typeof entry.label !== "string" || !entry.label || !Number.isFinite(entry.premium)) continue;
-          recordSnapshot("deltaStrikePremium", symbol + "_" + expiry + "_" + entry.label, entry.premium);
-          recorded++;
-        }
-        res.writeHead(200);
-        res.end(JSON.stringify({ status: "ok", recorded }));
-      }
-    } else if (url.pathname === "/api/delta-strike-snapshot") {
-      if (req.method !== "GET") {
-        res.writeHead(405);
-        res.end(JSON.stringify({ error: "Method not allowed. Use GET or POST." }));
-      } else {
-        const symbol = params.get("symbol");
-        const expiry = params.get("expiry");
-        const label = params.get("label");
-        if (!symbol || !expiry || !label) {
-          res.writeHead(400);
-          res.end(JSON.stringify({ error: "symbol, expiry, and label query params are required" }));
-        } else {
-          const series = getSeries("deltaStrikePremium", symbol + "_" + expiry + "_" + label);
-          res.writeHead(200);
-          res.end(JSON.stringify({ series }));
-        }
-      }
-    } else if (url.pathname === "/health") {
-      res.writeHead(200);
-      res.end(JSON.stringify({
-        status: "ok",
-        uptime: process.uptime(),
-        marketSession: marketSession(),
-        websocket: {
-          dhanConnected: dhanWSConnected,
-          browserClients: localWSS.clients.size,
-          ...feedSubs.stats(),
-          cachedTicks: latestTicks.size,
-        },
-        sources: {
-          dhan: !!process.env.DHAN_CLIENT_ID,
-          nse: true,
-          yahoo: true,
-        },
-        brokers: brokerRegistry.list(),
-      }));
-    } else {
-      res.writeHead(404);
-      res.end(JSON.stringify({ error: "Not found. Use /api/dhan-proxy, /api/broker-proxy, /api/nse-proxy, /api/yahoo-chart, or /ws" }));
+    const headerId = req.headers["x-dhan-client-id"];
+    const headerToken = req.headers["x-dhan-access-token"];
+    const envOk = mayUseEnvCreds(req);
+    const creds = () => {
+      const id = typeof headerId === "string" ? headerId : "";
+      const token = typeof headerToken === "string" ? headerToken : "";
+      if (!envOk && !(id && token)) return null;
+      return resolveDhanCreds(id, token);
+    };
+
+    if (isTradePost || isTradeGet) {
+      // Trading: a browser must come from an allowlisted Origin (checked above); a request without
+      // an Origin header is a non-browser client and is accepted only from this machine.
+      if (!origin && !isLoopbackAddress(clientIp(req))) return send(res, 403, { error: "Forbidden", reason: "Trading endpoints accept non-browser clients only from loopback" });
+      const body = isTradePost ? await readJsonBody(req) : null;
+      const { status, body: out } = await handleTradeEndpoint(tradeEndpoint, params, creds(), body);
+      return send(res, status, out);
     }
+    if (path === "/api/dhan-proxy") {
+      const { status, body } = await handleDhanProxy(params, creds());
+      return send(res, status, body);
+    }
+    if (path === "/api/broker-proxy" || path === "/api/broker-test-connection") {
+      const brokerId = vBrokerId(params.get("broker"));
+      let bc = decodeBrokerCreds(req.headers["x-broker-credentials"]);
+      // Dhan through the generic path follows the same credential policy as /api/dhan-proxy.
+      if (brokerId === "dhan") {
+        bc = bc?.clientId && bc?.accessToken ? resolveDhanCreds(bc.clientId, bc.accessToken) : creds();
+      }
+      if (path === "/api/broker-proxy") {
+        const { status, body } = await handleBrokerProxy(brokerId, params, bc);
+        return send(res, status, body);
+      }
+      if (!bc) return send(res, 200, { status: "error", message: "No credentials sent" });
+      try {
+        const result = await brokerRegistry.get(brokerId).testConnection(bc);
+        return send(res, 200, { status: result?.status === "success" ? "success" : "error", message: truncate(result?.message || "", 240) });
+      } catch (e) {
+        return send(res, 200, { status: "error", message: truncate(e?.message, 200) });
+      }
+    }
+    if (path === "/api/nse-proxy") {
+      const { status, body } = await handleNSEProxy(params);
+      return send(res, status, body);
+    }
+    if (path === "/api/tv-scan") {
+      const { status, body } = await handleTradingViewScan(params);
+      return send(res, status, body);
+    }
+    if (path === "/api/yahoo-chart") {
+      const { status, body } = await handleYahooChart(params);
+      return send(res, status, body);
+    }
+    if (path === "/api/x/snapshots.csv") {
+      const q = parseSnapshotQuery(params);
+      const { snapshots, truncated } = await readRecordedSnapshots(recorderState.config.dir, q);
+      if (res.headersSent) return;
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Disposition": `attachment; filename="${q.symbol}${q.expiry ? `_${q.expiry}` : ""}_snapshots_${istIsoOf(q.from)}.csv"`,
+        "X-Truncated": truncated ? "1" : "0",
+      });
+      return res.end(snapshotsToCsvText(snapshots));
+    }
+    if (path.startsWith("/api/x/")) {
+      const out = await handleX(path.slice("/api/x/".length), params, creds());
+      if (!out) return send(res, 404, { data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: "Unknown /api/x route" } });
+      return send(res, out.status, out.body);
+    }
+    if (path === "/api/test-connection") {
+      try {
+        const c = creds();
+        if (!c) return send(res, 200, { status: "error", message: "No Dhan keys. Add them in Broker settings or .env." });
+        const result = await dhanFetch("/optionchain/expirylist", { UnderlyingScrip: 13, UnderlyingSeg: "IDX_I" }, c);
+        return send(res, 200, { status: "success", message: `Dhan API connected (${(result?.data || []).length} NIFTY expiries)` });
+      } catch (e) {
+        return send(res, 200, { status: "error", message: truncate(e.message, 200) });
+      }
+    }
+    if (path === "/health") return send(res, 200, healthPayload());
+    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/broker-proxy", "/api/broker-test-connection", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
   } catch (err) {
-    console.error(`[Proxy Error] ${url.pathname}:`, err.message);
-    // A guard rejection is a 422 with a machine-readable code, not a 500 — the
-    // client needs to tell "we refused this" apart from "the upstream broke".
-    const status = Number.isInteger(err.statusCode) ? err.statusCode : 500;
-    res.writeHead(status);
-    res.end(JSON.stringify({ error: err.message, message: err.message, code: err.code || null }));
+    if (err instanceof TradeError) {
+      // A guard rejection (422) or a credential/body problem: machine-readable code, never a 500, so
+      // the client can tell "we refused this" apart from "the upstream broke".
+      return send(res, err.statusCode, { status: "error", error: err.message, message: err.message, code: err.code });
+    }
+    if (isTradeEndpointPath(path, params) && !(err instanceof InputError)) {
+      // Real-money paths surface the broker's own error text (e.g. a static-IP rejection) verbatim.
+      console.error(`[proxy] trade ${truncate(params.get("endpoint"), 40)}: ${truncate(err?.message, 200)}`);
+      return send(res, 502, { status: "error", error: truncate(err?.message, 400), message: truncate(err?.message, 400), code: "UPSTREAM_ERROR" });
+    }
+    if (err instanceof InputError) {
+      if (path.startsWith("/api/x/")) return send(res, 400, { data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: truncate(err.message, 200) } });
+      return send(res, 400, { status: "error", error: "Bad request", reason: truncate(err.message, 200) });
+    }
+    console.error(`[proxy] ${path}: ${truncate(err?.message, 200)}`);
+    return send(res, 500, { status: "error", error: "Proxy error", reason: truncate(err?.message, 200) });
   }
 });
 
-// Handle WebSocket upgrade for /ws path
-server.on("upgrade", (request, socket, head) => {
-  const url = new URL(request.url, `http://localhost:${PORT}`);
-  if (url.pathname === "/ws") {
-    localWSS.handleUpgrade(request, socket, head, (ws) => {
-      localWSS.emit("connection", ws, request);
-    });
-  } else {
+server.on("upgrade", (req, socket, head) => {
+  let pathname = "";
+  try { pathname = new URL(req.url, `http://${HOST}:${PORT}`).pathname; } catch { /* bad url */ }
+  const origin = req.headers.origin;
+  // No Origin means a non-browser client: only accept those from this machine.
+  const originOk = origin ? ALLOWED_ORIGINS.has(origin) : isLoopbackAddress(req.socket?.remoteAddress);
+  if (pathname !== "/ws" || !isAllowedHost(req.headers.host) || !originOk) {
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
     socket.destroy();
+    return;
   }
+  localWSS.handleUpgrade(req, socket, head, (ws) => localWSS.emit("connection", ws, req));
 });
 
-server.listen(PORT, () => {
-  console.log("");
-  console.log("  🚀 Mr. Chartist Proxy Server");
-  console.log(`  ├─ HTTP:       http://localhost:${PORT}`);
-  console.log(`  ├─ WebSocket:  ws://localhost:${PORT}/ws`);
-  console.log(`  ├─ Health:     http://localhost:${PORT}/health`);
-  console.log(`  ├─ Dhan (1°):  http://localhost:${PORT}/api/dhan-proxy?endpoint=option-chain&symbol=NIFTY`);
-  console.log(`  └─ NSE  (2°):  http://localhost:${PORT}/api/nse-proxy?endpoint=indices`);
-  console.log("");
-  console.log("  Data Priority: Dhan → NSE → Yahoo (15-min delayed)");
-  console.log("  Dhan credentials:", process.env.DHAN_CLIENT_ID ? "✅ Loaded from .env" : "⚠️  Not set (configure in .env or Broker Settings)");
-  console.log("");
+export function startServer() {
+  server.listen(PORT, HOST, () => {
+    const base = `http://${HOST}:${PORT}`;
+    console.log("");
+    console.log(`  🚀 Mr. Chartist proxy v${VERSION}`);
+    console.log(`  ├─ HTTP:      ${base}`);
+    console.log(`  ├─ WebSocket: ws://${HOST}:${PORT}/ws`);
+    console.log(`  ├─ Health:    ${base}/health`);
+    console.log(`  ├─ Envelope:  ${base}/api/x/ban-list (see docs/DATA_ENDPOINTS.md)`);
+    console.log(`  └─ Origins:   ${[...ALLOWED_ORIGINS].join(", ")}`);
+    console.log("");
+    console.log("  Dhan keys in .env:", process.env.DHAN_CLIENT_ID ? "yes" : "no (browser keys are used per request)");
+    const rc = recorderState.config;
+    console.log("  Snapshot recorder:", rc.enabled ? `on · ${rc.symbols.join(", ")} every ${rc.intervalSec}s · ${rc.dir}` : "off (set RECORD_SYMBOLS=NIFTY,BANKNIFTY to record chains during market hours)");
+    console.log("");
+    startRecorder();
+    // The risk engine's dead-man's switch runs unconditionally, so risk-status can truthfully
+    // report "not alive" when no ticks arrive.
+    riskEngine.startRiskEngine();
+    // Warm up the NSE session so the first request is fast.
+    getNseSession().catch(() => undefined);
+    try {
+      const envCreds = resolveDhanCreds("", "");
+      if (envCreds) connectDhanWebSocket(envCreds);
+    } catch (e) {
+      console.warn(`  ⚠️ ${e.message}`);
+    }
+  });
+}
 
-  // Auto-connect Dhan WebSocket if credentials are in .env
-  if (process.env.DHAN_CLIENT_ID && process.env.DHAN_ACCESS_TOKEN) {
-    connectDhanWebSocket(process.env.DHAN_CLIENT_ID, process.env.DHAN_ACCESS_TOKEN);
-  }
+const isMain = (() => {
+  try { return !!process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href; } catch { return false; }
+})();
 
-  // Start the risk engine's dead-man's switch + tickBus subscription
-  // unconditionally — /api/risk/status must be able to report "not alive"
-  // truthfully, which requires the heartbeat to actually be running.
-  riskEngine.startRiskEngine();
-});
+if (isMain) {
+  // Runs unattended through the session: log an unexpected rejection instead of exiting and cutting
+  // the live feed (and the risk engine) for everyone.
+  process.on("unhandledRejection", (reason) => {
+    console.error("  ❌ [unhandledRejection]", reason instanceof Error ? reason.stack : reason);
+  });
+  startServer();
+}

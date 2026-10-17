@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Zap } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useLiveOptionChain, useExpiryList } from "@/hooks/useMarketData";
 import { useWebSocketStatus } from "@/hooks/useWebSocket";
 import { getPositions } from "@/lib/positionStore";
@@ -30,7 +33,6 @@ import { RiskEngineStatusBadge } from "./components/RiskEngineStatusBadge";
 import { TradingLockBanner } from "./components/TradingLockBanner";
 import { KeymapCheatSheet } from "./components/KeymapCheatSheet";
 import type { OptionType } from "./types";
-import type { TerminalAction as Action } from "./lib/keymap";
 
 const SYMBOLS = ["BANKNIFTY", "NIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX"];
 
@@ -53,6 +55,7 @@ const INDEX_DISPLAY: Record<string, string> = {
  * execution params, CE/spot/PE strip, action bar, message line, positions grid.
  */
 export default function OneCliqTerminal() {
+  useDocumentTitle("1Cliq Trade");
   const { config, update, stepStrike, stepLots, setLotPreset, seedStrikes, setSymbol, lotSize } = useTerminalConfig();
   const { armState, mode, liveEnabled, remainingMs, arm, disarm, keepAlive, focusHandlers } = useArming();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -163,16 +166,14 @@ export default function OneCliqTerminal() {
   const noSecurityIds = !securityIdFor("CE") && !securityIdFor("PE") && !!chainData;
 
   return (
-    <div className="space-y-2" {...focusHandlers}>
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          1Cliq Trade
-          <Badge variant="outline" className="ml-2 text-xs h-5 align-middle">PAPER</Badge>
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          One-click scalping terminal · fills are simulated at bid/ask with slippage
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-[1400px] space-y-3" {...focusHandlers}>
+      <PageHeader
+        icon={Zap}
+        eyebrow="Trade"
+        title="1Cliq Trade"
+        description="One-click scalping terminal. Paper fills are simulated at bid/ask with slippage; live mode needs Live Trading on in Broker settings plus one-click arming."
+        source={<Badge variant="outline" className="h-5 text-xs">{mode === "LIVE" ? "LIVE" : "PAPER"}</Badge>}
+      />
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex-1 min-w-[280px]">

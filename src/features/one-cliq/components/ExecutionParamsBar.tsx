@@ -52,7 +52,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
       <Field label="Order Type">
         <Select value={config.orderVariant} onValueChange={(v) => onUpdate("orderVariant", v as TerminalConfig["orderVariant"])}>
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Order Type" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="MARKET_PROTECT">Market Protection</SelectItem>
             <SelectItem value="MARKET">Market</SelectItem>
@@ -67,7 +67,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
           onValueChange={(v) => onUpdate("protectionPct", Number(v))}
           disabled={config.orderVariant !== "MARKET_PROTECT"}
         >
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Market Protection %" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             {[1, 2, 3, 5, 10, 15, 20].map((p) => (
               <SelectItem key={p} value={String(p)}>{p}%</SelectItem>
@@ -83,7 +83,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
             onCheckedChange={(c) => onUpdate("slEnabled", c === true)}
             aria-label="Enable predefined stop loss"
           />
-          <Input
+          <Input aria-label="Predefined SL"
             className="h-8 text-xs font-mono tabular-nums"
             value={config.slValue}
             inputMode="decimal"
@@ -99,7 +99,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
           onValueChange={(v) => onUpdate("slUnit", v as TriggerUnit)}
           disabled={!config.slEnabled}
         >
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="SL Unit" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             {(Object.keys(UNIT_LABEL) as TriggerUnit[]).map((u) => (
               <SelectItem key={u} value={u}>{UNIT_LABEL[u]}</SelectItem>
@@ -115,7 +115,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
             onCheckedChange={(c) => onUpdate("targetEnabled", c === true)}
             aria-label="Enable predefined target"
           />
-          <Input
+          <Input aria-label="Predefined Target"
             className="h-8 text-xs font-mono tabular-nums"
             value={config.targetValue}
             inputMode="decimal"
@@ -131,7 +131,7 @@ export function ExecutionParamsBar({ config, spot, onUpdate }: Props) {
           onValueChange={(v) => onUpdate("targetUnit", v as TriggerUnit)}
           disabled={!config.targetEnabled}
         >
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Target Unit" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             {(Object.keys(UNIT_LABEL) as TriggerUnit[]).map((u) => (
               <SelectItem key={u} value={u}>{UNIT_LABEL[u]}</SelectItem>

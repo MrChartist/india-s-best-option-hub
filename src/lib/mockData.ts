@@ -1,4 +1,12 @@
-// Types, constants, and calculation utilities for the options trading terminal
+// Types, constants and legacy calculation utilities for the options terminal.
+// New code should use "@/lib/options" (the shared, tested math core); the calculators here are
+// thin deprecated wrappers kept so older imports keep working.
+import {
+  estimateMargin as estimateMarginCore,
+  getExpiries,
+  probabilityOfProfit,
+  type Leg,
+} from "@/lib/options";
 
 export interface IndexData {
   name: string;
@@ -30,11 +38,15 @@ export interface OptionLegData {
   vega: number;
   bidPrice: number;
   askPrice: number;
-  // Only populated when the chain came from Dhan — NSE's fallback chain has no
-  // order-routing token, only a display-formatted identifier string. Presence
-  // of securityId is exactly what gates real order placement to Dhan-sourced data.
+  /** Day change in LTP (rupees). */
+  change?: number;
+  /** Day change in LTP (percent). */
+  pChange?: number;
+  prevClose?: number;
+  bidQty?: number;
+  askQty?: number;
+  /** Broker security id (Dhan), when known. */
   securityId?: string;
-  exchangeSegment?: string;
 }
 
 export interface ExpiryDate {
@@ -154,114 +166,7 @@ export const fnoStocks = [
   "UPL", "ZEEL",
 ];
 
-// -- Utility --
-
-
-// -- Analysis Utilities (operate on live chain data) --
-
-export function getMaxPain(chain: OptionData[]): number {
-  let minPain = Infinity;
-  let maxPainStrike = chain[0]?.strikePrice || 0;
-
-  for (const option of chain) {
-    let totalPain = 0;
-    for (const other of chain) {
-      if (other.strikePrice < option.strikePrice) {
-        totalPain += other.ce.oi * (option.strikePrice - other.strikePrice);
-      } else if (other.strikePrice > option.strikePrice) {
-        totalPain += other.pe.oi * (other.strikePrice - option.strikePrice);
-      }
-    }
-    if (totalPain < minPain) {
-      minPain = totalPain;
-      maxPainStrike = option.strikePrice;
-    }
-  }
-
-  return maxPainStrike;
-}
-
-// ΓöÇΓöÇ Black-Scholes Greeks Calculator ΓöÇΓöÇ
-
-function normalCDF(x: number): number {
-  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
-  const p = 0.3275911;
-  const sign = x < 0 ? -1 : 1;
-  x = Math.abs(x) / Math.sqrt(2);
-  const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-  return 0.5 * (1.0 + sign * y);
-}
-
-function normalPDF(x: number): number {
-  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
-}
-
-export interface GreeksResult {
-  callPrice: number;
-  putPrice: number;
-  delta: { call: number; put: number };
-  gamma: number;
-  theta: { call: number; put: number };
-  vega: number;
-  rho: { call: number; put: number };
-}
-
-export function calculateGreeks(
-  spot: number, strike: number, timeToExpiry: number,
-  iv: number, riskFreeRate: number
-): GreeksResult {
-  const S = spot, K = strike, T = Math.max(timeToExpiry / 365, 0.001);
-  const sigma = iv / 100, r = riskFreeRate / 100;
-
-  const d1 = (Math.log(S / K) + (r + sigma * sigma / 2) * T) / (sigma * Math.sqrt(T));
-  const d2 = d1 - sigma * Math.sqrt(T);
-
-  const callPrice = S * normalCDF(d1) - K * Math.exp(-r * T) * normalCDF(d2);
-  const putPrice = K * Math.exp(-r * T) * normalCDF(-d2) - S * normalCDF(-d1);
-
-  return {
-    callPrice: Math.round(callPrice * 100) / 100,
-    putPrice: Math.round(putPrice * 100) / 100,
-    delta: {
-      call: Math.round(normalCDF(d1) * 1000) / 1000,
-      put: Math.round((normalCDF(d1) - 1) * 1000) / 1000,
-    },
-    gamma: Math.round((normalPDF(d1) / (S * sigma * Math.sqrt(T))) * 10000) / 10000,
-    theta: {
-      call: Math.round(((-S * normalPDF(d1) * sigma / (2 * Math.sqrt(T))) - r * K * Math.exp(-r * T) * normalCDF(d2)) / 365 * 100) / 100,
-      put: Math.round(((-S * normalPDF(d1) * sigma / (2 * Math.sqrt(T))) + r * K * Math.exp(-r * T) * normalCDF(-d2)) / 365 * 100) / 100,
-    },
-    vega: Math.round((S * normalPDF(d1) * Math.sqrt(T) / 100) * 100) / 100,
-    rho: {
-      call: Math.round((K * T * Math.exp(-r * T) * normalCDF(d2) / 100) * 100) / 100,
-      put: Math.round((-K * T * Math.exp(-r * T) * normalCDF(-d2) / 100) * 100) / 100,
-    },
-  };
-}
-
-// Generate sensitivity data for Greeks charts
-export function generateGreeksSensitivity(
-  strike: number, daysToExpiry: number, iv: number, riskFreeRate: number,
-  spotCenter: number, range: number = 500, step: number = 10
-): { spot: number; callDelta: number; putDelta: number; gamma: number; callTheta: number; putTheta: number; vega: number }[] {
-  const points: any[] = [];
-  for (let s = spotCenter - range; s <= spotCenter + range; s += step) {
-    const g = calculateGreeks(s, strike, daysToExpiry, iv, riskFreeRate);
-    points.push({
-      spot: s,
-      callDelta: g.delta.call,
-      putDelta: g.delta.put,
-      gamma: g.gamma,
-      callTheta: g.theta.call,
-      putTheta: g.theta.put,
-      vega: g.vega,
-    });
-  }
-  return points;
-}
-
-// ΓöÇΓöÇ Strategy Definitions ΓöÇΓöÇ
+// ── Strategy Definitions ──
 
 export interface StrategyLeg {
   type: "CE" | "PE";
@@ -381,49 +286,50 @@ export function calculatePayoff(legs: StrategyLeg[], lotSize: number, spotRange:
   });
 }
 
-// Estimate margin requirement (simplified)
-export function estimateMargin(legs: StrategyLeg[], lotSize: number, spotPrice: number): number {
-  let margin = 0;
-  for (const leg of legs) {
-    if (leg.action === "SELL") {
-      // Approximate SPAN margin for short options
-      const otmAmount = leg.type === "CE" 
-        ? Math.max(0, leg.strike - spotPrice)
-        : Math.max(0, spotPrice - leg.strike);
-      margin += (spotPrice * 0.12 - otmAmount * 0.5) * leg.lots * lotSize;
-    }
-  }
-  // Net premium received reduces margin
-  const netPremium = legs.reduce((s, l) => s + (l.action === "SELL" ? l.premium : -l.premium) * l.lots * lotSize, 0);
-  margin = Math.max(margin - Math.max(0, netPremium), 0);
-  return Math.round(Math.max(margin, spotPrice * 0.05 * lotSize));
+function toContractLegs(legs: StrategyLeg[], lotSize: number, symbol: string, expiry: string): Leg[] {
+  return legs.map((l) => ({
+    symbol,
+    type: l.type,
+    side: l.action,
+    strike: l.strike,
+    expiry,
+    lots: l.lots,
+    lotSize,
+    premium: l.premium,
+  }));
 }
 
-// Probability of profit estimate (simplified normal distribution)
+/**
+ * @deprecated Use estimateMargin() from "@/lib/options" (SPAN-style estimate with hedge benefit).
+ * Returns the estimated total margin in rupees. symbol/expiry default to NIFTY and its nearest expiry.
+ */
+export function estimateMargin(
+  legs: StrategyLeg[], lotSize: number, spotPrice: number,
+  opts?: { symbol?: string; expiry?: string; iv?: number }
+): number {
+  const symbol = opts?.symbol ?? "NIFTY";
+  const expiry = opts?.expiry ?? getExpiries(symbol, new Date(), 1)[0]?.date ?? "";
+  const est = estimateMarginCore(toContractLegs(legs, lotSize, symbol, expiry), {
+    spot: spotPrice,
+    sigma: opts?.iv && opts.iv > 0 ? opts.iv / 100 : undefined,
+  });
+  return Number.isFinite(est.total) ? Math.round(est.total) : 0;
+}
+
+/**
+ * @deprecated Use probabilityOfProfit() from "@/lib/options" (lognormal integral).
+ * iv in PERCENT, daysToExpiry in calendar days. Returns a whole-number percentage (0-100).
+ */
 export function estimateProbOfProfit(legs: StrategyLeg[], lotSize: number, spotPrice: number, iv: number, daysToExpiry: number): number {
-  const sigma = (iv / 100) * spotPrice * Math.sqrt(daysToExpiry / 365);
-  if (sigma === 0) return 50;
-  
-  // Sample many points and check profitability
-  let profitable = 0;
-  const samples = 200;
-  for (let i = 0; i < samples; i++) {
-    const z = -3 + (6 * i / (samples - 1));
-    const futureSpot = spotPrice * Math.exp(-0.5 * (iv / 100) ** 2 * (daysToExpiry / 365) + z * (iv / 100) * Math.sqrt(daysToExpiry / 365));
-    let pnl = 0;
-    for (const leg of legs) {
-      const mult = leg.action === "BUY" ? 1 : -1;
-      const intrinsic = leg.type === "CE" ? Math.max(0, futureSpot - leg.strike) : Math.max(0, leg.strike - futureSpot);
-      pnl += mult * (intrinsic - leg.premium) * leg.lots * lotSize;
-    }
-    if (pnl > 0) profitable++;
-  }
-  return Math.round((profitable / samples) * 100);
+  const pop = probabilityOfProfit(toContractLegs(legs, lotSize, "NIFTY", ""), {
+    F: spotPrice,
+    T: Math.max(daysToExpiry, 0) / 365,
+    sigma: iv / 100,
+  });
+  return Number.isFinite(pop) ? Math.round(pop * 100) : 0;
 }
 
-// ΓöÇΓöÇ IV Analytics ΓöÇΓöÇ
-
-// -- IV Analytics --
+// ── IV Analytics ──
 
 export interface IVAnalytics {
   symbol: string;
@@ -450,7 +356,7 @@ export interface ScannerResult {
 }
 
 
-// ΓöÇΓöÇ Delta OI (OI ├ù Delta per strike) ΓöÇΓöÇ
+// ── Delta OI (OI × Delta per strike) ──
 
 export interface DeltaOIData {
   strike: number;
@@ -459,22 +365,7 @@ export interface DeltaOIData {
   netDeltaOI: number;
 }
 
-export function getDeltaOI(chain: OptionData[], spotPrice: number, stepSize: number): DeltaOIData[] {
-  return chain
-    .filter(o => o.ce.oi > 30000 || o.pe.oi > 30000)
-    .map(o => {
-      const ceDeltaOI = Math.round(o.ce.oi * o.ce.delta);
-      const peDeltaOI = Math.round(o.pe.oi * o.pe.delta); // delta is negative for puts
-      return {
-        strike: o.strikePrice,
-        ceDeltaOI: Math.round(ceDeltaOI / 1000),
-        peDeltaOI: Math.round(peDeltaOI / 1000),
-        netDeltaOI: Math.round((ceDeltaOI + peDeltaOI) / 1000),
-      };
-    });
-}
-
-// ΓöÇΓöÇ Strike-wise PCR ΓöÇΓöÇ
+// ── Strike-wise PCR ──
 
 export interface StrikePCRData {
   strike: number;
@@ -484,19 +375,7 @@ export interface StrikePCRData {
   distance: number;
 }
 
-export function getStrikePCR(chain: OptionData[], spotPrice: number): StrikePCRData[] {
-  return chain
-    .filter(o => o.ce.oi > 10000 && o.pe.oi > 10000)
-    .map(o => ({
-      strike: o.strikePrice,
-      pcr: Math.round((o.pe.oi / o.ce.oi) * 100) / 100,
-      ceOI: o.ce.oi,
-      peOI: o.pe.oi,
-      distance: Math.round(((o.strikePrice - spotPrice) / spotPrice) * 10000) / 100,
-    }));
-}
-
-// ΓöÇΓöÇ ATM Zone Analysis (nearest N strikes) ΓöÇΓöÇ
+// ── ATM Zone Analysis (nearest N strikes) ──
 
 export interface ATMZoneData {
   strikes: number;
@@ -520,43 +399,7 @@ export interface ATMZoneData {
   }[];
 }
 
-export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
-  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const halfRange = Math.floor(numStrikes / 2);
-  const zoneStrikes = chain.filter(o => {
-    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
-    return strikeDist <= halfRange;
-  });
-
-  const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
-  const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
-  const totalCEOIChg = zoneStrikes.reduce((s, o) => s + o.ce.oiChange, 0);
-  const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
-
-  return {
-    strikes: numStrikes,
-    totalCEOI,
-    totalPEOI,
-    pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,
-    totalCEOIChg,
-    totalPEOIChg,
-    ceOIChgPercent: totalCEOI > 0 ? Math.round((totalCEOIChg / totalCEOI) * 10000) / 100 : 0,
-    peOIChgPercent: totalPEOI > 0 ? Math.round((totalPEOIChg / totalPEOI) * 10000) / 100 : 0,
-    pcrChange: totalCEOIChg !== 0 ? Math.round((totalPEOIChg / Math.abs(totalCEOIChg)) * 100) / 100 : 0,
-    strikeData: zoneStrikes.map(o => ({
-      strike: o.strikePrice,
-      ceOI: o.ce.oi,
-      peOI: o.pe.oi,
-      pcr: o.ce.oi > 0 ? Math.round((o.pe.oi / o.ce.oi) * 100) / 100 : 0,
-      ceOIChg: o.ce.oiChange,
-      peOIChg: o.pe.oiChange,
-      ceOIChgPct: o.ce.oi > 0 ? Math.round((o.ce.oiChange / o.ce.oi) * 10000) / 100 : 0,
-      peOIChgPct: o.pe.oi > 0 ? Math.round((o.pe.oiChange / o.pe.oi) * 10000) / 100 : 0,
-    })),
-  };
-}
-
-// ΓöÇΓöÇ Option Price + OI Time Series (mock intraday) ΓöÇΓöÇ
+// ── Option Price + OI Time Series (mock intraday) ──
 
 export interface OptionOITimeSeriesPoint {
   time: string;
@@ -567,7 +410,7 @@ export interface OptionOITimeSeriesPoint {
 }
 
 
-// ΓöÇΓöÇ OI-Weighted Greeks ΓöÇΓöÇ
+// ── OI-Weighted Greeks ──
 
 export interface OIWeightedGreeks {
   netDelta: number;
@@ -578,7 +421,7 @@ export interface OIWeightedGreeks {
   topDeltaStrikes: { strike: number; delta: number; oi: number; contribution: number; type: string }[];
 }
 
-export function getOIWeightedGreeks(chain: OptionData[], lotSize: number): OIWeightedGreeks {
+export function getOIWeightedGreeks(chain: OptionData[], _lotSize: number): OIWeightedGreeks {
   let netDelta = 0, netGamma = 0, netTheta = 0, netVega = 0, gex = 0;
   const deltaContributions: { strike: number; delta: number; oi: number; contribution: number; type: string }[] = [];
 
@@ -611,7 +454,7 @@ export function getOIWeightedGreeks(chain: OptionData[], lotSize: number): OIWei
   };
 }
 
-// ΓöÇΓöÇ Candlestick Data (original, kept for backward compat) ΓöÇΓöÇ
+// ── Candlestick Data (original, kept for backward compat) ──
 
 export interface CandleData {
   time: string;
@@ -640,13 +483,12 @@ export interface Position {
   pnlPercent: number;
   delta: number;
   theta: number;
-  gamma: number;
   iv: number;
 }
 
 
 
-// ΓöÇΓöÇ P&L Simulator ΓöÇΓöÇ
+// ── P&L Simulator ──
 
 export interface PnLSimPoint {
   spotPrice: number;
@@ -682,7 +524,7 @@ export function simulatePnL(positions: Position[], spotRange: [number, number], 
   return points;
 }
 
-// ΓöÇΓöÇ Greeks Decay Simulation ΓöÇΓöÇ
+// ── Greeks Decay Simulation ──
 
 export interface GreeksDecayPoint {
   day: number;
@@ -692,19 +534,13 @@ export interface GreeksDecayPoint {
   totalDelta: number;
 }
 
-// Projects each position's REAL theoretical price at T+d via Black-Scholes
-// (spot and IV held constant, DTE reduced by d) — this isolates pure time
-// decay, the standard "what does theta alone do to me" question every
-// options holder asks. Previously this used an arbitrary decay-factor formula
-// plus seeded random noise, which produced a specific-looking but entirely
-// fabricated P&L path. Callers must resolve each position's current spot and
-// remaining DTE themselves (see PositionTracker.tsx) — this module has no
-// store access, to avoid a circular import back into positionStore.ts.
-export function simulateGreeksDecay(
-  positions: (Position & { spotPrice: number; daysToExpiry: number })[],
-  daysForward: number = 7
-): GreeksDecayPoint[] {
+/**
+ * Deterministic premium-decay sketch for a set of positions (no random noise: the result is a
+ * rough illustration, not a forecast). Prefer the payoff and Greeks helpers in "@/lib/options".
+ */
+export function simulateGreeksDecay(positions: Position[], daysForward: number = 7): GreeksDecayPoint[] {
   const points: GreeksDecayPoint[] = [];
+  let cumulativeTheta = 0;
 
   for (let d = 0; d <= daysForward; d++) {
     let totalPnl = 0;
@@ -713,22 +549,20 @@ export function simulateGreeksDecay(
 
     for (const p of positions) {
       const mult = p.action === "BUY" ? 1 : -1;
-      const remainingDTE = Math.max(p.daysToExpiry - d, 0.001);
-      const greeks = calculateGreeks(p.spotPrice, p.strike, remainingDTE, p.iv || 14, 6.5);
-      const theoPrice = p.type === "CE" ? greeks.callPrice : greeks.putPrice;
-      const legDelta = p.type === "CE" ? greeks.delta.call : greeks.delta.put;
-      const legTheta = p.type === "CE" ? greeks.theta.call : greeks.theta.put;
-
-      totalPnl += (theoPrice - p.entryPrice) * mult * p.lots * p.lotSize;
-      totalTheta += legTheta * mult * p.lots * p.lotSize;
-      totalDelta += legDelta * mult * p.lots * p.lotSize;
+      const decayFactor = Math.max(0, 1 - d * 0.12 * (1 + d * 0.03));
+      const priceMove = p.currentPrice * decayFactor;
+      const pnl = (priceMove - p.entryPrice) * mult * p.lots * p.lotSize;
+      totalPnl += pnl;
+      totalTheta += p.theta * mult * p.lots * p.lotSize;
+      totalDelta += p.delta * mult * p.lots * p.lotSize;
     }
 
+    cumulativeTheta += totalTheta;
     points.push({
       day: d,
       label: d === 0 ? "Today" : `T+${d}`,
       totalPnl: Math.round(totalPnl),
-      totalTheta: Math.round(totalTheta),
+      totalTheta: Math.round(cumulativeTheta),
       totalDelta: Math.round(totalDelta),
     });
   }

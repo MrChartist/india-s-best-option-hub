@@ -1,20 +1,41 @@
-import { Fragment, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Fragment, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Flame } from "lucide-react";
 import { type OptionData } from "@/lib/mockData";
+import { tokenColor } from "@/lib/chartTheme";
+import { findATMStrike } from "@/lib/options";
+import { significantStrikes, maxLegOI, SIGNIFICANT_OI_FRACTION, windowAround } from "@/lib/oiUtils";
+import { EmptyState, ModuleHeader } from "@/components/oi/shared";
+import { fmtOI, fmtOIChange, fmtStrike } from "@/components/oi/format";
+import { cn } from "@/lib/utils";
 
 interface OIHeatmapProps {
   chain: OptionData[];
   spotPrice: number;
+  /** Kept for API compatibility; the ATM strike is found from the chain. */
   stepSize?: number;
+  /** Strike to outline (deep link). */
+  highlightStrike?: number;
 }
 
-export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
+/** Strikes shown each side of ATM before "Show all". */
+const HEATMAP_PER_SIDE = 12;
+
+/**
+ * Call and put OI per strike as two colour ramps: calls in the call (resistance) colour,
+ * puts in the put (support) colour. Strikes under 5% of the largest leg OI are hidden, and the map
+ * is capped at ATM ± 12 strikes until "Show all" is pressed. The colour scale always uses the
+ * largest OI in the full chain so cells do not change shade when the cap is lifted.
+ */
+export function OIHeatmap({ chain, spotPrice, highlightStrike }: OIHeatmapProps) {
+  const [showAll, setShowAll] = useState(false);
   const heatmapData = useMemo(() => {
-    const filtered = chain.filter(o => o.ce.oi > 10000 || o.pe.oi > 10000);
-    const maxOI = Math.max(...filtered.map(o => Math.max(o.ce.oi, o.pe.oi)), 1);
-    return filtered.map(o => ({
+    const filtered = significantStrikes(chain, SIGNIFICANT_OI_FRACTION);
+    const maxOI = Math.max(maxLegOI(filtered), 1);
+    const atm = filtered.length > 0 ? findATMStrike(filtered, spotPrice) : NaN;
+    return filtered.map((o) => ({
       strike: o.strikePrice,
       ceIntensity: o.ce.oi / maxOI,
       peIntensity: o.pe.oi / maxOI,
@@ -22,81 +43,122 @@ export function OIHeatmap({ chain, spotPrice, stepSize = 50 }: OIHeatmapProps) {
       peOI: o.pe.oi,
       ceOIChg: o.ce.oiChange,
       peOIChg: o.pe.oiChange,
-      isATM: Math.abs(o.strikePrice - spotPrice) < stepSize,
+      isATM: o.strikePrice === atm,
     }));
-  }, [chain, spotPrice, stepSize]);
+  }, [chain, spotPrice]);
 
-  const getColor = (intensity: number, type: "call" | "put") => {
-    const alpha = 0.1 + intensity * 0.85;
-    return type === "call"
-      ? `hsl(142 71% 45% / ${alpha})`
-      : `hsl(0 84% 60% / ${alpha})`;
-  };
+  const atmRow = heatmapData.find((d) => d.isATM);
+  const visible = useMemo(() => {
+    if (showAll || !atmRow) return heatmapData;
+    const win = windowAround(heatmapData, atmRow.strike, HEATMAP_PER_SIDE);
+    // Keep a deep-linked strike visible even outside the window.
+    if (highlightStrike && !win.some((d) => d.strike === highlightStrike)) {
+      const extra = heatmapData.find((d) => d.strike === highlightStrike);
+      if (extra) return [...win, extra].sort((a, b) => a.strike - b.strike);
+    }
+    return win;
+  }, [heatmapData, showAll, atmRow, highlightStrike]);
+  const hidden = heatmapData.length - visible.length;
+
+  const fill = (intensity: number, token: "chart-call" | "chart-put") => tokenColor(token, 0.08 + Math.max(0, Math.min(1, intensity)) * 0.72);
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Flame className="h-4 w-4" /> OI Heatmap
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
-          <span>← Low OI</span>
-          <div className="h-2.5 flex-1 rounded-full border border-border/40" style={{ background: "linear-gradient(90deg, hsl(142 71% 45% / 0.1), hsl(142 71% 45% / 0.9))" }} />
-          <span>High OI →</span>
-        </div>
-
-        <div className="grid grid-cols-[1fr_60px_1fr] gap-0.5">
-          {/* Header */}
-          <div className="text-center text-xs font-medium text-bullish pb-1">CALL OI</div>
-          <div className="text-center text-xs font-medium pb-1">STRIKE</div>
-          <div className="text-center text-xs font-medium text-bearish pb-1">PUT OI</div>
-
-          {heatmapData.map(d => (
-            <Fragment key={d.strike}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex h-5 cursor-default items-center justify-end rounded-sm pr-1.5 transition-all hover:ring-1 hover:ring-foreground/20"
-                    style={{ backgroundColor: getColor(d.ceIntensity, "call") }}
-                  >
-                    <span className="text-xs font-mono">{(d.ceOI / 1000).toFixed(0)}K</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  <p>CE OI: {(d.ceOI / 100000).toFixed(2)}L</p>
-                  <p className={d.ceOIChg >= 0 ? "text-bullish" : "text-bearish"}>
-                    Chg: {d.ceOIChg >= 0 ? "+" : ""}{(d.ceOIChg / 1000).toFixed(1)}K
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-
-              <div
-                className={`flex h-5 items-center justify-center rounded-sm text-xs font-mono font-bold ${d.isATM ? "bg-primary/15 text-primary ring-1 ring-primary/20" : "text-muted-foreground"}`}
-              >
-                {d.strike}
+      <ModuleHeader
+        icon={<Flame className="h-4 w-4 text-primary-ink" />}
+        title="OI heatmap"
+        hint={`Darker cells hold more open interest. ${showAll ? "All strikes" : `ATM ± ${HEATMAP_PER_SIDE} strikes`} holding at least 5% of the largest OI.`}
+        right={
+          heatmapData.length > HEATMAP_PER_SIDE * 2 + 1 ? (
+            <Button variant="outline" size="pill" className="h-7 text-xs" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>
+              {showAll ? `Show ATM ± ${HEATMAP_PER_SIDE}` : `Show all (${heatmapData.length})`}
+            </Button>
+          ) : undefined
+        }
+      />
+      <CardContent className="p-4">
+        {heatmapData.length === 0 ? (
+          <EmptyState icon={<Flame className="h-5 w-5" />} title="No open interest to map" />
+        ) : (
+          <>
+            <div className="mb-3 grid grid-cols-1 gap-2 text-[11px] text-muted-foreground sm:grid-cols-2" aria-hidden="true">
+              <div className="flex items-center gap-2">
+                <span className="w-14 shrink-0 font-medium text-bearish">Call OI</span>
+                <div className="h-2 flex-1 rounded-capsule" style={{ background: `linear-gradient(90deg, ${tokenColor("chart-call", 0.08)}, ${tokenColor("chart-call", 0.8)})` }} />
               </div>
+              <div className="flex items-center gap-2">
+                <span className="w-14 shrink-0 font-medium text-bullish">Put OI</span>
+                <div className="h-2 flex-1 rounded-capsule" style={{ background: `linear-gradient(90deg, ${tokenColor("chart-put", 0.08)}, ${tokenColor("chart-put", 0.8)})` }} />
+              </div>
+              <div className="flex justify-between sm:col-span-2">
+                <span>Low</span>
+                <span>High</span>
+              </div>
+            </div>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
+            <div className="grid grid-cols-[1fr_72px_1fr] gap-0.5">
+              <div className="pb-1 text-center text-label uppercase text-bearish">Call OI</div>
+              <div className="pb-1 text-center text-label uppercase text-muted-foreground">Strike</div>
+              <div className="pb-1 text-center text-label uppercase text-bullish">Put OI</div>
+
+              {visible.map((d) => (
+                <Fragment key={d.strike}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        tabIndex={0}
+                        aria-label={`${fmtStrike(d.strike)} call OI ${fmtOI(d.ceOI)}, change ${fmtOIChange(d.ceOIChg)}`}
+                        className="flex h-6 cursor-default items-center justify-end rounded-sm pr-1.5 hover:ring-1 hover:ring-foreground/20 focus-visible:shadow-ember focus-visible:outline-none"
+                        style={{ backgroundColor: fill(d.ceIntensity, "chart-call") }}
+                      >
+                        <span className="font-num text-[11px]">{fmtOI(d.ceOI)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs">
+                      <p>Call OI: {fmtOI(d.ceOI)}</p>
+                      <p>Change: {fmtOIChange(d.ceOIChg)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+
                   <div
-                    className="flex h-5 cursor-default items-center rounded-sm pl-1.5 transition-all hover:ring-1 hover:ring-foreground/20"
-                    style={{ backgroundColor: getColor(d.peIntensity, "put") }}
+                    className={cn(
+                      "flex h-6 items-center justify-center rounded-sm font-num text-[11px] font-semibold",
+                      d.isATM ? "bg-wash-brand text-primary-ink ring-1 ring-inset ring-primary/45" : "text-muted-foreground",
+                      highlightStrike === d.strike && "ring-2 ring-inset ring-primary",
+                    )}
                   >
-                    <span className="text-xs font-mono">{(d.peOI / 1000).toFixed(0)}K</span>
+                    {fmtStrike(d.strike)}
                   </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">
-                  <p>PE OI: {(d.peOI / 100000).toFixed(2)}L</p>
-                  <p className={d.peOIChg >= 0 ? "text-bullish" : "text-bearish"}>
-                    Chg: {d.peOIChg >= 0 ? "+" : ""}{(d.peOIChg / 1000).toFixed(1)}K
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </Fragment>
-          ))}
-        </div>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        tabIndex={0}
+                        aria-label={`${fmtStrike(d.strike)} put OI ${fmtOI(d.peOI)}, change ${fmtOIChange(d.peOIChg)}`}
+                        className="flex h-6 cursor-default items-center rounded-sm pl-1.5 hover:ring-1 hover:ring-foreground/20 focus-visible:shadow-ember focus-visible:outline-none"
+                        style={{ backgroundColor: fill(d.peIntensity, "chart-put") }}
+                      >
+                        <span className="font-num text-[11px]">{fmtOI(d.peOI)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      <p>Put OI: {fmtOI(d.peOI)}</p>
+                      <p>Change: {fmtOIChange(d.peOIChg)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Fragment>
+              ))}
+            </div>
+            {!showAll && hidden > 0 && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {hidden} far strike{hidden === 1 ? "" : "s"} hidden.{" "}
+                <button type="button" className="rounded-chip font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:shadow-ember focus-visible:outline-none" onClick={() => setShowAll(true)}>
+                  Show all
+                </button>
+              </p>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );

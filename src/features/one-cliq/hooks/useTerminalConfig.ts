@@ -57,7 +57,8 @@ export function useTerminalConfig() {
   }, [config]);
 
   const stepSize = useMemo(() => getStepSize(config.symbol), [config.symbol]);
-  const lotSize = useMemo(() => getLotSize(config.symbol), [config.symbol]);
+  // Display-only: the server resolves the authoritative lot size from the instrument master.
+  const lotSize = useMemo(() => getLotSize(config.symbol, config.expiry || undefined), [config.symbol, config.expiry]);
 
   const update = useCallback(<K extends keyof TerminalConfig>(key: K, value: TerminalConfig[K]) => {
     setConfig((prev) => ({ ...prev, [key]: value }));

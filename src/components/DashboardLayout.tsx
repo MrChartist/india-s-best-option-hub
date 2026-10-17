@@ -1,214 +1,408 @@
-import { useState, useEffect, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusFooter } from "@/components/StatusFooter";
-import { CommandPalette } from "@/components/CommandPalette";
-import { AlertSystem } from "@/components/AlertSystem";
-import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { SampleBanner } from "@/components/SampleBanner";
+import { SHORTCUT_HELP, useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { probeProxy, useProxyStatus } from "@/lib/api/proxyClient";
+import { startMarketWS } from "@/lib/websocketClient";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLiveIndices, useMarketStatus, useAllIndices } from "@/hooks/useMarketData";
 import { useQueryClient } from "@tanstack/react-query";
 import { getActiveBroker } from "@/lib/brokerConfig";
-import { Search, Bell, Timer, RefreshCw, Wifi, WifiOff, Plane, Settings, Zap, ExternalLink } from "lucide-react";
+import type { IndexData } from "@/lib/mockData";
+import {
+  dteLabel,
+  formatDateIST,
+  formatTimeIST,
+  getExpiries,
+  getMarketSession,
+  nextSessionChange,
+  type MarketSession,
+} from "@/lib/options";
+import { cn } from "@/lib/utils";
+
+// The alert engine (and the snapshot store it feeds) loads after first paint, out of the main chunk.
+const AlertSystem = lazy(() => import("@/components/AlertSystem"));
+import { Search, Bell, Timer, RefreshCw, Plane, Settings, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 
-// Sidebar collapse state is persisted to a cookie by ui/sidebar.tsx, but SidebarProvider's
-// `defaultOpen` always defaulted to `true` — read it back here so the sidebar doesn't
-// snap back to expanded on every page reload.
-function getInitialSidebarOpen(): boolean {
-  if (typeof document === "undefined") return true;
-  const match = document.cookie.match(/(?:^|;\s*)sidebar:state=(true|false)/);
-  return match ? match[1] === "true" : true;
+const EXPIRY_SYMBOL = "NIFTY";
+
+/** Chains recorded app-wide during market hours so flow, OI replay, IV and PCR history accrue on any page. */
+const RECORD_SYMBOLS = [{ symbol: "NIFTY" }, { symbol: "BANKNIFTY" }, { symbol: "SENSEX" }];
+
+// The command palette (cmdk, the F&O universe, route search) is only fetched on the first ⌘K or
+// search click; hovering or focusing the search button warms the chunk.
+const loadCommandPalette = () => import("@/components/CommandPalette").then((m) => ({ default: m.CommandPalette }));
+const CommandPalette = lazy(loadCommandPalette);
+
+// The snapshot recorder and its IndexedDB store load through a dynamic import, and only once the
+// proxy is reachable: it records live chains only, so there is nothing to do in sample mode.
+const SnapshotRecorderHost = lazy(() =>
+  import("@/hooks/useSnapshotRecorder").then(({ useSnapshotRecorder }) => ({
+    default: function SnapshotRecorder() {
+      useSnapshotRecorder(RECORD_SYMBOLS);
+      return null;
+    },
+  })),
+);
+
+function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription>Press "g" then a letter to jump to a page. Shortcuts are ignored while typing.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {SHORTCUT_HELP.map((group) => (
+            <section key={group.category} className={group.category === "Navigation" ? "sm:row-span-2" : undefined}>
+              <h3 className="mb-1.5 text-label uppercase text-muted-foreground">{group.category}</h3>
+              <ul className="space-y-1">
+                {group.items.map((item) => (
+                  <li key={item.description} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-foreground/90">{item.description}</span>
+                    <span className="flex shrink-0 gap-1">
+                      {item.keys.map((k) => (
+                        <kbd key={k} className="min-w-[1.5rem] rounded border border-border bg-muted px-1.5 py-0.5 text-center font-mono text-xs">
+                          {k.length === 1 ? k.toUpperCase() : k}
+                        </kbd>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
+
+const SESSION_META: Record<MarketSession, { label: string; short: string; tone: "open" | "edge" | "shut" }> = {
+  "pre-open": { label: "Pre-open session", short: "Pre-open", tone: "edge" },
+  open: { label: "Market open", short: "Open", tone: "open" },
+  closing: { label: "Closing session", short: "Closing", tone: "edge" },
+  closed: { label: "Market closed", short: "Closed", tone: "shut" },
+  holiday: { label: "Exchange holiday", short: "Holiday", tone: "shut" },
+  weekend: { label: "Weekend", short: "Weekend", tone: "shut" },
+};
+
+const TONE_DOT: Record<"open" | "edge" | "shut", string> = {
+  open: "bg-bullish",
+  edge: "bg-warning",
+  shut: "bg-muted-foreground/60",
+};
+
+/** Re-renders on a fixed interval; keeps ticking state out of the layout. */
+function useNow(intervalMs: number): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+/** Leaf component: the only part of the header that re-renders every second. */
+function ISTClock() {
+  const now = useNow(1000);
+  return (
+    <time
+      dateTime={now.toISOString()}
+      className="hidden font-num text-xs font-medium tabular-nums text-muted-foreground md:inline"
+      aria-label={`Indian Standard Time ${formatTimeIST(now)}`}
+    >
+      {formatTimeIST(now, { seconds: true })}
+    </time>
+  );
+}
+
+/** Leaf component: countdown to the nearest NIFTY expiry (15:30 IST), refreshed each minute. */
+function ExpiryCountdown() {
+  const now = useNow(60_000);
+  const next = useMemo(() => getExpiries(EXPIRY_SYMBOL, now, 1)[0], [now]);
+  if (!next) return null;
+  const label = dteLabel(next.date, now);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="hidden h-7 items-center gap-1.5 rounded-capsule border border-border bg-card/70 px-2.5 text-xs sm:flex"
+          tabIndex={0}
+          aria-label={`${EXPIRY_SYMBOL} exp ${label}: next expiry ${formatDateIST(next.date)}`}
+        >
+          <Timer className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+          <span className="hidden text-label uppercase text-muted-foreground lg:inline">{EXPIRY_SYMBOL} exp</span>
+          <span className="font-num font-semibold tabular-nums text-foreground">{label}</span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {EXPIRY_SYMBOL} {next.type} expiry · {formatDateIST(next.date)}, 15:30 IST
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function TickerItem({ label, value, changePct, invert = false }: { label: string; value: string; changePct?: number; invert?: boolean }) {
+  const hasChange = typeof changePct === "number" && Number.isFinite(changePct);
+  const up = hasChange && (changePct as number) >= 0;
+  const good = invert ? !up : up;
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 px-3 first:pl-0 last:pr-0">
+      <span className="text-label uppercase text-muted-foreground">{label}</span>
+      <span className="font-num text-xs font-semibold tabular-nums">{value}</span>
+      {hasChange && (
+        <span className={cn("font-num text-xs font-medium tabular-nums", good ? "text-bullish" : "text-bearish")}>
+          {up ? "▲" : "▼"} {Math.abs(changePct as number).toFixed(2)}%
+        </span>
+      )}
+    </div>
+  );
+}
+
+
+/** Query-key roots holding live market data; the R / refresh button only touches these. */
+const LIVE_QUERY_KEYS = new Set<string>([
+  "nse-indices",
+  "nse-all-indices",
+  "nse-market-status",
+  "live-option-chain",
+  "chain-multi",
+  "chain-by-expiry",
+  "chain-snapshot",
+  "oi-secondary-chain",
+  "sb-chain",
+  "snapshot-recorder-chain",
+  "screener",
+  "sparkline",
+  "flow-oi-spurts",
+  "proxy-health",
+]);
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [paletteMounted, setPaletteMounted] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [timeToExpiry, setTimeToExpiry] = useState("");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [now, setNow] = useState<Date>(new Date());
+  const sessionNow = useNow(30_000);
 
   // Live data hooks
   const { data: indicesResult } = useLiveIndices();
   const { data: marketResult } = useMarketStatus();
   const { data: allIndicesData } = useAllIndices();
 
-  const indices = indicesResult?.data || [];
+  const indices: IndexData[] = indicesResult?.data || [];
   const isLiveData = indicesResult?.isLive || false;
-  const isMarketOpen = marketResult?.isOpen || false;
   const giftNifty = marketResult?.giftNifty || null;
   const liveVix = allIndicesData?.vix;
 
+  const session = getMarketSession(sessionNow);
+  const sessionMeta = SESSION_META[session];
+  const nextChange = nextSessionChange(sessionNow);
+
   // Check broker config
   const activeBroker = getActiveBroker();
-  const hasDhanKeys = activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken;
+  const hasDhanKeys = Boolean(
+    activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken,
+  );
+
+  const openSearch = useCallback(() => {
+    setPaletteMounted(true);
+    setSearchOpen(true);
+  }, []);
 
   useKeyboardShortcuts({
-    onToggleSearch: () => setSearchOpen(true),
+    onToggleSearch: openSearch,
     onToggleAlerts: () => setAlertsOpen(true),
+    onShowShortcuts: () => setShortcutsOpen(true),
   });
 
-  // Quick refresh — invalidate ALL queries
+  // Proxy reachability: probe once on mount (the banner resolves even before any query runs), and
+  // open the live WebSocket feed only once the gate says the proxy is up.
+  const proxy = useProxyStatus();
+  const proxyOnline = proxy.status === "online";
+  useEffect(() => {
+    void probeProxy();
+  }, []);
+  useEffect(() => {
+    if (proxyOnline) startMarketWS();
+  }, [proxyOnline]);
+
+  // Quick refresh: invalidate live-market queries only. Slow-moving data
+  // (instrument master, multi-year histories, IV backfills) is left alone.
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current !== null) clearTimeout(refreshTimerRef.current);
+    },
+    [],
+  );
   const handleQuickRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await queryClient.invalidateQueries();
+    await queryClient.invalidateQueries({
+      predicate: (q) => typeof q.queryKey[0] === "string" && LIVE_QUERY_KEYS.has(q.queryKey[0]),
+    });
     setLastRefresh(new Date());
-    setTimeout(() => setIsRefreshing(false), 800);
+    if (refreshTimerRef.current !== null) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      setIsRefreshing(false);
+    }, 800);
   }, [queryClient]);
 
-  // Keyboard shortcut: R for refresh
+  // Keyboard shortcut: R for refresh. Pages with their own R handler (Option
+  // Chain, OI Analysis) call preventDefault; those listeners may be registered
+  // after this one, so check defaultPrevented once dispatch has finished.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "r" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if ((e.key === "r" || e.key === "R") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.defaultPrevented) return;
         const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-        handleQuickRefresh();
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable) return;
+        setTimeout(() => {
+          if (!e.defaultPrevented) void handleQuickRefresh();
+        }, 0);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleQuickRefresh]);
 
-  // Keyboard shortcut: Ctrl/Cmd+K opens the command palette (the header + footer both
-  // advertise this hint, but nothing previously listened for it).
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  useEffect(() => {
-    const updateTimer = () => {
-      const now = new Date();
-      setNow(now);
-      const target = new Date(now);
-      target.setHours(15, 30, 0, 0);
-      const dayOfWeek = now.getDay();
-      const daysUntilThursday = ((4 - dayOfWeek) + 7) % 7 || 7;
-      if (!(dayOfWeek === 4 && now < target)) {
-        target.setDate(target.getDate() + daysUntilThursday);
-      }
-      const diff = target.getTime() - now.getTime();
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setTimeToExpiry(`${days}d ${hours}h ${mins}m`);
-    };
-    updateTimer();
-    const interval = setInterval(updateTimer, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  const showTicker = indices.length > 0 || Boolean(liveVix);
 
   return (
-    <SidebarProvider defaultOpen={getInitialSidebarOpen()}>
-      <div className="min-h-screen flex w-full bg-background relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--primary)/0.035)_0%,transparent_22rem),linear-gradient(90deg,hsl(var(--primary)/0.025)_0%,transparent_36rem)] pointer-events-none" />
-        <div className="bg-noise" />
+    <SidebarProvider>
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <div className="relative flex h-svh w-full overflow-hidden bg-background">
+        <div className="bg-noise" aria-hidden="true" />
 
         <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden relative z-10">
-          {/* Top Bar */}
-          <header className="min-h-11 flex items-center border-b border-border/70 px-2.5 sm:px-3 shrink-0 bg-background/92 backdrop-blur-xl transition-colors">
-            <SidebarTrigger className="mr-2 h-6 w-6" />
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Top bar */}
+          <header className="glass-nav sticky top-0 z-30 flex min-h-12 shrink-0 items-center gap-2 px-2.5 sm:px-3">
+            <SidebarTrigger className="h-8 w-8 shrink-0" aria-label="Toggle sidebar" />
 
-            {/* Live Ticker — real-time from useLiveIndices */}
-            <div className="hidden xl:flex items-center gap-4 overflow-hidden flex-1 mr-2">
-              {indices.slice(0, 4).map((idx: any) => {
-                const pos = idx.change >= 0;
-                return (
-                  <div key={idx.symbol} className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{idx.symbol}</span>
-                    <span className="text-xs font-mono font-semibold tabular-nums">{idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                    <span className={`text-xs font-mono font-medium tabular-nums ${pos ? "text-bullish" : "text-bearish"}`}>
-                      {pos ? "+" : ""}{idx.changePercent.toFixed(2)}%
-                    </span>
-                  </div>
-                );
-              })}
-
-              {/* VIX */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">VIX</span>
-                <span className={`text-xs font-mono font-semibold tabular-nums ${(liveVix?.changePercent ?? 0) >= 0 ? "text-bearish" : "text-bullish"}`}>
-                  {liveVix ? liveVix.value.toFixed(2) : "--"}
-                </span>
-                {liveVix && (
-                  <span className={`text-xs font-mono font-medium tabular-nums ${liveVix.changePercent >= 0 ? "text-bearish" : "text-bullish"}`}>
-                    {liveVix.changePercent >= 0 ? "+" : ""}{liveVix.changePercent.toFixed(2)}%
-                  </span>
-                )}
-              </div>
-
-              {/* GIFT Nifty — shown when available */}
-              {giftNifty && giftNifty.lastPrice > 0 && (
-                <div className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 rounded bg-primary/5 border border-primary/10">
-                  <Plane className="h-3 w-3 text-primary" />
-                  <span className="text-xs text-primary font-medium uppercase tracking-wider">GIFT</span>
-                  <span className="text-xs font-mono font-semibold tabular-nums">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
-                  <span className={`text-xs font-mono font-medium tabular-nums ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
-                    {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)}
-                  </span>
+            {/* Ticker capsule: live indices */}
+            <div className="hidden min-w-0 flex-1 lg:flex">
+              {showTicker && (
+                <div
+                  className="flex h-8 min-w-0 items-center divide-x divide-border overflow-hidden rounded-capsule border border-border bg-card/70 px-3.5 shadow-card"
+                  aria-label="Market ticker"
+                  role="group"
+                >
+                  {indices.slice(0, 3).map((idx) => (
+                    <TickerItem
+                      key={idx.symbol}
+                      label={idx.symbol}
+                      value={idx.ltp.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      changePct={idx.changePercent}
+                    />
+                  ))}
+                  <TickerItem
+                    label="VIX"
+                    value={liveVix ? liveVix.value.toFixed(2) : "—"}
+                    changePct={liveVix?.changePercent}
+                    invert
+                  />
+                  {giftNifty && giftNifty.lastPrice > 0 && (
+                    <div className="hidden shrink-0 items-center gap-1.5 px-3 last:pr-0 xl:flex">
+                      <Plane className="h-3 w-3 text-primary-ink" aria-hidden="true" />
+                      <span className="text-label uppercase text-primary-ink">GIFT</span>
+                      <span className="font-num text-xs font-semibold tabular-nums">
+                        {giftNifty.lastPrice.toLocaleString("en-IN")}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-num text-xs font-medium tabular-nums",
+                          giftNifty.change >= 0 ? "text-bullish" : "text-bearish",
+                        )}
+                      >
+                        {giftNifty.change >= 0 ? "▲" : "▼"} {Math.abs(giftNifty.change).toFixed(0)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Controls */}
-            <div className="flex items-center gap-1 shrink-0 ml-auto">
-              {/* Data source badge — CLICKABLE with status popover */}
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+              {/* One status pill: market session + data feed */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-xs font-semibold transition-all cursor-pointer hover:opacity-90 ${
-                    isLiveData
-                      ? "border-bullish/50 text-bullish bg-bullish/5"
-                      : "border-muted-foreground/30 text-muted-foreground bg-muted/30"
-                  }`}>
-                    {isLiveData ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                    <span className="hidden sm:inline">{isLiveData ? "LIVE" : "OFFLINE"}</span>
+                  <button
+                    type="button"
+                    className="flex h-7 items-center gap-2 rounded-capsule border border-border bg-card/70 px-2.5 text-xs font-semibold transition-colors duration-fast hover:border-primary/40 focus-visible:outline-none focus-visible:shadow-ember"
+                  >
+                    <span className="relative flex h-2 w-2" aria-hidden="true">
+                      {sessionMeta.tone === "open" && (
+                        <span className="absolute inset-0 animate-ping rounded-full bg-bullish opacity-40 motion-reduce:hidden" />
+                      )}
+                      <span className={cn("relative h-2 w-2 rounded-full", TONE_DOT[sessionMeta.tone])} />
+                    </span>
+                    <span className="text-foreground">{sessionMeta.short}</span>
+                    <span className="h-3 w-px bg-border" aria-hidden="true" />
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", isLiveData ? "bg-bullish" : "bg-bearish")}
+                        aria-hidden="true"
+                      />
+                      <span className="sr-only sm:not-sr-only">{isLiveData ? "Live" : "Offline"}</span>
+                    </span>
+                    {/* Accessible name = visible text plus this, so it always contains what is shown. */}
+                    <span className="sr-only">{`: ${sessionMeta.label}, data feed ${isLiveData ? "live" : "offline"}. Open status details`}</span>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64 p-3" align="end">
+                <PopoverContent className="w-72 p-3.5" align="end">
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2.5 w-2.5 rounded-full ${isLiveData ? "bg-bullish animate-pulse" : "bg-muted-foreground/50"}`} />
-                      <p className="text-xs font-semibold">{isLiveData ? "Live Data Connected" : "Data Unavailable"}</p>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("h-2.5 w-2.5 rounded-full", TONE_DOT[sessionMeta.tone])} aria-hidden="true" />
+                        <p className="text-sm font-semibold">{sessionMeta.label}</p>
+                      </div>
+                      <p className="pl-[18px] text-xs text-muted-foreground">
+                        NSE · {nextChange.label} · {formatTimeIST(sessionNow)}
+                      </p>
                     </div>
 
-                    <div className="space-y-1.5 text-xs">
+                    <div className="space-y-1.5 border-t border-border pt-3 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Proxy Server</span>
-                        <Badge variant="outline" className={`text-xs h-4 ${isLiveData ? "border-bullish/50 text-bullish" : "border-destructive/50 text-destructive"}`}>
-                          {isLiveData ? "Connected" : "Offline"}
+                        <span className="text-muted-foreground">Proxy</span>
+                        <Badge variant={proxyOnline ? "bullish" : proxy.status === "unknown" ? "warning" : "bearish"}>
+                          {proxyOnline ? "Reachable" : proxy.status === "unknown" ? "Checking" : proxy.sampleMode ? "Sample mode" : "Offline"}
                         </Badge>
                       </div>
-
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Dhan API Keys</span>
-                        <Badge variant="outline" className={`text-xs h-4 ${hasDhanKeys ? "border-bullish/50 text-bullish" : "border-warning/50 text-warning"}`}>
-                          {hasDhanKeys ? "Configured" : "Not Set"}
-                        </Badge>
+                        <span className="text-muted-foreground">Data feed</span>
+                        <Badge variant={isLiveData ? "bullish" : "bearish"}>{isLiveData ? "Live" : "Offline"}</Badge>
                       </div>
-
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Data Source</span>
-                        <span className="font-medium">{isLiveData ? "Dhan / NSE" : "Offline"}</span>
+                        <span className="text-muted-foreground">Dhan API keys</span>
+                        <Badge variant={hasDhanKeys ? "bullish" : "warning"}>{hasDhanKeys ? "Configured" : "Not set"}</Badge>
                       </div>
-
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Last Refresh</span>
-                        <span className="font-mono">{lastRefresh.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+                        <span className="text-muted-foreground">Source</span>
+                        <span className="font-medium">{isLiveData ? "Dhan / NSE / TradingView" : "None"}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Last refresh</span>
+                        <span className="font-num tabular-nums">{formatTimeIST(lastRefresh, { seconds: true })}</span>
                       </div>
                     </div>
 
@@ -216,94 +410,113 @@ export default function DashboardLayout() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full h-8 text-xs gap-1.5"
+                        className="h-8 w-full gap-1.5 text-xs"
                         onClick={() => navigate("/broker-settings")}
                       >
-                        <Settings className="h-3 w-3" />
-                        Configure Broker Keys
-                        <ExternalLink className="h-3 w-3 ml-auto" />
+                        <Settings className="h-3 w-3" aria-hidden="true" />
+                        Configure broker keys
+                        <ExternalLink className="ml-auto h-3 w-3" aria-hidden="true" />
                       </Button>
                     )}
 
                     {!isLiveData && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Run <code className="bg-muted px-1 rounded text-xs">npm run dev</code> to start both Vite + proxy server, or configure Dhan API keys for live data.
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        Run <code className="rounded bg-muted px-1 text-xs">npm run dev</code> to start Vite and the
+                        proxy server, or add Dhan API keys for live data.
                       </p>
                     )}
                   </div>
                 </PopoverContent>
               </Popover>
 
-              <div className="hidden sm:block w-px h-4 bg-border mx-0.5" />
+              <ExpiryCountdown />
 
-              {/* Expiry Timer */}
-              <div className="hidden sm:flex items-center gap-1 px-1.5">
-                <Timer className="h-3 w-3 text-warning" />
-                <span className="text-xs font-mono text-warning tabular-nums">{timeToExpiry}</span>
-              </div>
-
-              <div className="hidden sm:block w-px h-4 bg-border mx-0.5" />
+              <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
 
               {/* Refresh */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/5" onClick={handleQuickRefresh}>
-                    <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleQuickRefresh}
+                    aria-label="Refresh all data"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} aria-hidden="true" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Refresh <kbd className="ml-1 text-xs font-mono bg-muted px-1 rounded">R</kbd></TooltipContent>
+                <TooltipContent side="bottom">
+                  Refresh <kbd className="ml-1 rounded bg-muted px-1 text-micro">R</kbd>
+                </TooltipContent>
               </Tooltip>
 
               {/* Search */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/5" onClick={() => setSearchOpen(true)}>
-                    <Search className="h-3.5 w-3.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={openSearch}
+                    onPointerEnter={() => void loadCommandPalette()}
+                    onFocus={() => void loadCommandPalette()}
+                    aria-label="Search pages and symbols"
+                  >
+                    <Search className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Search <kbd className="ml-1 text-xs font-mono bg-muted px-1 rounded">⌘K</kbd></TooltipContent>
+                <TooltipContent side="bottom">
+                  Search <kbd className="ml-1 rounded bg-muted px-1 text-micro">Ctrl K</kbd>
+                </TooltipContent>
               </Tooltip>
 
               {/* Alerts */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 relative hover:bg-primary/5" onClick={() => setAlertsOpen(true)}>
-                    <Bell className="h-3.5 w-3.5" />
-                    <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setAlertsOpen(true)}
+                    aria-label="Open alerts"
+                  >
+                    <Bell className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Alerts</TooltipContent>
+                <TooltipContent side="bottom">Alerts</TooltipContent>
               </Tooltip>
 
-              <div className="w-px h-4 bg-border mx-0.5" />
-
-              {/* Market Status */}
-              <div className="flex items-center gap-1.5">
-                <div className="relative">
-                  <span className={`block h-1.5 w-1.5 rounded-full ${isMarketOpen ? "bg-bullish" : "bg-muted-foreground/50"}`} />
-                  {isMarketOpen && <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-bullish animate-ping opacity-50" />}
-                </div>
-                <span className="hidden sm:inline text-xs text-muted-foreground font-medium tracking-wide">
-                  {isMarketOpen ? "LIVE" : "CLOSED"}
-                </span>
-              </div>
-              <span className="hidden md:inline text-xs text-muted-foreground font-mono tabular-nums ml-1">
-                {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-              </span>
+              <ISTClock />
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-2.5 sm:p-3 lg:p-4 pb-14 sm:pb-12">
+          <SampleBanner />
+
+          <main id="main" tabIndex={-1} className="flex-1 overflow-auto p-2.5 focus:outline-none focus-visible:shadow-none sm:p-3 lg:p-4">
             <div className="page-transition" key={location.pathname}>
               <Outlet />
             </div>
           </main>
+
+          <StatusFooter />
         </div>
       </div>
 
-      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
-      <AlertSystem open={alertsOpen} onOpenChange={setAlertsOpen} />
-      <StatusFooter />
+      {paletteMounted && (
+        <Suspense fallback={null}>
+          <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} onShowShortcuts={() => setShortcutsOpen(true)} />
+        </Suspense>
+      )}
+      {proxyOnline && (
+        <Suspense fallback={null}>
+          <SnapshotRecorderHost />
+        </Suspense>
+      )}
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <Suspense fallback={null}>
+        <AlertSystem open={alertsOpen} onOpenChange={setAlertsOpen} />
+      </Suspense>
     </SidebarProvider>
   );
 }

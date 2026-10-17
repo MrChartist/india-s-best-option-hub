@@ -10,7 +10,8 @@ interface Props {
   config: TerminalConfig;
   symbols: string[];
   expiries: { label: string; value: string }[];
-  lotSize: number;
+  /** Display-only lot size; undefined when the contract's lot size is not known locally. */
+  lotSize: number | undefined;
   onSymbol: (symbol: string) => void;
   onUpdate: <K extends keyof TerminalConfig>(key: K, value: TerminalConfig[K]) => void;
   onStepLots: (direction: 1 | -1) => void;
@@ -39,7 +40,7 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
     <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
       <Field label="Exchange">
         <Select value={config.exchange} onValueChange={(v) => onUpdate("exchange", v as TerminalConfig["exchange"])}>
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Exchange" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="NSE">NSE</SelectItem>
             <SelectItem value="BSE">BSE</SelectItem>
@@ -50,7 +51,7 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
 
       <Field label="Segment">
         <Select value={config.segment} onValueChange={(v) => onUpdate("segment", v as TerminalConfig["segment"])}>
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Segment" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="OPTIONS">Options</SelectItem>
             <SelectItem value="FUTURES">Futures</SelectItem>
@@ -60,7 +61,7 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
 
       <Field label="Symbol">
         <Select value={config.symbol} onValueChange={onSymbol}>
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Symbol" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             {symbols.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
@@ -73,7 +74,7 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
           onValueChange={(v) => onUpdate("expiry", v)}
           disabled={expiries.length === 0}
         >
-          <SelectTrigger className={TRIGGER}>
+          <SelectTrigger aria-label="Expiry" className={TRIGGER}>
             <SelectValue placeholder={expiries.length ? "Select" : "Loading…"} />
           </SelectTrigger>
           <SelectContent>
@@ -94,12 +95,12 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
         </div>
       </Field>
 
-      <Field label={`Qty (1 lot = ${lotSize})`}>
+      <Field label={`Qty (1 lot = ${lotSize ?? "—"})`}>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => onStepLots(-1)} tabIndex={-1} aria-label="Fewer lots">
             <Minus className="h-3 w-3" />
           </Button>
-          <Input
+          <Input aria-label="Quantity in lots"
             className="h-8 text-xs text-center font-mono tabular-nums"
             value={config.lots}
             inputMode="numeric"
@@ -132,7 +133,7 @@ export function InstrumentBar({ config, symbols, expiries, lotSize, onSymbol, on
 
       <Field label="Product Type">
         <Select value={config.productType} onValueChange={(v) => onUpdate("productType", v as TerminalConfig["productType"])}>
-          <SelectTrigger className={TRIGGER}><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Product Type" className={TRIGGER}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="INTRADAY">Intraday</SelectItem>
             <SelectItem value="MARGIN">Margin</SelectItem>

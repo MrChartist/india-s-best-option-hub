@@ -9,8 +9,6 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
-.env.production
-.env.development
 
 # Editor & IDE
 .vscode/*
@@ -41,6 +39,19 @@ coverage/
 # Proxy server cache
 .cache/
 
+# Lovable / AI tool artifacts
+.lovable/
+.gemini/
+.agents/
+_agents/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Server snapshot recorder output (proxy-server.mjs)
+data/
+
 # SQLite databases (local dev state)
 *.db
 *.db-shm
@@ -50,14 +61,10 @@ coverage/
 .codex-*.log
 .codex-logs/
 _backups/
-
-# Lovable / AI tool artifacts
-.lovable/
-.gemini/
-.agents/
-_agents/
 .gstack/
 .codegraph/
 .superpowers/
 .dev-restart.log
 .claude/
+.env.production
+.env.development

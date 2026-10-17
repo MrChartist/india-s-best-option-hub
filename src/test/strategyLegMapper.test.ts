@@ -1,25 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { mapLegsToPendingTrades, mapLegsToBasketLegs } from "@/lib/strategyLegMapper";
-import type { StrategyLeg } from "@/lib/mockData";
+import { mapLegsToBasketLegs, type BuilderLegLike } from "@/lib/strategyLegMapper";
 
-const legs: StrategyLeg[] = [
-  { type: "CE", action: "BUY", strike: 24000, lots: 2, premium: 120.5 },
-  { type: "PE", action: "SELL", strike: 23800, lots: 1, premium: 80 },
+const legs: BuilderLegLike[] = [
+  { type: "CE", side: "BUY", strike: 24000, lots: 2, expiry: "2026-10-27" },
+  { type: "PE", side: "SELL", strike: 23800, lots: 1, expiry: "" },
 ];
-
-describe("mapLegsToPendingTrades", () => {
-  it("maps every leg field to its PendingTrade equivalent, unchanged from the original inline logic", () => {
-    const trades = mapLegsToPendingTrades(legs, "NIFTY", 75);
-    expect(trades).toEqual([
-      { symbol: "NIFTY", strike: 24000, optionType: "CE", action: "BUY", lots: 2, price: 120.5, lotSize: 75 },
-      { symbol: "NIFTY", strike: 23800, optionType: "PE", action: "SELL", lots: 1, price: 80, lotSize: 75 },
-    ]);
-  });
-
-  it("returns an empty array for an empty strategy", () => {
-    expect(mapLegsToPendingTrades([], "NIFTY", 75)).toEqual([]);
-  });
-});
 
 describe("mapLegsToBasketLegs", () => {
   it("gives every leg a unique, stable legId and an absolute strikeSpec", () => {
@@ -30,16 +15,29 @@ describe("mapLegsToBasketLegs", () => {
     expect(basketLegs[1].strikeSpec).toEqual({ kind: "absolute", strike: 23800 });
   });
 
-  it("defaults every leg to the nearest weekly expiry, since StrategyBuilder has no expiry picker", () => {
-    const basketLegs = mapLegsToBasketLegs(legs);
-    for (const leg of basketLegs) {
-      expect(leg.expirySpec).toEqual({ kind: "nearest", weeksOut: 0 });
-    }
+  it("keeps a leg's ISO expiry and falls back to the nearest weekly without one", () => {
+    const [ce, pe] = mapLegsToBasketLegs(legs);
+    expect(ce.expirySpec).toEqual({ kind: "absolute", date: "2026-10-27" });
+    expect(pe.expirySpec).toEqual({ kind: "nearest", weeksOut: 0 });
   });
 
-  it("carries action/optionType/lots through unchanged", () => {
+  it("carries side/type/lots through as action/optionType/lots", () => {
     const [ce, pe] = mapLegsToBasketLegs(legs);
     expect(ce).toMatchObject({ action: "BUY", optionType: "CE", lots: 2 });
     expect(pe).toMatchObject({ action: "SELL", optionType: "PE", lots: 1 });
+  });
+
+  it("skips disabled legs and futures", () => {
+    const out = mapLegsToBasketLegs([
+      ...legs,
+      { type: "FUT", side: "BUY", strike: 0, lots: 1, expiry: "2026-10-27" },
+      { type: "CE", side: "SELL", strike: 24500, lots: 1, enabled: false },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.map((l) => l.legId)).toEqual(["leg-1", "leg-2"]);
+  });
+
+  it("returns an empty array for an empty strategy", () => {
+    expect(mapLegsToBasketLegs([])).toEqual([]);
   });
 });

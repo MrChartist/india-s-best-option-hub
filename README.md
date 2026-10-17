@@ -15,7 +15,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade Terminal](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Docker](#-running-with-docker-no-local-setup-required) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
+[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
 
 </div>
 
@@ -23,9 +23,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 
 > **🚀 v1.0 — Actively Maintained**
 >
-> Core features are stable and production-ready. 33 Indian brokers now have real backend option-chain/expiry/connection support (bring your own API key) — see the [Roadmap](#-current-status--roadmap) for what's next.
->
-> **New: 1Cliq Trade terminal** (`/one-cliq`) — a keyboard-driven, arrow-key one-click execution terminal inspired by dedicated scalping tools, with a full arming model, spot-referenced SL/Target math, and a real fill simulator. See [1Cliq Trade Terminal](#-1cliq-trade-terminal) below.
+> Core features are stable and production-ready. Some advanced broker integrations (Zerodha, Angel One, Upstox) have UI support but are pending backend relay implementation — contributions welcome! See the [Roadmap](#-current-status--roadmap) for what's next.
 >
 > Runs locally on your own machine. No hosting, no cloud database, and no required broker key for the basic dashboard experience.
 >
@@ -110,7 +108,7 @@ You only need three things: **Node.js**, this project folder, and a browser. The
 
 ### Windows PC
 
-1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+1. Install **Node.js LTS** (v20 or newer) from [nodejs.org](https://nodejs.org/).
 2. Download this project as a ZIP from GitHub and extract it, or clone it with Git.
 3. Open the extracted project folder.
 4. Click the folder address bar, type `cmd`, and press **Enter**. A terminal opens inside the project.
@@ -120,7 +118,7 @@ You only need three things: **Node.js**, this project folder, and a browser. The
 
 ### Mac
 
-1. Install **Node.js LTS** from [nodejs.org](https://nodejs.org/).
+1. Install **Node.js LTS** (v20 or newer) from [nodejs.org](https://nodejs.org/).
 2. Download this project as a ZIP from GitHub and unzip it, or clone it with Git.
 3. Open **Terminal**.
 4. Type `cd `, drag the project folder into Terminal, and press **Enter**.
@@ -140,19 +138,16 @@ You can use the basic dashboard without broker credentials. Add a free Dhan API 
 |---------|-------------|--------|
 | **📊 Live Dashboard** | Real-time NIFTY, BANKNIFTY prices, VIX, sector heatmap, market sentiment score | ✅ Working |
 | **⛓️ Option Chain** | Full strike-wise data — LTP, OI, OI Change, Volume, IV for every CE/PE strike | ✅ Working |
-| **📈 OI Analysis** | ATM zone, OI heatmap, support/resistance, delta tracking, and IV/PCR modules across 4 focused pages | ✅ Working |
-| **⚡ 1Cliq Trade Terminal** | Keyboard-driven one-click execution — arrow-key order entry, spot-referenced SL/Target, arming model, fill simulator | 🧪 Beta (paper-first) |
+| **📈 OI Analysis** | ATM zone, OI heatmap, support/resistance, IV/PCR modules, and 10 analysis tabs | ✅ Working |
 | **🧮 Strategy Builder** | Build Bull Call Spread, Iron Condor, Straddle — see payoff chart before you trade | ✅ Working |
 | **💼 Position Tracker** | Track your open positions with real-time P&L | ✅ Working |
-| **📋 Orders** | Live order book (Dhan) with cancel support, alongside the app's simulated paper trades | ✅ Working |
+| **⚡ 1Cliq Trade** | Keyboard-driven one-click execution terminal: arming model, server-side SL/target engine, F6 close all, F7 cancel all, trading lock | 🧪 Beta (paper-first) |
+| **📋 Orders** | Today's real Dhan order book with cancel for resting orders | 🧪 Beta |
 | **⭐ Watchlist** | Save your favorite stocks for quick access | ✅ Working |
-| **📡 Futures Scanner** | Real OI buildup/covering signals, volume, basis & rollover across index + full F&O stock universe | ✅ Working |
-| **🔑 Broker API Keys** | Connect your own broker account for live data (BYOK) — 33 brokers supported | ✅ Working |
+| **🔑 Broker API Keys** | Connect Dhan, or another broker's API key, for live data (BYOK) | ✅ Working (Dhan fully connected) |
 | **📡 WebSocket Live Feed** | Real-time price ticks via Dhan WebSocket binary protocol | ✅ Working |
 | **🗄️ Local Database** | IndexedDB-based persistence for price snapshots and candle history | ✅ Working |
 | **📥 Chart Downloader** | Batch download OHLCV candles via Yahoo Finance (free, no API key) | ✅ Working |
-
-> **Live Trading is off by default everywhere.** Buy/Sell actions place simulated paper trades until you explicitly flip the "Live Trading" toggle (Broker Settings or the Option Chain header) and acknowledge a real-money warning. See [Disclaimer](#️-disclaimer).
 
 ### Dashboard Sections
 
@@ -161,9 +156,8 @@ The dashboard is packed with live data widgets:
 - **Index Cards** — NIFTY 50, BANK NIFTY, FINNIFTY, MIDCAP NIFTY with live prices & intraday sparklines
 - **Data Sources Bar** — Real-time status of all 6 data sources (Dhan API, Dhan WS, Live Feed, NSE, TradingView, VIX)
 - **Key Metrics** — PCR, VIX, Max Pain for NIFTY and BANKNIFTY
-- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry, from each index's own real ATM IV
-- **Futures Buildup Scanner** — Top real Long/Short Buildup signals from the full F&O universe, linking to the full `/scanner` page
-- **FII/DII Activity** — Latest institutional cash-market net buy/sell, published by NSE after each session
+- **Expected Move** — How much NIFTY/BANKNIFTY might move before expiry (based on IV)
+- **IV Rank Scanner** — Scans major stocks for IV Rank with buy/sell signals
 - **Top Movers** — Today's biggest gainers and losers in F&O
 - **Futures & VIX** — Premium/Discount analysis and VIX trend charts
 - **Sector Performance** — Color-coded sector heatmap showing money flow
@@ -174,44 +168,20 @@ The dashboard is packed with live data widgets:
 
 ## ⚡ 1Cliq Trade Terminal
 
-A dedicated, keyboard-first execution terminal at `/one-cliq` (⌘9 / Ctrl+9), inspired by the fast-execution terminals professional scalpers use — built because 1Cliq-style tools run their trailing-stop logic in the browser tab, so closing the tab or losing the connection silently kills every automation. This app's architecture is designed to move that logic server-side instead (see [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md) for the full build spec and roadmap).
+A keyboard-first execution terminal at `/one-cliq` (`g` `t`). The full build spec and roadmap are in [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md).
 
-**The core architectural idea — the risk engine lives on the server, not in a browser tab:**
+**Live trading is off by default.** Fills are simulated paper trades until you turn on **Live trading** in Broker Settings, acknowledge the real-money warning, and arm the terminal (`O`). Arming never persists across a reload and auto-disarms when idle.
 
-```mermaid
-flowchart TD
-    WS["Dhan WebSocket<br/>binary ticks"] --> Parse["parseDhanBinaryPacket()"]
-    Parse --> Bus(["tickBus"])
-    Bus --> Risk{{"riskEngine.evaluate()<br/>spot-referenced SL / Target / trailing"}}
-    Risk -->|"trigger fires"| Order["placeOrder()<br/>real exit, server-side"]
-    Bus --> Fanout["per-client fan-out"]
-    Fanout --> Browser["🖥️ Browser<br/>view + arming client only<br/>never places a managed exit"]
+The risk engine lives on the proxy, not in the browser tab: every Dhan tick goes to the in-process `tickBus` and the server risk engine **before** it is sent to browsers, so a closed or throttled tab cannot delay an exit.
 
-    style Risk fill:#0d1117,stroke:#FF6633,color:#fff
-    style Order fill:#0d1117,stroke:#ef4444,color:#fff
-    style Browser fill:#0d1117,stroke:#22d3ee,color:#fff
-```
+- **Keyboard layer:** arrow keys for market orders, `+`/`-` lots, `1`-`5` lot presets, `F6` close all (press twice), `F7` cancel all, `O` arm, `Esc` disarm, `?` cheat sheet.
+- **Server risk engine** (`server/lib/riskEngine.mjs`): spot-referenced SL/target, trailing ratchet, position state machine and a 1 s dead-man's switch. The armed badge renders only from the server heartbeat. **Real exit orders are not wired yet**: the engine calls an injectable stub.
+- **Panic layer** (`server/lib/panicLayer.mjs`), wired to real Dhan calls: close all runs cancel-all first, then closes shorts, hedges and futures in three waves with a barrier between them. Both always re-fetch the authoritative book from Dhan (never a client-supplied list) and report success only after re-verifying it.
+- **Trading lock** with a server-computed cooling-off and a typed-figure ritual to clear a loss-triggered lock.
+- **Save as basket** in Strategy Builder resolves legs against the live chain and saves them. It **never places orders**.
+- **Orders page** (`/orders`) and portfolio read endpoints (`positions`, `holdings`, `funds`, `trades`, `modify-order`).
 
-The risk engine evaluates **before** the browser fan-out, so an exit is never late because a UI tab was slow, backgrounded, or closed — the single-writer server state machine is what a closed laptop lid can't defeat. (This is the target architecture from the spec; check the phase checklist below for what's actually wired end-to-end today.)
-
-**Shipped (paper-first terminal shell):**
-- Full CE / spot / PE strip with day-range meters, arrow-key strike stepping, and lot presets
-- Complete keyboard layer — arrow keys for market orders, `+`/`-` for lot size, `F6`/`F7` for close-all/cancel-all, `O` to arm one-click, `Esc` to disarm — scoped so it never breaks the app's existing shortcuts (`/`, `⌘K`, `⌘1`–`⌘9`)
-- An explicit arming model: one-click execution requires Live Trading to be on **and** a deliberate arm action **and** the terminal to be focused, auto-disarms after 90s idle, and never persists across a reload
-- A realistic fill simulator (bid/ask-aware, slippage, latency) so paper trades feel like real order flow, not instant LTP fills
-- Honest partial-exit handling — a 25% exit that rounds to less than one lot is disabled with an explanation, never silently rounded up
-
-**Shipped (server-side risk & panic infrastructure):**
-- A real server-side risk engine (`server/lib/riskEngine.mjs`) — spot-referenced SL/Target math, a trailing-stop ratchet, and a position state machine, all running server-side with a 1s dead-man's-switch heartbeat so the calculation survives a closed browser tab. The armed-status badge in the terminal renders **only** from that server heartbeat, never optimistic client state. **Real order placement is not wired into this engine yet** — it calls an injectable stub, so this is the risk *calculation* running server-side, not yet a live exit.
-- A three-wave panic layer (`server/lib/panicLayer.mjs`) wired to real Dhan calls: `F6`/`F7` in live mode hit real `panic-close-all`/`panic-cancel-all` endpoints that fetch your actual open positions/orders from Dhan, close shorts-then-longs-then-futures with a hard barrier between waves, and only report success after re-fetching and confirming the book is actually empty.
-- A trading lock (`unlocked` / `locked-by-user` / loss-triggered states) with a 10-minute cooling-off + typed-confirmation ritual to clear a loss lock — computed server-side, not from client-supplied timers.
-- Portfolio read endpoints (`positions`, `holdings`, `funds`, `trades`, `modify-order`) added to the proxy server — not yet wired to any page's UI.
-- A basket/tranche resolution engine (`server/lib/basketEngine.mjs`) plus a "Save as Basket" button in Strategy Builder that previews which legs are live-ready before saving — resolves and reports, **does not place orders**.
-- Broader broker order support: Dhan (live-verified), the Noren family — Flattrade/Shoonya/TradeSmart/Zebu (implemented, unverified against a live account), and Zerodha/Fyers (implemented against live-verified API docs). Alice Blue/5paisa/Kotak Neo remain data-only for now.
-
-> **This build went through an adversarial correctness audit before merging**, specifically checking for the money-losing failure modes `1CLIQ-TRADE-SPEC.md` §13 calls out. The audit caught a real one — the panic-close-all/cancel-all endpoints could be made to trust a client-supplied position list instead of always re-fetching from Dhan, which would have bypassed lot-size validation entirely. **That's fixed** (the endpoints now always use the fresh broker fetch), along with two related hardening fixes to the panic layer's success reporting and the trading-lock cooling-off timer. A separate audit of the older, already-shipped order-placement path (the plain "Live Trading" toggle on Option Chain, not the 1Cliq terminal) found that path is currently non-functional due to a CORS configuration gap — which means it fails safe today, but the fix needs a proper server-side session-arming design, not a quick patch, so it's tracked as open rather than rushed.
-
-**Still not wired end-to-end:** the risk engine's SL/Target exits and the basket engine's deploy step don't place real orders yet — both are the calculation/resolution layer only. Treat the 1Cliq terminal as paper-only for actual execution until that lands. Track exact status in `1CLIQ-TRADE-SPEC.md`'s roadmap (§11).
+Trading endpoints live on `/api/dhan-proxy?endpoint=…`, behind the same Host and Origin allowlists as the rest of the proxy. Anything that changes state is POST-only with a JSON body, and callers without an Origin header are accepted only from this machine.
 
 ---
 
@@ -221,7 +191,7 @@ The risk engine evaluates **before** the browser fan-out, so an exit is never la
 
 | Tool | Version | Download |
 |------|---------|----------|
-| **Node.js** | v18 or higher | [nodejs.org](https://nodejs.org/) |
+| **Node.js** | v20 or higher (v22 LTS recommended) | [nodejs.org](https://nodejs.org/) |
 | **Git** | Any recent version | [git-scm.com](https://git-scm.com/downloads) |
 | **Code Editor** | Optional but recommended | [VS Code](https://code.visualstudio.com/) |
 
@@ -253,7 +223,7 @@ npm install
 
 This downloads all the libraries the project needs. Wait for it to finish (~1-2 minutes on first install).
 
-> **Getting errors?** Make sure Node.js is installed by running `node --version`. You should see `v18.x.x` or higher. If not, [download Node.js](https://nodejs.org/).
+> **Getting errors?** Make sure Node.js is installed by running `node --version`. You should see `v20.x.x` or higher. If not, [download Node.js](https://nodejs.org/).
 
 ### Step 3: Start the App
 
@@ -279,6 +249,16 @@ This starts **two servers simultaneously**:
 | Dashboard overview, index cards, watchlist, sector flow, scanners, and many fallback data widgets | Full Dhan option chain, Greeks, expiry metadata, and live WebSocket ticks |
 | Local settings, local watchlist, browser storage, and theme preferences | Highest-quality real-time derivatives data |
 | Yahoo Finance historical candle downloads | Broker-specific authenticated endpoints |
+
+### Sample-data mode (no proxy, no keys)
+
+Want to look around outside market hours, or without running the proxy?
+
+```bash
+VITE_DATA_MODE=sample npm run dev:vite
+```
+
+With no proxy reachable, pages show either an empty state or clearly labelled sample data (look for the **Sample data** badge). `VITE_DATA_MODE=sample` tells the data layer to skip the proxy and go straight to sample data. Sample numbers are for demonstration only and are never shown as live prices. The Playwright smoke tests run in this mode.
 
 ### Step 4 (Optional): Add Dhan API for Premium Data
 
@@ -311,252 +291,41 @@ The proxy server will automatically detect your Dhan credentials and connect to 
 
 ### Step 5 (Optional): Add Other Broker Keys
 
-The Broker Settings page supports entering API keys for **33 Indian brokers** — each with real backend option-chain, expiry-list, and connection-test support (see `server/brokers/registry.mjs` for the full list). Highlights:
+Dhan is the reference integration (option chain, Greeks, the live feed and 1Cliq orders). Under **Other brokers** in Broker Settings you can also add an API key for the brokers in `server/brokers/registry.mjs` (Zerodha, Upstox, Fyers, Flattrade, Shoonya, Zebu and more). The active broker then supplies option chains and expiries through `/api/broker-proxy`; the live feed and 1Cliq orders stay on Dhan.
 
-| Broker | Status |
-|--------|--------|
-| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket, Futures Scanner) |
-| **Zerodha (Kite)** | ✅ Option chain, expiry list, LTP |
-| **Angel One (SmartAPI)** | ✅ Option chain, expiry list, LTP (auto TOTP login) |
-| **Upstox** | ✅ Option chain, expiry list, LTP |
-| **Fyers** | ✅ Option chain, expiry list, LTP |
-| **5paisa** | ✅ Option chain, expiry list, LTP |
-| **Alice Blue** | ✅ Option chain, expiry list, LTP (WebSocket quotes) |
-| **+26 more** | Zebu, Shoonya, Flattrade, Kotak, Groww, Paytm, HDFC Sky, and others — see Broker Settings for the full list |
-
-The Futures Scanner and dashboard-wide index/sector data always use Dhan → NSE regardless of your active broker, since those are bulk/multi-symbol feeds better served by a full-universe data source than any single broker's per-symbol quote API.
+Brokers whose APIs cannot log in without your password, MPIN or TOTP secret (for example Angel One, 5paisa, Kotak Neo) are listed but not available, because the terminal never stores those.
 
 ---
 
-## 🐳 Running with Docker (No Local Setup Required)
+## 🐳 Running with Docker
 
-You can run the entire application using Docker without installing Node.js or any dependencies on your system.
+The image is a production build: `dist/` is served on port **4001** and the data proxy runs on port **4002**, as a non-root user, with a health check. Broker keys are never baked into the image; they are read from `.env` at runtime.
 
----
-
-### ✅ Prerequisites
-
-* Install **Docker Desktop**
-* Ensure Docker is running
-
-Verify:
-
-```bash
-docker --version
-```
-
----
-
-### 🚀 Quick Start
-
-#### 1. Clone the repository
+### Docker Compose (recommended)
 
 ```bash
 git clone https://github.com/MrChartist/india-s-best-option-hub.git
 cd india-s-best-option-hub
+cp .env.example .env        # optional: add Dhan keys
+docker compose up --build
 ```
 
----
+Open `http://localhost:4001`. Both ports are bound to `127.0.0.1` only, because the proxy can hold your broker token.
 
-#### 2. Build the Docker image
+### Plain Docker
 
 ```bash
-docker build -t option-hub .
+docker build -t mrchartist-terminal .
+docker run --rm -p 127.0.0.1:4001:4001 -p 127.0.0.1:4002:4002 --env-file .env mrchartist-terminal
 ```
 
-Sample Output:
-```aiignore
-[+] Building 87.4s (10/10) FINISHED                                                                                                                                                                                                                      docker:desktop-linux
- => [internal] load build definition from Dockerfile                                                                                                                                                                                                                     0.0s
- => => transferring dockerfile: 294B                                                                                                                                                                                                                                     0.0s
- => [internal] load metadata for docker.io/library/node:18                                                                                                                                                                                                               2.1s
- => [internal] load .dockerignore                                                                                                                                                                                                                                        0.0s
- => => transferring context: 144B                                                                                                                                                                                                                                        0.0s
- => [1/5] FROM docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
- => => resolve docker.io/library/node:18@sha256:c6ae79e38498325db67193d391e6ec1d224d96c693a8a4d943498556716d3783                                                                                                                                                         0.0s
- => [internal] load build context                                                                                                                                                                                                                                        0.0s
- => => transferring context: 7.42kB                                                                                                                                                                                                                                      0.0s
- => CACHED [2/5] WORKDIR /app                                                                                                                                                                                                                                            0.0s
- => CACHED [3/5] COPY package*.json ./                                                                                                                                                                                                                                   0.0s
- => [4/5] RUN rm -rf node_modules package-lock.json     && npm install --force                                                                                                                                                                                          75.2s
- => [5/5] COPY . .                                                                                                                                                                                                                                                       0.1s 
- => exporting to image                                                                                                                                                                                                                                                   9.9s 
- => => exporting layers                                                                                                                                                                                                                                                  7.4s 
- => => exporting manifest sha256:75e3c113eac8c8dcc0ec769ec51bdfb5767ce0883609fe46f7ee57d983af34bb                                                                                                                                                                        0.0s 
- => => exporting config sha256:e8dfd38c4b9b20bb6f764db17b5a0c770d80d79ef0fa696956fd6f14a7195eaa                                                                                                                                                                          0.0s 
- => => exporting attestation manifest sha256:f65b10ee21b3422cab3fa8ba6596aed9a79262d011e0e87187cdaa28bde88f12                                                                                                                                                            0.0s 
- => => exporting manifest list sha256:5ccf075f6e80ce19f175629b38be8df5b4a010110a079c3ed06228c1182029d9                                                                                                                                                                   0.0s
- => => naming to docker.io/library/option-hub:latest                                                                                                                                                                                                                     0.0s
- => => unpacking to docker.io/library/option-hub:latest                                                                                                                                                                                                                  2.4s
+Leave out `--env-file .env` if you have no keys yet. Check health with `curl http://localhost:4002/health`.
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/q8ak3rr7fs3kwdwy7u8e48itu
-```
-
-Verify generated build image:
-```aiignore
-docker images | grep option-hub
-```
-
-Sample Output
-```aiignore
-option-hub                            latest    d906950fcb94   About a minute ago   2.24GB
-```
----
-
-#### 3. Run the container
-
-```bash
-docker run -p 4001:4001 -p 4002:4002 option-hub
-```
-
-Sample Output
-```aiignore
-
-> india-s-best-option-hub@1.0.0 dev
-> concurrently -n vite,proxy -c cyan,green "vite" "node proxy-server.mjs" --host
-
-[proxy] 
-[proxy]   🚀 Mr. Chartist Proxy Server
-[proxy]   ├─ HTTP:       http://localhost:4002
-[proxy]   ├─ WebSocket:  ws://localhost:4002/ws
-[proxy]   ├─ Health:     http://localhost:4002/health
-[proxy]   ├─ Dhan (1°):  http://localhost:4002/api/dhan-proxy?endpoint=option-chain&symbol=NIFTY
-[proxy]   ├─ NSE  (2°):  http://localhost:4002/api/nse-proxy?endpoint=indices
-[proxy]   └─ TV Scanner: http://localhost:4002/api/tv-scan?type=stocks
-[proxy] 
-[proxy]   Data Priority: Dhan → NSE → TradingView
-[proxy]   Dhan credentials: ⚠️  Not set (configure in .env or Broker Settings)
-[proxy] 
-[vite] 
-[vite]   VITE v5.4.21  ready in 83 ms
-[vite] 
-[vite]   ➜  Local:   http://localhost:4001/
-[vite]   ➜  Network: http://172.17.0.2:4001/
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy] [Proxy Error] /api/dhan-proxy: DHAN_CLIENT_ID or DHAN_ACCESS_TOKEN not configured. Add them to .env or pass via headers.
-[proxy]   🌐 Browser WebSocket client connected
-```
-
----
-
-#### 4. Open in browser
-
-```
-http://localhost:4001
-```
-
----
-
-### 🔧 How it Works
-
-* **Frontend (Vite)** runs on: `http://localhost:4001`
-* **Proxy Server** runs on: `http://localhost:4002`
-* Everything runs inside an isolated container
-
----
-
-### ⚠️ Notes
-
-* If port `4001` or `4002` is already in use, run:
-
-```bash
-docker run -p 5001:4001 -p 5002:4002 option-hub
-```
-
-Then open:
-
-```
-http://localhost:5001
-```
-
----
-
-### 🔁 Development Mode (Hot Reload)
-
-To enable live code changes:
-
-```bash
-docker run -p 4001:4001 -p 4002:4002 -v $(pwd):/app option-hub
-```
-
----
-
-### 🧠 Apple Silicon (M1/M2/M3) Note
-
-If you face issues related to Rollup or native modules, rebuild using:
-
-```bash
-docker build --no-cache -t option-hub .
-```
-
----
-
-### 🛑 Stopping the Container
-
-Find running containers:
-
-```bash
-docker ps
-```
-
-Stop:
-
-```bash
-docker stop <container_id>
-```
-
----
-
-### 🧹 Cleanup
-
-Remove container:
-
-```bash
-docker rm <container_id>
-```
-
-Remove image:
-
-```bash
-docker rmi option-hub
-```
-
----
-
-### 📦 Optional: Docker Compose
-
-Create a `docker-compose.yml`:
-
-```yaml
-version: "3"
-
-services:
-  option-hub:
-    build: .
-    ports:
-      - "4001:4001"
-      - "4002:4002"
-    volumes:
-      - .:/app
-    command: npm run dev -- --host
-```
-
-Run:
-
-```bash
-docker-compose up --build
-```
-
----
-
-### 🎯 Benefits of Docker Setup
-
-* No local dependency installation
-* Clean and isolated environment
-* Works across Mac, Linux, Windows
-* Easy onboarding for new users
+| Setting | How |
+|---------|-----|
+| Different host ports | `-p 127.0.0.1:5001:4001 -p 127.0.0.1:5002:4002`, and rebuild with `--build-arg VITE_PROXY_URL=http://localhost:5002` |
+| Proxy on another host | `--build-arg VITE_PROXY_URL=https://proxy.example.com` and set `PROXY_ALLOWED_ORIGINS` at runtime |
+| Hot reload while coding | Use `npm run dev` on your machine; the image is for running, not developing |
 
 ---
 
@@ -577,26 +346,13 @@ Priority: Dhan API (1st) → NSE India (2nd) → TradingView (3rd) → Yahoo Fin
 
 ### How the Data Flows
 
-```mermaid
-flowchart LR
-    Browser["🖥️ Your Browser<br/>React app · :4001"]
-    Proxy["🔀 Local Proxy Server<br/>CORS · caching · retry · WS relay · :4002"]
-    Dhan[("Dhan API<br/>1st priority")]
-    NSE[("NSE India<br/>2nd — fallback")]
-    TV[("TradingView<br/>3rd — fallback")]
-    YF[("Yahoo Finance<br/>charts only")]
-
-    Browser <--"HTTP requests"--> Proxy
-    Dhan =="binary WebSocket ticks"==> Proxy
-    Proxy -->|option chain, Greeks, ticks| Dhan
-    Proxy -->|indices, sectors, A/D| NSE
-    Proxy -->|F&O stock prices| TV
-    Proxy -->|OHLCV history| YF
-    Proxy =="live ticks, JSON"==> Browser
-
-    style Browser fill:#0d1117,stroke:#FF6633,color:#fff
-    style Proxy fill:#0d1117,stroke:#22d3ee,color:#fff
-    style Dhan fill:#0d1117,stroke:#6366f1,color:#fff
+```
+Your Browser  ←→  Local Proxy Server (:4002)  ←→  Dhan / NSE / TradingView
+      ↑                    ↑
+      │                    │
+   React App          Handles CORS,
+   (port 4001)        caching, retry,
+                       WebSocket relay
 ```
 
 1. Your browser sends requests to the **local proxy server** (runs on your machine)
@@ -626,31 +382,6 @@ Hover over any indicator to see detailed connection info, including tick count, 
 
 ## 📖 Pages Guide
 
-```mermaid
-flowchart LR
-    subgraph Markets["📊 Markets"]
-        direction TB
-        Dash["Dashboard<br/>⌘1"]
-        Chain["Option Chain<br/>⌘2"]
-        OI["OI Analysis ⌘3<br/><i>Overview · Trending OI<br/>Strike Analysis · Delta Tracker</i>"]
-        Watch["Watchlist<br/>⌘4"]
-        Scan["Scanner<br/>⌘7"]
-    end
-    subgraph Trading["⚡ Trading Tools"]
-        direction TB
-        OneCliq["1Cliq Trade<br/>⌘9"]
-        Strat["Strategy Builder<br/>⌘5"]
-        Pos["Position Tracker<br/>⌘6"]
-        Ord["Orders<br/>⌘8"]
-    end
-    subgraph Settings["⚙️ Settings"]
-        direction TB
-        Brk["Broker API Keys"]
-    end
-
-    style OneCliq fill:#0d1117,stroke:#FF6633,color:#fff
-```
-
 ### 1. Dashboard (`/`)
 
 The main dashboard with 10+ live data sections. Everything refreshes automatically during market hours.
@@ -675,63 +406,64 @@ Full option chain for any F&O symbol — NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY,
 
 ### 3. OI Analysis (`/oi-analysis`)
 
-Deep analysis of Open Interest data, split into four focused pages (shared header with ATM zone summary + expiry picker):
+Deep analysis of Open Interest data with summary cards, ATM zone analysis, OI heatmap, support/resistance, multi-expiry context, IV/PCR modules, and 10 analysis tabs:
 
-| Page | Route | What It Shows |
-|------|-------|--------------|
-| **Overview** | `/oi-analysis` | Summary cards, OI heatmap, support/resistance, IV/PCR gauge |
-| **Trending OI** | `/oi-analysis/trending-oi` | OI Change, OI Distribution, and OI Interpretation (buildup/unwinding/short covering) |
-| **Strike Analysis** | `/oi-analysis/strike-analysis` | Delta OI, Strike PCR, OI Correlation, Multi-Expiry comparison, and Top Strikes — as sub-tabs |
-| **Delta Tracker** | `/oi-analysis/delta-tracker` | Live strike-wise delta exposure tracked over time |
+| Tab | What It Shows |
+|-----|--------------|
+| **Delta OI** | Directional exposure at each strike |
+| **Strike PCR** | Put-Call ratio per strike |
+| **OI Correlation** | OI, OI change, and volume relationships |
+| **OI Distribution** | Where Call/Put writers are concentrated |
+| **OI Change** | Strike-wise change in open interest |
+| **Multi-Expiry** | Weekly vs Monthly OI comparison |
+| **IV Smile** | Implied Volatility skew across strikes |
+| **PCR Trend** | Live PCR gauge + OI breakdown |
+| **OI Interpretation** | Buildup, unwinding, short covering, and active strikes |
+| **Top Strikes** | Highest call and put OI strikes |
 
-### 4. Scanner (`/scanner`)
-
-Real-time futures scanner across the full F&O stock + index universe — OI buildup/covering signals, volume, basis, and a rollover table, with search and signal filters.
-
-### 5. Strategy Builder (`/strategy-builder`)
+### 4. Strategy Builder (`/strategy-builder`)
 
 Build any options strategy and see its payoff chart before trading.
 
 **Pre-built strategies:** Bull Call Spread, Bear Put Spread, Long Straddle, Iron Condor, Butterfly, Collar, and more.
 
-### 6. Position Tracker (`/position-tracker`)
+### 5. Position Tracker (`/position-tracker`)
 
-Track your open option positions with simulated P&L, position sizing helper, and trade journal analytics.
+Track your open option positions with simulated P&L.
 
-### 7. Orders (`/orders`)
-
-Live Dhan order book (today's orders, 15s auto-refresh) with cancel support for pending/in-transit orders.
-
-### 8. 1Cliq Trade (`/one-cliq`)
-
-The keyboard-driven one-click execution terminal — see [1Cliq Trade Terminal](#-1cliq-trade-terminal) above.
-
-### 9. Watchlist (`/watchlist`)
+### 6. Watchlist (`/watchlist`)
 
 Save your favorite F&O symbols for quick access.
 
-### 10. Broker Settings (`/broker-settings`)
+### 7. Broker Settings (`/broker-settings`)
 
-Configure your broker API credentials. See real-time connection status for all data sources. Supports 33 Indian brokers with BYOK (Bring Your Own Key) architecture.
+Configure your broker API credentials, see real-time connection status for all data sources, and turn Live trading (1Cliq Trade) on or off. BYOK (Bring Your Own Key) architecture.
 
 ---
 
 ## ⌨️ Keyboard Shortcuts
 
+Press `g`, then a letter, to jump between pages (like Gmail or GitHub). Shortcuts are ignored while you are typing in a field or a dialog is open.
+
 | Shortcut | Action |
 |----------|--------|
-| `⌘1` or `Ctrl+1` | Go to Dashboard |
-| `⌘2` or `Ctrl+2` | Go to Option Chain |
-| `⌘3` or `Ctrl+3` | Go to OI Analysis |
-| `⌘4` or `Ctrl+4` | Go to Watchlist |
-| `⌘5` or `Ctrl+5` | Go to Strategy Builder |
-| `⌘6` or `Ctrl+6` | Go to Position Tracker |
-| `⌘7` or `Ctrl+7` | Go to Scanner |
-| `⌘8` or `Ctrl+8` | Go to Orders |
-| `⌘9` or `Ctrl+9` | Go to 1Cliq Trade terminal |
-| `/` | Open Command Palette |
+| `g` `d` | Dashboard |
+| `g` `c` | Option Chain |
+| `g` `o` | OI Analysis |
+| `g` `s` | Strategy Builder |
+| `g` `v` | Volatility |
+| `g` `x` | Gamma Exposure |
+| `g` `f` | Options Flow |
+| `g` `t` | 1Cliq Trade |
+| `g` `p` | Position Tracker |
+| `g` `l` | Learn |
+| `/` or `Ctrl+K` | Search / command palette |
+| `R` | Refresh market data |
+| `Alt+A` | Alerts |
+| `?` | Show all shortcuts |
+| `Esc` | Close panels |
 
-The 1Cliq Trade terminal (`/one-cliq`) layers on a full second keyboard scheme of its own — arrow keys, lot-size steps, arm/disarm, close-all/cancel-all — scoped to that route only. Press `?` inside the terminal for its cheat sheet.
+The list is generated from the route registry in `src/lib/routes.ts`.
 
 ---
 
@@ -756,14 +488,8 @@ The 1Cliq Trade terminal (`/one-cliq`) layers on a full second keyboard scheme o
 
 ```
 india-s-best-option-hub/
-├── 1CLIQ-TRADE-SPEC.md       # Build spec + roadmap for the 1Cliq Trade terminal
-├── proxy-server.mjs          # Local proxy server (broker registry + NSE + TradingView + WebSocket relay + order routes)
-├── server/                   # Multi-broker backend — dependency-free .mjs modules
-│   ├── brokers/               # One module per broker (33 total) + registry.mjs (shared contract)
-│   └── lib/                   # Shared helpers — instrument/lot-size cache, market-hours clock, order guard,
-│                               # Dhan order placement, binary tick parsing, dynamic feed subscriptions,
-│                               # daily snapshots, futures utils, batching, Black-Scholes, TOTP
-├── .env.example              # Environment variable template
+├── proxy-server.mjs          # Local proxy server (Dhan + NSE + TradingView + WebSocket relay)
+├── .env.example              # Environment variable template  
 ├── package.json              # Dependencies and scripts
 ├── vite.config.ts            # Vite configuration (port 4001)
 ├── tailwind.config.ts        # Tailwind CSS with custom design system
@@ -777,21 +503,12 @@ india-s-best-option-hub/
 │   ├── pages/                # Each page = one route
 │   │   ├── Index.tsx         # Dashboard (/) — 10+ widget sections
 │   │   ├── OptionChain.tsx   # Option Chain (/option-chain)
-│   │   ├── oi-analysis/      # OI Analysis (/oi-analysis) — layout + Overview/Trending OI/Strike Analysis/Delta Tracker
-│   │   ├── Scanner.tsx       # Futures Scanner (/scanner) — real OI buildup signals + rollover, F&O-wide
+│   │   ├── OIAnalysis.tsx    # OI Analysis (/oi-analysis) — ATM zone + 10 analysis tabs
+│   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
 │   │   ├── StrategyBuilder.tsx # Strategy Builder (/strategy-builder)
 │   │   ├── PositionTracker.tsx # Position Tracker (/position-tracker)
-│   │   ├── Orders.tsx        # Orders (/orders) — live Dhan order book with cancel
-│   │   ├── Watchlist.tsx     # Watchlist (/watchlist)
 │   │   ├── BrokerSettings.tsx  # Broker Settings (/broker-settings)
 │   │   └── NotFound.tsx      # 404 page
-│   │
-│   ├── features/
-│   │   └── one-cliq/         # 1Cliq Trade terminal (/one-cliq) — feature-scoped, own components/hooks/lib
-│   │       ├── OneCliqTerminal.tsx   # Route entry / layout shell
-│   │       ├── components/           # ActionBar, ArmBanner, DayRangeMeter, LegQuoteCard, PositionsGrid, ...
-│   │       ├── hooks/                 # useArming, useLegQuote, useQuickOrder, useTerminalActions/Config/Hotkeys
-│   │       └── lib/                   # fillModel, keymap, prng, rateLimiter, tickStore, isTypingTarget
 │   │
 │   ├── components/           # Reusable UI pieces
 │   │   ├── ui/               # Base components (Button, Card, Table, Badge, etc.)
@@ -805,22 +522,15 @@ india-s-best-option-hub/
 │   │   │   ├── SectorHeatmap.tsx     # Color-coded sector performance grid
 │   │   │   ├── MostActiveFnO.tsx     # Highest activity F&O stocks
 │   │   │   ├── MarketBreadth.tsx     # Sentiment score, A/D ratio, VIX regime
-│   │   │   ├── FuturesVIX.tsx        # Index spot + VIX trend (honest — no fake futures data)
+│   │   │   ├── FuturesVIX.tsx        # Futures premium/discount + VIX chart
 │   │   │   ├── GiftNiftyExpiry.tsx   # GIFT Nifty + expiry countdown
-│   │   │   ├── GlobalMarketCues.tsx  # Overnight US/Asia cues feeding into the day's setup
-│   │   │   ├── TopBuildupSignals.tsx # Real top Long/Short Buildup names, links to /scanner
-│   │   │   ├── FIIDIIActivity.tsx    # Real FII/DII net cash-market activity
 │   │   │   ├── WelcomeBanner.tsx     # Welcome message
 │   │   │   ├── QuickTradeActions.tsx # Quick navigation cards
 │   │   │   ├── SectionHeader.tsx     # Section titles with tooltips
 │   │   │   └── InfoTooltip.tsx       # Educational tooltips
-│   │   ├── scanner/                  # Futures Scanner page pieces (table, filters, rollover)
-│   │   ├── GammaExposure.tsx         # Real GEX-by-strike chart + dealer positioning
+│   │   ├── IVPercentileGauge.tsx     # IV analysis with live smile chart
+│   │   ├── IVRankWidget.tsx          # IV rank scanner (multi-symbol)
 │   │   ├── ExpectedMoveWidget.tsx    # Expected move calculator
-│   │   ├── LiveTradingToggle.tsx     # The one real-money gate every Buy/Sell action checks
-│   │   ├── TradeConfirmDialog.tsx    # Confirm dialog for manual order placement
-│   │   ├── PositionSizeCalculator.tsx # Risk-based position sizing helper
-│   │   ├── TradeJournalAnalytics.tsx # Win-rate / P&L analytics over closed positions
 │   │   ├── DashboardLayout.tsx       # Sidebar + main content layout
 │   │   ├── AppSidebar.tsx            # Navigation sidebar with all routes
 │   │   ├── CommandPalette.tsx        # Cmd+K command palette
@@ -831,7 +541,7 @@ india-s-best-option-hub/
 │   │   └── ...                       # More specialized components
 │   │
 │   ├── hooks/                # React hooks (data fetching & state)
-│   │   ├── useMarketData.ts  # All market data hooks (option chain, indices, F&O stocks, futures scanner, FII/DII)
+│   │   ├── useMarketData.ts  # All market data hooks (option chain, indices, F&O stocks)
 │   │   ├── useWebSocket.ts   # WebSocket connection for live Dhan ticks
 │   │   ├── useLocalDatabase.ts # IndexedDB read/write hooks
 │   │   ├── useKeyboardShortcuts.ts # Global keyboard shortcuts
@@ -842,15 +552,8 @@ india-s-best-option-hub/
 │   │   ├── marketApi.ts      # API calls (Dhan → NSE → TradingView fallback chain)
 │   │   ├── websocketClient.ts # Browser-side WebSocket client for Dhan relay
 │   │   ├── brokerConfig.ts   # Broker definitions + localStorage key management
-│   │   ├── brokerCatalog.ts  # Static broker metadata (logos, docs links) for Broker Settings
-│   │   ├── liveArm.ts        # Structural client-side gate: placeOrder() is unconstructible without an armed token
 │   │   ├── oiUtils.ts        # OI analysis calculations (Max Pain, PCR, Delta OI)
-│   │   ├── futuresUtils.ts   # Futures row types + buildup-signal coloring (shared by Scanner + dashboard)
-│   │   ├── deltaStrikeTracking.ts # Strike-wise delta history for the Delta Tracker page
-│   │   ├── trendingOiStore.ts # OI-change history persistence for Trending OI
-│   │   ├── instrumentKeys.ts # Exchange/segment/security-id key helpers
 │   │   ├── positionStore.ts  # Position tracking with lot sizes
-│   │   ├── alertStore.ts     # Alert persistence (localStorage)
 │   │   ├── localDatabase.ts  # IndexedDB wrapper for persistent storage
 │   │   ├── mockData.ts       # TypeScript type definitions and data models
 │   │   └── utils.ts          # General utilities (cn helper)
@@ -869,13 +572,19 @@ india-s-best-option-hub/
 
 | Command | What It Does |
 |---------|-------------|
-| `npm run dev` | **Start everything** — Vite frontend (`:4001`) + Proxy server (`:4002`) together |
-| `npm run dev:vite` | Start only Vite (frontend only, no live data from proxy) |
+| `npm run dev` | **Start everything**: Vite frontend (`:4001`) and proxy server (`:4002`) together |
+| `npm run dev:vite` | Start only Vite (frontend only, no live data from the proxy) |
 | `npm run proxy` | Start only the proxy server |
-| `npm run build` | Create production build in `dist/` folder |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Check code for TypeScript/ESLint errors |
-| `npm run test` | Run tests with Vitest |
+| `npm run build` | Production build in `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | TypeScript in strict mode (app, config files and e2e) |
+| `npm run lint` | ESLint (`npm run lint:strict` fails on any warning) |
+| `npm test` | Unit tests with Vitest |
+| `npm run test:coverage` | Unit tests with coverage (90% gate on `src/lib/options/**`) |
+| `npm run test:e2e` | Playwright smoke tests on every page, in sample-data mode (run `npx playwright install chromium` once) |
+| `npm run format` | Format with Prettier (Tailwind classes sorted) |
+| `npm run knip` | Find unused files, exports and dependencies |
+| `npm run check` | Typecheck, lint, test and build: run this before opening a PR |
 
 ---
 
@@ -890,7 +599,7 @@ india-s-best-option-hub/
 
 ### "npm install fails"
 
-- Make sure you have **Node.js v18+** installed: `node --version`
+- Make sure you have **Node.js v20+** installed: `node --version`
 - Try clearing npm cache: `npm cache clean --force` then `npm install` again
 - On Windows, try running as Administrator
 - On Mac/Linux, if permission errors: `sudo npm install` (not recommended long-term — fix npm permissions instead)
@@ -934,22 +643,18 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 
 ## 🗺️ Current Status & Roadmap
 
+The full, prioritised plan (feature parity with Sensibull, OptionStrat and others, adapted for NSE) lives in **[ROADMAP.md](ROADMAP.md)**. How the code fits together is in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
 ### ✅ What's Working Now
 
-- Full Dashboard with 10+ live widgets, including real FII/DII activity, global market cues, and a Futures Buildup Scanner summary
-- Option Chain (Dhan primary, NSE fallback), with a real (not simulated) multi-expiry "By Strike" view
-- OI Analysis split into 4 focused pages — Overview, Trending OI, Strike Analysis, Delta Tracker — with ATM zone, heatmap, support/resistance, and Gamma Exposure (GEX)
-- Futures Scanner (`/scanner`) — real OI buildup/covering signals, volume, basis, and a rollover table across index futures + the full F&O stock universe
-- **1Cliq Trade terminal (`/one-cliq`)** — keyboard-driven one-click execution shell, full arming model, spot-referenced SL/Target UI, realistic paper fill simulator (see [1Cliq Trade Terminal](#-1cliq-trade-terminal))
+- Full Dashboard with 10+ live widgets
+- Option Chain (Dhan primary, NSE fallback)
+- OI Analysis with ATM zone, heatmap, support/resistance, and 10 analysis tabs
 - Strategy Builder with payoff diagrams
-- Position Tracker, with a position-size calculator and trade journal analytics
-- Orders (`/orders`) — live Dhan order book with cancel
+- Position Tracker
 - Watchlist
-- Alert system with working persistence and correct per-symbol price triggers
-- 33-broker backend (option chain, expiry list, connection test) — bring your own API key for any of them; a growing subset also support real order placement (see `server/brokers/registry.mjs`)
-- Dhan WebSocket live feed with binary protocol parsing, dynamic per-strike subscriptions
-- Server-side order guard (`server/lib/orderGuard.mjs`) re-validating every order — lot size, fat-finger ceilings, rate limits, price bands — independently of the browser
-- Proxy server with multi-source failover (broker → NSE → TradingView)
+- Dhan WebSocket live feed with binary protocol parsing
+- Proxy server with 3-source failover (Dhan → NSE → TradingView)
 - Data source status bar
 - Keyboard shortcuts & command palette
 - Dark/Light theme
@@ -958,25 +663,23 @@ This means you're hitting Dhan's rate limit. The proxy caches responses to minim
 
 ### 🔧 What's Being Worked On (Next 10–30 Days)
 
-- [ ] Wire the risk engine's SL/Target triggers and the basket engine's deploy step to actually place real exit/entry orders (both currently compute/resolve only, via an injectable stub — see [1Cliq Trade Terminal](#-1cliq-trade-terminal))
-- [ ] Real server-side session-arming for the plain (non-1Cliq) live order path — currently blocked by a CORS gap that fails safe but isn't the right long-term fix
-- [ ] Frontend for the new portfolio endpoints (`positions`/`holdings`/`funds`/`trades`/`modify-order`) — shipped server-side, no page consumes them yet
-- [ ] Live-account verification of the Noren-family and Zerodha/Fyers order implementations (currently implemented and unit-tested but not fired against a real funded account)
+- [ ] Full integration for Zerodha, Angel One, Upstox, Fyers APIs
 - [ ] Historical OI change charts
-- [ ] Alert system push notifications (in-app toast + sound alerts already work)
+- [ ] Options Greeks calculator with real-time Greeks from Dhan
+- [ ] Multi-expiry comparison views
+- [ ] Alert system with push notifications
 - [ ] Advanced strategy P&L with multi-DTE scenarios
-- [ ] Per-stock IV Rank (needs a real historical-IV data pipeline — the Scanner intentionally ships without it rather than fake a 52-week history)
+- [ ] GEX (Gamma Exposure) analysis
+- [ ] FII/DII activity dashboard
 - [ ] Mobile-responsive layout improvements
 - [ ] Production deployment guide (Vercel + VPS proxy)
 
 ### 🤔 Known Gaps (Help Wanted!)
 
 - Some dashboard sections may show empty during off-market hours — this is by design (no mock data)
+- Zerodha/Angel One/Upstox/Fyers/5paisa/Alice Blue have UI forms but no backend connectors yet
 - The Strategy Builder payoff chart doesn't integrate with live option chain pricing yet
 - Some component state doesn't persist across page navigation
-- The Futures Scanner and dashboard-wide index/sector data always use Dhan/NSE regardless of your active broker (bulk multi-symbol feeds are better served by a full-universe source than any single broker's per-symbol quote API) — per-broker futures data for the other 32 brokers is a possible future contribution
-- Real order placement is verified for Dhan; other brokers' order support is landing incrementally and varies in confidence — check `server/brokers/registry.mjs` and each adapter's own comments before trusting one with real orders
-- The 1Cliq Trade terminal's SL/Target and panic controls are still client/paper-first — until the server-side risk engine in `1CLIQ-TRADE-SPEC.md` ships, don't rely on it to protect a live position if you close the tab
 
 ---
 
@@ -1009,6 +712,8 @@ For a complete deployment with live data:
 
 ### How to Contribute
 
+Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. Every PR must pass `npm run check` (typecheck, lint, tests, build).
+
 1. **Fork** this repository
 2. **Create** a feature branch: `git checkout -b feature/my-feature`
 3. **Make changes** and commit: `git commit -m 'Add my feature'`
@@ -1017,11 +722,10 @@ For a complete deployment with live data:
 
 ### Contribution Ideas
 
-- 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.) or extend order-placement support to a broker that only has market-data support today
-- ⚡ **Help finish the 1Cliq Trade terminal** — the server-side risk engine, panic layer, and basket execution phases in `1CLIQ-TRADE-SPEC.md` are actively being built and reviewed
+- 🔌 **Add a new broker connector** (Zerodha, Angel One, Upstox, etc.)
 - 📊 **Improve charts** (candlestick charts, better OI visualization)
 - 📱 **Mobile responsiveness** (some sections need mobile love)
-- 🧪 **Add tests** (very few tests exist right now)
+- 🧪 **Add tests** (pure logic in `src/lib/**` with Vitest, pages via the Playwright smoke suite)
 - 📝 **Documentation** (component docs, API docs)
 - 🎨 **UI polish** (animations, better loading states)
 - 🐛 **Bug fixes** (find something broken? Fix it!)
@@ -1031,7 +735,7 @@ For a complete deployment with live data:
 - Write TypeScript (no plain JavaScript in `src/`)
 - Use the design system (CSS variables) — no hardcoded colors
 - Test in both dark and light themes
-- Don't add mock/fake data — all data must come from real APIs
+- Never present sample or derived data as live: label it visibly (a **Sample data** or **Derived** badge)
 - Keep the proxy server dependency-free (only `ws` as external dep)
 
 ---
@@ -1061,9 +765,8 @@ This project is for **educational and analytical purposes only**. It is **not fi
 - Trading in derivatives involves significant risk and may result in loss of capital
 - Always do your own research and consult a registered financial advisor (SEBI-registered)
 - The developers are not responsible for any financial losses
-- **This tool can execute real trades.** Order placement, the "Live Trading" toggle, and the 1Cliq Trade terminal (`/one-cliq`) are **off/paper by default everywhere**, but once you connect your own broker credentials and explicitly enable Live Trading (with an on-screen real-money acknowledgment), Buy/Sell actions place genuine orders on **your own account** via **your own API keys** — this is self-directed, bring-your-own-key execution, not a managed or advisory service, and you alone are responsible for every order it places
-- Order-execution features (SL/Target automation, panic/close-all, basket execution) are under active development — see [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md) for exactly what has shipped vs. what is still in progress before trusting any of it with real capital
-- API keys are stored locally and never transmitted to any server other than the broker's own API and this app's local proxy
+- This tool does not execute trades — it is an analytics-only platform
+- API keys are stored locally and never transmitted to external servers
 
 ---
 

@@ -1,153 +1,141 @@
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plane, CalendarClock } from "lucide-react";
+/**
+ * Expiry calendar for the dashboard: next NSE/BSE index expiries (weekly vs monthly, lot size,
+ * countdown to 15:30 IST) and approximate MCX commodity expiries.
+ */
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { CalendarClock, Factory } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { useExpiryList } from "@/hooks/useMarketData";
+import { formatDateIST, formatNumberIN } from "@/lib/options";
+import { cn } from "@/lib/utils";
+import { buildIndexExpiryRows, buildMcxExpiryRows } from "./dashboardModel";
+import { DataStatus } from "./DataState";
+import { useDensityClasses } from "./density";
+import { useNow } from "./useNow";
+import { useScrollFocusable } from "@/hooks/useScrollFocusable";
 
-interface ExpiryContract {
-  symbol: string;
-  exchange: string;
-  lotSize: number;
-  type: string;
-  expiry: string;
-  timeLeft: string;
-}
+const dayMonth = (iso: string) => (iso ? formatDateIST(iso).replace(/ \d{4}$/, "") : "—");
+const weekday = (iso: string) => (iso ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(`${iso}T00:00:00Z`).getUTCDay()] : "");
 
-interface GiftNiftyData {
-  lastPrice: number;
-  change: number;
-  changePercent: number;
-  contractsTraded?: number;
-  expiry?: string;
-  timestamp?: string;
-}
+export function GiftNiftyExpiry() {
+  const scrollRef0 = useScrollFocusable();
+  const scrollRef1 = useScrollFocusable();
+  const d = useDensityClasses();
+  const now = useNow(60_000);
+  const nifty = useExpiryList("NIFTY");
+  const bnf = useExpiryList("BANKNIFTY");
 
-interface Props {
-  giftNifty: GiftNiftyData | null | undefined;
-  indicativeNifty?: { value: number } | null;
-  nearestExpiries: ExpiryContract[];
-}
-
-export function GiftNiftyExpiry({ giftNifty, indicativeNifty, nearestExpiries }: Props) {
-  const navigate = useNavigate();
+  const rows = useMemo(
+    () =>
+      buildIndexExpiryRows(now, {
+        NIFTY: nifty.data?.isLive ? nifty.data.expiries[0]?.value : undefined,
+        BANKNIFTY: bnf.data?.isLive ? bnf.data.expiries[0]?.value : undefined,
+      }),
+    [now, nifty.data, bnf.data],
+  );
+  const mcx = useMemo(() => buildMcxExpiryRows(now), [now]);
+  const anyDerived = rows.some((r) => r.basis === "derived");
 
   return (
-    <div className="grid lg:grid-cols-3 gap-3">
-      {/* GIFT Nifty */}
-      <Card className="border-primary/20 hover:shadow-card-hover transition-all duration-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plane className="h-5 w-5 text-primary" /> GIFT Nifty (SGX)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-2">
-          {giftNifty && giftNifty.lastPrice > 0 ? (
-            <div className="space-y-3">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl font-semibold font-mono">{giftNifty.lastPrice.toLocaleString("en-IN")}</span>
-                <span className={`text-base font-mono font-medium ${giftNifty.change >= 0 ? "text-bullish" : "text-bearish"}`}>
-                  {giftNifty.change >= 0 ? "+" : ""}{giftNifty.change.toFixed(0)} ({giftNifty.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-2.5 rounded-md bg-accent/50 border border-border/70">
-                  <p className="text-muted-foreground uppercase tracking-wider mb-0.5">Contracts</p>
-                  <p className="font-mono font-semibold text-sm">{giftNifty.contractsTraded?.toLocaleString("en-IN") || "—"}</p>
-                </div>
-                <div className="p-2.5 rounded-md bg-accent/50 border border-border/70">
-                  <p className="text-muted-foreground uppercase tracking-wider mb-0.5">Expiry</p>
-                  <p className="font-mono font-semibold text-sm">{giftNifty.expiry || "—"}</p>
-                </div>
-              </div>
-              {indicativeNifty && (
-                <div className="p-2.5 rounded-md bg-accent/30 text-xs border border-border/70 flex flex-wrap gap-x-3 gap-y-1 items-center">
-                  <span className="text-muted-foreground">Nifty Close: </span>
-                  <span className="font-mono font-semibold">{indicativeNifty.value.toLocaleString("en-IN")}</span>
-                  <span className="text-muted-foreground ml-auto">Gap: </span>
-                  <span className={`font-mono font-semibold text-sm ${(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "text-bullish" : "text-bearish"}`}>
-                    {(giftNifty.lastPrice - indicativeNifty.value) >= 0 ? "+" : ""}{(giftNifty.lastPrice - indicativeNifty.value).toFixed(0)} pts
-                  </span>
-                </div>
-              )}
-              {giftNifty.timestamp && <p className="text-xs text-muted-foreground font-mono">{giftNifty.timestamp}</p>}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">GIFT Nifty data unavailable</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* NSE Expiry */}
-      <Card className="hover:shadow-card-hover transition-all duration-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-warning" /> NSE F&O Expiry
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-1">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs border-b-white/5">
-                <TableHead className="h-9 px-5">Contract</TableHead>
-                <TableHead className="h-9">Type</TableHead>
-                <TableHead className="h-9">Lot</TableHead>
-                <TableHead className="h-9 text-right">Expiry</TableHead>
-                <TableHead className="h-9 text-right px-5">Time Left</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {nearestExpiries.filter((c) => c.exchange === "NSE").map((c) => {
-                const isUrgent = c.timeLeft.startsWith("0d") || c.timeLeft.includes("h left");
-                return (
-                  <TableRow key={c.symbol} className="text-sm font-mono cursor-pointer hover:bg-accent/50 border-b-white/5" onClick={() => navigate(`/option-chain?symbol=${c.symbol}`)}>
-                    <TableCell className="font-sans font-medium py-2 px-5">{c.symbol}</TableCell>
-                    <TableCell className="text-muted-foreground py-2">{c.type}</TableCell>
-                    <TableCell className="py-2">{c.lotSize}</TableCell>
-                    <TableCell className="text-right text-muted-foreground py-2">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
-                    <TableCell className="text-right py-2 px-5">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium ${isUrgent ? "bg-bearish/15 text-bearish font-semibold" : "bg-warning/10 text-warning"}`}>{c.timeLeft}</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* MCX Expiry */}
-      <Card className="hover:shadow-card-hover transition-all duration-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarClock className="h-5 w-5 text-warning" /> MCX Commodity Expiry
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-1">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs border-b-white/5">
-                <TableHead className="h-9 px-5">Contract</TableHead>
-                <TableHead className="h-9">Type</TableHead>
-                <TableHead className="h-9">Lot</TableHead>
-                <TableHead className="h-9 text-right">Expiry</TableHead>
-                <TableHead className="h-9 text-right px-5">Time Left</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {nearestExpiries.filter((c) => c.exchange === "MCX").map((c) => (
-                <TableRow key={c.symbol} className="text-sm font-mono border-b-white/5 hover:bg-accent/30 transition-colors">
-                  <TableCell className="font-sans font-medium py-2 px-5">{c.symbol}</TableCell>
-                  <TableCell className="text-muted-foreground py-2">{c.type}</TableCell>
-                  <TableCell className="py-2">{c.lotSize}</TableCell>
-                  <TableCell className="text-right text-muted-foreground py-2">{c.expiry ? new Date(c.expiry).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</TableCell>
-                  <TableCell className="text-right py-2 px-5">
-                    <span className="px-2 py-1 rounded-md text-xs bg-accent/80 text-muted-foreground font-medium">{c.timeLeft}</span>
-                  </TableCell>
-                </TableRow>
+    <div className={cn("grid lg:grid-cols-5", d.gap)}>
+      <Card className="overflow-hidden lg:col-span-3">
+        <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
+          <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
+          <h3 className="font-display text-lead font-bold">Index expiries</h3>
+          <div className="ml-auto flex items-center gap-1.5">
+            {anyDerived ? <DataStatus status="derived" reason="Dates follow SEBI expiry rules and the NSE/BSE holiday calendar where the live expiry list is not available." /> : <DataStatus status="live" source="Dhan" />}
+          </div>
+        </div>
+        <div ref={scrollRef0} className="overflow-x-auto">
+          <table className="w-full text-body">
+            <caption className="sr-only">Next expiry for each index underlying</caption>
+            <thead>
+              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
+                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
+                <th scope="col" className={cn("hidden px-2 font-[650] sm:table-cell", d.cell)}>Type</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
+                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Expiry</th>
+                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Time left</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.symbol} className="border-b border-border last:border-0 hover:bg-accent/40">
+                  <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
+                    <Link to={`/option-chain?symbol=${r.symbol}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none" aria-label={`Open ${r.symbol} option chain`}>
+                      {r.symbol}
+                    </Link>
+                    <span className="ml-1.5 text-micro uppercase text-muted-foreground">{r.exchange}</span>
+                  </th>
+                  <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
+                    <Badge variant={r.type === "weekly" ? "info" : "neutral"}>{r.type}</Badge>
+                  </td>
+                  <td className={cn("hidden px-2 text-right font-num tabular-nums sm:table-cell", d.cell)} title={r.verify ? "Lot size from the 2026 contract table; verify against the latest exchange circular" : undefined}>
+                    {r.lotSize ? formatNumberIN(r.lotSize) : "—"}
+                    {r.verify ? <span className="text-muted-foreground" aria-label="to verify">*</span> : null}
+                  </td>
+                  <td className={cn("px-2 text-right font-num tabular-nums text-muted-foreground", d.cell)}>
+                    <time dateTime={r.date}>
+                      {weekday(r.date)} {dayMonth(r.date)}
+                    </time>
+                  </td>
+                  <td className={cn("px-4 text-right", d.cell)}>
+                    <span className={cn("inline-flex rounded-chip px-1.5 py-0.5 font-num text-body-sm font-medium tabular-nums", r.urgent ? "bg-wash-loss text-bearish" : "bg-wash-warning text-warning")}>{r.dte}</span>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </CardContent>
+            </tbody>
+          </table>
+        </div>
+        <p className="px-4 py-2 text-body-sm text-muted-foreground">
+          NIFTY weekly: Tuesday. SENSEX weekly: Thursday. Others are monthly. Expiry at 15:30 IST. * Lot sizes from the 2026 contract table; verify with the exchange.
+        </p>
+      </Card>
+
+      <Card className="overflow-hidden lg:col-span-2">
+        <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
+          <Factory className="h-4 w-4 text-warning" aria-hidden="true" />
+          <h3 className="font-display text-lead font-bold">MCX futures</h3>
+          <div className="ml-auto">
+            <DataStatus status="derived" reason="Approximate rule-based dates. MCX holidays and contract-specific changes are not applied; check the MCX contract calendar." />
+          </div>
+        </div>
+        <div ref={scrollRef1} className="overflow-x-auto">
+          <table className="w-full text-body">
+            <caption className="sr-only">Approximate next MCX futures expiries</caption>
+            <thead>
+              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
+                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
+                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Approx. expiry</th>
+                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Left</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mcx.map((r) => (
+                <tr key={r.symbol} className="border-b border-border last:border-0">
+                  <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
+                    {r.symbol}
+                    <span className="block text-body-sm font-normal text-muted-foreground">{r.rule}</span>
+                  </th>
+                  <td className={cn("hidden px-2 text-right font-num tabular-nums text-muted-foreground sm:table-cell", d.cell)}>{r.unit}</td>
+                  <td className={cn("px-2 text-right font-num tabular-nums", d.cell)}>
+                    <time dateTime={r.date}>
+                      {weekday(r.date)} {dayMonth(r.date)}
+                    </time>
+                  </td>
+                  <td className={cn("px-4 text-right font-num text-body-sm tabular-nums text-muted-foreground", d.cell)}>{r.dte}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="px-4 py-2 text-body-sm text-muted-foreground">Approximate dates for orientation only. Options on MCX futures usually expire a few days earlier.</p>
       </Card>
     </div>
   );
 }
+
+export default GiftNiftyExpiry;

@@ -1,224 +1,156 @@
-import { useMemo, useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { useAllIndices, useLiveIndices, useLiveOptionChain, useStoredCandles } from "@/hooks/useMarketData";
-import { useWebSocketVix, useWebSocketIndices, useWebSocketStatus } from "@/hooks/useWebSocket";
-import { Globe, Activity, Radio, Database } from "lucide-react";
+/**
+ * Index day-change bars (spot, from the live index feed) and the India VIX history.
+ * No futures prices are invented: the card shows spot performance only.
+ */
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3 } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Card } from "@/components/ui/card";
+import { useStoredCandles } from "@/hooks/useMarketData";
 import { useChartData } from "@/hooks/useChartData";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
-  Cell, ReferenceLine, AreaChart, Area, LineChart, Line,
-} from "recharts";
+import { axisProps, chartColors, gridProps, tooltipCursor, tooltipItemStyle, tooltipLabelStyle, tooltipStyle } from "@/lib/chartTheme";
+import { formatNumberIN, formatPct, formatSigned, istDateString } from "@/lib/options";
+import { cn } from "@/lib/utils";
+import { ARROW, signTone, sourceName, statusFrom, vixRegime, TONE_TEXT } from "./dashboardModel";
+import { DataState, DataStatus } from "./DataState";
+import { useDensityClasses } from "./density";
+import { sampleVixHistory } from "./sampleMarket";
+import { useDashAllIndices, useDashIndices } from "./useDashboardData";
 
-const tooltipStyle = {
-  backgroundColor: "hsl(var(--card))",
-  border: "1px solid hsl(var(--border))",
-  borderRadius: "6px",
-  fontSize: "11px",
-};
+const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
 
 export function FuturesVIX() {
-  const { data: indicesData } = useAllIndices();
-  const { data: liveIndices } = useLiveIndices();
-  const { vix: wsVix } = useWebSocketVix();
-  const { indices: wsIndices } = useWebSocketIndices();
-  const wsConnected = useWebSocketStatus();
-  
-  // Try to load stored VIX candle data from IndexedDB
-  const { data: storedVixCandles } = useStoredCandles("INDIAVIX");
-  
-  // Also get NIFTY stored candles for a real intraday chart
-  const { data: storedNiftyCandles } = useStoredCandles("NIFTY");
+  const qc = useQueryClient();
+  const d = useDensityClasses();
+  const idx = useDashIndices();
+  const all = useDashAllIndices();
+  const stored = useStoredCandles("INDIAVIX", "5");
+  // Daily closes built from the 5-minute candles saved by the database manager (last close per IST day).
+  const storedDaily = useMemo(() => {
+    const byDay = new Map<string, { time: number; close: number }>();
+    for (const c of stored.data?.candles ?? []) byDay.set(istDateString(new Date(c.time)), { time: c.time, close: c.close });
+    return Array.from(byDay.values()).sort((a, b) => a.time - b.time);
+  }, [stored.data]);
+  const hasStored = storedDaily.length >= 5;
+  const api = useChartData("INDIAVIX", "3M", stored.isFetched && !hasStored && !all.isSample);
 
-  const vix = wsVix || indicesData?.vix;
-  const isLive = wsConnected || indicesData?.isLive || false;
-  
-  // Fallback: fetch VIX history from Dhan API when IndexedDB is empty
-  const hasStoredVixData = !!storedVixCandles?.candles?.length;
-  const { data: apiVixCandles } = useChartData("INDIAVIX", "1M", !hasStoredVixData);
-  
-  // VIX chart data: IndexedDB → Dhan API fallback
-  const vixChartData = useMemo(() => {
-    if (storedVixCandles?.candles?.length) {
-      return storedVixCandles.candles.map((c: any) => ({
-        time: c.date,
-        vix: c.close,
-      }));
-    }
-    if (apiVixCandles && apiVixCandles.length > 0) {
-      return apiVixCandles.map(c => ({
-        time: new Date(c.time * 1000).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
-        vix: c.close,
-      }));
-    }
-    return [];
-  }, [storedVixCandles, apiVixCandles]);
-  
-  const hasVixChartData = vixChartData.length > 0;
+  const rows = useMemo(() => idx.data.data.filter((r) => r.ltp > 0), [idx.data.data]);
+  const maxAbs = useMemo(() => Math.max(0.5, ...rows.map((r) => Math.abs(r.changePercent))), [rows]);
+  const idxStatus = statusFrom({ isLoading: idx.isLoading, hasData: rows.length > 0, source: idx.source, stale: idx.stale, isLive: idx.data.isLive });
 
-  // Build index performance data using live spot prices — honest display without fake futures
-  const liveFuturesData = useMemo(() => {
-    const wsIdxMap = new Map(wsIndices.map(i => [i.symbol, i]));
-    const polledIndices = liveIndices?.data || [];
-    const allLiveIndices = [...polledIndices];
-    // Add websocket indices that aren't already in polled
-    for (const wsIdx of wsIndices) {
-      if (!allLiveIndices.find((i: any) => i.symbol === wsIdx.symbol)) {
-        allLiveIndices.push(wsIdx);
-      }
-    }
-    return allLiveIndices.filter((idx: any) => idx.ltp > 0).map((idx: any) => ({
-      symbol: idx.symbol || idx.name,
-      spotPrice: idx.ltp,
-      change: idx.change || 0,
-      changePercent: idx.changePercent || 0,
-      high: idx.high || idx.ltp,
-      low: idx.low || idx.ltp,
-      open: idx.open || idx.ltp,
-    }));
-  }, [wsIndices, liveIndices]);
+  const vix = all.data.vix;
+  const sampleValue = all.isSample ? vix?.value ?? 0 : 0;
+  const vixSeries = useMemo(() => {
+    // A sample VIX is only ever drawn with the sample history generated to end at it.
+    if (sampleValue > 0) return { points: sampleVixHistory(sampleValue).map((c) => ({ t: dateFmt.format(new Date(c.time)), vix: c.close })), source: "Sample history", sample: true };
+    if (hasStored) return { points: storedDaily.map((c) => ({ t: dateFmt.format(new Date(c.time)), vix: c.close })), source: "Local DB", sample: false };
+    if (api.data && api.data.length > 1) return { points: api.data.map((c) => ({ t: dateFmt.format(new Date(c.time * 1000)), vix: c.close })), source: "Historical API", sample: false };
+    return null;
+  }, [sampleValue, hasStored, storedDaily, api.data]);
 
-  const indexChangeChart = useMemo(() => {
-    return liveFuturesData.map((f) => ({
-      label: f.symbol,
-      change: f.change,
-      changePct: f.changePercent,
-    }));
-  }, [liveFuturesData]);
+  const regime = vixRegime(vix?.value);
+  const vixStatus = statusFrom({ isLoading: all.isLoading && !vix, hasData: !!vix, source: all.source, stale: all.stale, isLive: all.data.isLive });
+  const chartStatus = vixSeries ? (vixSeries.sample ? "sample" : hasStored ? "stale" : "delayed") : stored.isLoading || api.isLoading ? "loading" : "empty";
 
   return (
-    <div className="grid lg:grid-cols-3 gap-3">
-      <div className="lg:col-span-2">
-        <Card className="hover:shadow-card-hover transition-all duration-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" /> Index Performance
-              {isLive && <Badge variant="outline" className="text-xs h-5 px-2 border-bullish/30 text-bullish ml-auto gap-1"><Radio className="h-3 w-3 animate-pulse" />LIVE</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[160px] mb-3">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={indexChangeChart} layout="vertical" barSize={18}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`} />
-                  <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={100} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [`${value >= 0 ? "+" : ""}${value.toFixed(2)}%`, "Change"]} />
-                  <ReferenceLine x={0} stroke="hsl(var(--muted-foreground))" />
-                  <Bar dataKey="changePct" name="Change %" radius={[0, 4, 4, 0]}>
-                    {indexChangeChart.map((entry, i) => (
-                      <Cell key={i} fill={entry.changePct >= 0 ? "hsl(var(--bullish) / 0.7)" : "hsl(var(--bearish) / 0.7)"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="text-xs border-b-white/5">
-                  <TableHead className="h-9">Index</TableHead>
-                  <TableHead className="h-9 text-right">Spot</TableHead>
-                  <TableHead className="h-9 text-right">Open</TableHead>
-                  <TableHead className="h-9 text-right">High</TableHead>
-                  <TableHead className="h-9 text-right">Low</TableHead>
-                  <TableHead className="h-9 text-right">Change</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {liveFuturesData.map((f, i) => (
-                  <TableRow key={i} className="text-sm font-mono border-b-white/5 hover:bg-accent/30 transition-colors">
-                    <TableCell className="font-medium font-sans py-2">{f.symbol}</TableCell>
-                    <TableCell className="text-right py-2 font-semibold text-foreground">{f.spotPrice.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className="text-right py-2 text-muted-foreground">{f.open.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className="text-right py-2 text-bullish/80">{f.high.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className="text-right py-2 text-bearish/80">{f.low.toLocaleString("en-IN")}</TableCell>
-                    <TableCell className={`text-right font-medium py-2 ${f.changePercent >= 0 ? "text-bullish" : "text-bearish"}`}>
-                      {f.changePercent >= 0 ? "+" : ""}{f.changePercent.toFixed(2)}%
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+    <div className={cn("grid lg:grid-cols-5", d.gap)}>
+      <Card className="lg:col-span-2">
+        <div className={cn("flex items-center gap-2", d.headPad)}>
+          <BarChart3 className="h-4 w-4 text-primary-ink" aria-hidden="true" />
+          <h3 className="font-display text-lead font-bold">Index day change</h3>
+          <div className="ml-auto">
+            <DataStatus status={idxStatus} lastUpdated={idx.asOf} source={sourceName(idx.source)} />
+          </div>
+        </div>
+        <div className={cn("pt-0", d.pad)}>
+          <DataState status={idxStatus} onRetry={() => void qc.invalidateQueries({ queryKey: ["nse-indices"] })} emptyText="No index prices yet">
+            <ul className="space-y-2.5" aria-label="Index change today">
+              {rows.map((r) => {
+                const w = (Math.abs(r.changePercent) / maxAbs) * 50;
+                const up = r.changePercent >= 0;
+                return (
+                  <li key={r.symbol} className="grid grid-cols-[88px_1fr_72px] items-center gap-2">
+                    <Link to={`/option-chain?symbol=${r.symbol}`} className="truncate rounded-sm text-body font-medium hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+                      {r.symbol}
+                    </Link>
+                    <div className="relative h-3 rounded-full bg-muted" aria-hidden="true">
+                      <div className="absolute inset-y-[-3px] left-1/2 w-px bg-muted-foreground/40" />
+                      <div className={cn("absolute inset-y-0 rounded-full", up ? "left-1/2 bg-bullish/70" : "right-1/2 bg-bearish/70")} style={{ width: `${w}%` }} />
+                    </div>
+                    <span className={cn("text-right font-num text-body-sm font-semibold tabular-nums", signTone(r.changePercent))}>
+                      <span aria-hidden="true">{ARROW[r.changePercent > 0 ? "up" : r.changePercent < 0 ? "down" : "flat"]}</span> {formatPct(r.changePercent, { signed: true })}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 text-body-sm text-muted-foreground">Spot change vs the previous close. Futures basis is on the Option Chain page.</p>
+          </DataState>
+        </div>
+      </Card>
 
-      <Card className="hover:shadow-card-hover transition-all duration-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-warning" /> India VIX
-            {vix && <span className={`ml-auto text-lg font-mono font-semibold ${vix.changePercent >= 0 ? "text-bearish" : "text-bullish"}`}>
-              {vix.value.toFixed(2)}
-            </span>}
-            {hasVixChartData && (
-              <span className="text-xs text-primary/50 flex items-center gap-1 font-mono">
-                <Database className="h-3 w-3" />DB
+      <Card className="lg:col-span-3">
+        <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
+          <Activity className="h-4 w-4 text-warning" aria-hidden="true" />
+          <h3 className="font-display text-lead font-bold">India VIX</h3>
+          {vix ? (
+            <span className="font-num text-lead font-bold tabular-nums">
+              {formatNumberIN(vix.value, 2, { minDecimals: 2 })}{" "}
+              <span className={cn("text-body-sm font-medium", vix.changePercent > 0 ? "text-bearish" : vix.changePercent < 0 ? "text-bullish" : "text-muted-foreground")}>
+                {formatPct(vix.changePercent, { signed: true })}
               </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Live VIX stats */}
-          {vix && (
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
-                <p className="text-xs text-muted-foreground mb-0.5">Current</p>
-                <p className="text-base font-semibold font-mono">{vix.value.toFixed(2)}</p>
-              </div>
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
-                <p className="text-xs text-muted-foreground mb-0.5">High</p>
-                <p className="text-base font-semibold font-mono text-bearish">{vix.high.toFixed(2)}</p>
-              </div>
-              <div className="rounded-md bg-accent/30 p-2 text-center border border-border/70">
-                <p className="text-xs text-muted-foreground mb-0.5">Low</p>
-                <p className="text-base font-semibold font-mono text-bullish">{vix.low.toFixed(2)}</p>
-              </div>
-            </div>
-          )}
-          <div className="h-[120px]">
-            {hasVixChartData ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={vixChartData}>
-                <defs>
-                  <linearGradient id="vixGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--warning))" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="hsl(var(--warning))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} domain={["auto", "auto"]} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Area type="monotone" dataKey="vix" stroke="hsl(var(--warning))" fill="url(#vixGrad)" strokeWidth={1.5} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-1.5">
-                <Activity className="h-6 w-6 opacity-20" />
-                <p className="text-xs">VIX chart data unavailable</p>
-                <p className="text-xs opacity-50">Download database or wait for market hours</p>
-              </div>
-            )}
+            </span>
+          ) : null}
+          {regime ? <span className={cn("text-body-sm font-semibold", TONE_TEXT[regime.tone])}>{regime.label}</span> : null}
+          <div className="ml-auto flex items-center gap-1.5">
+            <DataStatus status={vixStatus} lastUpdated={all.asOf} source={sourceName(all.source)} />
           </div>
-          {/* Index Snapshot */}
-          <div className="mt-4 space-y-2">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Index Snapshot</p>
-            {liveFuturesData.slice(0, 4).map((f, i) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-md bg-accent/30 border border-border/70">
-                <span className="text-xs font-semibold">{f.symbol}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-muted-foreground">
-                    {f.spotPrice.toLocaleString("en-IN")}
-                  </span>
-                  <span className={`text-xs font-mono px-2 py-0.5 rounded font-semibold ${f.changePercent >= 0 ? "bg-bullish/10 text-bullish" : "bg-bearish/10 text-bearish"}`}>
-                    {f.changePercent >= 0 ? "+" : ""}{f.changePercent.toFixed(2)}%
-                  </span>
+        </div>
+        <div className={cn("pt-0", d.pad)}>
+          {vix ? (
+            <dl className="mb-3 grid grid-cols-3 gap-2 text-center">
+              {[
+                { k: "Change", v: Number.isFinite(vix.change) ? formatSigned(vix.change, 2) : "—" },
+                { k: "Day low", v: vix.low ? formatNumberIN(vix.low, 2) : "—" },
+                { k: "Day high", v: vix.high ? formatNumberIN(vix.high, 2) : "—" },
+              ].map((x) => (
+                <div key={x.k} className="rounded-tile bg-surface px-2 py-1.5">
+                  <dt className="text-micro uppercase text-muted-foreground">{x.k}</dt>
+                  <dd className="font-num text-body font-semibold tabular-nums">{x.v}</dd>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+              ))}
+            </dl>
+          ) : null}
+          <DataState status={chartStatus} minHeight={140} emptyText="No VIX history yet" emptyHint="Download history from the database manager, or wait for the historical feed.">
+            {vixSeries ? (
+              <figure>
+                <div className="h-[150px]" role="img" aria-label={`India VIX history, ${vixSeries.points.length} sessions`}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={vixSeries.points} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
+                      <defs>
+                        <linearGradient id="dash-vix-grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={chartColors.vix} stopOpacity={0.28} />
+                          <stop offset="100%" stopColor={chartColors.vix} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid {...gridProps} />
+                      <XAxis dataKey="t" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
+                      <YAxis {...axisProps} domain={["auto", "auto"]} width={44} allowDecimals={false} tickCount={5} tickFormatter={(v: number) => formatNumberIN(v, Number.isInteger(v) ? 0 : 1)} />
+                      <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} cursor={tooltipCursor} formatter={(v: number) => [formatNumberIN(v, 2), "VIX"]} />
+                      <Area type="monotone" dataKey="vix" stroke={chartColors.vix} fill="url(#dash-vix-grad)" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <figcaption className="mt-1 text-body-sm text-muted-foreground">Daily closes · {vixSeries.source}</figcaption>
+              </figure>
+            ) : null}
+          </DataState>
+        </div>
       </Card>
     </div>
   );
 }
+
+export default FuturesVIX;

@@ -26,11 +26,11 @@ describe("Paper trade fill (createPosition -> positionStore)", () => {
     const stored = getPositions();
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({ symbol: "NIFTY", type: "CE", action: "BUY", strike: 24500, lots: 1, lotSize: 25 });
-    // Delta/theta/gamma should be real (Black-Scholes-derived), not the old
+    // Delta/theta should be real (Black-Scholes-derived), not the old
     // flat ±0.5/-10/0 placeholders applied to every position regardless of
     // moneyness or expiry.
     expect(stored[0].delta).not.toBe(0);
-    expect(Number.isFinite(stored[0].gamma)).toBe(true);
+    expect(Number.isFinite(stored[0].theta)).toBe(true);
   });
 
   it("appends to existing positions rather than replacing them", () => {
