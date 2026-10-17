@@ -65,6 +65,7 @@ export function MrChartistLogo({ variant = "lockup", size = 28, product = BRAND.
       <MrChartistMark size={size} decorative className={markClassName} />
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-display text-[15px] font-bold leading-none tracking-[-0.01em]">{BRAND.name}</span>
+        {/* Whitespace is dropped by the flex column, but keeps the text "Mr. Chartist Option Hub" for assistive tech. */}{" "}
         {product ? (
           <span className="mt-1 truncate text-[10.5px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground">{product}</span>
         ) : null}
