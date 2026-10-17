@@ -111,7 +111,8 @@ describe("Ecosystem page", () => {
 
   it("opens every outbound link in a new tab with noopener", () => {
     renderPage();
-    const links = screen.getAllByRole("link");
+    // mailto: links open the mail client, not a tab, so only web links are checked.
+    const links = screen.getAllByRole("link").filter((a) => /^https?:/.test(a.getAttribute("href") ?? ""));
     expect(links.length).toBeGreaterThan(10);
     for (const a of links) {
       expect(a).toHaveAttribute("target", "_blank");
@@ -125,6 +126,7 @@ describe("Ecosystem page", () => {
     expect(sebi).toHaveAttribute("href", BRAND.sebiVerifyUrl);
     expect(screen.getByText(/SEBI Registered Research Analyst — INH000015297/)).toBeInTheDocument();
     expect(screen.getByText(BRAND.disclaimer)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: BRAND.licenceEmail })).toHaveAttribute("href", expect.stringMatching(/^mailto:rohit@mrchartist\.com\?subject=/));
   });
 
   it("shows Scanner Pro as returning soon without an Open link", () => {

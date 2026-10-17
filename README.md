@@ -9,16 +9,16 @@
 
 # Option Hub by Mr. Chartist
 
-**India's open-source options terminal for NSE and BSE F&O.**<br>
-Option chain, OI, max pain, GEX, volatility, flow, strategy builder, optimizer, backtester and paper trading, in one free app that runs on your own computer.
+**India's options terminal for NSE and BSE F&O. Free for personal use.**<br>
+Option chain, OI, max pain, GEX, volatility, flow, strategy builder, optimizer, backtester and paper trading, in one app that runs on your own computer.
 
 [![CI](https://github.com/MrChartist/india-s-best-option-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/MrChartist/india-s-best-option-hub/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-111111.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/licence-personal_use_free_·_commercial_by_permission-111111.svg)](COMMERCIAL-LICENSE.md)
 [![Tests](https://img.shields.io/badge/tests-1%2C400%2B_passing-2f7d4f.svg)](#quality)
 [![Made for India](https://img.shields.io/badge/Made_for-NSE_%26_BSE-e8642c.svg)](#built-for-indian-markets)
 [![Stars](https://img.shields.io/github/stars/MrChartist/india-s-best-option-hub?style=flat&color=111111)](https://github.com/MrChartist/india-s-best-option-hub/stargazers)
 
-[**Quick start**](#quick-start) · [**Feature tour**](#feature-tour) · [**Screenshots**](#screenshots) · [**Data sources**](#data-sources) · [**More from Mr. Chartist**](#more-from-mr-chartist)
+[**Quick start**](#quick-start) · [**Feature tour**](#feature-tour) · [**Screenshots**](#screenshots) · [**Data sources**](#data-sources) · [**Licence**](#licence) · [**More from Mr. Chartist**](#more-from-mr-chartist)
 
 <br>
 
@@ -30,7 +30,7 @@ Option chain, OI, max pain, GEX, volatility, flow, strategy builder, optimizer, 
 
 ## Why Option Hub
 
-Most serious options tools for Indian traders sit behind a monthly fee. The best analytics in the world, such as GEX, IV surfaces, flow scanners and strategy optimisers, are built for the US market. Option Hub brings both together for NSE and BSE, and keeps it free and open source.
+Most serious options tools for Indian traders sit behind a monthly fee. The best analytics in the world, such as GEX, IV surfaces, flow scanners and strategy optimisers, are built for the US market. Option Hub brings both together for NSE and BSE, keeps it free for individual traders and learners, and publishes the full source code.
 
 - **Numbers you can trust.** Every price, IV and Greek comes from one tested maths library (Black-76 on the forward, time measured to 15:30 IST, real lot sizes and expiry rules). More than 1,400 unit tests check it.
 - **Honest about data.** Every number carries its source: Live, Delayed, Last saved or **Sample**. If the data feed is off, the app says so on every page. It never presents made-up numbers as live.
@@ -352,7 +352,7 @@ Check `node --version` shows 20 or newer. Then run `npm cache clean --force` and
 
 ## Contributing
 
-Pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md), keep all maths in `src/lib/options`, label sample or derived data, and run `npm run check` before you push. Good first areas: more broker relays, verified lot-size and holiday updates, more Learn lessons, and translations.
+Pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) (it explains how contributions are licensed), keep all maths in `src/lib/options`, label sample or derived data, and run `npm run check` before you push. Good first areas: more broker relays, verified lot-size and holiday updates, more Learn lessons, and translations.
 
 Found a bug or have an idea? [Open an issue](https://github.com/MrChartist/india-s-best-option-hub/issues).
 
@@ -398,9 +398,23 @@ Option Hub is for **education and research only**. It is **not investment advice
 - Do your own research, and consult a SEBI-registered adviser where needed.
 - Your API keys stay on your machine. The authors are not responsible for any trading losses.
 
-## License
+## Licence
 
-[MIT](LICENSE). Free to use, change and share. Please keep the licence notice.
+**Free for personal use. Commercial use needs permission.**
+
+Option Hub is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE), with extra permissions from the licensor in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+
+| ✅ Free, no permission needed | ❌ Needs a commercial licence |
+|---|---|
+| Running it on your own computer and trading **your own** account | Selling it, or selling access to it |
+| Learning, studying and changing the code for yourself | Hosting it for other people (website, app, SaaS), paid or ad-supported |
+| Sharing your changes for free, under the same licence | Using it inside a broker, adviser, research, fintech, prop or other business |
+| Schools, colleges, researchers, charities and government bodies, for noncommercial work | Paid courses, paid groups, signal or advisory services built on it |
+| Free, credited reviews and tutorials | White-labelling, or removing the Mr. Chartist name and notices |
+
+**For a commercial licence, email [rohit@mrchartist.com](mailto:rohit@mrchartist.com?subject=Option%20Hub%20commercial%20licence)** and tell us who you are and how you want to use it. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for details.
+
+Versions released before this change were under the MIT License, and those versions stay MIT. Third-party notices are in [NOTICE.md](NOTICE.md).
 
 <div align="center">
 

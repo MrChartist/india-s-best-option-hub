@@ -1,11 +1,11 @@
 {
   "name": "india-s-best-option-hub",
   "version": "1.0.0",
-  "description": "India's most comprehensive open-source Options & Futures analytics terminal for NSE F&O traders.",
+  "description": "India's options and futures analytics terminal for NSE and BSE F&O traders. Free for personal use; commercial use needs a licence.",
   "private": false,
   "type": "module",
   "author": "MrChartist",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/MrChartist/india-s-best-option-hub.git"

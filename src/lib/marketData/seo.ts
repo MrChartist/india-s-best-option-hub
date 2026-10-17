@@ -19,7 +19,7 @@ export const SITE_SHORT_NAME = BRAND.product;
 export const PROJECT_PAGE_URL = BRAND.projectPage;
 
 export const SITE_DESCRIPTION =
-  "Open-source NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs. Data for education and research. Not investment advice.";
+  "Free NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs. Data for education and research. Not investment advice.";
 
 /** "https://x.in/" → "https://x.in"; anything that is not an absolute http(s) URL → "". */
 export function normaliseSiteUrl(raw: string | undefined | null): string {
@@ -107,7 +107,7 @@ export function softwareApplicationJsonLd(site: string): Record<string, unknown>
     operatingSystem: "Any (web browser)",
     inLanguage: "en-IN",
     isAccessibleForFree: true,
-    license: "https://opensource.org/licenses/MIT",
+    license: "https://polyformproject.org/licenses/noncommercial/1.0.0",
     codeRepository: "https://github.com/MrChartist/india-s-best-option-hub",
     offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
     image: ogImageUrl(site),

@@ -214,7 +214,7 @@ export default function Ecosystem() {
 
         {/* GitHub */}
         <section aria-labelledby="eco-github" className="flex flex-col rounded-card border border-border bg-card p-4 shadow-card sm:p-5">
-          <SectionTitle id="eco-github" sub="Option Hub is free and open source under the MIT licence. A star helps other traders find it.">
+          <SectionTitle id="eco-github" sub="Option Hub is free for personal use, and the source is on GitHub. A star helps other traders find it.">
             Star Option Hub on GitHub
           </SectionTitle>
           <div className="mt-auto flex flex-wrap gap-2">
@@ -266,6 +266,24 @@ export default function Ecosystem() {
               </OutboundLink>
             </p>
             <p className="text-body-sm text-muted-foreground">{BRAND.disclaimer}</p>
+            <p className="text-body-sm text-muted-foreground">
+              {BRAND.licenceSummary}{" "}
+              <a
+                href={`mailto:${BRAND.licenceEmail}?subject=${encodeURIComponent("Option Hub commercial licence")}`}
+                className={cn("font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary", linkFocus)}
+              >
+                {BRAND.licenceEmail}
+              </a>
+              {" · "}
+              <a
+                href={BRAND.licenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn("font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary", linkFocus)}
+              >
+                Licence terms<span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            </p>
           </div>
         </div>
       </section>

@@ -52,7 +52,7 @@ const ACTION_ENTRIES: PaletteEntry[] = [
     id: GITHUB_ID,
     kind: "action",
     label: "Star Option Hub on GitHub",
-    keywords: ["github", "star", "source", "open source", "repo", "contribute"],
+    keywords: ["github", "star", "source", "source code", "repo", "contribute"],
     href: withUtm(BRAND.repo, "command-palette"),
     group: "Mr. Chartist",
   },

@@ -23,6 +23,11 @@ export const BRAND = {
   sebiLine: "INVESTOLOGY · SEBI Registered Research Analyst — INH000015297",
   sebiVerifyUrl: "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=14&regno=INH000015297",
   disclaimer: "Data for education and research. Not investment advice.",
+  /** Licence terms: PolyForm Noncommercial 1.0.0; commercial use needs a written licence. */
+  licenceName: "PolyForm Noncommercial License 1.0.0",
+  licenceSummary: "Free for personal and other noncommercial use. Commercial use needs a written licence from Mr. Chartist.",
+  licenceUrl: "https://github.com/MrChartist/india-s-best-option-hub/blob/main/COMMERCIAL-LICENSE.md",
+  licenceEmail: "rohit@mrchartist.com",
 } as const;
 
 export const ECOSYSTEM_PAGES = {
