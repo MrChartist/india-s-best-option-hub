@@ -1,18 +1,82 @@
-import { useRef, useEffect, useState, useCallback } from "react";
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type Time } from "lightweight-charts";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, LineStyle, type IChartApi, type ISeriesApi, type SeriesType, type Time } from "lightweight-charts";
+import { resolveTokenColor } from "@/lib/chartTheme";
+import { formatDateIST } from "@/lib/options";
 import { useChartData } from "@/hooks/useChartData";
 import { useIsDark, getChartColors } from "@/hooks/useIsDark";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { BarChart3, Loader2, X, CandlestickChart, LineChart } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { BarChart3, Loader2, CandlestickChart, LineChart } from "lucide-react";
 
 const TIME_RANGES = ["1W", "1M", "3M", "6M", "1Y"] as const;
 type TimeRange = (typeof TIME_RANGES)[number];
 
-interface StockChartProps {
+export interface ExpectedMoveBand {
+  /** ISO expiry the band belongs to. */
+  expiry: string;
+  upper: number;
+  lower: number;
+}
+
+export type ChartLevelKind = "callWall" | "putWall" | "flip" | "maxPain" | "absGamma";
+
+export interface ChartLevel {
+  price: number;
+  label: string;
+  kind: ChartLevelKind;
+}
+
+interface ChartOverlays {
+  /** Expected-move bands drawn as dashed price lines (one pair per expiry). */
+  expectedMoveBands?: ExpectedMoveBand[];
+  /** Key option levels (walls, gamma flip, max pain) drawn as price lines. */
+  levels?: ChartLevel[];
+}
+
+/** Token used for each level kind. CE OI walls are resistance (bearish), PE OI walls support (bullish). */
+const LEVEL_TOKEN: Record<ChartLevelKind, string> = {
+  callWall: "chart-call",
+  putWall: "chart-put",
+  flip: "warning",
+  maxPain: "chart-1",
+  absGamma: "info",
+};
+
+const finitePos = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x) && x > 0;
+
+/** Token values from index.css, used only when CSS variables cannot be read (SSR/tests). */
+const TOKEN_FALLBACK = {
+  dark: { info: "hsl(211 78% 68%)", muted: "hsl(72 6% 64%)", grid: "hsl(212 14% 12%)" },
+  light: { info: "hsl(212.6 80% 33.3%)", muted: "hsl(337 10% 40%)", grid: "hsl(54 14% 89%)" },
+} as const;
+
+function drawOverlays(series: ISeriesApi<SeriesType>, o: ChartOverlays, isDark: boolean) {
+  const fb = TOKEN_FALLBACK[isDark ? "dark" : "light"];
+  const bands = (o.expectedMoveBands ?? []).filter((b) => b && finitePos(b.upper) && finitePos(b.lower));
+  bands.forEach((b, i) => {
+    const color = resolveTokenColor("info", fb.info, Math.max(0.45, 0.9 - i * 0.2));
+    const tag = b.expiry ? formatDateIST(b.expiry).split(" ").slice(0, 2).join(" ") : "";
+    for (const [price, side] of [[b.upper, "+1σ"], [b.lower, "−1σ"]] as const) {
+      series.createPriceLine({ price, color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: `EM ${side}${tag ? ` ${tag}` : ""}` });
+    }
+  });
+  for (const l of o.levels ?? []) {
+    if (!l || !finitePos(l.price)) continue;
+    const color = resolveTokenColor(LEVEL_TOKEN[l.kind] ?? "muted-foreground", fb.muted);
+    series.createPriceLine({
+      price: l.price,
+      color,
+      lineWidth: l.kind === "flip" ? 2 : 1,
+      lineStyle: l.kind === "maxPain" ? LineStyle.Dotted : l.kind === "flip" ? LineStyle.Solid : LineStyle.LargeDashed,
+      axisLabelVisible: true,
+      title: l.label,
+    });
+  }
+}
+
+interface StockChartProps extends ChartOverlays {
   symbol: string;
   /** Inline mode renders directly, otherwise renders inside a Card */
   inline?: boolean;
@@ -27,16 +91,24 @@ interface StockChartProps {
 function ChartCore({
   symbol,
   height = 340,
+  expectedMoveBands,
+  levels,
 }: {
   symbol: string;
   height?: number;
-}) {
+} & ChartOverlays) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [range, setRange] = useState<TimeRange>("3M");
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const { data: candles, isLoading, error } = useChartData(symbol, range);
   const isDark = useIsDark();
+  // Stable key so new array identities with the same content do not rebuild the chart.
+  const overlayKey = JSON.stringify({ b: expectedMoveBands ?? [], l: levels ?? [] });
+  const overlays = useMemo((): ChartOverlays => {
+    const parsed = JSON.parse(overlayKey) as { b: ExpectedMoveBand[]; l: ChartLevel[] };
+    return { expectedMoveBands: parsed.b, levels: parsed.l };
+  }, [overlayKey]);
 
   const buildChart = useCallback(() => {
     if (!chartContainerRef.current || !candles || candles.length === 0) return;
@@ -49,8 +121,9 @@ function ChartCore({
 
     const container = chartContainerRef.current;
     const colors = getChartColors(isDark);
-    const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
-    const crosshairColor = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)";
+    const fb = TOKEN_FALLBACK[isDark ? "dark" : "light"];
+    const gridColor = resolveTokenColor("chart-grid", fb.grid, 0.6);
+    const crosshairColor = resolveTokenColor("muted-foreground", fb.muted, 0.5);
 
     const chart = createChart(container, {
       width: container.clientWidth,
@@ -105,6 +178,7 @@ function ChartCore({
         wickDownColor: colors.bearish,
       });
       candleSeries.setData(formattedCandles);
+      drawOverlays(candleSeries, overlays, isDark);
     } else {
       const isPositive = candles[candles.length - 1].close >= candles[0].close;
       const lineColor = isPositive ? colors.bullish : colors.bearish;
@@ -117,6 +191,7 @@ function ChartCore({
       lineSeries.setData(
         candles.map((c) => ({ time: c.time as Time, value: c.close }))
       );
+      drawOverlays(lineSeries, overlays, isDark);
     }
 
     // Volume histogram — tinted to match the theme's bullish/bearish palette
@@ -156,7 +231,7 @@ function ChartCore({
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, height, chartType, range, isDark]);
+  }, [candles, height, chartType, range, isDark, overlays]);
 
   useEffect(() => {
     const cleanup = buildChart();
@@ -263,6 +338,8 @@ export function StockChart({
   asSheet = false,
   open = false,
   onOpenChange,
+  expectedMoveBands,
+  levels,
 }: StockChartProps) {
   if (asSheet) {
     return (
@@ -273,9 +350,10 @@ export function StockChart({
               <BarChart3 className="h-4 w-4 text-primary" />
               {symbol} — Price Chart
             </SheetTitle>
+            <SheetDescription className="sr-only">Price chart for {symbol}</SheetDescription>
           </SheetHeader>
           <div className="mt-3">
-            <ChartCore symbol={symbol} height={380} />
+            <ChartCore symbol={symbol} height={380} expectedMoveBands={expectedMoveBands} levels={levels} />
           </div>
         </SheetContent>
       </Sheet>
@@ -283,7 +361,7 @@ export function StockChart({
   }
 
   if (inline) {
-    return <ChartCore symbol={symbol} height={height} />;
+    return <ChartCore symbol={symbol} height={height} expectedMoveBands={expectedMoveBands} levels={levels} />;
   }
 
   return (
@@ -295,7 +373,7 @@ export function StockChart({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartCore symbol={symbol} height={height} />
+        <ChartCore symbol={symbol} height={height} expectedMoveBands={expectedMoveBands} levels={levels} />
       </CardContent>
     </Card>
   );
