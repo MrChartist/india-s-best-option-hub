@@ -48,6 +48,13 @@ describe("registerServiceWorker", () => {
     expect(await registerServiceWorker(s.prompt, { container: s.container as never, setIntervalFn: s.setIntervalFn })).toBeNull();
   });
 
+  it("returns null when register() resolves without a registration", async () => {
+    const s = setup();
+    s.container.register.mockResolvedValueOnce(undefined as unknown as ServiceWorkerRegistration);
+    expect(await registerServiceWorker(s.prompt, { container: s.container as never, setIntervalFn: s.setIntervalFn })).toBeNull();
+    expect(s.setIntervalFn).not.toHaveBeenCalled();
+  });
+
   it("prompts for a worker already waiting and applies it with SKIP_WAITING", async () => {
     const waiting = new FakeWorker();
     const s = setup({ controller: true, waiting });
