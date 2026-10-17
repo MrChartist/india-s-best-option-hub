@@ -2,7 +2,6 @@ import { Suspense, type ComponentType, type LazyExoticComponent } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -19,7 +18,9 @@ const PAGES: { path: string; Component: LazyExoticComponent<ComponentType> }[] =
 
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000, gcTime: 600_000 } },
+});
 
 /** Redirect an old path to its new home, keeping ?query and #hash (e.g. /chain?symbol=TCS). */
 function LegacyRedirect({ to }: { to: string }) {
@@ -58,9 +59,8 @@ function PageSuspense({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route element={<DashboardLayout />}>
             {PAGES.map(({ path, Component }) => (
@@ -77,15 +77,15 @@ const App = () => (
             {Object.entries(LEGACY_REDIRECTS).map(([from, to]) => (
               <Route key={from} path={from} element={<LegacyRedirect to={to} />} />
             ))}
+            <Route
+              path="*"
+              element={
+                <PageSuspense>
+                  <NotFound />
+                </PageSuspense>
+              }
+            />
           </Route>
-          <Route
-            path="*"
-            element={
-              <Suspense fallback={<div className="min-h-screen bg-background p-4"><PageSkeleton /></div>}>
-                <NotFound />
-              </Suspense>
-            }
-          />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

@@ -184,3 +184,40 @@ export function resolveTokenColor(name: string, fallback = "hsl(0 0% 50%)", alph
     return fallback;
   }
 }
+
+/**
+ * Compact Indian-style axis tick, no unit: 950, 14k, −40k, 1.2L, 12L, 1.5Cr.
+ * Uses the typographic minus. Non-finite values render as an empty string so
+ * Recharts leaves the tick blank.
+ */
+export function compactAxisTick(v: number): string {
+  if (typeof v !== "number" || !Number.isFinite(v)) return "";
+  if (v === 0) return "0";
+  const sign = v < 0 ? "−" : "";
+  const a = Math.abs(v);
+  const trim = (n: number, dp: number) => {
+    const f = 10 ** dp;
+    return String(Math.round(n * f) / f);
+  };
+  const tiers = [
+    { div: 1e7, suffix: "Cr" },
+    { div: 1e5, suffix: "L" },
+    { div: 1e3, suffix: "k" },
+  ];
+  for (let i = 0; i < tiers.length; i++) {
+    const t = tiers[i];
+    if (a >= t.div) {
+      const scaled = a / t.div;
+      const dp = scaled >= 100 ? 0 : 1;
+      const out = trim(scaled, dp);
+      // 99,960 must read "1L", not "100k": promote when rounding reaches the next tier.
+      const up = i > 0 ? tiers[i - 1] : undefined;
+      if (up && Number(out) * t.div >= up.div) return `${sign}${trim(a / up.div, 1)}${up.suffix}`;
+      return `${sign}${out}${t.suffix}`;
+    }
+  }
+  // Below 1,000: integers stay whole, fractions keep up to two decimals (Greeks, IV).
+  const out = a >= 100 ? trim(a, 0) : a >= 1 ? trim(a, 1) : trim(a, 2);
+  if (Number(out) >= 1000) return `${sign}1k`;
+  return out === "0" ? "0" : `${sign}${out}`;
+}

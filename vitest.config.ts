@@ -36,6 +36,9 @@ export default defineConfig({
         test: {
           name: "dom",
           environment: "jsdom",
+          // Full-page render tests (Flow, Expiry Day, Optimizer) take 2-4 s alone and
+          // exceed the 5 s default under coverage instrumentation on shared CI runners.
+          testTimeout: 20_000,
           include: ["src/*.{test,spec}.{ts,tsx}", "src/!(lib)/**/*.{test,spec}.{ts,tsx}", ...DOM_LIB_TESTS],
         },
       },
@@ -62,12 +65,13 @@ export default defineConfig({
           functions: 90,
           lines: 90,
         },
-        // Global numbers are report-only for now (see CONTRIBUTING.md); raise
-        // them to 60 once page-level tests land.
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0,
+        // Global ratchet. Measured 2026-10-17 (round 2): statements/lines 74.2%,
+        // branches 74.2%, functions 69.1%. Raise these as coverage grows; never lower
+        // them to make a change pass.
+        statements: 70,
+        branches: 60,
+        functions: 65,
+        lines: 70,
       },
     },
   },

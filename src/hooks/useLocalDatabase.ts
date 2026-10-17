@@ -6,6 +6,7 @@
  *   2. useCandleHistory()    — Stored OHLCV candle data for a specific instrument
  *   3. useDatabaseReady()    — Whether the local DB has been populated
  *   4. useInstrumentLookup() — Search instruments from the local DB
+ *   5. useStorageHealth()    — Browser storage usage, quota and the snapshot-recording pause state
  * 
  * These hooks serve as the "offline-first" layer: components load from
  * IndexedDB immediately, then overlay live WebSocket / polling data on top.
@@ -25,6 +26,7 @@ import {
   type DatabaseStats,
   type Instrument,
 } from "@/lib/localDatabase";
+import { getStorageHealth, refreshStorageHealth, subscribeStorageHealth, type StorageHealth } from "@/lib/history/storageHealth";
 
 // ── Hook: Database readiness check ──
 
@@ -42,6 +44,19 @@ export function useDatabaseReady() {
   }, []);
 
   return { isReady, stats };
+}
+
+// ── Hook: Browser storage health (usage, quota, persistence, recording pause) ──
+
+/** Live storage health. Measures once on mount (and requests persistent storage), then follows changes. */
+export function useStorageHealth(): StorageHealth {
+  const [health, setHealth] = useState<StorageHealth>(() => getStorageHealth());
+  useEffect(() => {
+    const off = subscribeStorageHealth(setHealth);
+    void refreshStorageHealth();
+    return off;
+  }, []);
+  return health;
 }
 
 // ── Hook: Cached price snapshots ──

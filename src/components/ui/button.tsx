@@ -4,6 +4,10 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/** On touch screens, grow compact buttons' hit area by 6px on every side (WCAG 2.5.8). */
+const touchHitArea =
+  "relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-['']";
+
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold tracking-[0.005em] transition-[background-color,color,border-color,box-shadow,transform] duration-fast ease-expo active:scale-[0.97] active:duration-press focus-visible:outline-none focus-visible:shadow-ember disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
@@ -20,10 +24,10 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
+        sm: `h-9 rounded-md px-3 ${touchHitArea}`,
         lg: "h-11 rounded-lg px-8",
-        icon: "h-10 w-10",
-        pill: "h-7 rounded-pill px-2.5 text-xs [&_svg]:size-3.5",
+        icon: `h-10 w-10 ${touchHitArea}`,
+        pill: `h-7 rounded-pill px-2.5 text-xs [&_svg]:size-3.5 ${touchHitArea}`,
       },
     },
     defaultVariants: {

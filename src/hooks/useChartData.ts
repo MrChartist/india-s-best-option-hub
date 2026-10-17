@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { proxyFetchJSON } from "@/lib/api/proxyClient";
+import { proxyFetchJSON, shouldTryProxy } from "@/lib/api/proxyClient";
 import { istDateString } from "@/lib/options";
 import type { ColumnarCandlesDTO, InstrumentMasterDTO } from "@/lib/types/market";
 
@@ -238,7 +238,9 @@ async function fetchYahooHistorical(symbol: string, range: string): Promise<OHLC
  *   Dhan (when symbol is known + broker keys configured) → Yahoo Finance fallback.
  * Always returns candles when the proxy is reachable, even without broker keys.
  */
-async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+export async function fetchHistorical(symbol: string, range: string): Promise<OHLCVCandle[]> {
+  // Proxy known to be down (inside the reachability backoff): skip all three sources at once.
+  if (!shouldTryProxy()) return [];
   // Try Dhan first for symbols we can resolve instantly (no 30MB CSV download).
   const mapped = lookupSecurity(symbol);
   if (mapped) {
@@ -284,7 +286,7 @@ export function useChartData(symbol: string, range: string = "3M", enabled: bool
     enabled: !!symbol && enabled,
     staleTime: 5 * 60 * 1000, // 5 min cache
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: (failures: number) => failures < 1 && shouldTryProxy(),
   });
 }
 
@@ -304,6 +306,6 @@ export function useSparklineData(symbol: string, enabled: boolean = true) {
     enabled: !!symbol && enabled,
     staleTime: 10 * 60 * 1000, // 10 min cache
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: (failures: number) => failures < 1 && shouldTryProxy(),
   });
 }

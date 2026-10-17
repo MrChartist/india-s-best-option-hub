@@ -22,7 +22,7 @@ const badgeVariants = cva(
         outline: "border-border text-foreground",
         bullish: "border-transparent bg-wash-profit text-bullish",
         bearish: "border-transparent bg-wash-loss text-bearish",
-        warning: "border-transparent bg-wash-warning text-warning",
+        warning: "border-warning/40 bg-transparent text-warning",
         info: "border-transparent bg-wash-info text-info",
         neutral: "border-transparent bg-muted text-muted-foreground",
       },

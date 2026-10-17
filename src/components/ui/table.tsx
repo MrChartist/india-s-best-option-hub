@@ -1,14 +1,17 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useScrollFocusable } from "@/hooks/useScrollFocusable";
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => {
+  // Focusable only while it actually scrolls, so keyboard users can reach clipped columns.
+  const scrollRef = useScrollFocusable();
+  return (
+    <div ref={scrollRef} className="relative w-full overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <table ref={ref} className={cn("w-full caption-bottom text-body font-num", className)} {...props} />
     </div>
-  ),
-);
+  );
+});
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(

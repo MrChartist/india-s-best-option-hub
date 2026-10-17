@@ -11,15 +11,21 @@
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3F4EE" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060809" />
 
-    <!-- Deployment domain TBD: canonical points at the repository for now -->
-    <link rel="canonical" href="https://github.com/MrChartist/india-s-best-option-hub" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='15' fill='%23EE6125'/%3E %3Cpath d='M14 44 L25 31 L33 38 L49 20' fill='none' stroke='%231F0D14' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E %3Ccircle cx='49' cy='20' r='4.5' fill='%231F0D14'/%3E %3Cpath d='M14 50 H50' stroke='%231F0D14' stroke-width='3' stroke-linecap='round' opacity='0.45'/%3E%3C/svg%3E" />
+    <!-- canonical, og:url and the SoftwareApplication JSON-LD are injected at build time from
+         VITE_SITE_URL by the site-meta plugin in vite.config.ts (omitted when it is not set). -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Mr. Chartist" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Plus+Jakarta+Sans:wght@500..800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Plus+Jakarta+Sans:ital,wght@0,500..800;1,500..800&family=JetBrains+Mono:wght@400;500&display=swap"
     />
 
     <script>
@@ -40,6 +46,11 @@
           dark = mode === "dark";
         }
         root.classList.toggle("dark", dark);
+        try {
+          if (window.localStorage.getItem("palette") === "cvd") root.setAttribute("data-palette", "cvd");
+        } catch (e) {
+          /* storage blocked: default palette */
+        }
         root.style.colorScheme = dark ? "dark" : "light";
         if (mode !== "system") {
           var metas = document.querySelectorAll('meta[name="theme-color"]');
@@ -51,7 +62,8 @@
     <meta property="og:title" content="Mr. Chartist Options Terminal" />
     <meta property="og:description" content="Open-source NSE options analytics: option chain, open interest, Greeks, IV and strategy payoffs. Data for education and research." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://github.com/MrChartist/india-s-best-option-hub" />
+    <meta property="og:site_name" content="Mr. Chartist Options Terminal" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:image" content="https://raw.githubusercontent.com/MrChartist/india-s-best-option-hub/master/docs/screenshots/dashboard-dark.png" />
 
     <meta name="twitter:card" content="summary_large_image" />

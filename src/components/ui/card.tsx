@@ -18,15 +18,19 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3
-      ref={ref}
-      className={cn("font-display text-2xl font-bold leading-none tracking-[-0.02em]", className)}
-      {...props}
-    />
-  ),
-);
+export interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  /** Heading level. Defaults to h2 (page h1 → card h2); use h3/h4 for nested cards. */
+  as?: "h2" | "h3" | "h4";
+}
+
+const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(({ className, as: Tag = "h2", ...props }, ref) => (
+  <Tag
+    ref={ref}
+    data-card-title=""
+    className={cn("font-display text-[15px] font-bold leading-snug", className)}
+    {...props}
+  />
+));
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(

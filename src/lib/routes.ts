@@ -123,6 +123,18 @@ export const ROUTES: RouteDef[] = [
     page: "Watchlist",
     lazy: pageLoader("Watchlist"),
   },
+  {
+    path: "/events",
+    title: "Events Calendar",
+    navLabel: "Events",
+    group: "Markets",
+    icon: "CalendarDays",
+    keywords: ["events", "calendar", "results", "earnings", "rbi", "mpc", "budget", "cpi", "gdp", "fomc", "holidays", "expiry", "implied move"],
+    badge: "New",
+    description: "Results, RBI, Budget, CPI, FOMC, expiries and holidays, with implied vs realised results moves.",
+    page: "Events",
+    lazy: pageLoader("Events"),
+  },
 
   // ── Chain & OI ──────────────────────────────────────────────────────────
   {
@@ -185,6 +197,29 @@ export const ROUTES: RouteDef[] = [
     page: "ExpiryDay",
     lazy: pageLoader("ExpiryDay"),
   },
+  {
+    path: "/straddles",
+    title: "Straddles",
+    navLabel: "Straddles",
+    group: "Chain & OI",
+    icon: "ChartSpline",
+    keywords: ["straddle", "strangle", "vwap", "premium", "bhavcopy", "atm", "combined premium"],
+    badge: "New",
+    description: "Straddle and strangle charts for any symbol and expiry: premium with VWAP, legs, spot and daily bhavcopy.",
+    page: "Straddles",
+    lazy: pageLoader("Straddles"),
+  },
+  {
+    path: "/contract/:symbol/:expiry/:strike/:type",
+    title: "Contract",
+    navLabel: "Contract",
+    group: "Chain & OI",
+    icon: "ScanSearch",
+    keywords: ["contract", "option", "strike", "ltp", "oi", "iv", "greeks", "bhavcopy", "depth"],
+    hidden: true,
+    page: "Contract",
+    lazy: pageLoader("Contract"),
+  },
 
   // ── Volatility ──────────────────────────────────────────────────────────
   {
@@ -240,6 +275,18 @@ export const ROUTES: RouteDef[] = [
     page: "Participants",
     lazy: pageLoader("Participants"),
   },
+  {
+    path: "/futures",
+    title: "Futures and Rollover",
+    navLabel: "Futures & Rollover",
+    group: "Positioning",
+    icon: "ChartCandlestick",
+    keywords: ["futures", "rollover", "roll cost", "basis", "cost of carry", "term structure", "near next far", "expiry week", "futures oi", "bhavcopy"],
+    badge: "New",
+    description: "Index and stock futures: basis, annualised carry, rollover and roll cost vs the last 3 expiries, OI buildup per series and an expiry-week roll tracker.",
+    page: "Futures",
+    lazy: pageLoader("Futures"),
+  },
 
   // ── Strategy ────────────────────────────────────────────────────────────
   {
@@ -265,6 +312,18 @@ export const ROUTES: RouteDef[] = [
     description: "Find strategies that fit your target price, date and risk.",
     page: "Optimizer",
     lazy: pageLoader("Optimizer"),
+  },
+  {
+    path: "/backtest",
+    title: "Backtester",
+    navLabel: "Backtester",
+    group: "Strategy",
+    icon: "History",
+    keywords: ["backtest", "backtester", "historical", "bhavcopy", "stockmock", "strangle", "iron condor", "vix regime"],
+    badge: "New",
+    description: "Backtest option strategies on historical data with VIX-regime splits.",
+    page: "Backtest",
+    lazy: pageLoader("Backtest"),
   },
   {
     path: "/calculators",
@@ -303,6 +362,30 @@ export const ROUTES: RouteDef[] = [
     description: "Practise with a virtual order book and automatic expiry settlement.",
     page: "PaperTrading",
     lazy: pageLoader("PaperTrading"),
+  },
+  {
+    path: "/journal",
+    title: "Trade Journal",
+    navLabel: "Trade Journal",
+    group: "Portfolio",
+    icon: "BookOpenCheck",
+    keywords: ["journal", "trade log", "tradebook", "import", "zerodha", "dhan", "upstox", "angel", "win rate", "turnover", "sebi"],
+    badge: "New",
+    description: "Import your tradebook, review round trips, edge by setup and turnover.",
+    page: "Journal",
+    lazy: pageLoader("Journal"),
+  },
+  {
+    path: "/alerts",
+    title: "Alerts",
+    navLabel: "Alerts",
+    group: "Portfolio",
+    icon: "BellRing",
+    keywords: ["alerts", "alert", "notifications", "price alert", "webhook", "pcr", "iv", "triggers", "notify"],
+    badge: "New",
+    description: "Every alert in one place: rules, trigger log, channels and import/export.",
+    page: "Alerts",
+    lazy: pageLoader("Alerts"),
   },
 
   // ── Learn ───────────────────────────────────────────────────────────────
@@ -369,6 +452,12 @@ export const LEGACY_REDIRECTS: Readonly<Record<string, string>> = {
   "/iv": "/volatility",
   "/0dte": "/expiry-day",
   "/scanner": "/screener",
+  "/straddle": "/straddles",
+  "/backtester": "/backtest",
+  "/trade-journal": "/journal",
+  "/calendar": "/events",
+  "/rollover": "/futures",
+  "/alert": "/alerts",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -496,6 +585,14 @@ export function routeDistance(pathname: string, route: RouteDef): number {
   return Math.min(pathScore, tokenScore);
 }
 
+/** Normalised edit distance between the compacted query and the route path (0..1). */
+function wholePathDistance(pathname: string, route: RouteDef): number {
+  const q = normalizePathname(pathname).replace(/[^a-z0-9]/g, "");
+  const slug = route.path.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!q || !slug) return 1;
+  return editDistance(q, slug) / Math.max(q.length, slug.length);
+}
+
 /**
  * Closest visible routes to a mistyped pathname, best first.
  * Only returns routes under `maxDistance` (0..1), so nonsense paths get none.
@@ -507,9 +604,10 @@ export function suggestRoutes(
   const legacy = LEGACY_REDIRECTS[normalizePathname(pathname)];
   return routes
     .filter((r) => !r.hidden && !r.path.includes(":"))
-    .map((r) => ({ r, d: r.path === legacy ? -1 : routeDistance(pathname, r) }))
+    .map((r) => ({ r, d: r.path === legacy ? -1 : routeDistance(pathname, r), p: wholePathDistance(pathname, r) }))
     .filter((x) => x.d <= maxDistance)
-    .sort((x, y) => x.d - y.d || x.r.path.length - y.r.path.length)
+    // Ties (e.g. two routes sharing an exact keyword) go to the closer whole path, then the shorter one.
+    .sort((x, y) => x.d - y.d || x.p - y.p || x.r.path.length - y.r.path.length)
     .slice(0, limit)
     .map((x) => x.r);
 }

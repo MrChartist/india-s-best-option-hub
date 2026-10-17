@@ -2,8 +2,11 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
 export type ThemeMode = Theme | "system";
+/** "default": green up / red down. "cvd": blue up / orange down (colour-vision friendly). */
+export type Palette = "default" | "cvd";
 
 export const THEME_STORAGE_KEY = "theme";
+export const PALETTE_STORAGE_KEY = "palette";
 export const THEME_COLORS: Record<Theme, string> = { light: "#F3F4EE", dark: "#060809" };
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -21,6 +24,19 @@ export function nextToggleMode(current: Theme): ThemeMode {
 /** Pure: validate a raw stored value. Anything unknown means "system". */
 export function parseThemeMode(raw: unknown): ThemeMode {
   return raw === "light" || raw === "dark" || raw === "system" ? raw : "system";
+}
+
+/** Pure: validate a raw stored palette. Anything unknown means "default". */
+export function parsePalette(raw: unknown): Palette {
+  return raw === "cvd" ? "cvd" : "default";
+}
+
+function readStoredPalette(): Palette {
+  try {
+    return parsePalette(window.localStorage.getItem(PALETTE_STORAGE_KEY));
+  } catch {
+    return "default";
+  }
 }
 
 function readStoredMode(): ThemeMode {
@@ -43,17 +59,18 @@ function systemPrefersDark(): boolean {
 interface ThemeState {
   mode: ThemeMode;
   theme: Theme;
+  palette: Palette;
 }
 
 let state: ThemeState | null = null;
-const serverSnapshot: ThemeState = { mode: "system", theme: "light" };
+const serverSnapshot: ThemeState = { mode: "system", theme: "light", palette: "default" };
 const listeners = new Set<() => void>();
 
 function getState(): ThemeState {
   if (state) return state;
   if (typeof window === "undefined") return serverSnapshot;
   const mode = readStoredMode();
-  state = { mode, theme: resolveTheme(mode, systemPrefersDark()) };
+  state = { mode, theme: resolveTheme(mode, systemPrefersDark()), palette: readStoredPalette() };
   return state;
 }
 
@@ -62,6 +79,8 @@ function applyToDocument(next: ThemeState) {
   const root = document.documentElement;
   root.classList.toggle("dark", next.theme === "dark");
   root.style.colorScheme = next.theme;
+  if (next.palette === "cvd") root.setAttribute("data-palette", "cvd");
+  else root.removeAttribute("data-palette");
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   metas.forEach((meta) => {
     if (next.mode === "system") {
@@ -77,7 +96,9 @@ function setState(next: ThemeState) {
   const prev = getState();
   state = next;
   applyToDocument(next);
-  if (prev.mode !== next.mode || prev.theme !== next.theme) listeners.forEach((l) => l());
+  if (prev.mode !== next.mode || prev.theme !== next.theme || prev.palette !== next.palette) {
+    listeners.forEach((l) => l());
+  }
 }
 
 function setModeInternal(mode: ThemeMode) {
@@ -86,7 +107,16 @@ function setModeInternal(mode: ThemeMode) {
   } catch {
     /* storage blocked: keep the in-memory choice */
   }
-  setState({ mode, theme: resolveTheme(mode, systemPrefersDark()) });
+  setState({ ...getState(), mode, theme: resolveTheme(mode, systemPrefersDark()) });
+}
+
+function setPaletteInternal(palette: Palette) {
+  try {
+    window.localStorage.setItem(PALETTE_STORAGE_KEY, palette);
+  } catch {
+    /* storage blocked: keep the in-memory choice */
+  }
+  setState({ ...getState(), palette });
 }
 
 function subscribe(listener: () => void) {
@@ -98,7 +128,8 @@ function subscribe(listener: () => void) {
 
 /**
  * Three-state theme: light, dark or system (follows the OS, live).
- * Return shape is backwards compatible: { theme, toggle, isDark } plus { mode, setMode }.
+ * Return shape is backwards compatible: { theme, toggle, isDark } plus { mode, setMode }
+ * and the colour-vision palette { palette, setPalette } (sets data-palette on <html>).
  */
 export function useTheme() {
   const snapshot = useSyncExternalStore(subscribe, getState, () => serverSnapshot);
@@ -113,12 +144,16 @@ export function useTheme() {
     }
     const onSystem = () => {
       const cur = getState();
-      if (cur.mode === "system") setState({ mode: "system", theme: resolveTheme("system", systemPrefersDark()) });
+      if (cur.mode === "system") setState({ ...cur, theme: resolveTheme("system", systemPrefersDark()) });
     };
     const onStorage = (e: StorageEvent) => {
+      if (e.key === PALETTE_STORAGE_KEY) {
+        setState({ ...getState(), palette: parsePalette(e.newValue) });
+        return;
+      }
       if (e.key !== THEME_STORAGE_KEY) return;
       const mode = parseThemeMode(e.newValue);
-      setState({ mode, theme: resolveTheme(mode, systemPrefersDark()) });
+      setState({ ...getState(), mode, theme: resolveTheme(mode, systemPrefersDark()) });
     };
     mql?.addEventListener?.("change", onSystem);
     window.addEventListener("storage", onStorage);
@@ -131,6 +166,7 @@ export function useTheme() {
 
   const setMode = useCallback((mode: ThemeMode) => setModeInternal(mode), []);
   const toggle = useCallback(() => setModeInternal(nextToggleMode(getState().theme)), []);
+  const setPalette = useCallback((p: Palette) => setPaletteInternal(p), []);
 
   return {
     theme: snapshot.theme,
@@ -138,5 +174,7 @@ export function useTheme() {
     isDark: snapshot.theme === "dark",
     mode: snapshot.mode,
     setMode,
+    palette: snapshot.palette,
+    setPalette,
   };
 }

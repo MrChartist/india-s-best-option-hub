@@ -82,3 +82,34 @@ describe("theme mode helpers", () => {
     expect(nextToggleMode("light")).toBe("dark");
   });
 });
+
+describe("compactAxisTick", () => {
+  it("formats thousands, lakhs and crores without a unit", async () => {
+    const { compactAxisTick } = await import("./chartTheme");
+    expect(compactAxisTick(14000)).toBe("14k");
+    expect(compactAxisTick(-40000)).toBe("−40k");
+    expect(compactAxisTick(120000)).toBe("1.2L");
+    expect(compactAxisTick(1250000)).toBe("12.5L");
+    expect(compactAxisTick(15000000)).toBe("1.5Cr");
+    expect(compactAxisTick(1500)).toBe("1.5k");
+    expect(compactAxisTick(250000000)).toBe("25Cr");
+  });
+
+  it("promotes to the next tier when rounding overflows", async () => {
+    const { compactAxisTick } = await import("./chartTheme");
+    expect(compactAxisTick(99960)).toBe("1L");
+    expect(compactAxisTick(9_999_000)).toBe("1Cr");
+    expect(compactAxisTick(999.7)).toBe("1k");
+  });
+
+  it("keeps small values readable and handles edge cases", async () => {
+    const { compactAxisTick } = await import("./chartTheme");
+    expect(compactAxisTick(0)).toBe("0");
+    expect(compactAxisTick(950)).toBe("950");
+    expect(compactAxisTick(-12.5)).toBe("−12.5");
+    expect(compactAxisTick(0.25)).toBe("0.25");
+    expect(compactAxisTick(0.001)).toBe("0");
+    expect(compactAxisTick(Number.NaN)).toBe("");
+    expect(compactAxisTick(Number.POSITIVE_INFINITY)).toBe("");
+  });
+});

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Circle, Clock, Github } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
+import { useProxyStatus } from "@/lib/api/proxyClient";
 import { formatTimeIST } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
@@ -14,16 +15,10 @@ interface SnapshotStats {
   lastTs: number | null;
 }
 
-type SnapshotModule = { getSnapshotStats?: () => Promise<SnapshotStats> };
-
-// The snapshot store may not exist yet; a glob import resolves to {} instead of failing the build.
-const snapshotLoaders = import.meta.glob<SnapshotModule>("/src/lib/snapshotStore.ts");
-
 async function readSnapshotStats(): Promise<SnapshotStats | null> {
   try {
-    const load = Object.values(snapshotLoaders)[0];
-    if (!load) return null;
-    const mod = await load();
+    // Dynamic import keeps the IndexedDB snapshot store out of the app-shell chunk.
+    const mod = await import("@/lib/snapshotStore");
     if (typeof mod.getSnapshotStats !== "function") return null;
     const stats = await mod.getSnapshotStats();
     if (!stats || typeof stats.count !== "number") return null;
@@ -88,7 +83,7 @@ function RecordingStatus({ stats }: { stats: SnapshotStats | null }) {
   return (
     <span className="hidden items-center gap-1.5 sm:flex" title={title}>
       <Circle
-        className={cn("h-2 w-2", stats.recording ? "fill-bearish text-bearish" : "fill-muted-foreground/50 text-muted-foreground/50")}
+        className={cn("h-2 w-2", stats.recording ? "fill-bearish text-bearish" : "fill-muted-foreground-subtle text-muted-foreground-subtle")}
         aria-hidden="true"
       />
       <span>{label}</span>
@@ -98,8 +93,18 @@ function RecordingStatus({ stats }: { stats: SnapshotStats | null }) {
 
 export const StatusFooter = () => {
   const { data: indicesResult } = useLiveIndices();
+  const proxy = useProxyStatus();
   const isConnected = indicesResult?.isLive || false;
   const stats = useSnapshotStats();
+  const feedLabel = isConnected
+    ? "Feed live"
+    : proxy.sampleMode
+      ? "Sample mode"
+      : proxy.status === "offline"
+        ? "Proxy offline · sample data"
+        : proxy.status === "unknown"
+          ? "Connecting…"
+          : "Feed offline";
 
   return (
     <footer
@@ -112,7 +117,7 @@ export const StatusFooter = () => {
             className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isConnected ? "bg-bullish" : "bg-bearish")}
             aria-hidden="true"
           />
-          <span>Feed {isConnected ? "live" : "offline"}</span>
+          <span>{feedLabel}</span>
         </span>
         <RecordingStatus stats={stats} />
         <span className="hidden lg:inline">Data for education and research. Not investment advice.</span>

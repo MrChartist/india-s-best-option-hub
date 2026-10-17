@@ -1,14 +1,14 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { StatusFooter } from "@/components/StatusFooter";
-import { CommandPalette } from "@/components/CommandPalette";
-import { AlertSystem } from "@/components/AlertSystem";
+import { SampleBanner } from "@/components/SampleBanner";
 import { SHORTCUT_HELP, useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useSnapshotRecorder } from "@/hooks/useSnapshotRecorder";
+import { probeProxy, useProxyStatus } from "@/lib/api/proxyClient";
+import { startMarketWS } from "@/lib/websocketClient";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLiveIndices, useMarketStatus, useAllIndices } from "@/hooks/useMarketData";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +24,9 @@ import {
   type MarketSession,
 } from "@/lib/options";
 import { cn } from "@/lib/utils";
+
+// The alert engine (and the snapshot store it feeds) loads after first paint, out of the main chunk.
+const AlertSystem = lazy(() => import("@/components/AlertSystem"));
 import { Search, Bell, Timer, RefreshCw, Plane, Settings, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +36,22 @@ const EXPIRY_SYMBOL = "NIFTY";
 
 /** Chains recorded app-wide during market hours so flow, OI replay, IV and PCR history accrue on any page. */
 const RECORD_SYMBOLS = [{ symbol: "NIFTY" }, { symbol: "BANKNIFTY" }, { symbol: "SENSEX" }];
+
+// The command palette (cmdk, the F&O universe, route search) is only fetched on the first ⌘K or
+// search click; hovering or focusing the search button warms the chunk.
+const loadCommandPalette = () => import("@/components/CommandPalette").then((m) => ({ default: m.CommandPalette }));
+const CommandPalette = lazy(loadCommandPalette);
+
+// The snapshot recorder and its IndexedDB store load through a dynamic import, and only once the
+// proxy is reachable: it records live chains only, so there is nothing to do in sample mode.
+const SnapshotRecorderHost = lazy(() =>
+  import("@/hooks/useSnapshotRecorder").then(({ useSnapshotRecorder }) => ({
+    default: function SnapshotRecorder() {
+      useSnapshotRecorder(RECORD_SYMBOLS);
+      return null;
+    },
+  })),
+);
 
 function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
@@ -119,7 +138,7 @@ function ExpiryCountdown() {
         <div
           className="hidden h-7 items-center gap-1.5 rounded-capsule border border-border bg-card/70 px-2.5 text-xs sm:flex"
           tabIndex={0}
-          aria-label={`Next ${EXPIRY_SYMBOL} expiry ${formatDateIST(next.date)}, ${label}`}
+          aria-label={`${EXPIRY_SYMBOL} exp ${label}: next expiry ${formatDateIST(next.date)}`}
         >
           <Timer className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
           <span className="hidden text-label uppercase text-muted-foreground lg:inline">{EXPIRY_SYMBOL} exp</span>
@@ -174,6 +193,7 @@ export default function DashboardLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [paletteMounted, setPaletteMounted] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -200,12 +220,27 @@ export default function DashboardLayout() {
     activeBroker?.brokerId === "dhan" && activeBroker.values.clientId && activeBroker.values.accessToken,
   );
 
+  const openSearch = useCallback(() => {
+    setPaletteMounted(true);
+    setSearchOpen(true);
+  }, []);
+
   useKeyboardShortcuts({
-    onToggleSearch: () => setSearchOpen(true),
+    onToggleSearch: openSearch,
     onToggleAlerts: () => setAlertsOpen(true),
     onShowShortcuts: () => setShortcutsOpen(true),
   });
-  useSnapshotRecorder(RECORD_SYMBOLS);
+
+  // Proxy reachability: probe once on mount (the banner resolves even before any query runs), and
+  // open the live WebSocket feed only once the gate says the proxy is up.
+  const proxy = useProxyStatus();
+  const proxyOnline = proxy.status === "online";
+  useEffect(() => {
+    void probeProxy();
+  }, []);
+  useEffect(() => {
+    if (proxyOnline) startMarketWS();
+  }, [proxyOnline]);
 
   // Quick refresh: invalidate live-market queries only. Slow-moving data
   // (instrument master, multi-year histories, IV backfills) is left alone.
@@ -314,7 +349,6 @@ export default function DashboardLayout() {
                   <button
                     type="button"
                     className="flex h-7 items-center gap-2 rounded-capsule border border-border bg-card/70 px-2.5 text-xs font-semibold transition-colors duration-fast hover:border-primary/40 focus-visible:outline-none focus-visible:shadow-ember"
-                    aria-label={`${sessionMeta.label}. Data feed ${isLiveData ? "live" : "offline"}. Open status details`}
                   >
                     <span className="relative flex h-2 w-2" aria-hidden="true">
                       {sessionMeta.tone === "open" && (
@@ -329,8 +363,10 @@ export default function DashboardLayout() {
                         className={cn("h-1.5 w-1.5 rounded-full", isLiveData ? "bg-bullish" : "bg-bearish")}
                         aria-hidden="true"
                       />
-                      <span className="hidden sm:inline">{isLiveData ? "Live" : "Offline"}</span>
+                      <span className="sr-only sm:not-sr-only">{isLiveData ? "Live" : "Offline"}</span>
                     </span>
+                    {/* Accessible name = visible text plus this, so it always contains what is shown. */}
+                    <span className="sr-only">{`: ${sessionMeta.label}, data feed ${isLiveData ? "live" : "offline"}. Open status details`}</span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72 p-3.5" align="end">
@@ -346,6 +382,12 @@ export default function DashboardLayout() {
                     </div>
 
                     <div className="space-y-1.5 border-t border-border pt-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Proxy</span>
+                        <Badge variant={proxyOnline ? "bullish" : proxy.status === "unknown" ? "warning" : "bearish"}>
+                          {proxyOnline ? "Reachable" : proxy.status === "unknown" ? "Checking" : proxy.sampleMode ? "Sample mode" : "Offline"}
+                        </Badge>
+                      </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Data feed</span>
                         <Badge variant={isLiveData ? "bullish" : "bearish"}>{isLiveData ? "Live" : "Offline"}</Badge>
@@ -416,7 +458,9 @@ export default function DashboardLayout() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
-                    onClick={() => setSearchOpen(true)}
+                    onClick={openSearch}
+                    onPointerEnter={() => void loadCommandPalette()}
+                    onFocus={() => void loadCommandPalette()}
                     aria-label="Search pages and symbols"
                   >
                     <Search className="h-3.5 w-3.5" aria-hidden="true" />
@@ -447,6 +491,8 @@ export default function DashboardLayout() {
             </div>
           </header>
 
+          <SampleBanner />
+
           <main id="main" tabIndex={-1} className="flex-1 overflow-auto p-2.5 focus:outline-none focus-visible:shadow-none sm:p-3 lg:p-4">
             <div className="page-transition" key={location.pathname}>
               <Outlet />
@@ -457,9 +503,20 @@ export default function DashboardLayout() {
         </div>
       </div>
 
-      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} onShowShortcuts={() => setShortcutsOpen(true)} />
+      {paletteMounted && (
+        <Suspense fallback={null}>
+          <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} onShowShortcuts={() => setShortcutsOpen(true)} />
+        </Suspense>
+      )}
+      {proxyOnline && (
+        <Suspense fallback={null}>
+          <SnapshotRecorderHost />
+        </Suspense>
+      )}
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-      <AlertSystem open={alertsOpen} onOpenChange={setAlertsOpen} />
+      <Suspense fallback={null}>
+        <AlertSystem open={alertsOpen} onOpenChange={setAlertsOpen} />
+      </Suspense>
     </SidebarProvider>
   );
 }

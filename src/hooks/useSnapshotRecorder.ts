@@ -2,13 +2,16 @@
  * Snapshot recorder hooks.
  *
  * useSnapshotRecorder records live option-chain snapshots into IndexedDB while the NSE session is
- * open (never sample or stale data), at most once every 15 seconds per symbol, and writes one
- * end-of-day DailyStat per symbol once the clock passes 15:30 IST on a trading day.
+ * open (never sample, stale or quotes older than two minutes), at most once per gap per
+ * symbol/expiry, and writes one end-of-day DailyStat per symbol once the clock passes 15:30 IST on
+ * a trading day. Writes pause automatically near the browser storage quota (see
+ * src/lib/history/storageHealth.ts).
  *
  * Chains come from react-query: a fresh ["live-option-chain"] poll that a page or FlowFeeder already
  * runs is reused, and otherwise one cached fetch is shared by every recorder instance, so the
- * recorder adds at most one proxy call per symbol per gap. Snapshots older than
- * SNAPSHOT_RETENTION_DAYS are pruned once per session.
+ * recorder adds at most one proxy call per symbol per gap. Once per session, snapshots older than
+ * SNAPSHOT_RETENTION_DAYS are pruned and finished days are downsampled to 5-minute bars. When the
+ * proxy is reachable, today's gaps are backfilled from its server recorder (src/lib/history/hydrate.ts).
  *
  * useSnapshots reads recorded snapshots with react-query.
  */
@@ -17,8 +20,11 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import type { OptionChainHookData } from "@/hooks/useMarketData";
 import { fetchLiveOptionChain } from "@/lib/marketApi";
 import { getMarketSession, isTradingDay, istDateString, normalizeExpiry, nowIST } from "@/lib/options";
+import { hydrateSnapshots } from "@/lib/history/hydrate";
+import { getStorageHealth, subscribeStorageHealth } from "@/lib/history/storageHealth";
 import {
   MIN_SNAPSHOT_GAP_MS,
+  compactSnapshots,
   computeDailyStat,
   getDailyStats,
   getLatestSnapshots,
@@ -26,7 +32,7 @@ import {
   getSnapshots,
   pruneSnapshots,
   putDailyStat,
-  recordSnapshot,
+  recordSnapshotDetailed,
   setRecordingActive,
   snapshotDateIST,
   snapshotToChain,
@@ -52,12 +58,16 @@ export const SNAPSHOT_RETENTION_DAYS = 30;
 
 let prunedThisSession = false;
 
-/** Prune old snapshots once per page session (IndexedDB otherwise grows until the quota fails). */
-async function pruneOnce(): Promise<void> {
+/**
+ * Once per page session: prune old snapshots (IndexedDB otherwise grows until the quota fails) and
+ * downsample finished days to 5-minute bars.
+ */
+async function maintainOnce(): Promise<void> {
   if (prunedThisSession) return;
   prunedThisSession = true;
   try {
     await pruneSnapshots(SNAPSHOT_RETENTION_DAYS);
+    await compactSnapshots();
   } catch {
     prunedThisSession = false; // IndexedDB busy or unavailable: try again next start
   }
@@ -68,6 +78,8 @@ interface RecordableChain {
   spotPrice: number;
   expiry: string;
   stale: boolean;
+  source: string;
+  asOf: number | null;
 }
 
 /**
@@ -83,7 +95,7 @@ async function getRecordableChain(qc: QueryClient, symbol: string, expiry: strin
     const keyExpiry = typeof kExpiry === "string" && kExpiry ? normalizeExpiry(kExpiry) || kExpiry : undefined;
     if (expiry ? keyExpiry !== expiry && data.expiry !== expiry : keyExpiry !== undefined) continue;
     if ((qc.getQueryState(key)?.dataUpdatedAt ?? 0) < minUpdatedAt) continue;
-    return { chain: data.chain, spotPrice: data.spotPrice, expiry: data.expiry, stale: false };
+    return { chain: data.chain, spotPrice: data.spotPrice, expiry: data.expiry, stale: false, source: data.source, asOf: data.asOf };
   }
   const res = await qc.fetchQuery({
     queryKey: ["snapshot-recorder-chain", symbol, expiry ?? ""],
@@ -92,7 +104,7 @@ async function getRecordableChain(qc: QueryClient, symbol: string, expiry: strin
     gcTime: 2 * MIN_SNAPSHOT_GAP_MS,
     retry: 0,
   });
-  return { chain: res.chain, spotPrice: res.spotPrice, expiry: res.expiry, stale: res.stale };
+  return { chain: res.chain, spotPrice: res.spotPrice, expiry: res.expiry, stale: res.stale, source: res.source, asOf: res.asOf };
 }
 
 const eodWritten = new Set<string>();
@@ -116,13 +128,14 @@ async function writeEndOfDay(symbol: string, expiry: string): Promise<void> {
 export function useSnapshotRecorder(
   symbols: Array<{ symbol: string; expiry?: string }>,
   intervalMs?: number,
-): { recording: boolean; count: number } {
+): { recording: boolean; count: number; paused: boolean } {
   const qc = useQueryClient();
   const [recording, setRecording] = useState(false);
   const [count, setCount] = useState(0);
+  const [paused, setPaused] = useState(() => getStorageHealth().paused);
+  useEffect(() => subscribeStorageHealth((h) => setPaused(h.paused)), []);
   const symbolsKey = symbols.map((s) => `${s.symbol.toUpperCase()}@${s.expiry ? normalizeExpiry(s.expiry) || s.expiry : ""}`).join(",");
   const every = effectiveInterval(intervalMs);
-  const busy = useRef(false);
   /** Last expiry seen per symbol, for the end-of-day stat. */
   const lastExpiry = useRef(new Map<string, string>());
 
@@ -136,6 +149,9 @@ export function useSnapshotRecorder(
     if (targets.length === 0) return;
     let cancelled = false;
     let active = false;
+    // Per run: a tick still in flight from a previous run (old targets) must not block this run's
+    // immediate first tick. The old run sees `cancelled` and stops at its next check.
+    let busy = false;
 
     const refreshCount = async () => {
       try {
@@ -147,8 +163,8 @@ export function useSnapshotRecorder(
     };
 
     const tick = async () => {
-      if (busy.current || cancelled) return;
-      busy.current = true;
+      if (busy || cancelled) return;
+      busy = true;
       try {
         const open = getMarketSession() === "open";
         if (open !== active) {
@@ -161,11 +177,16 @@ export function useSnapshotRecorder(
             if (cancelled) break;
             try {
               const res = await getRecordableChain(qc, t.symbol, t.expiry);
-              if (res.stale || res.chain.length === 0) continue; // only fresh live data is recorded
               const expiry = res.expiry || (t.expiry ? normalizeExpiry(t.expiry) : "");
               if (!expiry) continue;
+              // recordSnapshotDetailed refuses sample, stale, old and empty chains and enforces the gap.
+              const out = await recordSnapshotDetailed(t.symbol, expiry, res.spotPrice, res.chain, { source: res.source, stale: res.stale, asOf: res.asOf });
+              if (out.reason === "sample" || out.reason === "stale" || out.reason === "old" || out.reason === "empty") continue;
               lastExpiry.current.set(t.symbol, expiry);
-              await recordSnapshot(t.symbol, expiry, res.spotPrice, res.chain);
+              // Backfill today's gaps from the proxy's server recorder (throttled, no-op when offline).
+              void hydrateSnapshots(t.symbol, expiry).then((h) => {
+                if (h.imported > 0) void qc.invalidateQueries({ queryKey: ["chain-snapshots", t.symbol] });
+              });
             } catch {
               /* skip this symbol this round */
             }
@@ -173,6 +194,7 @@ export function useSnapshotRecorder(
           await refreshCount();
         } else if (isAfterCloseIST()) {
           for (const t of targets) {
+            if (cancelled) break;
             const expiry = lastExpiry.current.get(t.symbol) || (t.expiry ? normalizeExpiry(t.expiry) : "");
             if (!expiry) continue;
             try {
@@ -183,11 +205,11 @@ export function useSnapshotRecorder(
           }
         }
       } finally {
-        busy.current = false;
+        busy = false;
       }
     };
 
-    void pruneOnce().then(refreshCount);
+    void maintainOnce().then(refreshCount);
     void tick();
     const timer = setInterval(() => void tick(), every);
     return () => {
@@ -198,14 +220,18 @@ export function useSnapshotRecorder(
     };
   }, [symbolsKey, every, qc]);
 
-  return { recording, count };
+  return { recording, count, paused };
 }
 
-/** Recorded snapshots for a symbol/expiry from fromTs onwards (ascending by time). */
+/** Recorded snapshots for a symbol/expiry from fromTs onwards (ascending by time), after a server backfill. */
 export function useSnapshots(symbol: string, expiry: string, fromTs?: number) {
   return useQuery({
     queryKey: ["chain-snapshots", symbol.toUpperCase(), expiry, fromTs ?? 0],
-    queryFn: (): Promise<ChainSnapshot[]> => getSnapshots(symbol, expiry, fromTs),
+    queryFn: async (): Promise<ChainSnapshot[]> => {
+      // Fill today's gaps from the server recorder first (no-op unless the proxy is reachable).
+      await hydrateSnapshots(symbol, expiry).catch(() => undefined);
+      return getSnapshots(symbol, expiry, fromTs);
+    },
     enabled: !!symbol && !!expiry,
     refetchInterval: () => (getMarketSession() === "open" ? 30_000 : false),
     staleTime: 10_000,

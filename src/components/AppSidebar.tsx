@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -19,6 +19,7 @@ import { useTheme, type ThemeMode } from "@/hooks/useTheme";
 import { routesByGroup, type RouteDef } from "@/lib/routes";
 import { routeIcon } from "@/lib/routeIcons";
 import { cn } from "@/lib/utils";
+import { PaletteToggle } from "@/components/PaletteToggle";
 
 const NAV_GROUPS = routesByGroup();
 
@@ -28,10 +29,36 @@ const THEME_OPTIONS: { mode: ThemeMode; label: string; icon: typeof Sun }[] = [
   { mode: "dark", label: "Dark", icon: Moon },
 ];
 
+/**
+ * "New" badges expire once the user has opened the page, so the badge keeps
+ * meaning "you have not looked at this yet" instead of decorating most of the
+ * nav. "Beta" badges are a status, not novelty, and never expire.
+ */
+const SEEN_KEY = "mc-nav-seen-v1";
+
+function readSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    const arr = raw ? (JSON.parse(raw) as unknown) : [];
+    return new Set(Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeSeen(seen: Set<string>) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+  } catch {
+    /* storage blocked: badges simply stay visible */
+  }
+}
+
 /** "g c" → "G C" for display. */
 const shortcutLabel = (s: string) => s.toUpperCase();
 
-function NavItem({ route, collapsed }: { route: RouteDef; collapsed: boolean }) {
+function NavItem({ route, collapsed, seen }: { route: RouteDef; collapsed: boolean; seen: boolean }) {
+  const badge = route.badge === "New" && seen ? undefined : route.badge;
   const Icon = routeIcon(route.icon);
   const tooltip = route.shortcut ? `${route.navLabel}  (${shortcutLabel(route.shortcut)})` : route.navLabel;
   return (
@@ -44,8 +71,8 @@ function NavItem({ route, collapsed }: { route: RouteDef; collapsed: boolean }) 
           className={cn(
             "group relative flex items-center gap-2.5 text-[13px] font-medium transition-colors duration-150",
             collapsed
-              ? "!size-9 justify-center rounded-lg p-0 text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              : "h-8 rounded-md px-2.5 text-sidebar-foreground/85 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+              ? "!size-9 justify-center rounded-lg p-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              : "h-8 rounded-md px-2.5 text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
           )}
           activeClassName={cn(
             "font-semibold",
@@ -58,18 +85,18 @@ function NavItem({ route, collapsed }: { route: RouteDef; collapsed: boolean }) 
           {!collapsed && (
             <>
               <span className="min-w-0 flex-1 truncate">{route.navLabel}</span>
-              {route.badge && (
+              {badge && (
                 <span
                   className={cn(
                     "rounded px-1 py-px text-micro uppercase leading-none",
-                    route.badge === "Beta" ? "bg-warning/15 text-warning" : "bg-primary/10 text-primary-ink",
+                    badge === "Beta" ? "bg-wash-warning text-warning" : "bg-primary/10 text-primary-ink",
                   )}
                 >
-                  {route.badge}
+                  {badge}
                 </span>
               )}
               {route.shortcut && (
-                <kbd className="hidden font-mono text-[10px] text-muted-foreground/50 group-hover:text-muted-foreground xl:inline">
+                <kbd className="hidden font-mono text-[10px] text-muted-foreground-subtle group-hover:text-muted-foreground xl:inline">
                   {shortcutLabel(route.shortcut)}
                 </kbd>
               )}
@@ -88,7 +115,7 @@ function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
       <button
         type="button"
         onClick={toggle}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       >
@@ -131,6 +158,21 @@ export function AppSidebar() {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
 
+  // Mark the current section as seen so its "New" badge expires.
+  const [seen, setSeen] = useState<Set<string>>(readSeen);
+  useEffect(() => {
+    const match = NAV_GROUPS.flatMap((g) => g.routes).find((r) =>
+      r.path === "/" ? pathname === "/" : pathname === r.path || pathname.startsWith(`${r.path}/`),
+    );
+    if (!match) return;
+    setSeen((prev) => {
+      if (prev.has(match.path)) return prev;
+      const next = new Set(prev).add(match.path);
+      writeSeen(next);
+      return next;
+    });
+  }, [pathname]);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className={cn("shrink-0 border-b border-sidebar-border/80 px-4 py-3.5", collapsed && "items-center px-0 py-3")}>
@@ -150,7 +192,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex min-w-0 flex-col">
               <span className="text-[15px] font-bold leading-none text-foreground">Mr. Chartist</span>
-              <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/75">Options Terminal</span>
+              <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Options Terminal</span>
             </div>
           )}
         </div>
@@ -176,14 +218,14 @@ export function AppSidebar() {
               {collapsed ? (
                 i > 0 && <div className="my-1.5 h-px w-6 bg-sidebar-border" aria-hidden="true" />
               ) : (
-                <SidebarGroupLabel className="h-6 px-2.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+                <SidebarGroupLabel className="h-6 px-2.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {group}
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
                 <SidebarMenu className={cn(collapsed ? "items-center gap-1" : "gap-px")}>
                   {routes.map((route) => (
-                    <NavItem key={route.path} route={route} collapsed={collapsed} />
+                    <NavItem key={route.path} route={route} collapsed={collapsed} seen={seen.has(route.path)} />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
@@ -194,9 +236,10 @@ export function AppSidebar() {
 
       <SidebarFooter className={cn("shrink-0 gap-2 border-t border-sidebar-border/80 p-2", collapsed && "items-center px-0 py-2.5")}>
         <ThemeSwitch collapsed={collapsed} />
+        <PaletteToggle collapsed={collapsed} />
         {/* Keyboard hints are noise on touch screens; hide them on mobile and when collapsed. */}
         {!collapsed && !isMobile && (
-          <p className="px-1 text-[10.5px] text-muted-foreground/70">
+          <p className="px-1 text-[10.5px] text-muted-foreground">
             Press <kbd className="rounded border border-sidebar-border px-1 font-mono">?</kbd> for shortcuts ·{" "}
             <kbd className="rounded border border-sidebar-border px-1 font-mono">Ctrl K</kbd> to search
           </p>

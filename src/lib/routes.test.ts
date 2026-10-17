@@ -32,6 +32,7 @@ describe("ROUTES registry", () => {
       "/", "/option-chain", "/oi-analysis", "/watchlist", "/strategy-builder", "/position-tracker", "/broker-settings",
       "/optimizer", "/volatility", "/gex", "/max-pain-pcr", "/flow", "/screener", "/participants", "/expiry-day",
       "/calculators", "/paper-trading", "/learn", "/learn/:slug",
+      "/straddles", "/contract/:symbol/:expiry/:strike/:type", "/futures", "/backtest", "/journal", "/alerts", "/events",
     ];
     expect(ROUTES.map((r) => r.path).sort()).toEqual([...expected].sort());
   });

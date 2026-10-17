@@ -3,7 +3,8 @@
  * Ticks are keyed by "segment:securityId"; index hooks resolve symbols to IDX_I keys.
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { marketWS, indexTickKey, type FeedStatus, type TickData } from "@/lib/websocketClient";
+import { marketWS, indexTickKey, startMarketWS, type FeedStatus, type TickData } from "@/lib/websocketClient";
+import { probeProxy } from "@/lib/api/proxyClient";
 
 /** True when the Dhan feed is live (ticks flowing through the proxy). */
 export function useWebSocketStatus(): boolean {
@@ -148,9 +149,19 @@ export function useWebSocketVix(): { vix: WebSocketVixData | null; isConnected: 
   return { vix, isConnected };
 }
 
+/**
+ * Manual reconnect (e.g. after saving new Dhan keys). Checks the proxy first, ignoring the gate's
+ * backoff; when it answers, the socket is reopened with the failure counter cleared.
+ */
 export function useWebSocketReconnect() {
   return useCallback(() => {
-    marketWS.disconnect();
-    setTimeout(() => marketWS.connect(), 200);
+    void probeProxy({ force: true }).then((ok) => {
+      if (!ok) return;
+      marketWS.disconnect();
+      setTimeout(() => {
+        startMarketWS();
+        marketWS.connect(); // no-op when startMarketWS() just opened the socket
+      }, 200);
+    });
   }, []);
 }

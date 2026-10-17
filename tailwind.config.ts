@@ -21,7 +21,6 @@ export default {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         num: ["Inter", "system-ui", "-apple-system", "sans-serif"],
         display: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
-        serif: ['"Instrument Serif"', "Georgia", "serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
       fontSize: {
@@ -31,7 +30,7 @@ export default {
         "body-sm": ["12.5px", { lineHeight: "1.5" }],
         body: ["13px", { lineHeight: "1.5" }],
         lead: ["14px", { lineHeight: "1.5", fontWeight: "500" }],
-        title: ["20px", { lineHeight: "1.16", letterSpacing: "-0.02em", fontWeight: "700" }],
+        title: ["20px", { lineHeight: "1.16", letterSpacing: "-0.005em", fontWeight: "700" }],
         display: ["28px", { lineHeight: "1.1", letterSpacing: "-0.03em", fontWeight: "800" }],
         "num-hero": ["34px", { lineHeight: "1", letterSpacing: "-0.02em", fontWeight: "700" }],
       },
@@ -62,6 +61,7 @@ export default {
         muted: {
           DEFAULT: token("muted"),
           foreground: token("muted-foreground"),
+          "foreground-subtle": token("muted-foreground-subtle"),
         },
         accent: {
           DEFAULT: token("accent"),
@@ -113,6 +113,7 @@ export default {
           warning: token("wash-warning"),
           brand: token("wash-brand"),
           info: token("wash-info"),
+          itm: token("wash-itm"),
         },
         sentiment: {
           1: token("sentiment-1"),
@@ -132,6 +133,8 @@ export default {
           3: token("chart-3"),
           4: token("chart-4"),
           5: token("chart-5"),
+          "4-ink": token("chart-4-ink"),
+          "5-ink": token("chart-5-ink"),
           6: token("chart-6"),
         },
       },

@@ -26,6 +26,12 @@ const REQUIRED_PATHS = [
   "/calculators",
   "/paper-trading",
   "/learn",
+  "/straddles",
+  "/futures",
+  "/backtest",
+  "/journal",
+  "/alerts",
+  "/events",
 ];
 
 /** Browser noise caused by the proxy being offline. Anything else fails the test. */
@@ -103,7 +109,7 @@ test.describe("404 page", () => {
     const collected = await preparePage(page);
     await page.goto("/option-chian", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
-    const firstSuggestion = page.getByRole("list").getByRole("link").first();
+    const firstSuggestion = page.locator("#main").getByRole("list").getByRole("link").first();
     await expect(firstSuggestion).toHaveAttribute("href", "/option-chain");
     await expect(page).toHaveTitle(/Page not found · Mr\. Chartist/);
     expect(collected.errors).toEqual([]);
