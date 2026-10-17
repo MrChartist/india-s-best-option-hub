@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { Infinity as InfinityIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatINR, formatPct, formatStrike } from "@/lib/options";
+import { formatINR, formatPct, formatStrike, marginFundsRequired } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { MetricTip } from "./MetricTip";
 import type { StrategyAnalysis } from "./strategyAnalysis";
@@ -14,12 +15,26 @@ export interface StatsPanelProps {
   roundTrip: boolean;
 }
 
-function Tile({ label, help, children, sub, tone, className, badge }: { label: string; help: ReactNode; children: ReactNode; sub?: ReactNode; tone?: "profit" | "loss"; className?: string; badge?: ReactNode }) {
+interface TileProps {
+  label: string;
+  help: ReactNode;
+  children: ReactNode;
+  sub?: ReactNode;
+  tone?: "profit" | "loss";
+  className?: string;
+  badge?: ReactNode;
+  /** Learn lesson linked from the help tip. */
+  helpHref?: string;
+}
+
+function Tile({ label, help, children, sub, tone, className, badge, helpHref }: TileProps) {
   return (
-    <div className={cn("rounded-tile border border-border bg-card p-2.5", tone === "profit" && "bg-wash-profit/40", tone === "loss" && "bg-wash-loss/40", className)}>
-      <div className="flex items-center gap-1 text-label uppercase text-muted-foreground">
-        <span className="truncate">{label}</span>
-        <MetricTip label={label}>{help}</MetricTip>
+    <div className={cn("min-w-0 rounded-tile border border-border bg-card p-2.5", tone === "profit" && "bg-wash-profit/40", tone === "loss" && "bg-wash-loss/40", className)}>
+      <div className="flex items-start gap-1 text-label uppercase text-muted-foreground">
+        <span className="min-w-0 break-words leading-tight">{label}</span>
+        <MetricTip label={label} href={helpHref}>
+          {help}
+        </MetricTip>
         {badge && <span className="ml-auto">{badge}</span>}
       </div>
       <div className="mt-1 font-num text-base font-bold leading-tight">{children}</div>
@@ -36,6 +51,8 @@ function Unlimited({ tone }: { tone: "profit" | "loss" }) {
     </span>
   );
 }
+
+const POP_LESSON = "/learn/probability-of-profit";
 
 const pct = (p: number) => (Number.isFinite(p) ? formatPct(p * 100, { decimals: 1 }) : "—");
 const levels = (xs: number[]) => (xs.length ? xs.map((x) => formatStrike(Math.round(x))).join(" · ") : "None");
@@ -69,7 +86,20 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
       >
         <span className={a.pop >= 0.5 ? "text-bullish" : "text-bearish"}>{pct(a.pop)}</span>
       </Tile>
-      <Tile label="P50" help="Chance of touching 50% of max profit at any day-end before expiry (Monte-Carlo, 1,200 paths). Useful for take-profit rules." sub={a.multiExpiry ? "Single expiry only" : !Number.isFinite(a.maxProfit) ? "Needs capped profit" : "Touch 50% of max profit"}>
+      <Tile
+        label="Chance to hit 50% profit"
+        helpHref={POP_LESSON}
+        badge={<span className="rounded-chip bg-muted px-1 font-num text-[10px] normal-case tracking-normal text-muted-foreground">P50</span>}
+        help="Also called P50: the chance of touching 50% of max profit at any day-end before expiry (Monte-Carlo, 1,200 lognormal paths). Useful for take-profit rules; higher than POP for most credit trades."
+        sub={
+          <>
+            {a.multiExpiry ? "Single expiry only" : !Number.isFinite(a.maxProfit) ? "Needs capped profit" : "Touch 50% of max profit"} ·{" "}
+            <Link to={POP_LESSON} className="text-primary-ink underline underline-offset-2">
+              Lesson
+            </Link>
+          </>
+        }
+      >
         {pct(p50)}
       </Tile>
       <Tile label="Expected value" help="Average expiry P&L under the same lognormal model, before charges. Close to zero for fairly priced options; negative EV means you pay for the edge you hope to have.">
@@ -79,10 +109,33 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
         <span className="text-sm">{levels(a.breakevens)}</span>
         {beDist.length > 0 && <span className="ml-2 text-[11px] font-normal text-muted-foreground">({beDist.map((d) => formatPct(d, { decimals: 1, signed: true })).join(", ")})</span>}
       </Tile>
-      <Tile label="Margin" badge={<Badge variant="warning">Est.</Badge>} help="SPAN-style estimate: 16 price/volatility scenarios plus exposure margin (and expiry-day ELM for short index options). Your broker's number will differ." sub={m.hedgeBenefit > 0 ? <>Hedge benefit <span className="font-num text-bullish">{formatINR(m.hedgeBenefit, { decimals: 0 })}</span> vs naked {formatINR(m.nakedTotal, { decimals: 0 })}</> : m.method === "long-only" ? "Premium only (long options)" : "No hedge benefit"}>
-        {formatINR(m.total, { decimals: 0 })}
+      <Tile
+        label="Funds required"
+        className="col-span-2"
+        badge={<Badge variant="warning">Est.</Badge>}
+        help="Funds to put on the trade: a SPAN-style estimate (16 price/volatility scenarios) plus exposure margin and the extra expiry-day ELM on short index options, plus the net premium paid. The same number the Optimizer shows. Your broker's number will differ."
+        sub={
+          <>
+            <span className="block font-num">
+              SPAN {formatINR(m.span, { decimals: 0 })} · Exposure {formatINR(m.exposure, { decimals: 0 })} · Expiry-day ELM {formatINR(m.elmExpiryDay, { decimals: 0 })}
+            </span>
+            <span className="block">
+              {m.hedgeBenefit > 0 ? (
+                <>
+                  Hedge benefit <span className="font-num text-bullish">{formatINR(m.hedgeBenefit, { decimals: 0 })}</span> vs naked {formatINR(m.nakedTotal, { decimals: 0 })}
+                </>
+              ) : m.method === "long-only" ? (
+                "Premium only (long options)"
+              ) : (
+                "No hedge benefit"
+              )}
+            </span>
+          </>
+        }
+      >
+        {formatINR(marginFundsRequired(m), { decimals: 0 })}
       </Tile>
-      <Tile label="Return on margin" help="Max profit divided by estimated margin. Not shown when profit is unlimited.">
+      <Tile label="Return on funds" help="Max profit divided by the funds required (same basis as the Optimizer). Not shown when profit is unlimited.">
         {a.returnOnMargin !== null ? formatPct(a.returnOnMargin * 100, { decimals: 1 }) : <span className="text-muted-foreground">—</span>}
       </Tile>
       <Tile label={roundTrip ? "Charges (round trip)" : "Charges (entry)"} help="Brokerage, STT, exchange transaction charges, SEBI fee, stamp duty and GST at current rates. See the breakdown below.">

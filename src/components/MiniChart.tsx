@@ -87,18 +87,23 @@ interface MiniChartProps {
   width?: number;
   height?: number;
   className?: string;
+  /**
+   * Skip the history request and show a dash, e.g. next to sample quotes, where a real price
+   * history would not match the illustrative last price.
+   */
+  disabled?: boolean;
 }
 
 /**
  * Three-month closing-price sparkline for a symbol, drawn as inline SVG.
  * Shows a shimmer while loading and an em dash when no history is available.
  */
-export const MiniChart = memo(function MiniChart({ symbol, width = 80, height = 28, className = "" }: MiniChartProps) {
-  const { data: closes, isLoading } = useSparklineData(symbol);
-  if (!closes || closes.length < 2) {
-    if (isLoading) return <div className={cn("rounded skeleton-shimmer", className)} style={{ width, height }} aria-hidden="true" />;
+export const MiniChart = memo(function MiniChart({ symbol, width = 80, height = 28, className = "", disabled = false }: MiniChartProps) {
+  const { data: closes, isLoading } = useSparklineData(symbol, !disabled);
+  if (disabled || !closes || closes.length < 2) {
+    if (isLoading && !disabled) return <div className={cn("rounded skeleton-shimmer", className)} style={{ width, height }} aria-hidden="true" />;
     return (
-      <span className={cn("inline-flex items-center justify-center text-body-sm text-muted-foreground", className)} style={{ width, height }} title="No price history">
+      <span className={cn("inline-flex items-center justify-center text-body-sm text-muted-foreground", className)} style={{ width, height }} title={disabled ? "No price history for sample quotes" : "No price history"}>
         —
       </span>
     );

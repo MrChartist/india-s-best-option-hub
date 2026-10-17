@@ -29,9 +29,10 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
                 that hedge: the rupee value of futures that would change hands for a 1% move in the index.
               </p>
               <p>
-                <span className="font-semibold text-bullish">Positive GEX</span> means hedgers sell rallies and buy dips,
-                which tends to <em>damp</em> volatility and pin the index. <span className="font-semibold text-bearish">Negative GEX</span>{" "}
-                means they chase the move, which tends to <em>amplify</em> it.
+                <span className="font-semibold text-bullish">Positive GEX</span> means hedgers sell rallies and buy
+                dips, which tends to <em>damp</em> volatility and pin the index.{" "}
+                <span className="font-semibold text-bearish">Negative GEX</span> means they chase the move, which tends
+                to <em>amplify</em> it.
               </p>
             </AccordionContent>
           </AccordionItem>
@@ -47,13 +48,13 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
                 are short both calls and puts.
               </p>
               <p>
-                Under the seller view every strike adds short gamma, so the total is never positive and there is no flip.
-                Read the profile as <em>where</em> short-gamma hedging is heaviest. The strikes with the most gamma act as
-                magnets near expiry and as accelerators once they break.
+                Under the seller view every strike adds short gamma, so the total is never positive and there is no
+                flip. Read the profile as <em>where</em> short-gamma hedging is heaviest. The strikes with the most
+                gamma act as magnets near expiry and as accelerators once they break.
               </p>
               <p>
-                Switch to the dealer model to see the classic gamma flip. The flip from the dealer model is also shown in
-                the levels card when the seller view is on, labelled as such.
+                Switch to the dealer model to see the classic gamma flip. The flip from the dealer model is also shown
+                in the levels card when the seller view is on, labelled as such.
               </p>
               <p className="text-label uppercase text-muted-foreground">
                 Current: {convention === "sellerShortBoth" ? "Seller view (India)" : "Dealer model (US)"}
@@ -61,14 +62,32 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="levels">
-            <AccordionTrigger className="text-body font-semibold">Call wall, put wall, absolute gamma and flip</AccordionTrigger>
+            <AccordionTrigger className="text-body font-semibold">
+              Call wall, put wall, absolute gamma and flip
+            </AccordionTrigger>
             <AccordionContent className="text-muted-foreground">
               <ul className="list-disc space-y-1.5 pl-5">
-                <li><span className="font-semibold text-foreground">Call wall</span>: strike with the largest call gamma exposure. Often acts as resistance.</li>
-                <li><span className="font-semibold text-foreground">Put wall</span>: strike with the largest put gamma exposure. Often acts as support.</li>
-                <li><span className="font-semibold text-foreground">Absolute gamma</span>: strike with the largest combined gamma. The strongest pin, especially on expiry day.</li>
-                <li><span className="font-semibold text-foreground">Gamma flip</span>: the index level where total GEX changes sign. Found by repricing every option over spot ±5% in 0.1% steps and interpolating the zero crossing.</li>
-                <li><span className="font-semibold text-foreground">Max pain</span>: the expiry level where option buyers collectively lose the most. Shown for comparison.</li>
+                <li>
+                  <span className="font-semibold text-foreground">Call wall</span>: strike with the largest call gamma
+                  exposure. Often acts as resistance.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Put wall</span>: strike with the largest put gamma
+                  exposure. Often acts as support.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Absolute gamma</span>: strike with the largest
+                  combined gamma. The strongest pin, especially on expiry day.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Gamma flip</span>: the index level where total GEX
+                  changes sign. Found by repricing every option over spot ±5% in 0.1% steps and interpolating the zero
+                  crossing.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Max pain</span>: the expiry level where option buyers
+                  collectively lose the most. Shown for comparison.
+                </li>
               </ul>
             </AccordionContent>
           </AccordionItem>
@@ -76,9 +95,18 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
             <AccordionTrigger className="text-body font-semibold">DEX, VEX and CEX</AccordionTrigger>
             <AccordionContent className="text-muted-foreground">
               <ul className="list-disc space-y-1.5 pl-5">
-                <li><span className="font-semibold text-foreground">DEX</span> (delta exposure): the delta-notional held, in ₹ crore.</li>
-                <li><span className="font-semibold text-foreground">VEX</span> (vanna exposure): how much that delta changes for a 1-point change in implied volatility. Compare it with the India VIX move.</li>
-                <li><span className="font-semibold text-foreground">CEX</span> (charm exposure): how much that delta drifts per calendar day as expiry nears. Large near weekly expiry.</li>
+                <li>
+                  <span className="font-semibold text-foreground">DEX</span> (delta exposure): the delta-notional held,
+                  in ₹ crore.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">VEX</span> (vanna exposure): how much that delta
+                  changes for a 1-point change in implied volatility. Compare it with the India VIX move.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">CEX</span> (charm exposure): how much that delta
+                  drifts per calendar day as expiry nears. Large near weekly expiry.
+                </li>
               </ul>
             </AccordionContent>
           </AccordionItem>
@@ -92,9 +120,9 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
                 {oiUnit === "qty" ? " so it is not counted twice" : ""}.
               </p>
               <p>
-                Greeks come from Black-76 on the chain forward, with each strike's IV held fixed when spot moves
-                (sticky strike). Where the feed has no IV, it is solved from option prices. The risk-free rate comes from
-                your market settings.
+                Greeks come from Black-76 on the chain forward, with each strike's IV held fixed when spot moves (sticky
+                strike). Where the feed has no IV, it is solved from option prices. The risk-free rate comes from your
+                market settings.
               </p>
               <p>
                 OI does not show who is long or short, so any sign convention is a model. Treat the levels as context,

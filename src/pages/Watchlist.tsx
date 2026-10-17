@@ -1,10 +1,12 @@
 /**
  * Watchlist: multiple named lists, validated symbol entry with "Did you mean", sortable columns,
  * ban/near-ban badges, price flash (off under reduced motion) and a card list on small screens.
+ * Without the proxy, quotes come from the labelled sample snapshot (the screener's sample
+ * generator), so the list is never a column of "No quote".
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, ExternalLink, MoreHorizontal, Pencil, Plus, RefreshCw, Search, Star, Trash2, WifiOff, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, BarChart3, ExternalLink, FlaskConical, MoreHorizontal, Pencil, Plus, RefreshCw, Search, Star, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MiniChart } from "@/components/MiniChart";
+import { PageHeader } from "@/components/PageHeader";
+import { ScrollRegion } from "@/components/ScrollRegion";
 import { DataStatus } from "@/components/dashboard/DataState";
+import { StartProxyButton } from "@/components/dashboard/NeedsLiveStrip";
+import { useDashFno, useDashIndices } from "@/components/dashboard/useDashboardData";
 import { sourceName, statusFrom, rangePosition } from "@/components/dashboard/dashboardModel";
 import {
   MAX_LISTS,
@@ -34,7 +40,6 @@ import {
   type WatchlistState,
 } from "@/components/dashboard/watchlistModel";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { useFnOStocks, useLiveIndices } from "@/hooks/useMarketData";
 import { useBanList } from "@/lib/screener/banList";
 import { formatCompactIN, formatNumberIN, formatPct, formatSigned } from "@/lib/options";
 import { cn } from "@/lib/utils";
@@ -46,6 +51,8 @@ interface Row extends SortableRow {
   high: number;
   low: number;
   kind: "stock" | "index" | "none";
+  /** Quote from the labelled sample snapshot (proxy offline). */
+  sample: boolean;
 }
 
 type Flash = "up" | "down";
@@ -107,8 +114,8 @@ export default function Watchlist() {
   const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({ key: null, dir: "desc" });
   const [chartSymbol, setChartSymbol] = useState<string | null>(null);
 
-  const fno = useFnOStocks();
-  const idx = useLiveIndices();
+  const fno = useDashFno();
+  const idx = useDashIndices();
   const ban = useBanList();
   const reducedMotion = usePrefersReducedMotion();
 
@@ -130,15 +137,15 @@ export default function Watchlist() {
     return list.symbols.map((sym): Row => {
       const s = stockMap.get(sym);
       if (s && s.ltp > 0) {
-        return { symbol: sym, ltp: s.ltp, change: s.change, changePercent: s.changePercent, open: s.open, high: s.high, low: s.low, volume: s.volume || 0, oi: s.openInterest || 0, oiChange: s.oiChange || 0, hasData: true, kind: "stock" };
+        return { symbol: sym, ltp: s.ltp, change: s.change, changePercent: s.changePercent, open: s.open, high: s.high, low: s.low, volume: s.volume || 0, oi: s.openInterest || 0, oiChange: s.oiChange || 0, hasData: true, kind: "stock", sample: fno.isSample };
       }
       const i = idxMap.get(sym);
       if (i && i.ltp > 0) {
-        return { symbol: sym, ltp: i.ltp, change: i.change, changePercent: i.changePercent, open: i.open || i.ltp, high: i.high || i.ltp, low: i.low || i.ltp, volume: 0, oi: 0, oiChange: 0, hasData: true, kind: "index" };
+        return { symbol: sym, ltp: i.ltp, change: i.change, changePercent: i.changePercent, open: i.open || i.ltp, high: i.high || i.ltp, low: i.low || i.ltp, volume: 0, oi: 0, oiChange: 0, hasData: true, kind: "index", sample: idx.isSample };
       }
-      return { symbol: sym, ltp: 0, change: 0, changePercent: 0, open: 0, high: 0, low: 0, volume: 0, oi: 0, oiChange: 0, hasData: false, kind: "none" };
+      return { symbol: sym, ltp: 0, change: 0, changePercent: 0, open: 0, high: 0, low: 0, volume: 0, oi: 0, oiChange: 0, hasData: false, kind: "none", sample: false };
     });
-  }, [list.symbols, allStocks, indices]);
+  }, [list.symbols, allStocks, indices, fno.isSample, idx.isSample]);
 
   const flash = usePriceFlash(rows, reducedMotion);
 
@@ -154,14 +161,16 @@ export default function Watchlist() {
   const avg = withData.length ? withData.reduce((s, r) => s + r.changePercent, 0) / withData.length : NaN;
 
   const loading = fno.isLoading && idx.isLoading;
-  // Proxy offline and nothing cached: every row would read "No quote" with no explanation.
-  const offline =
-    !loading && !rows.some((r) => r.hasData) && (fno.isError || (!fno.isLoading && (!fno.data || fno.data.source === "none" || fno.data.allStocks.length === 0)));
+  const sampleRows = rows.filter((r) => r.hasData && r.sample).length;
+  const quoted = rows.filter((r) => r.hasData).length;
+  const anySample = sampleRows > 0;
+  // Only tag rows one by one when live and sample quotes are mixed; otherwise the page chip says it.
+  const mixed = anySample && sampleRows < quoted;
   const refetchFno = fno.refetch;
   const retry = useCallback(() => {
     void refetchFno();
   }, [refetchFno]);
-  const status = statusFrom({ isLoading: loading, isError: fno.isError, hasData: rows.some((r) => r.hasData), source: fno.data?.source, stale: fno.data?.stale, isLive: fno.data?.isLive });
+  const status = statusFrom({ isLoading: loading, isError: fno.isError, hasData: quoted > 0, source: anySample ? "sample" : fno.data?.source, stale: fno.data?.stale, isLive: fno.data?.isLive });
 
   const addSymbol = useCallback(
     (raw: string) => {
@@ -199,55 +208,51 @@ export default function Watchlist() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-title font-extrabold tracking-tight">
-            Watchlist
-            {offline ? (
-              <Badge variant="warning" title="Live quotes are unavailable (proxy offline)">
-                <WifiOff aria-hidden="true" /> Offline
-              </Badge>
-            ) : (
-              <DataStatus status={status} lastUpdated={fno.data?.asOf} source={sourceName(fno.data?.source)} reason={fno.data?.reason} />
-            )}
-          </h1>
-          <p className="text-body-sm text-muted-foreground">
-            {list.symbols.length} symbol{list.symbols.length === 1 ? "" : "s"} in “{list.name}”
-            {saveFailed ? <span className="text-warning"> · Could not save to this browser; changes last until you close the tab.</span> : null}
-          </p>
-        </div>
-        <form onSubmit={onSubmit} className="flex flex-wrap items-start gap-2" noValidate>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input aria-label="Filter symbols in this watchlist" placeholder="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} className="h-9 w-[130px] pl-8" />
-          </div>
-          <div>
-            <label htmlFor="wl-add" className="sr-only">Add symbol</label>
-            <Input
-              id="wl-add"
-              placeholder="Add symbol, e.g. INFY"
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                if (feedback?.tone === "error") setFeedback(null);
-              }}
-              className="h-9 w-[180px] uppercase placeholder:normal-case"
-              list="wl-symbols"
-              autoComplete="off"
-              aria-invalid={feedback?.tone === "error"}
-              aria-describedby="wl-feedback"
-            />
-            <datalist id="wl-symbols">
-              {datalist.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-          </div>
-          <Button type="submit" variant="outline" className="h-9 gap-1">
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add
-          </Button>
-        </form>
-      </header>
+      <PageHeader
+        icon={Star}
+        eyebrow="Overview"
+        title="Watchlist"
+        description={
+          <>
+            {list.symbols.length} symbol{list.symbols.length === 1 ? "" : "s"} in “{list.name}”. Select a symbol to open its option chain.
+            {saveFailed ? <span className="text-warning"> Could not save to this browser; changes last until you close the tab.</span> : null}
+          </>
+        }
+        source={<DataStatus status={status} lastUpdated={fno.data?.asOf} source={sourceName(anySample ? "sample" : fno.data?.source)} reason={anySample ? fno.data?.reason ?? idx.data.reason : fno.data?.reason} />}
+        actions={
+          <form onSubmit={onSubmit} className="flex w-full flex-wrap items-start gap-2 sm:w-auto" noValidate>
+            <div className="relative w-[112px] shrink-0 sm:w-auto">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input aria-label="Filter symbols in this watchlist" placeholder="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} className="h-9 w-full pl-8 sm:w-[120px]" />
+            </div>
+            <div className="min-w-0 flex-1 sm:flex-none">
+              <label htmlFor="wl-add" className="sr-only">Add symbol</label>
+              <Input
+                id="wl-add"
+                placeholder="Add symbol, e.g. INFY"
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  if (feedback?.tone === "error") setFeedback(null);
+                }}
+                className="h-9 w-full uppercase placeholder:normal-case sm:w-[168px]"
+                list="wl-symbols"
+                autoComplete="off"
+                aria-invalid={feedback?.tone === "error"}
+                aria-describedby="wl-feedback"
+              />
+              <datalist id="wl-symbols">
+                {datalist.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            </div>
+            <Button type="submit" variant="outline" className="h-9 gap-1">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add
+            </Button>
+          </form>
+        }
+      />
 
       <div id="wl-feedback" aria-live="polite" className="min-h-0">
         {feedback ? (
@@ -270,15 +275,26 @@ export default function Watchlist() {
         ) : null}
       </div>
 
-      {offline && list.symbols.length > 0 ? (
-        <div role="alert" className="flex flex-col gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>Live quotes are unavailable (proxy offline) and nothing is saved in this browser yet, so prices show as “No quote”. Start the local proxy, then retry.</span>
+      {anySample && list.symbols.length > 0 ? (
+        <div role="status" className="flex flex-col gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2 text-foreground">
+            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+            <span>
+              {mixed ? `${sampleRows} of ${quoted} quotes are sample numbers (marked “Sample”)` : "Live quotes are unavailable, so these are sample prices, changes, ranges and OI"}. They are illustrative, not market data.
+              {quoted < rows.length ? ` ${rows.length - quoted} symbol${rows.length - quoted === 1 ? " has" : "s have"} no quote.` : ""}
+            </span>
           </p>
-          <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={retry} disabled={fno.isFetching}>
-            <RefreshCw className={cn("h-3.5 w-3.5", fno.isFetching && "motion-safe:animate-spin")} aria-hidden="true" /> Retry
-          </Button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2.5" onClick={retry} disabled={fno.isFetching}>
+              <RefreshCw className={cn("h-3.5 w-3.5", fno.isFetching && "motion-safe:animate-spin")} aria-hidden="true" /> Retry
+            </Button>
+            <StartProxyButton onRecovered={retry} />
+          </div>
+        </div>
+      ) : !loading && quoted === 0 && list.symbols.length > 0 && fno.isError ? (
+        <div role="alert" className="flex items-start gap-2 rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Quotes could not be loaded. Retry in a moment.</span>
         </div>
       ) : null}
 
@@ -286,7 +302,7 @@ export default function Watchlist() {
 
       {/* Desktop and tablet: table */}
       <Card className="hidden overflow-hidden md:block">
-        <div className="overflow-x-auto">
+        <ScrollRegion label={`Watchlist “${list.name}” table`}>
           <table className="w-full min-w-[920px] text-body">
             <caption className="sr-only">Watchlist “{list.name}”. Column headers sort the table.</caption>
             <thead className="sticky top-0 z-10 bg-card">
@@ -306,8 +322,8 @@ export default function Watchlist() {
             </thead>
             <tbody>
               {loading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border">
+                ? Array.from({ length: 6 }, (_, i) => `wl-skeleton-${i}`).map((id) => (
+                    <tr key={id} className="border-b border-border">
                       <td colSpan={cols} className="px-3 py-2.5">
                         <Skeleton className="h-4 w-full" />
                       </td>
@@ -334,6 +350,7 @@ export default function Watchlist() {
                           </Link>
                           <BanBadge symbol={r.symbol} banned={banned} nearBan={nearBan} />
                           {r.kind === "index" ? <Badge variant="neutral">Index</Badge> : null}
+                          {mixed && r.sample ? <SampleTag /> : null}
                         </span>
                       </th>
                       <td className="px-2 py-2 text-right font-num font-semibold tabular-nums">{r.hasData ? n2(r.ltp) : <span className="font-normal text-muted-foreground">No quote</span>}</td>
@@ -347,7 +364,7 @@ export default function Watchlist() {
                       </td>
                       <td className="px-2 py-2">
                         <div className="flex justify-center">
-                          <MiniChart symbol={r.symbol} width={80} height={24} />
+                          <MiniChart symbol={r.symbol} width={80} height={24} disabled={r.sample} />
                         </div>
                       </td>
                       <td className="px-3 py-2">
@@ -379,7 +396,7 @@ export default function Watchlist() {
               </tfoot>
             ) : null}
           </table>
-        </div>
+        </ScrollRegion>
       </Card>
 
       {/* Mobile: card list */}
@@ -404,7 +421,7 @@ export default function Watchlist() {
           </select>
         </div>
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-card" />)
+          Array.from({ length: 4 }, (_, i) => `wl-card-skeleton-${i}`).map((id) => <Skeleton key={id} className="h-20 w-full rounded-card" />)
         ) : visible.length === 0 ? (
           <Card className="p-6 text-center text-body text-muted-foreground">{filter ? "No symbols match your filter." : "This watchlist is empty. Add a symbol above."}</Card>
         ) : (
@@ -419,6 +436,7 @@ export default function Watchlist() {
                           {r.symbol}
                         </Link>
                         <BanBadge symbol={r.symbol} banned={banned} nearBan={nearBan} />
+                        {mixed && r.sample ? <SampleTag /> : null}
                       </div>
                       <p className="mt-0.5 font-num text-body-sm tabular-nums text-muted-foreground">
                         {r.volume > 0 ? `Vol ${formatCompactIN(r.volume)}` : null}
@@ -452,6 +470,14 @@ export default function Watchlist() {
         </Suspense>
       ) : null}
     </div>
+  );
+}
+
+function SampleTag() {
+  return (
+    <Badge variant="warning" title="Sample quote: illustrative, not market data">
+      Sample
+    </Badge>
   );
 }
 

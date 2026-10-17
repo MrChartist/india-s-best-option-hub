@@ -31,10 +31,18 @@ export function PortfolioTiles({ summary, closedNet }: { summary: PortfolioSumma
       />
       <Stat label="Vega" value={signedINR(summary.vega)} sub="per 1 vol point" help="Rupee change for a one-point rise in implied volatility across every leg." />
       <Stat
-        label="Gamma"
-        value={signedINR(summary.gamma1pct)}
-        sub="₹ delta per 1% move"
-        help="How much your rupee delta (delta × spot) changes for a 1% move in each underlying. Negative means short gamma: moves hurt in both directions."
+        label="Γ P&L, 1% move"
+        value={signedINR(summary.gammaPnl1pct)}
+        tone={summary.gammaPnl1pct > 0 ? "bullish" : summary.gammaPnl1pct < 0 ? "bearish" : "muted"}
+        sub={summary.gammaPnl1pct < 0 ? "short gamma" : summary.gammaPnl1pct > 0 ? "long gamma" : "flat gamma"}
+        help={
+          <>
+            Rupees made (+) or lost (−) from gamma alone if every underlying moves 1% either way: ½ · Γ · (1% of spot)² · qty, summed across legs. Delta P&L comes on top.
+            <span className="mt-1.5 block">
+              Notional gamma: your rupee delta changes by <strong className="font-num">{signedINR(summary.gamma1pct)}</strong> for a 1% move.
+            </span>
+          </>
+        }
       />
       <Stat
         label="NIFTY Δ (β-wtd)"
@@ -84,7 +92,11 @@ export function UnderlyingGreeksTable({
           </TableHead>
           <TableHead className="text-right">θ ₹/day</TableHead>
           <TableHead className="text-right">Vega ₹/pt</TableHead>
-          <TableHead className="text-right">Gamma ₹/1%</TableHead>
+          <TableHead className="text-right">
+            <span className="inline-flex items-center gap-1">
+              Γ P&L 1% <HelpTip text="Gamma P&L for a 1% move: ½ · Γ · (1% of spot)² · qty. Hover a value for the notional figure (change in rupee delta for a 1% move)." />
+            </span>
+          </TableHead>
           <TableHead className="text-right">Margin</TableHead>
           <TableHead className="text-right">At risk</TableHead>
         </TableRow>
@@ -120,7 +132,9 @@ export function UnderlyingGreeksTable({
               <TableCell className="text-right tabular-nums">{Number.isFinite(u.hedgeFutLots) && Math.abs(u.hedgeFutLots) >= 0.05 ? `${u.hedgeFutLots > 0 ? "Buy" : "Sell"} ${formatNumberIN(Math.abs(u.hedgeFutLots), 2)}` : "—"}</TableCell>
               <TableCell className={cn("text-right tabular-nums", signedClass(u.theta))}>{signedINR(u.theta)}</TableCell>
               <TableCell className={cn("text-right tabular-nums", signedClass(u.vega))}>{signedINR(u.vega)}</TableCell>
-              <TableCell className={cn("text-right tabular-nums", signedClass(u.gamma1pct))}>{signedINR(u.gamma1pct)}</TableCell>
+              <TableCell className={cn("text-right tabular-nums", signedClass(u.gammaPnl1pct))} title={`Notional: ₹ delta changes by ${signedINR(u.gamma1pct)} for a 1% move`}>
+                {signedINR(u.gammaPnl1pct)}
+              </TableCell>
               <TableCell className="text-right tabular-nums">{u.margin ? formatINR(u.margin.total, { decimals: 0 }) : "—"}</TableCell>
               <TableCell className={cn("text-right tabular-nums", u.unlimitedRisk && "text-bearish")}>{u.unlimitedRisk ? "Unlimited" : formatINR(u.capitalAtRisk, { decimals: 0 })}</TableCell>
             </TableRow>

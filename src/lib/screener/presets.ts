@@ -83,9 +83,14 @@ export const PRESETS: readonly ScreenerPreset[] = [
   {
     id: "near-ban",
     label: "Near ban ≥80% MWPL",
-    description: "Combined OI at or above 80% of the market-wide position limit. NSE bans new positions at 95%.",
+    description:
+      "Combined OI at or above 80% of the market-wide position limit, excluding names already in the ban period. NSE bans new positions at 95%.",
     tone: "bearish",
-    rules: [{ id: "p-nb", kind: "number", field: "mwplPct", op: "gte", value: MWPL_NEAR_PCT }],
+    // Names already in ban are excluded so this count matches the "Near ban" KPI tile.
+    rules: [
+      { id: "p-nb", kind: "number", field: "mwplPct", op: "gte", value: MWPL_NEAR_PCT },
+      { id: "p-nb-x", kind: "banned", value: false },
+    ],
     sort: { key: "mwplPct", dir: "desc" },
   },
   {
@@ -108,6 +113,12 @@ export function presetRules(p: ScreenerPreset): FilterRule[] {
 }
 
 /** Matching row count per preset (search and sector filters are not applied). */
+/** Rows near the ban (≥ 80% MWPL) that are not already banned: the KPI tile and the preset share this. */
+export function nearBanRows(rows: readonly ScreenerRow[]): ScreenerRow[] {
+  const p = getPreset("near-ban");
+  return p ? applyFilters(rows, { search: "", sectors: [], rules: p.rules }) : [];
+}
+
 export function presetCounts(rows: readonly ScreenerRow[]): Record<PresetId, number> {
   const out = {} as Record<PresetId, number>;
   for (const p of PRESETS) out[p.id] = applyFilters(rows, { search: "", sectors: [], rules: p.rules }).length;

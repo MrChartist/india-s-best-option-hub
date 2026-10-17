@@ -33,7 +33,10 @@ vi.mock("@/lib/api/proxyClient", () => ({
 }));
 
 vi.mock("@/lib/marketApi", () => ({
-  fetchChainMulti: vi.fn(async () => ({ data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: "offline" } })),
+  fetchChainMulti: vi.fn(async () => ({
+    data: null,
+    meta: { source: "cache", asOf: Date.now(), stale: true, reason: "offline" },
+  })),
 }));
 
 vi.mock("@/lib/snapshotStore", () => ({
@@ -56,7 +59,17 @@ function renderPage(url = "/screener") {
 }
 
 const stock = (symbol: string, changePercent: number, volume: number): FnOStockData => ({
-  symbol, ltp: 1000, change: 10, changePercent, open: 990, high: 1010, low: 980, previousClose: 990, volume, totalTradedVolume: volume, sector: "",
+  symbol,
+  ltp: 1000,
+  change: 10,
+  changePercent,
+  open: 990,
+  high: 1010,
+  low: 980,
+  previousClose: 990,
+  volume,
+  totalTradedVolume: volume,
+  sector: "",
 });
 
 describe("Screener page", () => {
@@ -73,7 +86,7 @@ describe("Screener page", () => {
   it("labels sample data when the live list is unavailable", async () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1, name: /F&O Screener/ })).toBeInTheDocument();
-    expect(screen.getByText(/Every number below is sample data/)).toBeInTheDocument();
+    expect(screen.getByText(/generated for illustration/)).toBeInTheDocument();
     expect(screen.getAllByText(/Sample data/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Not investment advice/)).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
@@ -103,13 +116,54 @@ describe("Screener page", () => {
         { symbol: "ETERNAL", chgOiPct: 4, latestOi: 1, prevOi: 1, chgOi: 0, volume: 0 },
       ],
       "/api/x/ban-list": { date: "2026-10-17", symbols: ["SAIL"] },
-      "/api/x/mwpl": [{ symbol: "SAIL", mwplPct: 97 }, { symbol: "RELIANCE", mwplPct: 88 }],
+      "/api/x/mwpl": [
+        { symbol: "SAIL", mwplPct: 97 },
+        { symbol: "RELIANCE", mwplPct: 88 },
+      ],
     };
     renderPage();
-    expect(screen.queryByText(/Every number below is sample data/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/generated for illustration/)).not.toBeInTheDocument();
     expect(await screen.findByText("ETERNAL")).toBeInTheDocument();
     expect(await screen.findByText(/Near-ban alert/)).toBeInTheDocument();
-    expect(await screen.findAllByText("Long BU")).not.toHaveLength(0);
-    expect(screen.getAllByText("Short BU").length).toBeGreaterThan(0);
+    expect(await screen.findAllByText(/Long build-up: Price ↑ OI ↑/)).not.toHaveLength(0);
+    expect(screen.getAllByText(/Short build-up: Price ↓ OI ↑/).length).toBeGreaterThan(0);
+    // RELIANCE (88%) is near the ban; SAIL (97%) is already banned, so the tile counts 1.
+    const tile = screen.getByRole("button", { name: /Near ban ≥80% \(not banned\)/ });
+    expect(within(tile).getByText("1")).toBeInTheDocument();
+  });
+
+  it("shows one sample label in the header, not one per panel", () => {
+    renderPage();
+    const header = document.querySelector("[data-page-header]") as HTMLElement;
+    expect(within(header).getAllByText(/Sample/i).length).toBeGreaterThan(0);
+    // No separate sample strip above the table.
+    expect(screen.queryByText(/Rows are generated for illustration/)).not.toBeInTheDocument();
+  });
+
+  it("offers chain, builder, optimizer and a suggested structure in each row menu", async () => {
+    renderPage("/screener?preset=iv-crush");
+    const triggers = screen.getAllByRole("button", { name: /^Actions for / });
+    expect(triggers.length).toBeGreaterThan(0);
+    triggers[0].focus();
+    fireEvent.keyDown(triggers[0], { key: "Enter" });
+    const symbol = triggers[0].getAttribute("aria-label")?.replace("Actions for ", "") ?? "";
+    expect(await screen.findByRole("menuitem", { name: /Option chain/ })).toHaveAttribute(
+      "href",
+      `/option-chain?symbol=${encodeURIComponent(symbol)}`,
+    );
+    expect(screen.getByRole("menuitem", { name: /Strategy Builder/ })).toHaveAttribute(
+      "href",
+      `/strategy-builder?symbol=${encodeURIComponent(symbol)}`,
+    );
+    expect(screen.getByRole("menuitem", { name: /Optimizer/ })).toHaveAttribute(
+      "href",
+      `/optimizer?symbol=${encodeURIComponent(symbol)}`,
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: /Suggested structure/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/strangle with wings/)).toBeInTheDocument();
+    expect(await within(dialog).findByText("Sample chain")).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/^(Buy|Sell)$/)).toHaveLength(4);
+    expect(within(dialog).getByRole("button", { name: /Open in Strategy Builder/ })).toBeEnabled();
   });
 });

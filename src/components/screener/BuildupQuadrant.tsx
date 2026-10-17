@@ -1,12 +1,24 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CartesianGrid, Legend, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
+import {
+  CartesianGrid,
+  Legend,
+  ReferenceArea,
+  ReferenceLine,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ZAxis,
+} from "recharts";
 import { Crosshair } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { axisProps, chartColors, legendStyle, tokenColor, tooltipStyle } from "@/lib/chartTheme";
 import { BUILDUP_LABEL, type Buildup } from "@/lib/options";
 import type { ScreenerRow } from "@/lib/screener/metrics";
-import { EmptyState, PanelHeader, SampleBadge, Signed } from "./ScreenerUi";
+import { EmptyState, PanelHeader, Signed } from "./ScreenerUi";
 
 const SERIES: Array<{ key: Exclude<Buildup, "NEUTRAL">; color: string; wash: string }> = [
   { key: "LONG_BUILDUP", color: chartColors.bullish, wash: tokenColor("bullish", 0.05) },
@@ -46,12 +58,19 @@ function QuadTooltip({ active, payload }: { active?: boolean; payload?: Array<{ 
   );
 }
 
-export function BuildupQuadrant({ rows, isSample }: { rows: ScreenerRow[]; isSample: boolean }) {
+/** `isSample` is accepted for API stability; the page header carries the one sample label. */
+export function BuildupQuadrant({ rows }: { rows: ScreenerRow[]; isSample?: boolean }) {
   const navigate = useNavigate();
   const { points, xMax, yMax, tops } = useMemo(() => {
     const valid = rows.filter((r) => r.oiChangePct !== null && Number.isFinite(r.changePct));
-    const xMax = bound(valid.map((r) => r.changePct), 2);
-    const yMax = bound(valid.map((r) => r.oiChangePct as number), 5);
+    const xMax = bound(
+      valid.map((r) => r.changePct),
+      2,
+    );
+    const yMax = bound(
+      valid.map((r) => r.oiChangePct as number),
+      5,
+    );
     const points: Point[] = valid.map((r) => {
       const y = r.oiChangePct as number;
       const cx = Math.max(-xMax, Math.min(xMax, r.changePct));
@@ -76,20 +95,58 @@ export function BuildupQuadrant({ rows, isSample }: { rows: ScreenerRow[]; isSam
         icon={<Crosshair className="h-4 w-4 text-primary-ink" aria-hidden="true" />}
         help="Each dot is an underlying: price change on the horizontal axis, futures OI change on the vertical axis. Top-right is long buildup, bottom-right short covering, top-left short buildup, bottom-left long unwinding."
       >
-        {isSample ? <SampleBadge /> : null}
         <span className="text-body-sm text-muted-foreground">{points.length} plotted</span>
       </PanelHeader>
       {points.length === 0 ? (
-        <EmptyState title="No OI data yet" body="OI change arrives from NSE OI spurts and the futures scan. Points appear as data comes in." />
+        <EmptyState
+          title="No OI data yet"
+          body="OI change arrives from NSE OI spurts and the futures scan. Points appear as data comes in."
+        />
       ) : (
         <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="h-[380px] sm:h-[440px]" role="img" aria-label={`Scatter of price change against OI change for ${points.length} underlyings. Quadrant lists follow.`}>
+          <div
+            className="h-[380px] sm:h-[440px]"
+            role="img"
+            aria-label={`Scatter of price change against OI change for ${points.length} underlyings. Quadrant lists follow.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 12, right: 12, bottom: 24, left: 0 }}>
-                <ReferenceArea x1={0} x2={xMax} y1={0} y2={yMax} fill={SERIES[0].wash} stroke="none" ifOverflow="hidden" />
-                <ReferenceArea x1={0} x2={xMax} y1={-yMax} y2={0} fill={SERIES[1].wash} stroke="none" ifOverflow="hidden" />
-                <ReferenceArea x1={-xMax} x2={0} y1={0} y2={yMax} fill={SERIES[2].wash} stroke="none" ifOverflow="hidden" />
-                <ReferenceArea x1={-xMax} x2={0} y1={-yMax} y2={0} fill={SERIES[3].wash} stroke="none" ifOverflow="hidden" />
+                <ReferenceArea
+                  x1={0}
+                  x2={xMax}
+                  y1={0}
+                  y2={yMax}
+                  fill={SERIES[0].wash}
+                  stroke="none"
+                  ifOverflow="hidden"
+                />
+                <ReferenceArea
+                  x1={0}
+                  x2={xMax}
+                  y1={-yMax}
+                  y2={0}
+                  fill={SERIES[1].wash}
+                  stroke="none"
+                  ifOverflow="hidden"
+                />
+                <ReferenceArea
+                  x1={-xMax}
+                  x2={0}
+                  y1={0}
+                  y2={yMax}
+                  fill={SERIES[2].wash}
+                  stroke="none"
+                  ifOverflow="hidden"
+                />
+                <ReferenceArea
+                  x1={-xMax}
+                  x2={0}
+                  y1={-yMax}
+                  y2={0}
+                  fill={SERIES[3].wash}
+                  stroke="none"
+                  ifOverflow="hidden"
+                />
                 <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" />
                 <XAxis
                   {...axisProps}
@@ -98,7 +155,13 @@ export function BuildupQuadrant({ rows, isSample }: { rows: ScreenerRow[]; isSam
                   name="Price change"
                   domain={[-xMax, xMax]}
                   tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v}%`}
-                  label={{ value: "Price change %", position: "insideBottom", offset: -14, fill: chartColors.axis, fontSize: 11 }}
+                  label={{
+                    value: "Price change %",
+                    position: "insideBottom",
+                    offset: -14,
+                    fill: chartColors.axis,
+                    fontSize: 11,
+                  }}
                 />
                 <YAxis
                   {...axisProps}
@@ -126,18 +189,31 @@ export function BuildupQuadrant({ rows, isSample }: { rows: ScreenerRow[]; isSam
                     isAnimationActive={false}
                     cursor="pointer"
                     onClick={(d: unknown) => {
-                      const sym = (d as { symbol?: string } | undefined)?.symbol ?? (d as { payload?: { symbol?: string } } | undefined)?.payload?.symbol;
+                      const sym =
+                        (d as { symbol?: string } | undefined)?.symbol ??
+                        (d as { payload?: { symbol?: string } } | undefined)?.payload?.symbol;
                       if (sym) navigate(`/option-chain?symbol=${encodeURIComponent(sym)}`);
                     }}
                   />
                 ))}
-                <Scatter name="Neutral" data={points.filter((p) => p.buildup === "NEUTRAL")} fill={chartColors.muted} fillOpacity={0.5} isAnimationActive={false} legendType="none" />
+                <Scatter
+                  name="Neutral"
+                  data={points.filter((p) => p.buildup === "NEUTRAL")}
+                  fill={chartColors.muted}
+                  fillOpacity={0.5}
+                  isAnimationActive={false}
+                  legendType="none"
+                />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {tops.map((t) => (
-              <section key={t.key} aria-label={`${BUILDUP_LABEL[t.key]}: top by OI change`} className="rounded-tile border border-border p-2.5">
+              <section
+                key={t.key}
+                aria-label={`${BUILDUP_LABEL[t.key]}: top by OI change`}
+                className="rounded-tile border border-border p-2.5"
+              >
                 <h3 className="mb-1.5 flex items-center gap-1.5 text-label uppercase text-muted-foreground">
                   <span className="h-2 w-2 rounded-full" style={{ background: t.color }} aria-hidden="true" />
                   {BUILDUP_LABEL[t.key]}

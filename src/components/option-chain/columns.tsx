@@ -6,8 +6,9 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { BUILDUP_LABEL, formatCompactIN, formatGreek, formatNumberIN, type OptionType, type Side } from "@/lib/options";
-import { BUILDUP_SHORT, type ChainModel, type LegView, type RowView } from "./chainModel";
+import { BuildupBadge } from "@/components/ui/buildup-badge";
+import { formatCompactIN, formatGreek, formatNumberIN, type OptionType, type Side } from "@/lib/options";
+import { buildupCode, type ChainModel, type LegView, type RowView } from "./chainModel";
 import { COLUMN_ORDER, type ColumnId } from "./preferences";
 import { ChangeText, DerivedMark, LiquidityDots, LtpCell, OIBarCell } from "./cells";
 
@@ -41,14 +42,6 @@ function num(v: number, dp = 2): string {
   return fin(v) ? formatNumberIN(v, dp, { minDecimals: dp }) : DASH;
 }
 
-const BUILDUP_VARIANT = {
-  LONG_BUILDUP: "bullish",
-  SHORT_BUILDUP: "bearish",
-  SHORT_COVERING: "info",
-  LONG_UNWINDING: "warning",
-  NEUTRAL: "neutral",
-} as const;
-
 function pctCell(p: number): ReactNode {
   return fin(p) ? `${(p * 100).toFixed(p >= 0.995 || p < 0.005 ? 0 : 1)}%` : DASH;
 }
@@ -61,14 +54,14 @@ export const columnDefs: ColumnDef[] = [
     description: "LB long build-up, SB short build-up, SC short covering, LU long unwinding (price change × OI change)",
     group: "OI & volume",
     width: "min-w-[52px]",
-    cell: (lv) =>
-      lv.buildup && lv.buildup !== "NEUTRAL" ? (
-        <Badge variant={BUILDUP_VARIANT[lv.buildup]} title={BUILDUP_LABEL[lv.buildup]} className="px-1">
-          {BUILDUP_SHORT[lv.buildup]}
-        </Badge>
+    cell: (lv) => {
+      const code = buildupCode(lv.buildup);
+      return code ? (
+        <BuildupBadge kind={code} variant="compact" className="h-4 text-[10px]" />
       ) : (
         <span className="text-muted-foreground" title={lv.buildup ? "Neutral" : "No price change in the feed"}>{DASH}</span>
-      ),
+      );
+    },
   },
   {
     id: "premium",
@@ -204,8 +197,8 @@ export const columnDefs: ColumnDef[] = [
     header: "OI chg",
     description: "Change in open interest today, with % of the previous OI",
     group: "OI & volume",
-    width: "min-w-[92px]",
-    cell: (lv) => <ChangeText value={lv.leg.oiChange} pct={fin(lv.oiChgPct) ? lv.oiChgPct : null} compact />,
+    width: "min-w-[64px]",
+    cell: (lv) => <ChangeText value={lv.leg.oiChange} pct={fin(lv.oiChgPct) ? lv.oiChgPct : null} compact stacked />,
     footer: (m, s) => <ChangeText value={s === "CE" ? m.totals.ceOiChg : m.totals.peOiChg} compact />,
   },
   {
@@ -249,21 +242,12 @@ export const columnDefs: ColumnDef[] = [
     cell: (lv) => <DerivedMark on={lv.ivDerived}>{lv.leg.iv > 0 ? lv.leg.iv.toFixed(1) : DASH}</DerivedMark>,
   },
   {
-    id: "ltpChg",
-    label: "LTP change %",
-    header: "Chg %",
-    description: "LTP change vs previous close",
-    group: "Price",
-    width: "min-w-[60px]",
-    cell: (lv) => <ChangeText value={null} pct={lv.ltpChgPct} />,
-  },
-  {
     id: "ltp",
     label: "LTP",
     header: "LTP",
-    description: "Last traded price. Hover for B / S buttons that add the leg to your basket",
+    description: "Last traded price, with the change % vs previous close on a second line",
     group: "Price",
-    width: "min-w-[84px]",
+    width: "min-w-[64px]",
     cell: (lv, ctx) => <LtpCell lv={lv} ctx={ctx} />,
   },
 ];

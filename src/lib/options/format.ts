@@ -116,6 +116,49 @@ export function formatCompactIN(v: number, o?: { decimals?: number; symbol?: boo
   return `${sign}${sym}${nf(0, dp).format(roundTo(a, dp))}`;
 }
 
+/** One compact unit shared by every tick on an axis. Upper-case K / L / Cr, matching formatCompactIN. */
+export interface CompactAxisUnit {
+  div: number;
+  suffix: "" | "K" | "L" | "Cr";
+  /** Maximum decimals for a tick in this unit (trailing zeros are trimmed). */
+  dp: number;
+}
+
+/** The unit for an axis whose largest |tick| is `maxAbs`: Cr from 1 crore, L from 1 lakh, K from 1,000. */
+export function compactAxisUnit(maxAbs: number): CompactAxisUnit {
+  const a = bad(maxAbs) ? 0 : Math.abs(maxAbs);
+  const tiers: Array<{ div: number; suffix: CompactAxisUnit["suffix"] }> = [
+    { div: 1e7, suffix: "Cr" },
+    { div: 1e5, suffix: "L" },
+    { div: 1e3, suffix: "K" },
+  ];
+  const t = tiers.find((x) => a >= x.div) ?? { div: 1, suffix: "" as const };
+  const scaled = a / t.div;
+  // Enough decimals that the smaller ticks stay distinct: 2.2L / 1.65L / 1.1L / 0.55L.
+  const dp = t.div === 1 ? (a >= 100 ? 0 : a >= 1 ? 1 : 2) : scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+  return { div: t.div, suffix: t.suffix, dp };
+}
+
+/** Format one tick in a fixed unit ("1.65L", "0.55L", "−75K", "0"); typographic minus, no space. */
+export function formatCompactInUnit(v: number, unit: CompactAxisUnit): string {
+  if (bad(v)) return "";
+  if (v === 0) return "0";
+  const r = roundTo(v / unit.div, unit.dp);
+  if (r === 0) return "0";
+  return `${r < 0 ? MINUS : ""}${nf(0, unit.dp).format(Math.abs(r))}${unit.suffix}`;
+}
+
+/**
+ * Shared-unit axis formatter: every tick on the axis uses the unit picked from the axis extent, so
+ * an OI axis reads "2.2L, 1.65L, 1.1L, 0.55L" rather than mixing "1.1L" with "55K". Pass the largest
+ * |value| (or the domain bounds) on the axis.
+ */
+export function compactAxisFormatter(...extent: number[]): (v: number) => string {
+  const maxAbs = extent.reduce((m, x) => (bad(x) ? m : Math.max(m, Math.abs(x))), 0);
+  const unit = compactAxisUnit(maxAbs);
+  return (v: number) => formatCompactInUnit(v, unit);
+}
+
 /** "12.34%" / "+1.20%" / "−0.50%". v is already in percent units. */
 export function formatPct(v: number, o?: { decimals?: number; signed?: boolean }): string {
   if (bad(v)) return DASH;
@@ -205,4 +248,15 @@ export function formatDateIST(d: Date | number | string): string {
   if (!x) return DASH;
   dateFmt ??= new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
   return dateFmt.format(x).replace("Sept", "Sep");
+}
+
+/** English ordinal for an integer: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 102nd. Non-integers round; "—" when not finite. */
+export function ordinal(n: number): string {
+  if (bad(n)) return DASH;
+  const i = Math.round(n);
+  const abs = Math.abs(i);
+  const mod100 = abs % 100;
+  const mod10 = abs % 10;
+  const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : mod10 === 1 ? "st" : mod10 === 2 ? "nd" : mod10 === 3 ? "rd" : "th";
+  return `${i < 0 ? MINUS : ""}${abs}${suffix}`;
 }

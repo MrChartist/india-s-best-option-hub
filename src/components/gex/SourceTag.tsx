@@ -46,11 +46,13 @@ export function GexSourceTag({ info, showDerived = true }: { info: SourceInfo | 
       {showDerived && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Badge variant="outline" tabIndex={0}>Derived</Badge>
+            <Badge variant="outline" tabIndex={0}>
+              Derived
+            </Badge>
           </TooltipTrigger>
           <TooltipContent className="max-w-64 text-body-sm">
-            Exposures are computed here from open interest with Black-76 Greeks. They are a model of
-            positioning, not reported dealer books.
+            Exposures are computed here from open interest with Black-76 Greeks. They are a model of positioning, not
+            reported dealer books.
           </TooltipContent>
         </Tooltip>
       )}

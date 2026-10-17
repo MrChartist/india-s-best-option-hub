@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { generateSampleChain, getLotSize } from "@/lib/options";
 import { PAPER_KEY } from "@/lib/paperTrading";
 import { BASKET_KEY } from "@/components/option-chain/basket";
@@ -36,9 +36,15 @@ describe("Paper Trading page", () => {
     expect(screen.getByRole("heading", { level: 1, name: /Paper Trading/ })).toBeInTheDocument();
     expect(screen.getByText(/Not investment advice/)).toBeInTheDocument();
     const buy = await screen.findByRole("button", { name: /Buy at market/ });
+    // The max loss is mandatory: buying stays disabled until it is set.
+    await waitFor(() => expect(screen.getByText(/most you are willing to lose/)).toBeInTheDocument());
+    expect(buy).toBeDisabled();
+    fireEvent.click(await screen.findByRole("button", { name: /^Use ₹/ }));
     await waitFor(() => expect(buy).toBeEnabled());
+    // Beginner mode hides a naked sell.
+    expect(screen.getByText("Naked sell hidden")).toBeInTheDocument();
     fireEvent.click(buy);
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(PAPER_KEY) ?? "{}").positions).toHaveLength(1));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(PAPER_KEY) ?? "{}").positions).toHaveLength(1), { timeout: 4000 });
     const saved = JSON.parse(localStorage.getItem(PAPER_KEY) ?? "{}");
     expect(saved.ledger.map((l: { kind: string }) => l.kind)).toEqual(["DEPOSIT", "PREMIUM", "CHARGES"]);
     expect(saved.trades[0].context.vix).toBe(13.5);
@@ -58,6 +64,30 @@ describe("Paper Trading page", () => {
     renderPage(<Page />, "/paper-trading");
     fireEvent.click(screen.getByRole("button", { name: "Load basket" }));
     fireEvent.click(await screen.findByRole("button", { name: "Place all at market" }));
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(PAPER_KEY) ?? "{}").positions?.[0]?.type).toBe("PE"));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Net premium")).toBeInTheDocument();
+    expect(within(dialog).getByText("Available after")).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: /Place 1 leg/ });
+    expect(confirm).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Use ₹/ }));
+    await waitFor(() => expect(confirm).toBeEnabled());
+    fireEvent.click(confirm);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(PAPER_KEY) ?? "{}").positions?.[0]?.type).toBe("PE"), { timeout: 4000 });
+    expect(await screen.findByRole("link", { name: /Analyse NIFTY paper positions/ })).toHaveAttribute("href", expect.stringMatching(/^\/strategy-builder\?legs=/));
+  });
+
+  it("stages legs from a ?legs= link and blocks a naked short basket in beginner mode", async () => {
+    const { getExpiries } = await import("@/lib/options");
+    const { encodeLegs } = await import("@/components/option-chain/basket");
+    const expiry = getExpiries("NIFTY", new Date(), 1)[0].date;
+    const enc = encodeLegs([{ symbol: "NIFTY", expiry, strike: 25500, type: "CE", side: "SELL", lots: 1, premium: 40, iv: null }]);
+    const { default: Page } = await import("@/pages/PaperTrading");
+    renderPage(<Page />, `/paper-trading?legs=${enc}`);
+    expect(await screen.findByText("Naked short")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Place all at market" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.change(within(dialog).getByLabelText(/Max loss for this basket/), { target: { value: "5000" } });
+    expect(await within(dialog).findByText(/Beginner mode blocks naked short options/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /Place 1 leg/ })).toBeDisabled();
   });
 });

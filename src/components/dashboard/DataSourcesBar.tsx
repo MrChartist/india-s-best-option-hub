@@ -88,14 +88,15 @@ export function DataSourcesBar() {
       <PopoverTrigger asChild>
         <button
           type="button"
+          title="Data sources"
           className="inline-flex h-8 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
-          aria-label={`Data sources: ${live} of ${sources.length} connected. Show details`}
         >
           <span className={cn("h-2 w-2 rounded-full", DOT[overall])} aria-hidden="true" />
           <span className="font-num tabular-nums">
             {live}/{sources.length}
           </span>
-          <span className="hidden sm:inline">sources</span>
+          <span>sources</span>
+          <span className="sr-only">connected. Show details</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[300px] p-2">

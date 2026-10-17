@@ -1,7 +1,9 @@
 /**
  * IV rank widgets for the dashboard, backed by real history:
- * India VIX for NIFTY, bhavcopy IV30 plus recorded end-of-day ATM IV for other symbols.
- * When fewer than 20 days of history exist the widgets say so instead of inventing a number.
+ * India VIX for NIFTY (falling back to the chain's ATM IV30, marked derived, when VIX is missing),
+ * bhavcopy IV30 plus recorded end-of-day ATM IV for other symbols. When the proxy is offline the
+ * ranks use a seeded one-year sample history and carry a sample label. With a live chain but fewer
+ * than 20 days of history the widgets say "No history" instead of inventing a number.
  */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -11,12 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatNumberIN } from "@/lib/options";
 import { hvSnapshot, ivRegime, REGIME_LABEL } from "@/lib/volatility/history";
-import { HelpTip, SampleBadge } from "@/components/volatility/VolUi";
+import { DerivedBadge, HelpTip, HintChip, SampleBadge } from "@/components/volatility/VolUi";
 import { fmtVol, fmtVolPts } from "@/lib/volatility/format";
 import { useDailyBars, useIvRank } from "@/components/volatility/useVolatility";
 
 const rankTone = (v: number | null) => (v === null ? "text-muted-foreground" : v > 50 ? "text-bearish" : v < 20 ? "text-bullish" : "text-warning");
 const barTone = (v: number) => (v > 50 ? "bg-bearish/70" : v < 20 ? "bg-bullish/70" : "bg-warning/70");
+const noHistoryHint = (n: number) =>
+  `IV rank needs at least 20 days of IV history; ${n} ${n === 1 ? "day is" : "days are"} available. Open the Volatility page to build it from the NSE bhavcopy.`;
 
 /** Compact IV rank chip. Pass null when the rank is unknown. */
 export function IVRankBadge({ ivRank, ivPercentile, insufficientDays }: { ivRank: number | null; ivPercentile: number | null; insufficientDays?: number }) {
@@ -53,7 +57,7 @@ export interface IVRankCardProps {
   currentIV?: number;
 }
 
-/** Compact card: current 30-day IV, IV rank and the one-year range. */
+/** Compact card: IV rank as the headline number, the current 30-day IV beside it, and the one-year range. */
 export function IVRankCard({ symbol }: IVRankCardProps) {
   const r = useIvRank(symbol);
   const { stats } = r;
@@ -78,14 +82,16 @@ export function IVRankCard({ symbol }: IVRankCardProps) {
           <p className="text-body-sm text-muted-foreground">Loading…</p>
         ) : (
           <>
-            <div className="flex items-baseline gap-1.5">
-              <p className={`font-num text-title tabular-nums ${rankTone(rank)}`}>{rank === null ? "—" : formatNumberIN(rank, 0)}</p>
-              <p className="text-body-sm text-muted-foreground">IVR · {fmtVol(r.current)}</p>
+            <div className="flex flex-wrap items-baseline gap-x-1.5">
+              <p className={`font-num text-title tabular-nums ${rankTone(rank)}`} aria-label={`IV rank ${rank === null ? "unavailable" : Math.round(rank)}`}>
+                {rank === null ? "—" : formatNumberIN(rank, 0)}
+              </p>
+              <p className="text-body-sm tabular-nums text-muted-foreground">IV {fmtVol(r.current)}</p>
             </div>
             {stats.insufficient ? (
               <div className="mt-1.5 flex flex-wrap gap-1">
-                <Badge variant="neutral">Insufficient history ({stats.n}d)</Badge>
-                {r.currentIsSample ? <SampleBadge /> : null}
+                <HintChip hint={noHistoryHint(stats.n)}>No history</HintChip>
+                {r.currentIsSample ? <SampleBadge /> : r.currentIsDerived ? <DerivedBadge /> : null}
               </div>
             ) : (
               <div className="mt-1.5">
@@ -96,9 +102,12 @@ export function IVRankCard({ symbol }: IVRankCardProps) {
                   <span>{fmtVol(stats.low)}</span>
                   <span>{fmtVol(stats.high)}</span>
                 </div>
+                {r.currentIsSample || r.historyIsSample || r.currentIsDerived ? (
+                  <div className="mt-1 flex flex-wrap gap-1">{r.currentIsSample || r.historyIsSample ? <SampleBadge /> : <DerivedBadge />}</div>
+                ) : null}
               </div>
             )}
-            <p className="mt-1 truncate text-micro uppercase text-muted-foreground">{r.basisLabel}</p>
+            <p className="mt-1 text-micro uppercase text-muted-foreground">IV rank · {r.basisLabel}</p>
           </>
         )}
       </CardContent>
@@ -111,18 +120,24 @@ const DASHBOARD_SYMBOLS = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENS
 function ScannerRow({ symbol }: { symbol: string }) {
   const r = useIvRank(symbol);
   const bars = useDailyBars(symbol);
-  const hv = useMemo(() => (bars.data ? hvSnapshot(bars.data) : null), [bars.data]);
+  // Sample IV is only ever compared with the sample bars generated alongside it.
+  const barData = r.historyIsSample ? r.sampleBars : r.currentIsSample ? null : bars.data;
+  const hv = useMemo(() => (barData && barData.length ? hvSnapshot(barData) : null), [barData]);
   const { stats } = r;
-  const vrp = hv && !r.currentIsSample ? r.current - hv.hv20 : NaN;
+  const vrp = hv ? r.current - hv.hv20 : NaN;
+  const sample = r.currentIsSample || r.historyIsSample;
   const rank = stats.ivRank;
   return (
     <li className="grid grid-cols-[minmax(84px,1fr)_minmax(80px,2fr)_repeat(2,minmax(52px,auto))] items-center gap-x-3 gap-y-1 rounded-tile px-2 py-2 hover:bg-accent/50 sm:grid-cols-[minmax(96px,1fr)_minmax(110px,2fr)_repeat(5,minmax(56px,auto))]">
-      <Link to={`/volatility?symbol=${encodeURIComponent(symbol)}`} className="truncate text-body font-semibold hover:underline focus-visible:shadow-ember focus-visible:outline-none">
-        {symbol}
-      </Link>
-      <div>
+      <div className="min-w-0">
+        <Link to={`/volatility?symbol=${encodeURIComponent(symbol)}`} className="block truncate text-body font-semibold hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+          {symbol}
+        </Link>
+        {sample ? <span className="text-micro uppercase text-warning">Sample</span> : r.currentIsDerived ? <span className="text-micro uppercase text-info">Derived</span> : null}
+      </div>
+      <div className="min-w-0">
         {stats.insufficient ? (
-          <Badge variant="neutral">Insufficient ({stats.n}d)</Badge>
+          <HintChip hint={noHistoryHint(stats.n)}>No history</HintChip>
         ) : (
           <div className="relative h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div className={`absolute inset-y-0 left-0 rounded-full ${barTone(rank ?? 0)}`} style={{ width: `${rank ?? 0}%` }} />

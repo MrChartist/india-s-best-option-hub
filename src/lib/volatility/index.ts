@@ -4,3 +4,7 @@ export * from "./smile";
 export * from "./surface";
 export * from "./screener";
 export * from "./format";
+export * from "./sampleHistory";
+export * from "./vix";
+export * from "./compare";
+export * from "./atmHistory";

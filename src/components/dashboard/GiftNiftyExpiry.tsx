@@ -14,11 +14,14 @@ import { buildIndexExpiryRows, buildMcxExpiryRows } from "./dashboardModel";
 import { DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
 import { useNow } from "./useNow";
+import { useScrollFocusable } from "@/hooks/useScrollFocusable";
 
 const dayMonth = (iso: string) => (iso ? formatDateIST(iso).replace(/ \d{4}$/, "") : "—");
 const weekday = (iso: string) => (iso ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(`${iso}T00:00:00Z`).getUTCDay()] : "");
 
 export function GiftNiftyExpiry() {
+  const scrollRef0 = useScrollFocusable();
+  const scrollRef1 = useScrollFocusable();
   const d = useDensityClasses();
   const now = useNow(60_000);
   const nifty = useExpiryList("NIFTY");
@@ -45,14 +48,14 @@ export function GiftNiftyExpiry() {
             {anyDerived ? <DataStatus status="derived" reason="Dates follow SEBI expiry rules and the NSE/BSE holiday calendar where the live expiry list is not available." /> : <DataStatus status="live" source="Dhan" />}
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div ref={scrollRef0} className="overflow-x-auto">
           <table className="w-full text-body">
             <caption className="sr-only">Next expiry for each index underlying</caption>
             <thead>
               <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
                 <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
-                <th scope="col" className={cn("px-2 font-[650]", d.cell)}>Type</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Lot</th>
+                <th scope="col" className={cn("hidden px-2 font-[650] sm:table-cell", d.cell)}>Type</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
                 <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Expiry</th>
                 <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Time left</th>
               </tr>
@@ -66,10 +69,10 @@ export function GiftNiftyExpiry() {
                     </Link>
                     <span className="ml-1.5 text-micro uppercase text-muted-foreground">{r.exchange}</span>
                   </th>
-                  <td className={cn("px-2", d.cell)}>
+                  <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
                     <Badge variant={r.type === "weekly" ? "info" : "neutral"}>{r.type}</Badge>
                   </td>
-                  <td className={cn("px-2 text-right font-num tabular-nums", d.cell)} title={r.verify ? "Lot size from the 2026 contract table; verify against the latest exchange circular" : undefined}>
+                  <td className={cn("hidden px-2 text-right font-num tabular-nums sm:table-cell", d.cell)} title={r.verify ? "Lot size from the 2026 contract table; verify against the latest exchange circular" : undefined}>
                     {r.lotSize ? formatNumberIN(r.lotSize) : "—"}
                     {r.verify ? <span className="text-muted-foreground" aria-label="to verify">*</span> : null}
                   </td>
@@ -99,13 +102,13 @@ export function GiftNiftyExpiry() {
             <DataStatus status="derived" reason="Approximate rule-based dates. MCX holidays and contract-specific changes are not applied; check the MCX contract calendar." />
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div ref={scrollRef1} className="overflow-x-auto">
           <table className="w-full text-body">
             <caption className="sr-only">Approximate next MCX futures expiries</caption>
             <thead>
               <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
                 <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Lot</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
                 <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Approx. expiry</th>
                 <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Left</th>
               </tr>
@@ -117,7 +120,7 @@ export function GiftNiftyExpiry() {
                     {r.symbol}
                     <span className="block text-body-sm font-normal text-muted-foreground">{r.rule}</span>
                   </th>
-                  <td className={cn("px-2 text-right font-num tabular-nums text-muted-foreground", d.cell)}>{r.unit}</td>
+                  <td className={cn("hidden px-2 text-right font-num tabular-nums text-muted-foreground sm:table-cell", d.cell)}>{r.unit}</td>
                   <td className={cn("px-2 text-right font-num tabular-nums", d.cell)}>
                     <time dateTime={r.date}>
                       {weekday(r.date)} {dayMonth(r.date)}

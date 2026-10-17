@@ -34,9 +34,9 @@ function RichText({ text }: { text: string }) {
   return (
     <>
       {parts.map((p, i) => {
-        if (p.startsWith("**") && p.endsWith("**")) return <strong key={i} className="font-semibold text-foreground">{p.slice(2, -2)}</strong>;
-        if (p.startsWith("`") && p.endsWith("`")) return <code key={i} className="rounded-chip bg-muted px-1 py-0.5 font-mono text-[0.92em]">{p.slice(1, -1)}</code>;
-        return <Fragment key={i}>{p}</Fragment>;
+        if (p.startsWith("**") && p.endsWith("**")) return <strong key={`${i}-${p}`} className="font-semibold text-foreground">{p.slice(2, -2)}</strong>;
+        if (p.startsWith("`") && p.endsWith("`")) return <code key={`${i}-${p}`} className="rounded-chip bg-muted px-1 py-0.5 font-mono text-[0.92em]">{p.slice(1, -1)}</code>;
+        return <Fragment key={`${i}-${p}`}>{p}</Fragment>;
       })}
     </>
   );
@@ -51,7 +51,7 @@ const CALLOUT: Record<CalloutTone, { cls: string; icon: ReactNode }> = {
 
 function SimSkeleton() {
   return (
-    <div className="rounded-card border border-border bg-card p-5" aria-busy="true" aria-label="Loading simulator">
+    <div className="rounded-card border border-border bg-card p-5" role="status" aria-busy="true" aria-label="Loading simulator">
       <Skeleton className="h-5 w-48" />
       <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="space-y-4">
@@ -190,7 +190,7 @@ function Block({ block }: { block: LessonBlock }) {
       return (
         <Tag className={cn("my-3 space-y-1.5 pl-5 text-lead font-normal leading-relaxed text-foreground/90", block.ordered ? "list-decimal" : "list-disc marker:text-primary")}>
           {block.items.map((it, i) => (
-            <li key={i}>
+            <li key={`${i}-${it}`}>
               <RichText text={it} />
             </li>
           ))}
@@ -234,14 +234,14 @@ function Block({ block }: { block: LessonBlock }) {
             </thead>
             <tbody>
               {block.rows.map((r, i) => (
-                <tr key={i} className="border-b border-border last:border-0">
+                <tr key={`${i}-${r[0]}`} className="border-b border-border last:border-0">
                   {r.map((c, j) =>
                     j === 0 ? (
-                      <th key={j} scope="row" className="px-3 py-2 text-left font-semibold text-foreground">
+                      <th key={`${j}-${c}`} scope="row" className="px-3 py-2 text-left font-semibold text-foreground">
                         {c}
                       </th>
                     ) : (
-                      <td key={j} className="px-3 py-2 text-foreground/90">
+                      <td key={`${j}-${c}`} className="px-3 py-2 text-foreground/90">
                         {c}
                       </td>
                     ),
@@ -278,7 +278,7 @@ export default function LessonBlocks({ blocks }: { blocks: LessonBlock[] }) {
   return (
     <div>
       {blocks.map((b, i) => (
-        <Block key={i} block={b} />
+        <Block key={`${i}-${b.kind}`} block={b} />
       ))}
     </div>
   );

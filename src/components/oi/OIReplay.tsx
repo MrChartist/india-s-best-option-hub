@@ -34,7 +34,7 @@ function TimeSlider({ value, max, onChange, labels, ariaLabel }: { value: number
       </SliderPrimitive.Track>
       {value.map((v, i) => (
         <SliderPrimitive.Thumb
-          key={i}
+          key={ariaLabel[i] ?? `thumb-${v}`}
           aria-label={ariaLabel[i]}
           aria-valuetext={labels[v] ?? ""}
           className="block h-5 w-5 rounded-full border-2 border-primary bg-card shadow-card transition-colors focus-visible:shadow-ember focus-visible:outline-none"

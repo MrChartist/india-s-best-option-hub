@@ -35,7 +35,8 @@ export function usePricingInputs() {
   const [strikeText, setStrikeText] = useState("");
   const [strikeTouched, setStrikeTouched] = useState(false);
   const [expiryMode, setExpiryMode] = useState<ExpiryMode>("date");
-  const nextExpiry = useMemo(() => upcomingExpiries(symbol, new Date(), 1)[0]?.date ?? "", [symbol]);
+  const expiryMarks = useMemo(() => upcomingExpiries(symbol, new Date(), 8).map((e) => e.date), [symbol]);
+  const nextExpiry = expiryMarks[0] ?? "";
   const [expiryDate, setExpiryDate] = useState(nextExpiry);
   const [daysText, setDaysText] = useState("7");
   const [rText, setRText] = useState(() => round2((getMarketParams().r || DEFAULT_MARKET_PARAMS.r) * 100));
@@ -100,7 +101,7 @@ export function usePricingInputs() {
       <Segmented className="max-w-xs" label="Time to expiry" value={expiryMode} onChange={setExpiryMode} options={[{ value: "date", label: "Expiry date" }, { value: "days", label: "Days" }]} />
       <div className="grid grid-cols-2 gap-3">
         {expiryMode === "date" ? (
-          <DateField label="Expiry" value={expiryDate} min={istDateString()} onChange={setExpiryDate} hint={expiryDate ? `${state.expiryLabel} · to 15:30 IST` : "Pick a date"} />
+          <DateField label="Expiry" value={expiryDate} min={istDateString()} onChange={setExpiryDate} markDates={expiryMarks} markLabel={`${symbol} expiry`} hint={expiryDate ? `${state.expiryLabel} · to 15:30 IST` : "Pick a date"} />
         ) : (
           <NumField label="Days to expiry" value={daysText} onChange={setDaysText} invalid={!isPos(toNum(daysText))} hint="Calendar days, ACT/365" />
         )}

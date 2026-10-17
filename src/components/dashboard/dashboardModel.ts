@@ -21,6 +21,7 @@ export const WELCOME_DISMISS_KEY = "mc_dash_welcome_dismissed_v1";
 
 export type SectionId =
   | "indices"
+  | "brief"
   | "metrics"
   | "positioning"
   | "volatility"
@@ -47,6 +48,12 @@ export const SECTIONS: readonly SectionMeta[] = [
     title: "Indices",
     subtitle: "Spot, day range and previous close",
     tooltip: "Index spot prices with the day's range. The sparkline shows today's 5-minute closes when recorded, otherwise the last week. The dashed line is the previous close. Select a card to open its option chain.",
+  },
+  {
+    id: "brief",
+    title: "Daily market brief",
+    subtitle: "Gap, VIX, PCR, max pain, FII positioning, walls and today's events",
+    tooltip: "A one-glance summary of today's set-up, built from the same data as the full pages. Each line links to the page that explains it. Educational, not a trade call.",
   },
   {
     id: "metrics",
@@ -126,7 +133,11 @@ export const DEFAULT_LAYOUT: DashLayout = { order: [...SECTION_IDS], hidden: [],
 
 const isSectionId = (v: unknown): v is SectionId => typeof v === "string" && (SECTION_IDS as readonly string[]).includes(v);
 
-/** Coerce anything (old, partial or corrupt JSON) into a valid layout. New sections are appended. */
+/**
+ * Coerce anything (old, partial or corrupt JSON) into a valid layout. Sections missing from a saved
+ * order (for example ones added in a later release) are inserted after their default predecessor,
+ * so a new section lands where it belongs instead of at the very bottom.
+ */
 export function sanitizeLayout(raw: unknown): DashLayout {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_LAYOUT, order: [...DEFAULT_LAYOUT.order] };
   const r = raw as Partial<Record<keyof DashLayout, unknown>>;
@@ -140,7 +151,19 @@ export function sanitizeLayout(raw: unknown): DashLayout {
       }
     }
   }
-  for (const id of SECTION_IDS) if (!seen.has(id)) order.push(id);
+  SECTION_IDS.forEach((id, i) => {
+    if (seen.has(id)) return;
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const k = order.indexOf(SECTION_IDS[j]);
+      if (k >= 0) {
+        at = k + 1;
+        break;
+      }
+    }
+    order.splice(at, 0, id);
+    seen.add(id);
+  });
   const hidden = Array.isArray(r.hidden) ? Array.from(new Set(r.hidden.filter(isSectionId))) : [];
   const density: Density = r.density === "compact" ? "compact" : "comfortable";
   return { order, hidden, density };

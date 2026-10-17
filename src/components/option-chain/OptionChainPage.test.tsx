@@ -108,4 +108,26 @@ describe("OptionChain page", () => {
     expect(document.querySelectorAll("tbody tr[data-strike]").length).toBe(21);
     expect(localStorage.getItem("mc_chain_range_v1")).toBe("10");
   });
+
+  it("sends a basket group to Paper Trading, then marks it sent and clears it", () => {
+    renderPage();
+    act(() => {
+      fireEvent.keyDown(window, { key: "j" });
+    });
+    act(() => {
+      fireEvent.keyDown(window, { key: "a" });
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Basket\s*1\s*legs, open basket$/ }));
+    expect(screen.getByRole("heading", { name: /NIFTY/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Paper trade/ }));
+    expect(lastLocation).toMatch(/^\/paper-trading\?legs=[A-Za-z0-9_-]+$/);
+    expect(JSON.parse(localStorage.getItem("mc_basket_v1") ?? "[]")).toEqual([]);
+    expect(JSON.parse(localStorage.getItem("mc_basket_sent_v1") ?? "{}")).toMatchObject({ target: "paper", count: 1, symbols: ["NIFTY"] });
+  });
+
+  it("uses the page header, without a duplicate sample banner", () => {
+    renderPage();
+    expect(screen.getByRole("heading", { level: 1, name: "Option Chain" })).toBeInTheDocument();
+    expect(screen.queryByText("Sample data: not market prices")).not.toBeInTheDocument();
+  });
 });

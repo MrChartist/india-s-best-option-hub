@@ -11,10 +11,11 @@
  */
 import { proxyGet } from "@/lib/api/proxyClient";
 import { fetchLiveOptionChain, fetchYahooChart } from "@/lib/marketApi";
-import { addCalendarDays, getMarketParams, istDateString, previousTradingDay, type OHLC } from "@/lib/options";
-import { getDailyStats, getSnapshots, snapshotToChain, type ChainSnapshot, type DailyStat } from "@/lib/snapshotStore";
+import { addCalendarDays, getMarketParams, istDateString, nowIST, previousTradingDay, type OHLC } from "@/lib/options";
+import { getDailyStats, getSnapshotTimes, getSnapshots, snapshotToChain, type ChainSnapshot, type DailyStat } from "@/lib/snapshotStore";
 import type { BhavcopyFoRow, VixHistoryRow } from "@/lib/types/market";
 import { bhavcopyChains, candlesToBars, ivFromBhavChains, lastSessionDate, type BhavExpiryChain, type BhavcopyIv, type IvPoint } from "./history";
+import type { ExpiryHistory, ExpiryIvPoint } from "./atmHistory";
 import { chainAtmIv, pickScreenerExpiry, symbolKind, withChange, type ScreenerRow } from "./screener";
 
 // ── Fetchers ──
@@ -85,6 +86,39 @@ export async function lastSnapshotBetween(symbol: string, expiry: string, fromTs
 
 export { snapshotToChain };
 
+/**
+ * ATM IV per expiry from the last snapshot recorded on each IST day over the last `days` days.
+ * Reads timestamps first so only one snapshot per day and expiry is loaded. Never throws.
+ */
+export async function dailySnapshotAtm(symbol: string, expiries: string[], days = 30, now: Date = new Date()): Promise<ExpiryHistory> {
+  const out: ExpiryHistory = {};
+  const toTs = now.getTime();
+  const fromTs = toTs - days * 86_400_000;
+  const r = getMarketParams().r;
+  for (const expiry of expiries) {
+    try {
+      const times = await getSnapshotTimes(symbol, expiry, fromTs, toTs);
+      const lastPerDay = new Map<string, number>();
+      for (const ts of times) {
+        const d = nowIST(new Date(ts)).date;
+        if ((lastPerDay.get(d) ?? 0) < ts) lastPerDay.set(d, ts);
+      }
+      const pts: ExpiryIvPoint[] = [];
+      for (const [date, ts] of lastPerDay) {
+        const snaps = await getSnapshots(symbol, expiry, ts, ts);
+        const snap = snaps[snaps.length - 1];
+        if (!snap || !(snap.spot > 0)) continue;
+        const iv = chainAtmIv(snapshotToChain(snap), snap.spot, expiry, new Date(snap.ts), r);
+        if (Number.isFinite(iv) && iv > 0) pts.push({ date, iv, source: "snapshot" });
+      }
+      if (pts.length) out[expiry] = pts.sort((a, b) => (a.date < b.date ? -1 : 1));
+    } catch {
+      /* no snapshots for this expiry */
+    }
+  }
+  return out;
+}
+
 // ── Bhavcopy IV cache (localStorage) ──
 
 const CACHE_PREFIX = "mc_vol_bhav_v1:";
@@ -148,6 +182,14 @@ export function cachedBhavPoints(symbol: string): IvPoint[] {
   return Object.entries(map)
     .filter(([, e]) => e && typeof e.v === "number" && e.v > 0)
     .map(([date, e]) => ({ date, iv: e.v as number, source: "bhavcopy" as const }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+/** Every cached bhavcopy date with its solved term structure (no network), oldest first. */
+export function cachedBhavEntries(symbol: string): BhavcopyIv[] {
+  return Object.entries(readCache(symbol))
+    .filter(([, e]) => e && Array.isArray(e.t) && e.t.length > 0)
+    .map(([date, e]) => fromEntry(date, e))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 

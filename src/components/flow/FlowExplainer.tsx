@@ -12,7 +12,9 @@ const ITEMS: Array<{ q: string; a: string[] }> = [
   },
   {
     q: "How is premium calculated?",
-    a: ["Premium = contracts traded in the interval × LTP at the end of the interval × lot size. LTP is a stand-in for the average traded price, so large prints in fast markets can be off by the move inside the interval."],
+    a: [
+      "Premium = contracts traded in the interval × LTP at the end of the interval × lot size. LTP is a stand-in for the average traded price, so large prints in fast markets can be off by the move inside the interval.",
+    ],
   },
   {
     q: "How is the side (Ask / Bid / Mid) decided?",

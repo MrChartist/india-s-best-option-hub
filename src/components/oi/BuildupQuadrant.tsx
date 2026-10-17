@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Cell, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { Crosshair } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { BuildupBadge } from "@/components/ui/buildup-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { axisProps, chartColors, gridProps, tokenColor, tooltipStyle } from "@/lib/chartTheme";
-import { BUILDUP_LABEL, buildupCounts, buildupQuadrantPoints, buildupTone, quantile, type Buildup, type BuildupPoint, type OptionData } from "@/lib/oiUtils";
+import { BUILDUP_LABEL, buildupCode, buildupCounts, buildupQuadrantPoints, buildupTone, quantile, type Buildup, type BuildupPoint, type OptionData } from "@/lib/oiUtils";
 import { EmptyState, ModuleHeader, Segmented } from "./shared";
 import { fmtOI, fmtOIChange, fmtStrike } from "./format";
 
@@ -48,7 +48,8 @@ function QuadrantTooltip({ active, payload }: { active?: boolean; payload?: Arra
  * Top-right long build-up, top-left short build-up, bottom-right short covering, bottom-left long
  * unwinding. Outliers beyond the 95th percentile are pinned to the edge so the core stays readable.
  */
-export function BuildupQuadrant({ chain, sample }: { chain: OptionData[]; sample?: boolean }) {
+/** `sample` is accepted for compatibility; the page header carries the single sample label. */
+export function BuildupQuadrant({ chain }: { chain: OptionData[]; sample?: boolean }) {
   const [side, setSide] = useState<SideFilter>("ALL");
   const all = useMemo(() => buildupQuadrantPoints(chain), [chain]);
   const points = useMemo(() => (side === "ALL" ? all : all.filter((p) => p.side === side)), [all, side]);
@@ -76,7 +77,6 @@ export function BuildupQuadrant({ chain, sample }: { chain: OptionData[]; sample
         hint="Each dot is one strike and side. Right = premium up, top = OI up. Circles are calls, diamonds are puts."
         right={
           <>
-            {sample && <Badge variant="warning">Sample data</Badge>}
             <Segmented<SideFilter>
               label="Show side"
               value={side}
@@ -97,13 +97,19 @@ export function BuildupQuadrant({ chain, sample }: { chain: OptionData[]; sample
           </EmptyState>
         ) : (
           <>
-            <div className="mb-3 flex flex-wrap gap-1.5" aria-label="Count per quadrant">
-              {ORDER.map((b) => (
-                <Badge key={b} variant={buildupTone(b)}>
-                  {BUILDUP_LABEL[b]} · {counts[b]}
-                </Badge>
-              ))}
-            </div>
+            <ul className="mb-3 flex flex-wrap gap-x-3 gap-y-1.5" aria-label="Legs per quadrant">
+              {ORDER.map((b) => {
+                const code = buildupCode(b);
+                return (
+                  <li key={b} className="inline-flex items-center gap-1.5">
+                    {code && <BuildupBadge kind={code} />}
+                    <span className="font-num text-xs font-semibold tabular-nums" aria-label={`${counts[b]} legs`}>
+                      {counts[b]}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
             <div className="h-[340px] sm:h-[380px]" role="img" aria-label={`Buildup quadrant scatter with ${plot.length} legs`}>
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 10, right: 12, bottom: 18, left: 0 }}>

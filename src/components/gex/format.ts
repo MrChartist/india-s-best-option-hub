@@ -1,11 +1,16 @@
-import { formatCompactIN } from "@/lib/options";
+import { formatCrore, MINUS } from "@/lib/options";
 
-/** Format a value already in ₹ crore: 1234.5 → "₹1,235Cr", −0.42 → "−₹42.00L". */
+export { crDecimals, formatCrCell } from "@/lib/gex";
+
+/**
+ * Format a value already in ₹ crore, always in crore so every GEX number reads in one unit:
+ * 1234.5 → "₹1,235 Cr", −0.42 → "−₹0.42 Cr", 0.004 → "<₹0.01 Cr".
+ */
 export function fmtCr(v: number, o?: { signed?: boolean }): string {
   if (!Number.isFinite(v)) return "—";
   const a = Math.abs(v);
-  const txt = formatCompactIN(v * 1e7, { symbol: true, decimals: a >= 1000 ? 0 : a >= 10 ? 1 : 2 });
-  return o?.signed && v > 0 ? `+${txt}` : txt;
+  if (a > 0 && a < 0.005) return `${v < 0 ? MINUS : o?.signed ? "+" : ""}<₹0.01 Cr`;
+  return formatCrore(v, { signed: o?.signed });
 }
 
 export function fmtLevel(v: number | null | undefined): string {

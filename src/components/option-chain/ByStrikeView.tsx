@@ -166,8 +166,8 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
         <div className="overflow-x-auto">
           {loading && rows.length === 0 ? (
             <div className="space-y-2 p-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-7 w-full" />
+              {["s1", "s2", "s3", "s4", "s5", "s6"].map((id) => (
+                <Skeleton key={id} className="h-7 w-full" />
               ))}
             </div>
           ) : rows.length === 0 ? (
@@ -224,9 +224,9 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
                 <YAxis {...axisProps} unit="%" domain={["auto", "auto"]} width={52} />
                 <RTooltip contentStyle={tooltipStyle} formatter={(v: number | string) => (typeof v === "number" ? `${v.toFixed(2)}%` : v)} />
                 <Legend wrapperStyle={legendStyle} />
-                <Line type="monotone" dataKey="atmIv" name="ATM IV" stroke={chartColors.iv} strokeWidth={2.25} dot={{ r: 3 }} connectNulls />
-                <Line type="monotone" dataKey="ceIv" name={`${formatStrike(strike)} CE IV`} stroke={chartColors.call} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls />
-                <Line type="monotone" dataKey="peIv" name={`${formatStrike(strike)} PE IV`} stroke={chartColors.put} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls />
+                <Line type="monotone" dataKey="atmIv" name="ATM IV" stroke={chartColors.iv} strokeWidth={2.25} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                <Line type="monotone" dataKey="ceIv" name={`${formatStrike(strike)} CE IV`} stroke={chartColors.call} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+                <Line type="monotone" dataKey="peIv" name={`${formatStrike(strike)} PE IV`} stroke={chartColors.put} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -238,7 +238,7 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
 }
 
 function LegCells({ lv, align, order }: { lv: LegView | null; align: "left" | "right"; order: "ce" | "pe" }) {
-  const cls = cn("px-2 py-1.5 tabular-nums whitespace-nowrap", align === "right" ? "text-right" : "text-left", lv?.itm && "bg-wash-warning/45");
+  const cls = cn("px-2 py-1.5 tabular-nums whitespace-nowrap", align === "right" ? "text-right" : "text-left", lv?.itm && "bg-[hsl(var(--wash-itm))]");
   const cells = lv
     ? [
         <td key="oi" className={cls}>{lv.leg.oi > 0 ? formatCompactIN(lv.leg.oi) : "—"}</td>,
@@ -248,8 +248,8 @@ function LegCells({ lv, align, order }: { lv: LegView | null; align: "left" | "r
         <td key="t" className={cls}>{lv.leg.theta ? formatGreek("theta", lv.leg.theta) : "—"}</td>,
         <td key="l" className={cn(cls, "font-semibold")}>{lv.leg.ltp > 0 ? formatNumberIN(lv.leg.ltp, 2, { minDecimals: 2 }) : "—"}</td>,
       ]
-    : Array.from({ length: 6 }, (_, i) => (
-        <td key={i} className={cn(cls, "text-muted-foreground")}>—</td>
+    : ["oi", "oic", "iv", "d", "t", "l"].map((id) => (
+        <td key={id} className={cn(cls, "text-muted-foreground")}>—</td>
       ));
   return <>{order === "ce" ? cells : [...cells].reverse()}</>;
 }

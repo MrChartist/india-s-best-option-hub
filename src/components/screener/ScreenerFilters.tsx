@@ -17,18 +17,17 @@ import {
   type NumericOp,
 } from "@/lib/screener/filters";
 import { cn } from "@/lib/utils";
-import { BUILDUP_VARIANT } from "./buildupStyle";
+import { BUILDUP_META } from "@/components/ui/buildup-badge";
+import { BUILDUP_KIND } from "@/lib/screener/display";
 
 const BUILDUPS: Buildup[] = ["LONG_BUILDUP", "SHORT_BUILDUP", "SHORT_COVERING", "LONG_UNWINDING", "NEUTRAL"];
 const OPS: NumericOp[] = ["gt", "gte", "lt", "lte", "between"];
 
-const TONE_ON: Record<string, string> = {
-  bullish: "border-bullish/50 bg-wash-profit text-bullish",
-  bearish: "border-bearish/50 bg-wash-loss text-bearish",
-  info: "border-info/50 bg-wash-info text-info",
-  warning: "border-warning/50 bg-wash-warning text-warning",
-  neutral: "border-border bg-muted text-foreground",
-};
+/** Pressed style per buildup: the shared BuildupBadge palette (LB green, SB red, SC blue, LU amber). */
+function toneOn(b: Buildup): string {
+  const kind = BUILDUP_KIND[b];
+  return kind ? BUILDUP_META[kind].className : "border-border bg-muted text-foreground";
+}
 
 export interface ScreenerFiltersProps {
   value: FilterState;
@@ -39,11 +38,23 @@ export interface ScreenerFiltersProps {
   onExport: () => void;
 }
 
-function NumberRuleRow({ rule, onChange, onRemove }: { rule: Extract<FilterRule, { kind: "number" }>; onChange: (r: FilterRule) => void; onRemove: () => void }) {
+function NumberRuleRow({
+  rule,
+  onChange,
+  onRemove,
+}: {
+  rule: Extract<FilterRule, { kind: "number" }>;
+  onChange: (r: FilterRule) => void;
+  onRemove: () => void;
+}) {
   const id = useId();
   const meta = FIELD_META[rule.field];
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-tile border border-border bg-background/60 p-1.5" role="group" aria-label={`Rule: ${meta.label}`}>
+    <div
+      className="flex flex-wrap items-center gap-1.5 rounded-tile border border-border bg-background/60 p-1.5"
+      role="group"
+      aria-label={`Rule: ${meta.label}`}
+    >
       <Select value={rule.field} onValueChange={(v) => onChange({ ...rule, field: v as NumericField })}>
         <SelectTrigger className="h-8 w-[170px] text-body-sm" aria-label="Metric">
           <SelectValue />
@@ -98,7 +109,14 @@ function NumberRuleRow({ rule, onChange, onRemove }: { rule: Extract<FilterRule,
         </>
       ) : null}
       {meta.unit ? <span className="text-body-sm text-muted-foreground">{meta.unit}</span> : null}
-      <Button type="button" variant="ghost" size="icon" className="ml-auto h-8 w-8" onClick={onRemove} aria-label={`Remove ${meta.label} rule`}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="ml-auto h-8 w-8"
+        onClick={onRemove}
+        aria-label={`Remove ${meta.label} rule`}
+      >
         <X />
       </Button>
     </div>
@@ -110,7 +128,9 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
   const buildupRule = value.rules.find((r): r is Extract<FilterRule, { kind: "buildup" }> => r.kind === "buildup");
   const selectedBuildups = buildupRule?.values ?? [];
   const bannedRule = value.rules.find((r): r is Extract<FilterRule, { kind: "banned" }> => r.kind === "banned");
-  const instrumentRule = value.rules.find((r): r is Extract<FilterRule, { kind: "instrument" }> => r.kind === "instrument");
+  const instrumentRule = value.rules.find(
+    (r): r is Extract<FilterRule, { kind: "instrument" }> => r.kind === "instrument",
+  );
   const numberRules = value.rules.filter((r): r is Extract<FilterRule, { kind: "number" }> => r.kind === "number");
   const activeCount = value.rules.length + value.sectors.length + (value.search ? 1 : 0);
 
@@ -142,7 +162,10 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           <label htmlFor={searchId} className="sr-only">
             Search symbol or sector
           </label>
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <Input
             id={searchId}
             value={value.search}
@@ -165,7 +188,11 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
             <div className="flex items-center justify-between border-b border-border px-3 py-2">
               <span className="text-label uppercase text-muted-foreground">Sectors</span>
               {value.sectors.length ? (
-                <button type="button" className="text-body-sm text-primary-ink hover:underline" onClick={() => onChange({ ...value, sectors: [] })}>
+                <button
+                  type="button"
+                  className="text-body-sm text-primary-ink hover:underline"
+                  onClick={() => onChange({ ...value, sectors: [] })}
+                >
                   Clear
                 </button>
               ) : null}
@@ -175,11 +202,20 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
                 const checked = value.sectors.includes(s);
                 const cid = `${searchId}-sec-${s.replace(/\W+/g, "-")}`;
                 return (
-                  <label key={s} htmlFor={cid} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-body-sm hover:bg-accent">
+                  <label
+                    key={s}
+                    htmlFor={cid}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-body-sm hover:bg-accent"
+                  >
                     <Checkbox
                       id={cid}
                       checked={checked}
-                      onCheckedChange={(c) => onChange({ ...value, sectors: c ? [...value.sectors, s] : value.sectors.filter((x) => x !== s) })}
+                      onCheckedChange={(c) =>
+                        onChange({
+                          ...value,
+                          sectors: c ? [...value.sectors, s] : value.sectors.filter((x) => x !== s),
+                        })
+                      }
                     />
                     {s}
                   </label>
@@ -189,7 +225,10 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           </PopoverContent>
         </Popover>
 
-        <Select value={instrumentRule ? instrumentRule.value : "all"} onValueChange={(v) => setInstrument(v as "all" | "STOCK" | "INDEX")}>
+        <Select
+          value={instrumentRule ? instrumentRule.value : "all"}
+          onValueChange={(v) => setInstrument(v as "all" | "STOCK" | "INDEX")}
+        >
           <SelectTrigger className="h-9 w-[130px] text-body-sm" aria-label="Instrument type">
             <SelectValue />
           </SelectTrigger>
@@ -200,7 +239,10 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           </SelectContent>
         </Select>
 
-        <Select value={bannedRule ? (bannedRule.value ? "only" : "hide") : "all"} onValueChange={(v) => setBanned(v as "all" | "hide" | "only")}>
+        <Select
+          value={bannedRule ? (bannedRule.value ? "only" : "hide") : "all"}
+          onValueChange={(v) => setBanned(v as "all" | "hide" | "only")}
+        >
           <SelectTrigger className="h-9 w-[150px] text-body-sm" aria-label="Ban period filter">
             <SelectValue />
           </SelectTrigger>
@@ -238,8 +280,8 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
               aria-pressed={on}
               onClick={() => toggleBuildup(b)}
               className={cn(
-                "h-7 rounded-pill border px-2.5 text-body-sm transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                on ? TONE_ON[BUILDUP_VARIANT[b]] : "border-border bg-card text-muted-foreground hover:text-foreground",
+                "min-h-8 rounded-pill border px-3 text-body-sm transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
+                on ? toneOn(b) : "border-border bg-card text-muted-foreground hover:text-foreground",
               )}
             >
               {BUILDUP_LABEL[b]}
@@ -257,7 +299,9 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           variant="ghost"
           size="sm"
           className="gap-1.5 text-muted-foreground"
-          onClick={() => setRules([...value.rules, { id: newRuleId(), kind: "number", field: "atmIv", op: "gte", value: 30 }])}
+          onClick={() =>
+            setRules([...value.rules, { id: newRuleId(), kind: "number", field: "atmIv", op: "gte", value: 30 }])
+          }
         >
           {numberRules.length ? <Plus /> : <SlidersHorizontal />}
           {numberRules.length ? "Add another rule" : "Add a rule (IV, PCR, MWPL, volume…)"}

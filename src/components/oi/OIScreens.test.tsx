@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
@@ -96,6 +96,16 @@ describe("Max Pain & PCR page", () => {
     expect(screen.getByText(/Not investment advice/)).toBeInTheDocument();
     expect(screen.getAllByRole("radio").length).toBeGreaterThanOrEqual(2);
   });
+
+  it("hands max pain to the optimizer and tags the expected-move method", () => {
+    renderAt(<MaxPainPCR />, "/max-pain-pcr?symbol=NIFTY");
+    const link = screen.getByRole("link", { name: /Open optimizer with target = max pain/ });
+    expect(link.getAttribute("href")).toMatch(/^\/optimizer\?symbol=NIFTY&target=\d+/);
+    expect(screen.getAllByText(/IV 1σ|Straddle ×0\.85/).length).toBeGreaterThan(0);
+    // Row-level sample chips are gone; the header carries the one sample label.
+    expect(screen.queryByText(/^Sample$/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
 });
 
 describe("OI Analysis page", () => {
@@ -110,7 +120,31 @@ describe("OI Analysis page", () => {
   it("shows the buildup quadrant from a tab deep link", () => {
     renderAt(<OIAnalysis />, "/oi-analysis?symbol=NIFTY&tab=quadrant");
     expect(screen.getByText("Buildup quadrant")).toBeInTheDocument();
-    expect(screen.getByText(/Long build-up ·/)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Legs per quadrant" })).toHaveTextContent(/Long build-up/);
+  });
+
+  it("shows labelled intraday OI charts, wall spreads and contract links", () => {
+    renderAt(<OIAnalysis />, "/oi-analysis?symbol=NIFTY");
+    expect(screen.getByRole("heading", { name: "Intraday OI" })).toBeInTheDocument();
+    expect(screen.getByText("Cumulative call vs put OI change")).toBeInTheDocument();
+    expect(screen.getByText(/OI change in ATM ± 5 range/)).toBeInTheDocument();
+    expect(screen.getByText("Strike OI change through the day")).toBeInTheDocument();
+    expect(screen.getAllByText("Sample session").length).toBeGreaterThanOrEqual(3);
+    const spread = screen.getAllByRole("link", { name: /^Sell [\d,]+ CE \/ buy [\d,]+ CE in builder/ });
+    expect(spread[0].getAttribute("href")).toMatch(/^\/strategy-builder\?legs=/);
+    expect(screen.getAllByRole("link", { name: /contract page/ })[0].getAttribute("href")).toMatch(/^\/contract\/NIFTY\/\d{4}-\d{2}-\d{2}\/\d+\/(CE|PE)$/);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
+  it("caps the heatmap at ATM ± 12 with a Show all toggle", () => {
+    renderAt(<OIAnalysis />, "/oi-analysis?symbol=NIFTY");
+    const toggle = screen.queryByRole("button", { name: /^Show all \(\d+\)$/ });
+    if (toggle) {
+      fireEvent.click(toggle);
+      expect(screen.getByRole("button", { name: "Show ATM ± 12" })).toHaveAttribute("aria-pressed", "true");
+    } else {
+      expect(screen.getByText("OI heatmap")).toBeInTheDocument();
+    }
   });
 
   it("replays recorded snapshots", () => {

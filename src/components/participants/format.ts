@@ -1,6 +1,6 @@
 /** Formatting helpers and series colours for the participants views. */
 import { chartColors } from "@/lib/chartTheme";
-import { formatCompactIN, formatDateIST, formatNumberIN, formatPct } from "@/lib/options";
+import { formatCompactIN, formatDateIST, formatNumberIN, formatPct, ordinal as ordinalIN } from "@/lib/options";
 import type { Participant } from "@/lib/participantsApi";
 
 export const MINUS = "−";
@@ -58,4 +58,16 @@ export function arrow(v: number): string {
 export function shortDate(iso: string): string {
   const full = formatDateIST(iso);
   return full.replace(/\s\d{4}$/, "");
+}
+
+/** English ordinal for a whole number: 1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 22nd, 23rd, 101st. "—" when not finite. */
+export function ordinal(n: number): string {
+  return ordinalIN(n);
+}
+
+/** "3rd percentile of 250 sessions" (rounds the rank; "—" when unknown). */
+export function percentileLabel(rank: number, sessions?: number): string {
+  if (!Number.isFinite(rank)) return "—";
+  const r = Math.min(100, Math.max(0, Math.round(rank)));
+  return `${ordinal(r)} percentile${sessions ? ` of ${formatNumberIN(sessions)} sessions` : ""}`;
 }

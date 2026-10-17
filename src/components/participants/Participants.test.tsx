@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -65,13 +65,38 @@ describe("Participants page", () => {
     expect(screen.getByText(/Participant-wise positions/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Client vs FII mirror" })).toBeInTheDocument();
     expect(screen.getByText(/Data for education and research. Not investment advice./)).toBeInTheDocument();
+    // One sample label lives in the page header; panels do not repeat it.
+    const header = document.querySelector("[data-page-header]") as HTMLElement;
+    expect(header.textContent).toMatch(/Sample data/);
+    expect(screen.getAllByText(/^Sample data$/)).toHaveLength(1);
+  });
+
+  it("uses the app date picker (dd MMM yyyy), offers a 1Y window and explains hatched shorts", async () => {
+    state.live = false;
+    renderWithProviders(<Participants />);
+    const trigger = await screen.findByRole("button", { name: /Report date/ });
+    await waitFor(() => expect(trigger.textContent).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/));
+    expect(screen.getByRole("radio", { name: "1Y" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText(/hatched bars are shorts/).length).toBeGreaterThan(0));
+    expect(screen.getByRole("heading", { name: /does it lead NIFTY/ })).toBeInTheDocument();
+    expect(screen.queryByText(/\dth pct/)).not.toBeInTheDocument();
+    // A Sunday snaps back to Friday's report.
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog");
+    const sunday = within(dialog)
+      .getAllByRole("gridcell")
+      .map((c) => c.querySelector("button") ?? c)
+      .find((b) => b.textContent === "11" && !b.hasAttribute("disabled"));
+    expect(sunday).toBeTruthy();
+    fireEvent.click(sunday as HTMLElement);
+    expect(await screen.findByText(/11 Oct 2026 has no report/)).toBeInTheDocument();
   });
 
   it("renders live NSE data and saves history in the browser", async () => {
     state.live = true;
     renderWithProviders(<Participants />);
     await waitFor(() => expect(screen.getAllByText("16 Oct 2026").length).toBeGreaterThan(0));
-    expect(screen.queryByText(/every F&O number below is simulated/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/is simulated for illustration/i)).not.toBeInTheDocument();
     expect(localStorage.getItem("mc_participant_oi_v1")).toContain("2026-10-16");
     await waitFor(() => expect(localStorage.getItem("mc_fii_dii_cash_v1")).toContain("2026-10-16"));
   });

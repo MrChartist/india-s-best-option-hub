@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Grid3X3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { tokenColor } from "@/lib/chartTheme";
+import { crDecimals, flatValues, formatCrCell, heatRamp, type HeatRamp } from "@/lib/gex";
 import type { GexChainInput, GexConvention } from "@/lib/gexData";
 import { dteLabel, formatCompactIN, formatDateIST } from "@/lib/options";
 import { cn } from "@/lib/utils";
@@ -12,11 +13,42 @@ import { fmtCr, fmtLevel } from "./format";
 import { buildHeatmapModel, heatAlpha, type HeatMetric } from "./heatmapModel";
 import { GexSourceTag, type SourceInfo } from "./SourceTag";
 
-const METRIC_META: Record<HeatMetric, { label: string; unit: string; diverging: boolean; pos: string; neg: string }> = {
-  gex: { label: "Net GEX", unit: "₹ Cr per 1%", diverging: true, pos: "Damping", neg: "Amplifying" },
-  dex: { label: "Net DEX", unit: "₹ Cr", diverging: true, pos: "Long delta", neg: "Short delta" },
-  oi: { label: "Open interest", unit: "contracts (CE + PE)", diverging: false, pos: "More OI", neg: "" },
-  oiChange: { label: "Change in OI", unit: "contracts (CE + PE)", diverging: true, pos: "OI added", neg: "OI cut" },
+const METRIC_META: Record<
+  HeatMetric,
+  { label: string; unit: string; short: string; crore: boolean; pos: string; neg: string }
+> = {
+  gex: {
+    label: "Net GEX",
+    unit: "₹ Cr per 1% move",
+    short: "₹ Cr / 1%",
+    crore: true,
+    pos: "Damping",
+    neg: "Amplifying",
+  },
+  dex: {
+    label: "Net DEX",
+    unit: "₹ Cr delta-notional",
+    short: "₹ Cr",
+    crore: true,
+    pos: "Long delta",
+    neg: "Short delta",
+  },
+  oi: {
+    label: "Open interest",
+    unit: "contracts (CE + PE)",
+    short: "Contracts",
+    crore: false,
+    pos: "More OI",
+    neg: "Less OI",
+  },
+  oiChange: {
+    label: "Change in OI",
+    unit: "contracts (CE + PE)",
+    short: "Contracts",
+    crore: false,
+    pos: "OI added",
+    neg: "OI cut",
+  },
 };
 
 type Win = "10" | "20" | "all";
@@ -30,16 +62,17 @@ interface Props {
   source?: SourceInfo | null;
 }
 
-function cellText(metric: HeatMetric, v: number): string {
+function cellText(metric: HeatMetric, v: number, decimals: number): string {
   if (!Number.isFinite(v)) return "";
-  if (metric === "gex" || metric === "dex") return fmtCr(v).replace("₹", "");
+  if (METRIC_META[metric].crore) return formatCrCell(v, decimals);
   return formatCompactIN(v, { decimals: 1 });
 }
 
-function cellBg(metric: HeatMetric, v: number, maxAbs: number): string | undefined {
+/** Sequential (one hue) when every value shares a sign; diverging (green / red) otherwise. */
+function cellBg(ramp: HeatRamp, v: number, maxAbs: number): string | undefined {
   const a = heatAlpha(v, maxAbs);
   if (a <= 0) return undefined;
-  if (!METRIC_META[metric].diverging) return tokenColor("primary", a);
+  if (ramp === "sequential") return tokenColor("primary", a);
   return v > 0 ? tokenColor("bullish", a) : tokenColor("bearish", a);
 }
 
@@ -53,7 +86,30 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
     [chains, spot, metric, convention, oiUnit, win],
   );
   const meta = METRIC_META[metric];
+  const ramp = useMemo(() => heatRamp(flatValues(model.values)), [model.values]);
+  const decimals = crDecimals(model.maxAbs);
+  const allNegative = useMemo(
+    () => ramp === "sequential" && flatValues(model.values).some((v) => v < 0),
+    [ramp, model.values],
+  );
   const rowsDesc = useMemo(() => model.strikes.map((k, i) => ({ k, i })).reverse(), [model.strikes]);
+
+  // Open the scroller centred on the spot row. Rows run high strike → low, so without this the
+  // first view shows far-OTM upside strikes, where short-dated gamma has already decayed to almost
+  // nothing, and the near expiry looks empty even though it is the darkest column at spot.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const spotStrike = model.spotStrike;
+  const rowCount = model.strikes.length;
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box || spotStrike === null) return;
+    const row = box.querySelector<HTMLElement>(`tr[data-strike="${spotStrike}"]`);
+    const head = box.querySelector<HTMLElement>("thead");
+    if (!row) return;
+    const headH = head?.offsetHeight ?? 0;
+    const target = row.offsetTop - headH - (box.clientHeight - headH - row.offsetHeight) / 2;
+    box.scrollTop = Math.max(0, target);
+  }, [spotStrike, rowCount, win, loading]);
 
   return (
     <Card className="rounded-card">
@@ -65,7 +121,8 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
               Strike × expiry heatmap
             </CardTitle>
             <p className="mt-0.5 text-body-sm text-muted-foreground">
-              {meta.label} · {meta.unit}. CW / PW mark each expiry's call and put walls; F marks the flip (dealer model).
+              {meta.label} in {meta.unit}. CW / PW mark each expiry's call and put walls; F marks the flip (dealer
+              model).
             </p>
           </div>
           <GexSourceTag info={source} showDerived={metric === "gex" || metric === "dex"} />
@@ -113,6 +170,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
         ) : (
           <>
             <div
+              ref={scrollRef}
               className="max-h-[480px] overflow-auto rounded-tile border border-border focus-visible:shadow-ember focus-visible:outline-none"
               tabIndex={0}
               role="region"
@@ -124,12 +182,22 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                 </caption>
                 <thead className="sticky top-0 z-20 bg-card">
                   <tr>
-                    <th scope="col" className="sticky left-0 z-30 border-b border-border bg-card px-2 py-1.5 text-left text-label uppercase text-muted-foreground">
-                      Strike
+                    <th
+                      scope="col"
+                      className="sticky left-0 z-30 border-b border-border bg-card px-2 py-1.5 text-left font-normal"
+                    >
+                      <span className="block text-label uppercase text-muted-foreground">Strike</span>
+                      <span className="block text-micro text-primary-ink">{meta.short}</span>
                     </th>
                     {model.expiries.map((e) => (
-                      <th key={e} scope="col" className="min-w-[84px] border-b border-border px-2 py-1.5 text-right font-normal">
-                        <span className="block text-label uppercase text-foreground">{formatDateIST(e).replace(/ \d{4}$/, "")}</span>
+                      <th
+                        key={e}
+                        scope="col"
+                        className="min-w-[84px] border-b border-border px-2 py-1.5 text-right font-normal"
+                      >
+                        <span className="block text-label uppercase text-foreground">
+                          {formatDateIST(e).replace(/ \d{4}$/, "")}
+                        </span>
                         <span className="block text-micro text-muted-foreground">{dteLabel(e)}</span>
                       </th>
                     ))}
@@ -139,7 +207,14 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                   {rowsDesc.map(({ k, i }) => {
                     const isSpot = k === model.spotStrike;
                     return (
-                      <tr key={k} className={cn(isSpot && "shadow-[inset_0_1px_0_hsl(var(--primary)/0.6),inset_0_-1px_0_hsl(var(--primary)/0.6)]")}>
+                      <tr
+                        key={k}
+                        data-strike={k}
+                        className={cn(
+                          isSpot &&
+                            "shadow-[inset_0_1px_0_hsl(var(--primary)/0.6),inset_0_-1px_0_hsl(var(--primary)/0.6)]",
+                        )}
+                      >
                         <th
                           scope="row"
                           className={cn(
@@ -163,7 +238,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                               key={e}
                               title={title}
                               className="relative border-b border-border/60 px-2 py-1 text-right font-num"
-                              style={{ backgroundColor: cellBg(metric, v, model.maxAbs) }}
+                              style={{ backgroundColor: cellBg(ramp, v, model.maxAbs) }}
                             >
                               <span className="flex items-center justify-end gap-1">
                                 {tags.map((t) => (
@@ -179,7 +254,9 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                                     {t}
                                   </span>
                                 ))}
-                                <span className={cn(!Number.isFinite(v) && "text-muted-foreground")}>{Number.isFinite(v) ? cellText(metric, v) : "·"}</span>
+                                <span className={cn(!Number.isFinite(v) && "text-muted-foreground")}>
+                                  {Number.isFinite(v) ? cellText(metric, v, decimals) : "·"}
+                                </span>
                               </span>
                             </td>
                           );
@@ -191,24 +268,51 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
               </table>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted-foreground">
-              {meta.diverging ? (
+              {ramp === "diverging" ? (
                 <>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-6 rounded-sm" style={{ background: `linear-gradient(90deg, ${tokenColor("bullish", 0.08)}, ${tokenColor("bullish", 0.6)})` }} aria-hidden />
+                    <span
+                      className="h-2.5 w-6 rounded-sm"
+                      style={{
+                        background: `linear-gradient(90deg, ${tokenColor("bullish", 0.08)}, ${tokenColor("bullish", 0.6)})`,
+                      }}
+                      aria-hidden
+                    />
                     {meta.pos}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-6 rounded-sm" style={{ background: `linear-gradient(90deg, ${tokenColor("bearish", 0.08)}, ${tokenColor("bearish", 0.6)})` }} aria-hidden />
+                    <span
+                      className="h-2.5 w-6 rounded-sm"
+                      style={{
+                        background: `linear-gradient(90deg, ${tokenColor("bearish", 0.08)}, ${tokenColor("bearish", 0.6)})`,
+                      }}
+                      aria-hidden
+                    />
                     {meta.neg}
                   </span>
                 </>
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-6 rounded-sm" style={{ background: `linear-gradient(90deg, ${tokenColor("primary", 0.08)}, ${tokenColor("primary", 0.6)})` }} aria-hidden />
-                  {meta.pos}
+                  <span
+                    className="h-2.5 w-6 rounded-sm"
+                    style={{
+                      background: `linear-gradient(90deg, ${tokenColor("primary", 0.08)}, ${tokenColor("primary", 0.6)})`,
+                    }}
+                    aria-hidden
+                  />
+                  {allNegative
+                    ? `All values negative: darker = more ${metric === "gex" && convention === "sellerShortBoth" ? "short gamma" : meta.neg.toLowerCase()}`
+                    : `Darker = ${meta.pos.toLowerCase()}`}
                 </span>
               )}
-              <span>Square-root colour scale; strongest cell = {metric === "gex" || metric === "dex" ? fmtCr(model.maxAbs) : formatCompactIN(model.maxAbs)}.</span>
+              <span>
+                Opens centred on spot: near expiries concentrate gamma at strikes close to spot.
+              </span>
+              <span>
+                Square-root colour scale; strongest cell ={" "}
+                {meta.crore ? fmtCr(model.maxAbs) : formatCompactIN(model.maxAbs)}.
+                {meta.crore ? " “<0.1” = under ₹0.1 Cr." : ""}
+              </span>
             </div>
           </>
         )}

@@ -3,7 +3,7 @@
  * Greeks in rupees and P&L net of round-trip charges. Plus the closed-positions ledger.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, LogOut, RotateCcw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, FlaskConical, LogOut, RotateCcw, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -157,8 +157,11 @@ export function PositionsTable({
   onClose,
   onRemove,
   onEditLots,
+  readOnly = false,
 }: {
   rows: PositionRow[];
+  /** Paper-account view: no CMP override, resize, close or delete (manage those in Paper Trading). */
+  readOnly?: boolean;
   onSetCmp: (id: string, price: number) => void;
   onResetCmp: (id: string) => void;
   onClose: (id: string, price: number) => void;
@@ -250,13 +253,24 @@ export function PositionsTable({
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         {p.symbol} {formatStrike(p.strike)}
                         <Badge variant={p.type === "CE" ? "bearish" : "bullish"}>{p.type}</Badge>
+                        {p.source === "sample" ? (
+                          <Badge variant="warning" title="Entry priced off generated sample data, not a market quote." aria-label="Sample-priced entry">
+                            <FlaskConical aria-hidden="true" />
+                            SAMPLE
+                          </Badge>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={p.action === "BUY" ? "bullish" : "bearish"}>{p.action}</Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {editingLots?.id === p.id ? (
+                      {readOnly ? (
+                        <span title={`${p.lots} × ${p.lotSize} = ${formatNumberIN(p.lots * p.lotSize)} qty`}>
+                          {p.lots}
+                          <span className="ml-1 text-micro text-muted-foreground">×{p.lotSize}</span>
+                        </span>
+                      ) : editingLots?.id === p.id ? (
                         <Input
                           type="number"
                           min={1}
@@ -303,7 +317,14 @@ export function PositionsTable({
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatNumberIN(p.entryPrice, 2)}</TableCell>
                     <TableCell className="text-right">
-                      <CmpCell row={r} onSet={(v) => onSetCmp(p.id, v)} onReset={() => onResetCmp(p.id)} />
+                      {readOnly ? (
+                        <div className="flex items-center justify-end gap-1.5 tabular-nums">
+                          {formatNumberIN(p.currentPrice, 2)}
+                          <SourceBadge source={r.quoteSource} asOf={r.quoteAsOf} />
+                        </div>
+                      ) : (
+                        <CmpCell row={r} onSet={(v) => onSetCmp(p.id, v)} onReset={() => onResetCmp(p.id)} />
+                      )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {Number.isFinite(l.iv) ? (
@@ -324,7 +345,7 @@ export function PositionsTable({
                       <div className="text-micro text-muted-foreground">chg {formatINR(l.charges, { decimals: 0 })}</div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      <div className={cn("flex justify-end gap-1", readOnly && "hidden")}>
                         <Button variant="outline" size="pill" onClick={() => setClosing(r)} aria-label={`Close ${p.symbol} ${p.strike} ${p.type}`}>
                           <LogOut aria-hidden="true" /> Close
                         </Button>
@@ -401,6 +422,11 @@ export function ClosedPositionsTable({ closed }: { closed: ClosedPosition[] }) {
             <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
               <div className="flex items-center gap-1.5 whitespace-nowrap">
                 {c.symbol} {formatStrike(c.strike)} <Badge variant={c.type === "CE" ? "bearish" : "bullish"}>{c.type}</Badge>
+                {c.source === "sample" ? (
+                  <Badge variant="warning" title="Entry priced off generated sample data, not a market quote.">
+                    SAMPLE
+                  </Badge>
+                ) : null}
               </div>
             </TableCell>
             <TableCell>

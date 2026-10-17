@@ -6,6 +6,12 @@
  * Exposure margin: 2% (index) / 3.5% (stock) of short-option and futures notional.
  * Expiry-day ELM: an extra 2% of notional on short index options expiring today (SEBI, Nov 2024).
  * Defined-risk structures are capped at their max loss; long-only positions need the premium only.
+ *
+ * Two totals:
+ *  - `total`: span + exposure + ELM + gross premium paid (the legacy figure, kept for compatibility).
+ *  - `fundsRequired`: span + exposure + ELM + max(0, premiumPaid − premiumReceived). Brokers credit
+ *    the premium received on short legs against the premium paid on long legs, so a debit spread
+ *    blocks only its net debit, not the gross cost of its long leg. Use this for return-on-capital.
  */
 import { black76Price, forwardFromSpot } from "./blackScholes";
 import { getContractSpec } from "./instruments";
@@ -20,7 +26,15 @@ export interface MarginEstimate {
   exposure: number;
   elmExpiryDay: number;
   premiumReceived: number;
+  /** Gross premium paid on long legs (rupees). Always set by estimateMargin. */
+  premiumPaid?: number;
+  /** span + exposure + elmExpiryDay + gross premiumPaid (legacy total). */
   total: number;
+  /**
+   * Cash a broker blocks: span + exposure + elmExpiryDay + max(0, premiumPaid − premiumReceived).
+   * Always set by estimateMargin; optional only so hand-built estimates stay valid.
+   */
+  fundsRequired?: number;
   hedgeBenefit: number;
   nakedTotal: number;
   definedRisk: boolean;
@@ -39,6 +53,15 @@ export interface MarginOptions {
   volScan?: number;
 }
 
+/** A margin estimate from estimateMargin: premiumPaid and fundsRequired are always present. */
+export type FundedMarginEstimate = MarginEstimate & { premiumPaid: number; fundsRequired: number };
+
+/** Funds required for an estimate, falling back to `total` for hand-built estimates without it. */
+export function marginFundsRequired(m: MarginEstimate | null | undefined): number {
+  if (!m) return 0;
+  return typeof m.fundsRequired === "number" && Number.isFinite(m.fundsRequired) ? m.fundsRequired : m.total;
+}
+
 const SCENARIOS: Array<{ move: number; vol: 1 | -1 | 0; weight: number }> = [
   ...[0, 1 / 3, -1 / 3, 2 / 3, -2 / 3, 1, -1].flatMap((m) => [
     { move: m, vol: 1 as const, weight: 1 },
@@ -52,8 +75,8 @@ function qty(l: Leg): number {
   return (Number(l.lots) || 0) * (Number(l.lotSize) || 0);
 }
 
-function emptyEstimate(): MarginEstimate {
-  return { span: 0, exposure: 0, elmExpiryDay: 0, premiumReceived: 0, total: 0, hedgeBenefit: 0, nakedTotal: 0, definedRisk: false, method: "scenario-approx", isEstimate: true };
+function emptyEstimate(): FundedMarginEstimate {
+  return { span: 0, exposure: 0, elmExpiryDay: 0, premiumReceived: 0, premiumPaid: 0, total: 0, fundsRequired: 0, hedgeBenefit: 0, nakedTotal: 0, definedRisk: false, method: "scenario-approx", isEstimate: true };
 }
 
 function isIndexLegs(legs: Leg[]): boolean {
@@ -61,7 +84,7 @@ function isIndexLegs(legs: Leg[]): boolean {
   return s ? s.kind === "INDEX" : true;
 }
 
-function estimateCore(legs: Leg[], o: MarginOptions): Omit<MarginEstimate, "hedgeBenefit" | "nakedTotal"> {
+function estimateCore(legs: Leg[], o: MarginOptions): Omit<FundedMarginEstimate, "hedgeBenefit" | "nakedTotal"> {
   const now = o.now ?? new Date();
   const spot = o.spot;
   const { r } = getMarketParams();
@@ -96,7 +119,18 @@ function estimateCore(legs: Leg[], o: MarginOptions): Omit<MarginEstimate, "hedg
   }
 
   if (!hasShortOrFut) {
-    return { span: 0, exposure: 0, elmExpiryDay: 0, premiumReceived: 0, total: premiumPaid, definedRisk: true, method: "long-only", isEstimate: true };
+    return {
+      span: 0,
+      exposure: 0,
+      elmExpiryDay: 0,
+      premiumReceived: 0,
+      premiumPaid,
+      total: premiumPaid,
+      fundsRequired: premiumPaid,
+      definedRisk: true,
+      method: "long-only",
+      isEstimate: true,
+    };
   }
 
   const legT = legs.map((l) => timeToExpiryYears(l.expiry, now));
@@ -135,11 +169,12 @@ function estimateCore(legs: Leg[], o: MarginOptions): Omit<MarginEstimate, "hedg
     method = "defined-risk";
   }
   const total = span + exposure + elm + premiumPaid;
-  return { span, exposure, elmExpiryDay: elm, premiumReceived, total, definedRisk, method, isEstimate: true };
+  const fundsRequired = span + exposure + elm + Math.max(0, premiumPaid - premiumReceived);
+  return { span, exposure, elmExpiryDay: elm, premiumReceived, premiumPaid, total, fundsRequired, definedRisk, method, isEstimate: true };
 }
 
 /** SPAN-style margin estimate with hedge benefit versus margining every leg on its own. */
-export function estimateMargin(legs: Leg[], o: MarginOptions): MarginEstimate {
+export function estimateMargin(legs: Leg[], o: MarginOptions): FundedMarginEstimate {
   const act = (Array.isArray(legs) ? legs : []).filter((l) => l && isLegEnabled(l) && qty(l) > 0);
   if (act.length === 0 || !o || !(o.spot > 0)) return emptyEstimate();
   const core = estimateCore(act, o);

@@ -9,7 +9,11 @@
  *   4. Metadata — Last update timestamps, version info
  * 
  * Uses IndexedDB for large data (localStorage has 5MB limit).
+ *
+ * Versions: v3 added chainSnapshots and dailyStats; v4 stores chain snapshots column-wise
+ * (src/lib/history/columnar.ts) and migrates existing v3 row-object records in the upgrade.
  */
+import { migrateRecord } from "@/lib/history/columnar";
 
 // ── Types ──
 
@@ -67,9 +71,9 @@ export interface DatabaseMetadata {
 
 // ── IndexedDB Manager ──
 
-const DB_NAME = "mrchartist_market_db";
-/** v3 adds the chainSnapshots and dailyStats stores used by src/lib/snapshotStore.ts. */
-const DB_VERSION = 3;
+export const DB_NAME = "mrchartist_market_db";
+/** v3 adds the chainSnapshots and dailyStats stores; v4 makes chain snapshots columnar. */
+export const DB_VERSION = 4;
 
 export const STORE_CHAIN_SNAPSHOTS = "chainSnapshots";
 export const STORE_DAILY_STATS = "dailyStats";
@@ -101,6 +105,8 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
+      const upgradeTx = (event.target as IDBOpenDBRequest).transaction;
+      const oldVersion = event.oldVersion;
 
       // Instruments store
       if (!db.objectStoreNames.contains("instruments")) {
@@ -140,6 +146,11 @@ function openDB(): Promise<IDBDatabase> {
         const daily = db.createObjectStore(STORE_DAILY_STATS, { keyPath: ["symbol", "date"] });
         daily.createIndex("symbol", "symbol", { unique: false });
       }
+
+      // v4: rewrite v3 row-object snapshots in the columnar format, inside the upgrade transaction.
+      if (oldVersion >= 3 && oldVersion < 4 && upgradeTx) {
+        migrateSnapshotsToColumnar(upgradeTx);
+      }
     };
 
     request.onsuccess = (event) => {
@@ -163,6 +174,34 @@ function openDB(): Promise<IDBDatabase> {
     };
   });
   return dbPromise;
+}
+
+/** Convert every legacy chain snapshot in the store to the columnar format (cursor walk). */
+export function migrateSnapshotsToColumnar(tx: IDBTransaction): void {
+  const req = tx.objectStore(STORE_CHAIN_SNAPSHOTS).openCursor();
+  req.onsuccess = () => {
+    const cur = req.result;
+    if (!cur) return;
+    try {
+      const next = migrateRecord(cur.value);
+      if (next) cur.update(next);
+    } catch {
+      // An unreadable record must not abort the whole upgrade: drop it instead.
+      cur.delete();
+    }
+    cur.continue();
+  };
+}
+
+/** Close the shared connection (tests, and before deleting the database). */
+export function closeMarketDB(): void {
+  try {
+    dbInstance?.close();
+  } catch {
+    /* already closed */
+  }
+  dbInstance = null;
+  dbPromise = null;
 }
 
 // ── Generic CRUD operations ──

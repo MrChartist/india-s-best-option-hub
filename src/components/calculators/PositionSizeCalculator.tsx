@@ -115,7 +115,7 @@ export default function PositionSizeCalculator() {
             </div>
           ) : null}
           {mode === "stop" ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
               <SymbolField value={symbol} onChange={(s) => { setSymbol(s); setLotText(String(getLotSize(s) ?? "")); }} />
               <NumField label="Lot size" value={lotText} onChange={setLotText} invalid={!isPos(lot)} />
               <NumField label="Entry price" prefix="₹" value={entryText} onChange={setEntryText} />

@@ -10,7 +10,7 @@ import { axisProps, chartColors, gridProps, tooltipCursor, tooltipLabelStyle, to
 import { formatDateIST, formatNumberIN, type OHLC } from "@/lib/options";
 import { REGIME_LABEL, countBySource, hvSnapshot, ivHvSeries, ivRegime } from "@/lib/volatility/history";
 import type { BackfillProgress } from "@/lib/volatility/api";
-import { DerivedBadge, EmptyState, HelpTip, LegendChip, PanelHeader, SampleBadge, StatTile } from "./VolUi";
+import { DataState, DerivedBadge, EmptyState, HelpTip, HintChip, LegendChip, PanelHeader, SampleBadge, SampleWatermark, StatTile } from "./VolUi";
 import { fmtVol, fmtVolPts } from "@/lib/volatility/format";
 import type { IvBasis, IvRankResult } from "./useVolatility";
 
@@ -21,6 +21,8 @@ export interface IVOverviewProps {
   iv30: number;
   iv30IsSample: boolean;
   bars: OHLC[] | undefined;
+  /** The bars belong to the labelled sample history. */
+  barsIsSample?: boolean;
   barsLoading: boolean;
   barsError: boolean;
   basis: IvBasis;
@@ -34,17 +36,20 @@ const shortDate = (iso: string) => {
   return s.split(" ").slice(0, 2).join(" ");
 };
 
-export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading, barsError, basis, onBasisChange, canUseVix, backfill }: IVOverviewProps) {
+export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsIsSample = false, barsLoading, barsError, basis, onBasisChange, canUseVix, backfill }: IVOverviewProps) {
   const hv = useMemo(() => (bars && bars.length ? hvSnapshot(bars) : null), [bars]);
   const series = useMemo(() => ivHvSeries(rank.history, bars ?? []), [rank.history, bars]);
   const counts = useMemo(() => countBySource(rank.history), [rank.history]);
   const { stats } = rank;
   const regime = ivRegime(stats.ivRank);
 
-  // VRP compares 30-day implied with 20-day realised.
-  const vrpIv = !iv30IsSample && Number.isFinite(iv30) ? iv30 : basis === "vix" ? rank.current : NaN;
+  const anySample = rank.currentIsSample || rank.historyIsSample;
+  // VRP compares 30-day implied with 20-day realised. Sample IV is only compared with sample bars.
+  const ivUsable = Number.isFinite(iv30) && (!iv30IsSample || barsIsSample);
+  const vrpIv = ivUsable ? iv30 : basis === "vix" ? rank.current : NaN;
   const vrp = hv && Number.isFinite(vrpIv) && Number.isFinite(hv.hv20) ? vrpIv - hv.hv20 : NaN;
-  const insufficientText = `Insufficient history (${stats.n} day${stats.n === 1 ? "" : "s"})`;
+  const insufficientText = `No history (${stats.n} day${stats.n === 1 ? "" : "s"})`;
+  const insufficientHint = `IV rank needs at least 20 days of IV history; ${stats.n} ${stats.n === 1 ? "day is" : "days are"} available. ${basis === "iv30" ? "Build it from the NSE bhavcopy below." : "India VIX history loads through the proxy."}`;
   const p = backfill.progress;
 
   return (
@@ -72,43 +77,47 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading
                   </ToggleGroupItem>
                 </ToggleGroup>
               ) : null}
-              {rank.currentIsSample ? <SampleBadge /> : <DerivedBadge />}
+              {anySample ? <SampleBadge /> : rank.currentIsDerived ? <DerivedBadge title="Derived: chain IV30" /> : <DerivedBadge />}
             </>
           }
         />
         <CardContent className="space-y-4 p-4 pt-2">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             <StatTile
-              label={basis === "vix" ? "India VIX" : "IV30"}
+              label={rank.basisLabel === "India VIX" ? "India VIX" : "IV30"}
               value={fmtVol(rank.current)}
               sub={rank.currentLabel}
-              help="The current 30-day implied volatility. India VIX is NSE's 30-day NIFTY volatility index; IV30 is ATM IV interpolated to 30 days from the live chain."
+              help={
+                rank.currentIsDerived
+                  ? "India VIX is unavailable, so this is the chain's ATM IV interpolated to 30 days (derived). It tracks India VIX closely but is not the official index."
+                  : "The current 30-day implied volatility. India VIX is NSE's 30-day NIFTY volatility index; IV30 is ATM IV interpolated to 30 days from the chain."
+              }
             />
             <StatTile
               label="IV rank"
               value={stats.ivRank === null ? "—" : formatNumberIN(stats.ivRank, 0)}
               tone={stats.ivRank === null ? "muted" : stats.ivRank > 50 ? "bearish" : stats.ivRank < 20 ? "bullish" : "warning"}
-              sub={stats.insufficient ? insufficientText : `${fmtVol(stats.low)} to ${fmtVol(stats.high)} range`}
+              sub={stats.insufficient ? insufficientText : `${fmtVol(stats.low)} to ${fmtVol(stats.high)} range${rank.historyIsSample ? " (sample)" : ""}`}
               help="Where today's IV sits between the lowest (0) and highest (100) IV of the last year of history."
             />
             <StatTile
               label="IV percentile"
               value={stats.ivPercentile === null ? "—" : formatNumberIN(stats.ivPercentile, 0)}
               tone={stats.ivPercentile === null ? "muted" : "default"}
-              sub={stats.insufficient ? insufficientText : `of ${stats.n} days were lower`}
+              sub={stats.insufficient ? insufficientText : `of ${stats.n} ${rank.historyIsSample ? "sample " : ""}days were lower`}
               help="The share of days in the history window when IV was below today's level."
             />
             <StatTile
               label="HV20"
               value={hv ? fmtVol(hv.hv20) : barsLoading ? "…" : "—"}
-              sub="20-day close-to-close"
+              sub={barsIsSample ? "20-day close-to-close (sample)" : "20-day close-to-close"}
               help="Realised volatility of daily closes over the last 20 sessions, annualised with 252 trading days."
             />
             <StatTile
               label="VRP"
               value={fmtVolPts(vrp)}
               tone={!Number.isFinite(vrp) ? "muted" : vrp > 0 ? "bullish" : "bearish"}
-              sub="IV30 − HV20"
+              sub={barsIsSample ? "IV30 − HV20 (sample)" : "IV30 − HV20"}
               help="Volatility risk premium. Positive means options price more movement than the market has recently delivered."
             />
             <StatTile
@@ -120,7 +129,11 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading
 
           <div className="flex flex-wrap items-center gap-2" aria-live="polite">
             {regime === "unknown" ? (
-              <Badge variant="neutral">{stats.insufficient ? insufficientText : "Regime unknown"}</Badge>
+              stats.insufficient ? (
+                <HintChip hint={insufficientHint}>{insufficientText}</HintChip>
+              ) : (
+                <Badge variant="neutral">Regime unknown</Badge>
+              )
             ) : (
               <Badge variant={regime === "premium-selling" ? "bearish" : regime === "premium-buying" ? "bullish" : "neutral"}>{REGIME_LABEL[regime]}</Badge>
             )}
@@ -174,11 +187,14 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading
           title="IV history vs realised volatility"
           subtitle="Daily. HV is computed from index or stock closes (Yahoo Finance via the proxy)."
           right={
-            <div className="flex flex-wrap gap-3">
-              <LegendChip color={chartColors.iv} label={rank.basisLabel} />
-              <LegendChip color={chartColors.spot} label="HV20" />
-              <LegendChip color={chartColors.muted} label="HV60" dashed />
-            </div>
+            series.length >= 2 ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <LegendChip color={chartColors.iv} label={rank.basisLabel} />
+                <LegendChip color={chartColors.spot} label="HV20" />
+                <LegendChip color={chartColors.muted} label="HV60" dashed />
+                {rank.historyIsSample ? <SampleBadge /> : null}
+              </div>
+            ) : undefined
           }
         />
         <CardContent className="p-4 pt-0">
@@ -195,9 +211,10 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading
               }
             />
           ) : (
-            <div className="h-[300px]" role="img" aria-label={`${rank.basisLabel} and realised volatility over time`}>
+            <div className="relative h-[300px]" role="img" aria-label={`${rank.basisLabel} and realised volatility over time${rank.historyIsSample ? " (sample data)" : ""}`}>
+              {rank.historyIsSample ? <SampleWatermark /> : null}
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+                <LineChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid {...gridProps} />
                   <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={36} />
                   <YAxis {...axisProps} width={44} tickFormatter={(v: number) => `${v}%`} domain={["auto", "auto"]} />
@@ -219,27 +236,34 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsLoading
       </Card>
 
       <Card>
-        <PanelHeader icon={Activity} title="Realised volatility estimators" subtitle="Annualised with 252 trading days. Different estimators use different parts of the daily bar." />
+        <PanelHeader
+          icon={Activity}
+          title="Realised volatility estimators"
+          subtitle="Annualised with 252 trading days. Different estimators use different parts of the daily bar."
+          right={hv && barsIsSample ? <SampleBadge /> : undefined}
+        />
         <CardContent className="p-4 pt-0">
-          {hv ? (
+          <DataState
+            status={hv ? "live" : barsLoading ? "loading" : "empty"}
+            emptyText="Daily candles unavailable"
+            emptyHint="Realised volatility needs daily candles from the proxy (npm run proxy)."
+            lines={2}
+          >
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <StatTile label="C2C 10d" value={fmtVol(hv.hv10)} />
-              <StatTile label="C2C 20d" value={fmtVol(hv.hv20)} />
-              <StatTile label="C2C 60d" value={fmtVol(hv.hv60)} />
-              <StatTile label="Parkinson 20d" value={fmtVol(hv.parkinson20)} help="Uses the daily high-low range. More efficient than close-to-close but ignores overnight gaps." />
-              <StatTile label="Yang-Zhang 20d" value={fmtVol(hv.yangZhang20)} help="Combines overnight gaps, open-to-close and the intraday range. Robust to drift and gaps." />
+              <StatTile label="C2C 10d" value={fmtVol(hv?.hv10)} />
+              <StatTile label="C2C 20d" value={fmtVol(hv?.hv20)} />
+              <StatTile label="C2C 60d" value={fmtVol(hv?.hv60)} />
+              <StatTile label="Parkinson 20d" value={fmtVol(hv?.parkinson20)} help="Uses the daily high-low range. More efficient than close-to-close but ignores overnight gaps." />
+              <StatTile label="Yang-Zhang 20d" value={fmtVol(hv?.yangZhang20)} help="Combines overnight gaps, open-to-close and the intraday range. Robust to drift and gaps." />
             </div>
-          ) : (
-            <p className="py-4 text-center text-body-sm text-muted-foreground">
-              {barsLoading ? "Loading daily candles…" : "Daily candles unavailable. Realised volatility needs the proxy."}
-            </p>
-          )}
+          </DataState>
           <p className="mt-3 flex items-center gap-1.5 text-body-sm text-muted-foreground">
             <HelpTip text="IV rank needs at least 20 days of history. India VIX history comes from NSE (or Yahoo when NSE is down). Bhavcopy IV30 is solved in your browser from NSE end-of-day prices." />
             Sources: {counts.vix ? `${counts.vix} VIX days` : null}
             {counts.bhavcopy ? ` ${counts.bhavcopy} bhavcopy days` : null}
             {counts.snapshot ? ` ${counts.snapshot} recorded days` : null}
-            {!counts.vix && !counts.bhavcopy && !counts.snapshot ? "no IV history yet" : null}
+            {counts.sample ? `${counts.sample} sample days (illustration, not market data)` : null}
+            {!counts.vix && !counts.bhavcopy && !counts.snapshot && !counts.sample ? "no IV history yet" : null}
           </p>
         </CardContent>
       </Card>

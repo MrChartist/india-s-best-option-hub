@@ -30,7 +30,7 @@ export function GreeksTable({ rows, net, spot }: GreeksTableProps) {
   }
   const deltaPer1Pct = net.gamma * spot * 0.01; // change in position delta for a 1% move
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Sigma className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Greeks
@@ -42,7 +42,7 @@ export function GreeksTable({ rows, net, spot }: GreeksTableProps) {
           <p className="py-4 text-center text-sm text-muted-foreground">No active legs.</p>
         ) : (
           <div className="overflow-x-auto">
-            <Table className="min-w-[420px] text-xs [&_td]:px-2 [&_th]:px-2">
+            <Table className="min-w-[400px] text-xs [&_td]:px-2 [&_th]:px-2 [&_th]:whitespace-nowrap">
               <TableHeader>
                 <TableRow>
                   <TableHead className="h-8">Leg</TableHead>
@@ -63,10 +63,12 @@ export function GreeksTable({ rows, net, spot }: GreeksTableProps) {
               <TableBody>
                 {rows.map(({ id, leg, position }) => (
                   <TableRow key={id} className="font-num">
-                    <TableCell className="whitespace-nowrap py-1.5 font-sans">
-                      <span className={cn("mr-1 font-semibold", leg.side === "BUY" ? "text-bullish" : "text-bearish")}>{leg.side === "BUY" ? "B" : "S"}</span>
-                      {leg.lots}× {leg.type === "FUT" ? "FUT" : `${formatStrike(leg.strike)} ${leg.type}`}
-                      <span className="ml-1 text-[10px] text-muted-foreground">{formatDateIST(leg.expiry)}</span>
+                    <TableCell className="py-1.5 font-sans">
+                      <span className="whitespace-nowrap">
+                        <span className={cn("mr-1 font-semibold", leg.side === "BUY" ? "text-bullish" : "text-bearish")}>{leg.side === "BUY" ? "B" : "S"}</span>
+                        {leg.lots}× {leg.type === "FUT" ? "FUT" : `${formatStrike(leg.strike)} ${leg.type}`}
+                      </span>
+                      <span className="block whitespace-nowrap text-[10px] leading-tight text-muted-foreground">{formatDateIST(leg.expiry).replace(/ \d{4}$/, "")}</span>
                     </TableCell>
                     <TableCell className={cn("py-1.5 text-right", tone(position.delta))}>{fmt(position.delta, 1)}</TableCell>
                     <TableCell className={cn("py-1.5 text-right", tone(position.gamma))}>{fmt(position.gamma, 3)}</TableCell>

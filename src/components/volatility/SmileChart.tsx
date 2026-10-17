@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -13,7 +14,7 @@ import { lastSnapshotBetween, snapshotNear, snapshotToChain } from "@/lib/volati
 import { lastSessionDate } from "@/lib/volatility/history";
 import { buildSmile, fitSmileSvi, smileSeries, type Smile } from "@/lib/volatility/smile";
 import type { ExpiryChain } from "@/lib/volatility/surface";
-import { DerivedBadge, EmptyState, HelpTip, LegendChip, PanelHeader, SampleBadge } from "./VolUi";
+import { DataState, DerivedBadge, EmptyState, HelpTip, LegendChip, PanelHeader, SampleBadge } from "./VolUi";
 import { fmtVol, fmtVolPts } from "@/lib/volatility/format";
 import type { PrevSessionData } from "./useVolatility";
 
@@ -162,14 +163,20 @@ export function SmileChart({ symbol, smiles, chains, isSample, prev }: SmileChar
         ) : null}
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <div className="flex items-center gap-2">
-            <Switch id="ov-hour" checked={showHour} onCheckedChange={setShowHour} disabled={isSample} />
-            <Label htmlFor="ov-hour" className="text-body-sm">1 h ago</Label>
+          {/* Sample chains have no recorded snapshots: show the comparisons as off, not "on with nothing drawn". */}
+          <div className="flex items-center gap-2" title={isSample ? "No snapshot yet: comparisons need live chains" : undefined}>
+            <Switch id="ov-hour" checked={showHour && !isSample} onCheckedChange={setShowHour} disabled={isSample} aria-describedby={isSample ? "ov-sample-note" : undefined} />
+            <Label htmlFor="ov-hour" className={cn("text-body-sm", isSample && "text-muted-foreground")}>1 h ago</Label>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch id="ov-yday" checked={showYday} onCheckedChange={setShowYday} disabled={isSample} />
-            <Label htmlFor="ov-yday" className="text-body-sm">Yesterday</Label>
+          <div className="flex items-center gap-2" title={isSample ? "No snapshot yet: comparisons need live chains" : undefined}>
+            <Switch id="ov-yday" checked={showYday && !isSample} onCheckedChange={setShowYday} disabled={isSample} aria-describedby={isSample ? "ov-sample-note" : undefined} />
+            <Label htmlFor="ov-yday" className={cn("text-body-sm", isSample && "text-muted-foreground")}>Yesterday</Label>
           </div>
+          {isSample ? (
+            <span id="ov-sample-note" className="text-body-sm text-muted-foreground">
+              No snapshot yet: 1 h ago and Yesterday need live chains.
+            </span>
+          ) : null}
           <div className="flex items-center gap-2">
             <Switch id="ov-svi" checked={showSvi} onCheckedChange={setShowSvi} />
             <Label htmlFor="ov-svi" className="flex items-center gap-1 text-body-sm">
@@ -180,7 +187,7 @@ export function SmileChart({ symbol, smiles, chains, isSample, prev }: SmileChar
 
         <div className="h-[340px]" role="img" aria-label={`Implied volatility by strike for the ${formatDateIST(expiry)} expiry`}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart margin={{ top: 12, right: 12, bottom: 0, left: -10 }}>
+            <LineChart margin={{ top: 20, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid {...gridProps} />
               <XAxis
                 type="number"
@@ -217,11 +224,13 @@ export function SmileChart({ symbol, smiles, chains, isSample, prev }: SmileChar
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex flex-wrap gap-4">
-          {series.map((s) => (
-            <LegendChip key={s.key} color={s.color} label={s.label} dashed={s.dashed} />
-          ))}
-        </div>
+        {series.length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {series.map((s) => (
+              <LegendChip key={s.key} color={s.color} label={s.label} dashed={s.dashed} />
+            ))}
+          </div>
+        ) : null}
         {!isSample && ((showHour && hour.isFetched && !hour.data) || (showYday && yday.isFetched && !yday.data)) ? (
           <p className="text-body-sm text-muted-foreground">
             {showHour && hour.isFetched && !hour.data ? "No snapshot from about an hour ago. " : ""}
@@ -229,7 +238,7 @@ export function SmileChart({ symbol, smiles, chains, isSample, prev }: SmileChar
             Snapshots are recorded in this browser while the Option Chain page is open; yesterday falls back to the NSE bhavcopy when the proxy can reach it.
           </p>
         ) : null}
-        {chains.length > 0 && current === null ? <p className="text-body-sm text-muted-foreground">Select an expiry to view its smile.</p> : null}
+        {chains.length > 0 && current === null ? <DataState status="empty" emptyText="Select an expiry to view its smile" minHeight={64} /> : null}
       </CardContent>
     </Card>
   );

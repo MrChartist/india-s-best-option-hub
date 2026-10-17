@@ -19,7 +19,7 @@ export default function FiiLongCard() {
 
   if (isLoading || !data) {
     return (
-      <Card className="p-4" aria-busy="true" aria-label="Loading FII positioning">
+      <Card className="p-4" role="status" aria-busy="true" aria-label="Loading FII positioning">
         <Skeleton className="mb-3 h-4 w-36" />
         <Skeleton className="mx-auto h-24 w-44" />
         <Skeleton className="mt-3 h-10 w-full" />

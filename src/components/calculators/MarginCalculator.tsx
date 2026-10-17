@@ -178,7 +178,7 @@ export default function MarginCalculator() {
           description="SPAN-style estimate for a multi-leg position, with the hedge benefit compared with margining every leg on its own."
           actions={<Badge variant="warning">Estimate; actual SPAN may differ</Badge>}
         >
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
             <SymbolField value={symbol} onChange={(s) => {
                 setSymbol(s);
                 setSpotText("");

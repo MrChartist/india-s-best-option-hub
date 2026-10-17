@@ -1,4 +1,6 @@
 import { createContext, useContext } from "react";
+import { getSpotPrice } from "@/lib/positionStore";
+import { sampleSimSpot } from "./sims/simLogic";
 
 export type SimSpotKind = "live" | "delayed" | "sample";
 
@@ -10,8 +12,11 @@ export interface SimSpot {
   label: string;
 }
 
-/** Round illustrative NIFTY level used when no quote is available. Always labelled "Sample spot". */
-export const SAMPLE_NIFTY_SPOT = 25000;
+/**
+ * Illustrative NIFTY level used when no quote is available: the spot of the terminal's
+ * labelled sample chain (generateSampleChain). Always labelled "Sample spot".
+ */
+export const SAMPLE_NIFTY_SPOT = sampleSimSpot(getSpotPrice("NIFTY") || 25000);
 
 export const SAMPLE_SIM_SPOT: SimSpot = { symbol: "NIFTY", spot: SAMPLE_NIFTY_SPOT, kind: "sample", label: "Sample spot" };
 

@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Loader2, Magnet, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Loader2, RefreshCw, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/PageHeader";
 import { SymbolSearch } from "@/components/option-chain/SymbolSearch";
 import { SourceBadge } from "@/components/option-chain/SourceBadge";
 import { canonicalSymbol } from "@/components/option-chain/symbols";
 import { ExpiryPills } from "@/components/oi/shared";
-import { EDU_NOTE } from "@/components/oi/format";
+import { EDU_NOTE, fmtStrike } from "@/components/oi/format";
 import { MaxPainCurve } from "@/components/oi/MaxPainCurve";
 import { MaxPainTable, type ExpiryRow } from "@/components/oi/MaxPainTable";
 import { PCRSuite } from "@/components/oi/PCRSuite";
@@ -80,45 +81,57 @@ export default function MaxPainPCR() {
 
   return (
     <div className="space-y-4">
-      <header className="rounded-card border border-border bg-card px-4 py-3 shadow-card">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 font-display text-title">
-              <Magnet className="h-5 w-5 text-primary-ink" aria-hidden="true" /> Max Pain &amp; PCR
-            </h1>
-            <p className="mt-1 text-xs text-muted-foreground">Where option writers lose least at expiry, and how puts stack up against calls.</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {live.data && <SourceBadge source={live.data.source} asOf={live.data.asOf} stale={live.data.stale} isLive={live.data.isLive} reason={live.data.reason} />}
-              {spot > 0 && (
-                <span className="font-num text-xs text-muted-foreground">
-                  Spot <span className="font-semibold text-foreground">{spot.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
-                  {current?.maxPain ? (
-                    <>
-                      {" "}· Max pain <span className="font-semibold text-warning">{current.maxPain.toLocaleString("en-IN")}</span>
-                    </>
-                  ) : null}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        icon={Target}
+        eyebrow="Chain & OI"
+        title="Max Pain & PCR"
+        description="Where option writers lose least at expiry, and how puts stack up against calls."
+        source={
+          <>
+            {live.data && <SourceBadge source={live.data.source} asOf={live.data.asOf} stale={live.data.stale} isLive={live.data.isLive} reason={live.data.reason} />}
+            {spot > 0 && (
+              <span className="font-num text-xs text-muted-foreground">
+                Spot <span className="font-semibold text-foreground">{spot.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                {current?.maxPain ? (
+                  <>
+                    {" "}· Max pain <span className="font-semibold text-warning">{fmtStrike(current.maxPain)}</span>
+                  </>
+                ) : null}
+              </span>
+            )}
+          </>
+        }
+        actions={
+          <>
             <SymbolSearch value={symbol} onSelect={(v) => setParam({ symbol: v, expiry: null })} />
-            <Button variant="outline" size="pill" className="h-8 gap-1.5" onClick={() => { void live.refetch(); void multi.refetch(); }} disabled={live.isFetching} aria-label="Refresh data">
+            <Button
+              variant="outline"
+              size="pill"
+              className="h-8 gap-1.5"
+              onClick={() => {
+                void live.refetch();
+                void multi.refetch();
+              }}
+              disabled={live.isFetching}
+              aria-label="Refresh data"
+            >
               {live.isFetching ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               Refresh
             </Button>
-            <Button asChild variant="ghost" size="pill" className="h-8">
-              <Link to={`/oi-analysis?symbol=${encodeURIComponent(symbol)}${expiry ? `&expiry=${expiry}` : ""}`}>OI Analysis</Link>
+            <Button asChild variant="ghost" size="pill" className="h-8 gap-1">
+              <Link to={`/oi-analysis?symbol=${encodeURIComponent(symbol)}${expiry ? `&expiry=${expiry}` : ""}`}>
+                OI Analysis <ArrowUpRight />
+              </Link>
             </Button>
-          </div>
-        </div>
-        <ExpiryPills className="mt-3" expiries={expiries} value={expiry} onChange={selectExpiry} />
-      </header>
+          </>
+        }
+      />
+      <ExpiryPills expiries={expiries} value={expiry} onChange={selectExpiry} />
 
       {live.isError && !live.data && (
         <Card>
-          <CardContent className="flex items-center gap-2 py-4 text-sm text-bearish">
-            <AlertTriangle className="h-4 w-4" /> Could not load the option chain. Try refresh.
+          <CardContent className="flex items-center gap-2 py-4 text-sm text-bearish" role="alert">
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Could not load the option chain. Try refresh.
           </CardContent>
         </Card>
       )}
@@ -131,13 +144,13 @@ export default function MaxPainPCR() {
         </Card>
       ) : (
         <>
-          <MaxPainCurve chain={chain} spot={spot} expiry={expiry} lotSize={lotSize} sample={liveSample} />
-          <div className="grid gap-4 xl:grid-cols-2">
+          <MaxPainCurve symbol={symbol} chain={chain} spot={spot} expiry={expiry} lotSize={lotSize} sample={liveSample} />
+          <div className="grid items-start gap-4 xl:grid-cols-2">
             <MaxPainTable rows={rows} spot={spot} selected={expiry} onSelect={selectExpiry} loading={multi.isLoading} />
             <PCRSuite rows={rows} selected={expiry} onSelect={selectExpiry} />
           </div>
-          <IntradayPCR symbol={symbol} expiry={expiry} />
-          <div className="grid gap-4 xl:grid-cols-2">
+          <IntradayPCR symbol={symbol} expiry={expiry} spot={spot} />
+          <div className="grid items-start gap-4 xl:grid-cols-2">
             <PCRHistory symbol={symbol} currentPcr={current?.pcr.pcrOI ?? 0} sample={liveSample} />
             <MaxPainDrift symbol={symbol} />
           </div>

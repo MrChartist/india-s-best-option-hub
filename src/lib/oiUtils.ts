@@ -22,11 +22,15 @@ import {
   expectedMoveFromIV,
   expectedMoveFromStraddle,
   findATMStrike,
+  formatStrike,
+  istDateString,
   legIV,
   maxPain,
   maxPainCurve,
+  modalStrikeStep,
   timeToExpiryYears,
   type Buildup,
+  type OptionType,
 } from "@/lib/options";
 import type { OptionData, OptionLegData } from "./mockData";
 import type { ChainSnapshot } from "./snapshotStore";
@@ -141,6 +145,22 @@ export const BUILDUP_SHORT: Record<Buildup, string> = {
   LONG_UNWINDING: "LU",
   NEUTRAL: "—",
 };
+
+/** Two-letter build-up code for BuildupBadge; null for NEUTRAL (nothing to badge). */
+export function buildupCode(b: Buildup): "LB" | "SB" | "SC" | "LU" | null {
+  switch (b) {
+    case "LONG_BUILDUP":
+      return "LB";
+    case "SHORT_BUILDUP":
+      return "SB";
+    case "SHORT_COVERING":
+      return "SC";
+    case "LONG_UNWINDING":
+      return "LU";
+    default:
+      return null;
+  }
+}
 
 export interface BuildupPoint {
   strike: number;
@@ -763,4 +783,252 @@ export function percentileRank(value: number, history: number[]): number | null 
   const below = xs.filter((x) => x < value).length;
   const equal = xs.filter((x) => x === value).length;
   return Math.round(((below + equal / 2) / xs.length) * 100);
+}
+
+// ── Intraday OI time series (strike lines, cumulative CE vs PE change, ATM range change) ──
+
+/** Snapshots of the most recent IST trading date in the list, oldest first (empty snapshots dropped). */
+export function latestSessionSnapshots(snaps: ChainSnapshot[]): ChainSnapshot[] {
+  const sorted = [...(snaps ?? [])].filter((s) => s && finite(s.ts) && s.rows?.length).sort((a, b) => a.ts - b.ts);
+  if (sorted.length === 0) return [];
+  const day = istDateString(new Date(sorted[sorted.length - 1].ts));
+  return sorted.filter((s) => istDateString(new Date(s.ts)) === day);
+}
+
+/** Every strike seen across the snapshots, ascending. */
+export function snapshotStrikes(snaps: ChainSnapshot[]): number[] {
+  const set = new Set<number>();
+  for (const s of snaps ?? []) for (const r of s?.rows ?? []) if (pos(r.strike)) set.add(r.strike);
+  return [...set].sort((a, b) => a - b);
+}
+
+export type OISeriesMetric = "oi" | "chg";
+export type OISide = "CE" | "PE";
+
+/** Data key of one strike line, e.g. "CE_24500". */
+export function strikeSeriesKey(strike: number, side: OISide): string {
+  return `${side}_${strike}`;
+}
+
+/** One row of the strike time series: ts, spot and one value (or null when missing) per strike key. */
+export type StrikeSeriesRow = { ts: number; spot: number } & Record<string, number | null>;
+
+/**
+ * OI (metric "oi") or OI change since the first snapshot that carried the leg (metric "chg") for
+ * the chosen strikes and sides, one row per snapshot. A leg missing from a snapshot is null so the
+ * chart shows a gap instead of a fake zero.
+ */
+export function strikeOISeries(snaps: ChainSnapshot[], strikes: number[], sides: OISide[], metric: OISeriesMetric): StrikeSeriesRow[] {
+  const sorted = [...(snaps ?? [])].filter((s) => s && finite(s.ts)).sort((a, b) => a.ts - b.ts);
+  const keys = strikes.flatMap((k) => sides.map((side) => ({ k, side, key: strikeSeriesKey(k, side) })));
+  const base = new Map<string, number>();
+  return sorted.map((s) => {
+    const byKey = new Map<string, number>();
+    for (const r of s.rows ?? []) byKey.set(strikeSeriesKey(r.strike, r.side), num(r.oi));
+    const row = { ts: s.ts, spot: num(s.spot) } as StrikeSeriesRow;
+    for (const { key } of keys) {
+      const v = byKey.get(key);
+      if (v === undefined) {
+        row[key] = null;
+        continue;
+      }
+      if (!base.has(key)) base.set(key, v);
+      row[key] = metric === "oi" ? v : v - (base.get(key) as number);
+    }
+    return row;
+  });
+}
+
+export interface OIFlowPoint {
+  ts: number;
+  spot: number;
+  /** Total call OI over the strikes in scope. */
+  ceOI: number;
+  peOI: number;
+  /** Call OI added since each leg's first snapshot (cumulative). */
+  ceChg: number;
+  peChg: number;
+  /** Put change minus call change: positive = put writers adding faster (supportive). */
+  netChg: number;
+}
+
+/**
+ * Cumulative call and put OI change since the first snapshot, optionally limited to a strike set.
+ * Each leg's baseline is its first appearance, so a strike that is listed mid-session does not
+ * show up as a jump.
+ */
+export function cumulativeOIChangeSeries(snaps: ChainSnapshot[], strikes?: number[]): OIFlowPoint[] {
+  const scope = strikes ? new Set(strikes) : null;
+  const sorted = [...(snaps ?? [])].filter((s) => s && finite(s.ts) && s.rows?.length).sort((a, b) => a.ts - b.ts);
+  const base = new Map<string, number>();
+  return sorted.map((s) => {
+    let ceOI = 0, peOI = 0, ceChg = 0, peChg = 0;
+    for (const r of s.rows) {
+      if (scope && !scope.has(r.strike)) continue;
+      const key = strikeSeriesKey(r.strike, r.side);
+      const oi = num(r.oi);
+      if (!base.has(key)) base.set(key, oi);
+      const chg = oi - (base.get(key) as number);
+      if (r.side === "CE") {
+        ceOI += oi;
+        ceChg += chg;
+      } else {
+        peOI += oi;
+        peChg += chg;
+      }
+    }
+    return { ts: s.ts, spot: num(s.spot), ceOI, peOI, ceChg, peChg, netChg: peChg - ceChg };
+  });
+}
+
+/**
+ * OI change over time inside ATM ± `perSide` listed strikes. The range is fixed for the whole
+ * session, centred on the ATM strike at the latest snapshot's spot (or `center` when given), so
+ * the lines compare like with like.
+ */
+export function rangeOIChangeSeries(
+  snaps: ChainSnapshot[],
+  perSide: number,
+  center?: number,
+): { atm: number; strikes: number[]; points: OIFlowPoint[] } {
+  const sorted = [...(snaps ?? [])].filter((s) => s && finite(s.ts) && s.rows?.length).sort((a, b) => a.ts - b.ts);
+  const all = snapshotStrikes(sorted);
+  if (all.length === 0) return { atm: NaN, strikes: [], points: [] };
+  const ref = pos(center) ? center : num(sorted[sorted.length - 1]?.spot);
+  if (!pos(ref)) return { atm: NaN, strikes: [], points: [] };
+  const window = windowAround(all.map((strike) => ({ strike })), ref, Math.max(0, Math.floor(perSide))).map((r) => r.strike);
+  const atm = all.reduce((best, k) => (Math.abs(k - ref) < Math.abs(best - ref) ? k : best), all[0]);
+  return { atm, strikes: window, points: cumulativeOIChangeSeries(sorted, window) };
+}
+
+/**
+ * A sensible first selection for the strike time series from the latest snapshot: the ATM strike
+ * and the strongest call wall above and put wall below spot. Deduplicated, ascending.
+ */
+export function defaultSeriesStrikes(snaps: ChainSnapshot[]): number[] {
+  const sorted = [...(snaps ?? [])].filter((s) => s && s.rows?.length).sort((a, b) => a.ts - b.ts);
+  const last = sorted[sorted.length - 1];
+  if (!last) return [];
+  const chain = snapshotRowsToChain(last);
+  const spot = num(last.spot);
+  const out = new Set<number>();
+  const atm = chain.length && pos(spot) ? findATMStrike(chain, spot) : NaN;
+  if (finite(atm)) out.add(atm);
+  let ceBest = NaN, ceOI = 0, peBest = NaN, peOI = 0;
+  for (const r of chain) {
+    if ((!pos(spot) || r.strikePrice > spot) && r.ce.oi > ceOI) {
+      ceOI = r.ce.oi;
+      ceBest = r.strikePrice;
+    }
+    if ((!pos(spot) || r.strikePrice < spot) && r.pe.oi > peOI) {
+      peOI = r.pe.oi;
+      peBest = r.strikePrice;
+    }
+  }
+  if (finite(ceBest)) out.add(ceBest);
+  if (finite(peBest)) out.add(peBest);
+  return [...out].sort((a, b) => a - b);
+}
+
+// ── Labels and trade hand-offs ──
+
+/**
+ * Chart labels for spot and max pain. When they sit within half a strike step of each other one
+ * combined label ("Spot ≈ Max pain 24,250") replaces two overlapping ones.
+ */
+export function spotMaxPainLabel(spot: number, maxPainStrike: number, step: number): { combined: boolean; text: string | null } {
+  if (!pos(maxPainStrike)) return { combined: false, text: null };
+  if (pos(spot) && pos(step) && Math.abs(spot - maxPainStrike) <= step / 2) {
+    return { combined: true, text: `Spot ≈ Max pain ${formatStrike(maxPainStrike)}` };
+  }
+  return { combined: false, text: `Max pain ${formatStrike(maxPainStrike)}` };
+}
+
+/** Smallest gap between consecutive strikes (NaN with fewer than two strikes). */
+export function strikeGap(strikes: number[]): number {
+  const xs = [...new Set((strikes ?? []).filter(pos))].sort((a, b) => a - b);
+  let g = Infinity;
+  for (let i = 1; i < xs.length; i++) g = Math.min(g, xs[i] - xs[i - 1]);
+  return Number.isFinite(g) ? g : NaN;
+}
+
+export interface SpreadLeg {
+  strike: number;
+  /** Rupees per unit: mid when both sides are quoted, else LTP. */
+  premium: number;
+  /** Decimal IV (0.142 = 14.2%), null when the feed sent none. */
+  iv: number | null;
+}
+
+export interface WallSpread {
+  type: OptionType;
+  sell: SpreadLeg;
+  buy: SpreadLeg;
+  /** Points between the strikes. */
+  width: number;
+  /** Sell premium − buy premium, per unit. */
+  netCredit: number;
+}
+
+function legQuote(leg: OptionLegData | undefined): { premium: number; iv: number | null } {
+  if (!leg) return { premium: 0, iv: null };
+  const mid = pos(leg.bidPrice) && pos(leg.askPrice) && leg.askPrice >= leg.bidPrice ? (leg.bidPrice + leg.askPrice) / 2 : NaN;
+  const premium = pos(mid) ? mid : num(leg.ltp);
+  return { premium: r2(premium), iv: pos(leg.iv) ? Math.round(leg.iv * 10) / 1000 : null };
+}
+
+/**
+ * Credit spread written at an OI wall: sell the wall strike and buy protection further out
+ * (calls: above a resistance; puts: below a support). The hedge sits max(2 strikes, ~0.8% of spot)
+ * away, snapped outwards to a listed strike. Null when the wall or a hedge strike is not listed.
+ */
+export function wallCreditSpread(chain: OptionData[], wallStrike: number, type: OptionType, spot: number): WallSpread | null {
+  const rows = sortedChain(chain);
+  const wall = rows.find((r) => r.strikePrice === wallStrike);
+  if (!wall || !pos(spot)) return null;
+  const step = modalStrikeStep(rows, spot);
+  if (!pos(step)) return null;
+  const dist = Math.max(2 * step, Math.ceil((0.008 * spot) / step) * step);
+  const target = type === "CE" ? wallStrike + dist : wallStrike - dist;
+  const candidates = rows.filter((r) => (type === "CE" ? r.strikePrice >= target : r.strikePrice <= target));
+  const hedge = type === "CE" ? candidates[0] : candidates[candidates.length - 1];
+  if (!hedge) return null;
+  const s = legQuote(type === "CE" ? wall.ce : wall.pe);
+  const b = legQuote(type === "CE" ? hedge.ce : hedge.pe);
+  return {
+    type,
+    sell: { strike: wallStrike, ...s },
+    buy: { strike: hedge.strikePrice, ...b },
+    width: Math.abs(hedge.strikePrice - wallStrike),
+    netCredit: r2(s.premium - b.premium),
+  };
+}
+
+/** Optimizer link with a price target, e.g. /optimizer?symbol=NIFTY&target=24250. */
+export function optimizerTargetUrl(symbol: string, target: number): string {
+  const q = new URLSearchParams({ symbol: String(symbol || "").trim().toUpperCase() });
+  if (pos(target)) q.set("target", String(Math.round(target * 100) / 100));
+  return `/optimizer?${q.toString()}`;
+}
+
+/**
+ * The build-up carrying the most absolute OI change on one side of the chain (strikes above
+ * `SIGNIFICANT_OI_FRACTION` of the largest OI). `share` is that build-up's part of the side's total
+ * |OI change| (0–1). NEUTRAL with share 0 when no leg has a known premium change.
+ */
+export function dominantBuildup(chain: OptionData[], side: OISide): { buildup: Buildup; share: number } {
+  const weight: Record<Buildup, number> = { LONG_BUILDUP: 0, SHORT_BUILDUP: 0, SHORT_COVERING: 0, LONG_UNWINDING: 0, NEUTRAL: 0 };
+  let total = 0;
+  for (const r of significantStrikes(chain)) {
+    const leg = side === "CE" ? r.ce : r.pe;
+    const b = getBuildup(leg);
+    if (b === "NEUTRAL") continue;
+    const w = Math.abs(num(leg.oiChange));
+    weight[b] += w;
+    total += w;
+  }
+  if (total <= 0) return { buildup: "NEUTRAL", share: 0 };
+  let best: Buildup = "NEUTRAL";
+  for (const b of ["LONG_BUILDUP", "SHORT_BUILDUP", "SHORT_COVERING", "LONG_UNWINDING"] as const) if (weight[b] > (best === "NEUTRAL" ? 0 : weight[best])) best = b;
+  return { buildup: best, share: r2(weight[best] / total) };
 }

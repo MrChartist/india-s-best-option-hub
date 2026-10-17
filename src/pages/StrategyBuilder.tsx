@@ -1,8 +1,19 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, BookOpen, Keyboard, RefreshCw, Wand2, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Eye, FlaskConical, Keyboard, Layers, Radio, RefreshCw, Wand2, X } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { encodeLegs, type BasketLeg } from "@/components/option-chain/basket";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -58,18 +69,25 @@ import {
   decodeShare,
   encodeShare,
   flipSide,
+  groupBySymbol,
   isTypingTarget,
   makeLegId,
-  parseLegsParam,
+  resolveInitialState,
   shiftStrikes,
   targetTimeline,
   toBuilderLegs,
   updateLegById,
   type BuilderLeg,
+  type InitialState,
+  type ShareSource,
+  type ShareState,
+  type SharedSnapshot,
 } from "@/components/strategy/strategyState";
 
 const DRAFT_KEY = "mc_strategy_draft_v1";
 const BANNER_KEY = "mc_sb_sebi_banner_v1";
+/** Legs per strategy. Broker baskets (typically 10-20 orders) and NSE spread orders cap well below 18. */
+const MAX_LEGS = 10;
 const SEBI_STUDY_URL =
   "https://www.sebi.gov.in/reports-and-statistics/research/sep-2024/updated-sebi-study-reveals-93-of-individual-traders-incurred-losses-in-equity-fando-between-fy22-and-fy24-amounting-to-rs-1-8-lakh-crores-over-three-years_86906.html";
 const QUICK_TEMPLATES = ["iron-condor", "short-strangle", "bull-call-spread", "bear-put-spread", "long-straddle", "call-calendar"];
@@ -79,6 +97,22 @@ const PRICE_MODES = [
   { value: "ltp", label: "LTP", title: "Last traded price" },
   { value: "natural", label: "Natural", title: "Buy at ask, sell at bid" },
 ] as const;
+
+const WIDE_QUERY = "(min-width: 1024px)";
+
+/** True at the lg breakpoint and up, where the builder uses its two-column layout. */
+function useWideLayout(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      if (typeof window === "undefined" || !window.matchMedia) return () => undefined;
+      const mq = window.matchMedia(WIDE_QUERY);
+      mq.addEventListener?.("change", cb);
+      return () => mq.removeEventListener?.("change", cb);
+    },
+    () => (typeof window !== "undefined" && !!window.matchMedia ? window.matchMedia(WIDE_QUERY).matches : false),
+    () => false,
+  );
+}
 
 function lotSizeFor(symbol: string, expiry: string): number {
   return getLotSize(symbol, expiry) ?? getFallbackLotSize(symbol) ?? 1;
@@ -99,44 +133,11 @@ function writeStore(key: string, value: string): void {
   }
 }
 
-interface InitialState {
-  symbol: string;
-  legs: BuilderLeg[];
-  name: string;
-  message: string | null;
-  fromParams: boolean;
+function readInitial(params: URLSearchParams): InitialState {
+  return resolveInitialState({ params, draft: decodeShare(readStore(DRAFT_KEY), lotSizeFor), today: istDateString(), lotSizeFor });
 }
 
-function readInitial(params: URLSearchParams): InitialState {
-  const symParam = (params.get("symbol") || "").toUpperCase();
-  const shared = decodeShare(params.get("s"), lotSizeFor);
-  if (shared && shared.legs.length) {
-    return { symbol: shared.symbol, legs: shared.legs, name: shared.name || "Shared strategy", message: `Loaded a shared strategy with ${shared.legs.length} legs.`, fromParams: true };
-  }
-  const draft = decodeShare(readStore(DRAFT_KEY), lotSizeFor);
-  const today = istDateString();
-  const draftLegs = (draft?.legs ?? []).filter((l) => l.expiry >= today);
-  let symbol = symParam || draft?.symbol || "NIFTY";
-  let legs = symParam && draft && draft.symbol !== symParam ? [] : draftLegs;
-  let name = legs.length ? draft?.name || "" : "";
-  let message: string | null = null;
-  const basket = parseLegsParam(params.get("legs"), lotSizeFor);
-  if (basket.length) {
-    const bSym = basket[0].symbol;
-    const same = basket.filter((l) => l.symbol === bSym);
-    if (bSym === symbol && legs.length) {
-      legs = [...legs, ...same];
-      message = `Added ${same.length} leg${same.length === 1 ? "" : "s"} from your basket.`;
-    } else {
-      legs = same;
-      name = "";
-      message = `Loaded ${same.length} leg${same.length === 1 ? "" : "s"} from your basket${draftLegs.length && draft?.symbol !== bSym ? ` (your ${draft?.symbol} draft was replaced)` : ""}.`;
-    }
-    symbol = bSym;
-    if (same.length < basket.length) message += " Legs on other symbols were skipped.";
-  }
-  return { symbol, legs, name, message, fromParams: basket.length > 0 || !!symParam };
-}
+const SOURCE_TEXT: Record<ShareSource, string> = { live: "live", sample: "sample data", delayed: "delayed data" };
 
 interface SideChain {
   chain: OptionData[];
@@ -157,16 +158,24 @@ async function fetchChainFor(symbol: string, expiry: string): Promise<SideChain>
 
 export default function StrategyBuilder() {
   useDocumentTitle("Strategy Builder");
+  const wide = useWideLayout();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [initial] = useState(() => readInitial(params));
+  const [shared, setShared] = useState<SharedSnapshot | null>(initial.shared);
+  const [skipped, setSkipped] = useState<BuilderLeg[]>(initial.skipped);
+  const [confirmSampleOpen, setConfirmSampleOpen] = useState(false);
+  const readOnly = shared !== null;
+  /** The draft is written back only once it is the user's own work (not the default template or a shared link). */
+  const persistRef = useRef(initial.persist);
+  const announcedRef = useRef(false);
   const [symbol, setSymbol] = useState(initial.symbol);
   const [legs, setLegs] = useState<BuilderLeg[]>(initial.legs);
   const [name, setName] = useState(initial.name);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [expiry, setExpiry] = useState<string>(() => initial.legs.map((l) => l.expiry).sort()[0] ?? "");
   const [priceMode, setPriceMode] = useState<PriceMode>("mid");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(initial.shared === null);
   const [brokerId, setBrokerId] = useState("zerodha");
   const [roundTrip, setRoundTrip] = useState(true);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -179,13 +188,40 @@ export default function StrategyBuilder() {
   const chartRef = useRef<HTMLDivElement>(null);
   const pendingTemplate = useRef<string | null>(initial.legs.length === 0 && !initial.fromParams ? "iron-condor" : null);
 
+  /** Mark the strategy as the user's own: persist the draft from now on and leave any shared snapshot. */
+  const touch = useCallback(() => {
+    persistRef.current = true;
+    setShared(null);
+  }, []);
+
+  const restoreDraft = useCallback((prev: ShareState) => {
+    persistRef.current = true;
+    pendingTemplate.current = null;
+    setShared(null);
+    setSkipped([]);
+    setSymbol(prev.symbol);
+    setLegs(prev.legs);
+    setName(prev.name || "");
+    setTemplateId(null);
+    setFocusedId(null);
+    setTargetIdx(0);
+    setExpiry(prev.legs.map((l) => l.expiry).sort()[0] ?? "");
+    toast.success("Previous draft restored", { description: `${prev.legs.length} leg${prev.legs.length === 1 ? "" : "s"} on ${prev.symbol}.` });
+  }, []);
+
   // One-time: announce what came from the URL, then drop the params so a refresh does not re-add legs.
   useEffect(() => {
-    if (initial.message) toast.success(initial.message);
-    if (params.has("legs") || params.has("s")) {
+    if (announcedRef.current) return;
+    announcedRef.current = true;
+    const prev = initial.previous;
+    if (initial.message) {
+      toast.success(initial.message, prev ? { duration: 12_000, action: { label: "Undo (restore previous draft)", onClick: () => restoreDraft(prev) } } : undefined);
+    }
+    if (params.has("legs") || params.has("s") || params.has("mode")) {
       const next = new URLSearchParams(params);
       next.delete("legs");
       next.delete("s");
+      next.delete("mode");
       setParams(next, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
@@ -196,10 +232,11 @@ export default function StrategyBuilder() {
     return () => window.clearInterval(t);
   }, []);
 
-  // Keep a per-browser draft so a trip to the option chain and back keeps your legs.
+  // Keep a per-browser draft so a trip to the option chain and back keeps your legs. The untouched
+  // default template and read-only shared snapshots are never written, so they cannot overwrite a draft.
   useEffect(() => {
-    writeStore(DRAFT_KEY, encodeShare({ symbol, name, legs }));
-  }, [symbol, name, legs]);
+    if (persistRef.current && !readOnly) writeStore(DRAFT_KEY, encodeShare({ symbol, name, legs }));
+  }, [symbol, name, legs, readOnly]);
 
   // ── Market data ──
   const expiryQuery = useExpiryList(symbol);
@@ -343,14 +380,16 @@ export default function StrategyBuilder() {
     };
   }, [spot, expiry, expiries, symbol, strikeStep, chainMap, atmIvDec, priceMode, now, r, q]);
 
-  const applyTemplate = useCallback((t: StrategyTemplate, resolved: Leg[]) => {
+  const applyTemplate = useCallback((t: StrategyTemplate, resolved: Leg[], auto = false) => {
+    if (auto) persistRef.current = false;
+    else touch();
     setLegs(toBuilderLegs(resolved));
     setName(t.name);
     setTemplateId(t.id);
     setFocusedId(null);
     setTargetIdx(0);
     setLibraryOpen(false);
-  }, []);
+  }, [touch]);
 
   // Apply a pending template (first visit, or after a symbol change) once the chain is in.
   useEffect(() => {
@@ -360,12 +399,14 @@ export default function StrategyBuilder() {
     pendingTemplate.current = null;
     if (!t) return;
     const resolvedLegs = resolveTemplate(t, resolveCtx);
-    if (resolvedLegs.length) applyTemplate(t, resolvedLegs);
+    // First-visit default: not saved until edited. After a symbol switch the user's draft keeps saving.
+    if (resolvedLegs.length) applyTemplate(t, resolvedLegs, !persistRef.current);
   }, [resolveCtx, mainChain.length, main.isFetching, applyTemplate]);
 
   // ── Leg actions (all immutable) ──
   const changeLeg = useCallback(
     (id: string, patch: Partial<BuilderLeg>) => {
+      touch();
       setLegs((prev) => {
         const cur = prev.find((l) => l.id === id);
         if (!cur) return prev;
@@ -379,18 +420,30 @@ export default function StrategyBuilder() {
       });
       setTemplateId(null);
     },
-    [priceMode, spot, strikeStep],
+    [priceMode, spot, strikeStep, touch],
   );
 
-  const removeLeg = useCallback((id: string) => {
-    setLegs((prev) => prev.filter((l) => l.id !== id));
-    setFocusedId((f) => (f === id ? null : f));
-    setTemplateId(null);
-  }, []);
+  const removeLeg = useCallback(
+    (id: string) => {
+      touch();
+      setLegs((prev) => prev.filter((l) => l.id !== id));
+      setFocusedId((f) => (f === id ? null : f));
+      setTemplateId(null);
+    },
+    [touch],
+  );
 
+  const atLegLimit = legs.length >= MAX_LEGS;
   const addLeg = useCallback(
     (o?: { type: OptionType; side: Side; strike: number; premium: number; ivPct?: number }) => {
       if (!expiry) return;
+      if (legs.length >= MAX_LEGS) {
+        toast.error(`Up to ${MAX_LEGS} legs per strategy`, {
+          id: "leg-limit",
+          description: "Broker baskets and exchange spread orders cap the number of legs. Remove a leg to add another.",
+        });
+        return;
+      }
       const strike = o?.strike ?? Math.round(spot / strikeStep) * strikeStep;
       const leg: BuilderLeg = {
         id: makeLegId(),
@@ -406,16 +459,19 @@ export default function StrategyBuilder() {
         enabled: true,
         requote: !o,
       };
+      touch();
       setLegs((prev) => [...prev, leg]);
       setFocusedId(leg.id);
       setTemplateId(null);
       if (!name) setName("Custom strategy");
     },
-    [expiry, spot, strikeStep, symbol, name],
+    [expiry, spot, strikeStep, symbol, name, touch, legs.length],
   );
 
   const changeSymbol = (s: string) => {
     if (s === symbol) return;
+    touch();
+    setSkipped([]);
     pendingTemplate.current = templateId ?? (legs.length ? null : "iron-condor");
     if (legs.length && !templateId) toast.message(`Legs cleared for ${s}`, { description: "Strikes and lot sizes differ between underlyings." });
     setSymbol(s);
@@ -428,6 +484,7 @@ export default function StrategyBuilder() {
 
   const changeExpiry = (e: string) => {
     const old = expiry;
+    touch();
     setExpiry(e);
     setTargetIdx(0);
     setLegs((prev) => prev.map((l) => (l.expiry === old ? { ...l, expiry: e, lotSize: lotSizeFor(l.symbol, e), manual: false, requote: true } : l)));
@@ -439,6 +496,7 @@ export default function StrategyBuilder() {
       toast.error("That saved strategy could not be read.");
       return;
     }
+    touch();
     if (st.symbol !== symbol) {
       setSymbol(st.symbol);
       pendingTemplate.current = null;
@@ -480,13 +538,14 @@ export default function StrategyBuilder() {
   // ── Hotkeys: N add, Space flip focused, Delete remove focused, [ ] shift all strikes, { } shift focused ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || libraryOpen || wizardOpen) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || libraryOpen || wizardOpen || readOnly) return;
       if (isTypingTarget(e.target)) return;
       if (e.key === "n" || e.key === "N") {
         e.preventDefault();
         addLeg();
       } else if (e.key === " " && focusedId) {
         e.preventDefault();
+        touch();
         setLegs((prev) => prev.map((l) => (l.id === focusedId ? { ...flipSide(l), requote: priceMode === "natural" ? true : l.requote, manual: priceMode === "natural" ? false : l.manual } : l)));
         setTemplateId(null);
       } else if (e.key === "Delete" && focusedId) {
@@ -494,23 +553,46 @@ export default function StrategyBuilder() {
         removeLeg(focusedId);
       } else if (e.key === "[" || e.key === "]") {
         e.preventDefault();
+        touch();
         setLegs((prev) => shiftStrikes(prev, e.key === "]" ? 1 : -1, strikeStep));
       } else if ((e.key === "{" || e.key === "}") && focusedId) {
         e.preventDefault();
+        touch();
         setLegs((prev) => shiftStrikes(prev, e.key === "}" ? 1 : -1, strikeStep, [focusedId]));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [addLeg, removeLeg, focusedId, strikeStep, priceMode, libraryOpen, wizardOpen]);
+  }, [addLeg, removeLeg, focusedId, strikeStep, priceMode, libraryOpen, wizardOpen, readOnly, touch]);
 
-  // ── Positions / summary ──
-  const addToPositions = () => {
-    const opts = legs.filter((l) => l.enabled && l.type !== "FUT");
+  // ── Positions / paper trading ──
+  const pricesAreSample = anySample || shared?.source === "sample";
+  const greeksCard = <GreeksTable rows={analysis.legGreeks} net={analysis.netGreeks} spot={spot} />;
+  const methodNote = (
+    <>
+      Prices use Black-76 on the forward with time measured to 15:30 IST expiry. Probabilities assume a lognormal market and are not forecasts. Margin is a SPAN-style estimate; your broker&apos;s figure will differ.
+      {anySample && " Some chains above are sample data because live data was unavailable."}
+    </>
+  );
+  const optionLegs = useMemo(() => legs.filter((l) => l.enabled && l.type !== "FUT"), [legs]);
+  const paperHref = useMemo(() => {
+    const basket: BasketLeg[] = [];
+    for (const l of optionLegs) {
+      if (l.type === "FUT") continue;
+      basket.push({ symbol: l.symbol, expiry: l.expiry, strike: l.strike, type: l.type, side: l.side, lots: l.lots, premium: l.premium, iv: l.iv ?? null });
+    }
+    return basket.length ? `/paper-trading?legs=${encodeLegs(basket)}` : null;
+  }, [optionLegs]);
+  const openPaperTrade = () => {
+    if (paperHref) navigate(paperHref);
+  };
+
+  const commitToPositions = () => {
     const futs = legs.filter((l) => l.enabled && l.type === "FUT").length;
     const greeksById = new Map(analysis.legGreeks.map((g) => [g.id, g.unit]));
+    const source: "sample" | "live" = pricesAreSample ? "sample" : "live";
     let added = 0;
-    for (const l of opts) {
+    for (const l of optionLegs) {
       if (l.type === "FUT") continue;
       const g = greeksById.get(l.id);
       const pos = createPosition({
@@ -526,18 +608,54 @@ export default function StrategyBuilder() {
         iv: l.iv ? Math.round(l.iv * 1000) / 10 : undefined,
         delta: g ? Math.round(g.delta * 1000) / 1000 : undefined,
         theta: g ? Math.round(g.theta * 100) / 100 : undefined,
+        tag: name || undefined,
       });
-      addPosition(pos);
+      addPosition(Object.assign(pos, { source }));
       added++;
     }
     if (added) {
-      toast.success(`Added ${added} leg${added === 1 ? "" : "s"} to Positions`, {
+      toast.success(`Added ${added} leg${added === 1 ? "" : "s"} to Positions${source === "sample" ? " (tagged sample)" : ""}`, {
         description: futs ? `${futs} futures leg${futs === 1 ? " was" : "s were"} skipped (Positions tracks options only).` : "Entry prices are the premiums shown here.",
         action: { label: "Open", onClick: () => navigate("/position-tracker") },
       });
     } else {
       toast.error("No option legs to add", { description: "Positions tracks options only." });
     }
+  };
+
+  const addToPositions = () => {
+    if (pricesAreSample && optionLegs.length) setConfirmSampleOpen(true);
+    else commitToPositions();
+  };
+
+  const openLive = () => {
+    persistRef.current = true;
+    setShared(null);
+    setAutoRefresh(true);
+    setLegs((prev) => prev.map((l) => ({ ...l, manual: false, requote: true })));
+    toast.success("Repriced at market", { description: "Entry premiums now follow the chain. Edit freely; this is your draft." });
+  };
+
+  const editCopy = () => {
+    touch();
+    toast.message("Editing a copy", { description: "Shared entry prices are kept. Turn on Refresh to market to reprice." });
+  };
+
+  const swapToSkipped = (sym: string) => {
+    const take = skipped.filter((l) => l.symbol === sym);
+    if (!take.length) return;
+    const keep = skipped.filter((l) => l.symbol !== sym);
+    const current = legs.filter((l) => l.symbol === symbol);
+    touch();
+    pendingTemplate.current = null;
+    setSkipped([...keep, ...current]);
+    setSymbol(sym);
+    setLegs(take);
+    setName("");
+    setTemplateId(null);
+    setFocusedId(null);
+    setTargetIdx(0);
+    setExpiry(take.map((l) => l.expiry).sort()[0] ?? "");
   };
 
   const summary = () => {
@@ -600,46 +718,109 @@ export default function StrategyBuilder() {
     </div>
   ) : null;
 
+  const shareSource: ShareSource = anySample ? "sample" : main.data?.isLive && !main.data?.stale ? "live" : "delayed";
+  const skippedGroups = groupBySymbol(skipped);
+  const sharedTime = shared?.pricedAt ? `${formatTimeIST(shared.pricedAt)}${istDateString(new Date(shared.pricedAt)) !== istDateString(now) ? `, ${formatDateIST(shared.pricedAt)}` : ""}` : null;
+
   const maxRisk = !analysis.unlimitedLoss && Number.isFinite(analysis.maxLoss) && analysis.maxLoss < 0 ? Math.abs(analysis.maxLoss) : null;
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">Strategy Builder</h1>
-          <p className="text-sm text-muted-foreground">Build multi-leg option strategies from the live chain, then test them across price, time and IV.</p>
+      <PageHeader
+        icon={Layers}
+        eyebrow="Strategy"
+        title="Strategy Builder"
+        description="Build multi-leg option strategies from the live chain, then test them across price, time and IV."
+        source={sourceBadge}
+        actions={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              onClick={openPaperTrade}
+              disabled={!paperHref}
+              title={paperHref ? "Stage these option legs in Paper Trading" : "Add at least one enabled option leg (futures are not paper traded)"}
+            >
+              <FlaskConical /> Paper trade
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Keyboard shortcuts">
+                  <Keyboard className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="end">
+                <p className="mb-2 text-label uppercase text-muted-foreground">Keyboard shortcuts</p>
+                <dl className="space-y-1.5 text-xs">
+                  {[
+                    ["Add leg", "N"],
+                    ["Flip buy/sell of the selected leg", "Space"],
+                    ["Remove the selected leg", "Delete"],
+                    ["Shift all strikes down / up", "[  ]"],
+                    ["Shift the selected leg", "Shift + [  ]"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between gap-2">
+                      <dt className="text-muted-foreground">{k}</dt>
+                      <dd>
+                        <kbd className="rounded-chip border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">{v}</kbd>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-2 text-[11px] text-muted-foreground">Click or Tab to a leg to select it. Shortcuts pause while you type or view a shared snapshot.</p>
+              </PopoverContent>
+            </Popover>
+          </>
+        }
+      />
+
+      {shared && (
+        <div role="status" className="flex flex-col gap-2 rounded-tile border border-info/30 bg-wash-info px-3 py-2.5 text-xs sm:flex-row sm:items-center">
+          <Eye className="hidden h-4 w-4 shrink-0 text-info sm:block" aria-hidden="true" />
+          <div className="min-w-0 flex-1 leading-relaxed">
+            <p className="font-semibold">
+              Shared snapshot, read-only{" · "}
+              <span className="font-num">{sharedTime ? `Priced at ${sharedTime}` : "Price time not recorded"}</span>
+              {" · "}
+              {shared.source ? SOURCE_TEXT[shared.source] : "source not recorded"}
+            </p>
+            <p className="text-muted-foreground">
+              Entry premiums are frozen as shared{shared.spot ? <> (spot then <span className="font-num">{formatStrike(Math.round(shared.spot))}</span>)</> : null}. P&L and Greeks use today&apos;s market.
+              {shared.source === "sample" && " These prices were sample data, not market quotes."}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={openLive}>
+              <Radio /> Open live
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={editCopy}>
+              Edit a copy
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {sourceBadge}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Keyboard shortcuts">
-                <Keyboard className="h-4 w-4" />
+      )}
+
+      {skippedGroups.length > 0 && (
+        <div role="note" className="flex flex-col gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2.5 text-xs sm:flex-row sm:items-center">
+          <AlertTriangle className="hidden h-4 w-4 shrink-0 text-warning sm:block" aria-hidden="true" />
+          <div className="min-w-0 flex-1 leading-relaxed">
+            <p className="font-semibold">
+              {skipped.length} basket leg{skipped.length === 1 ? "" : "s"} on {skippedGroups.map((g) => g.symbol).join(", ")} {skipped.length === 1 ? "was" : "were"} not loaded.
+            </p>
+            <p className="text-muted-foreground">A strategy uses one underlying. Switch to build the other one; the legs here are kept in this list.</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {skippedGroups.slice(0, 3).map((g) => (
+              <Button key={g.symbol} type="button" size="sm" variant="outline" onClick={() => swapToSkipped(g.symbol)}>
+                Build {g.symbol} ({g.legs.length})
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-3" align="end">
-              <p className="mb-2 text-label uppercase text-muted-foreground">Keyboard shortcuts</p>
-              <dl className="space-y-1.5 text-xs">
-                {[
-                  ["Add leg", "N"],
-                  ["Flip buy/sell of the selected leg", "Space"],
-                  ["Remove the selected leg", "Delete"],
-                  ["Shift all strikes down / up", "[  ]"],
-                  ["Shift the selected leg", "Shift + [  ]"],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between gap-2">
-                    <dt className="text-muted-foreground">{k}</dt>
-                    <dd>
-                      <kbd className="rounded-chip border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">{v}</kbd>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <p className="mt-2 text-[11px] text-muted-foreground">Click or Tab to a leg to select it. Shortcuts pause while you type.</p>
-            </PopoverContent>
-          </Popover>
+            ))}
+            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label="Dismiss skipped legs notice" onClick={() => setSkipped([])}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </header>
+      )}
 
       {!bannerHidden && (
         <div role="note" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-xs">
@@ -657,7 +838,7 @@ export default function StrategyBuilder() {
               setBannerHidden(true);
               writeStore(BANNER_KEY, "1");
             }}
-            className="rounded-chip p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:shadow-ember"
+            className="rounded-chip p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:shadow-ember [@media(pointer:coarse)]:p-2.5"
             aria-label="Dismiss risk notice"
           >
             <X className="h-3.5 w-3.5" />
@@ -666,10 +847,10 @@ export default function StrategyBuilder() {
       )}
 
       {/* Toolbar */}
-      <section aria-label="Strategy controls" className="flex flex-wrap items-center gap-2 rounded-card border border-border bg-card p-2.5 shadow-card">
+      <section aria-label="Strategy controls" className="flex min-w-0 flex-wrap items-center gap-2 rounded-card border border-border bg-card p-2.5 shadow-card">
         <SymbolPicker value={symbol} onChange={changeSymbol} />
         <Select value={expiry} onValueChange={changeExpiry}>
-          <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Expiry for new legs">
+          <SelectTrigger className="h-8 w-full min-w-0 gap-2 whitespace-nowrap text-xs sm:w-auto sm:min-w-[150px] sm:max-w-full" aria-label="Expiry for new legs">
             <SelectValue placeholder="Expiry" />
           </SelectTrigger>
           <SelectContent>
@@ -704,12 +885,23 @@ export default function StrategyBuilder() {
           <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setWizardOpen(true)}>
             <Wand2 /> By view
           </Button>
-          <SaveShareMenu legs={legs} symbol={symbol} name={name} summary={summary} chartRef={chartRef} onLoad={loadShare} onAddToPositions={addToPositions} />
+          <SaveShareMenu
+            legs={legs}
+            symbol={symbol}
+            name={name}
+            summary={summary}
+            chartRef={chartRef}
+            onLoad={loadShare}
+            onAddToPositions={addToPositions}
+            source={shared?.source ?? shareSource}
+            pricedAt={shared?.pricedAt}
+            spot={shared?.spot ?? spot}
+          />
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="space-y-4 lg:col-span-5 xl:col-span-4">
+      <div className="grid gap-4 lg:grid-cols-12 [&>*]:min-w-0">
+        <fieldset disabled={readOnly} aria-label={readOnly ? "Strategy legs (read-only shared snapshot)" : undefined} className="min-w-0 space-y-4 lg:col-span-5 xl:col-span-4">
           <LegTable
             legs={legs}
             expiries={expiries}
@@ -723,6 +915,7 @@ export default function StrategyBuilder() {
             onFocus={setFocusedId}
             onAdd={() => addLeg()}
             onClear={() => {
+              touch();
               setLegs([]);
               setName("");
               setTemplateId(null);
@@ -737,10 +930,11 @@ export default function StrategyBuilder() {
             priceMode={priceMode}
             loading={main.isLoading}
             usedStrikes={usedStrikes}
+            disabledReason={atLegLimit ? `Leg limit reached (${MAX_LEGS}). Remove a leg to add another.` : undefined}
             onAdd={(o) => addLeg(o)}
           />
-        </div>
-        <div className="min-w-0 space-y-4 lg:col-span-7 xl:col-span-8">
+        </fieldset>
+        <div className="order-first min-w-0 space-y-4 lg:order-none lg:col-span-7 xl:col-span-8">
           <PayoffChart
             legs={analysis.active}
             spot={spot}
@@ -758,9 +952,19 @@ export default function StrategyBuilder() {
             frontAt={analysis.frontAt}
             frontExpiry={analysis.frontExpiry || expiry}
             chartRef={chartRef}
-            badge={anySample ? <Badge variant="warning">Sample data</Badge> : analysis.multiExpiry ? <Badge variant="info">Calendar</Badge> : undefined}
+            badge={
+              pricesAreSample ? (
+                <Badge variant="warning">Sample data</Badge>
+              ) : shared ? (
+                <Badge variant="info">Shared prices</Badge>
+              ) : analysis.multiExpiry ? (
+                <Badge variant="info">Calendar</Badge>
+              ) : undefined
+            }
           />
           <StatsPanel a={analysis} p50={p50} spot={spot} roundTrip={roundTrip} />
+          {/* Two-column layout: the Greeks fill the space beside the legs and mini chain. */}
+          {wide ? greeksCard : null}
         </div>
       </div>
 
@@ -780,8 +984,8 @@ export default function StrategyBuilder() {
         margin={analysis.margin.total}
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <GreeksTable rows={analysis.legGreeks} net={analysis.netGreeks} spot={spot} />
+      <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
+        {wide ? null : greeksCard}
         <ChargesBreakdown
           charges={analysis.charges}
           brokerId={brokerId}
@@ -791,16 +995,53 @@ export default function StrategyBuilder() {
           orders={analysis.active.length * (roundTrip ? 2 : 1)}
           hasLongOptions={analysis.active.some((l) => l.side === "BUY" && l.type !== "FUT")}
         />
+        {wide ? (
+          <aside aria-label="How these numbers are worked out" className="self-start rounded-card border border-border bg-card p-4 text-body-sm leading-relaxed text-muted-foreground shadow-card">
+            <p className="mb-1 text-label uppercase text-muted-foreground">Method</p>
+            {methodNote}
+          </aside>
+        ) : null}
       </div>
 
       <TemplateLibrary open={libraryOpen} onOpenChange={setLibraryOpen} ctx={resolveCtx} onPick={applyTemplate} />
+      <AlertDialog open={confirmSampleOpen} onOpenChange={setConfirmSampleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>These prices are sample data</AlertDialogTitle>
+            <AlertDialogDescription>
+              Live quotes were unavailable, so the entry premiums here are sample values, not prices you could trade at. Positions is for real trades. Paper Trading is the safer place to practise this strategy.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setConfirmSampleOpen(false);
+                commitToPositions();
+              }}
+            >
+              Add anyway (tagged sample)
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setConfirmSampleOpen(false);
+                openPaperTrade();
+              }}
+              disabled={!paperHref}
+            >
+              <FlaskConical /> Paper trade instead
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <StrategyWizard open={wizardOpen} onOpenChange={setWizardOpen} ctx={resolveCtx} timeline={wizardTimeline} broker={broker} onPick={applyTemplate} />
 
       <footer className="space-y-1 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-        <p>
-          Prices use Black-76 on the forward with time measured to 15:30 IST expiry. Probabilities assume a lognormal market and are not forecasts. Margin is a SPAN-style estimate; your broker&apos;s figure will differ.
-          {anySample && " Some chains above are sample data because live data was unavailable."}
-        </p>
+        {wide ? null : <p>{methodNote}</p>}
         <p className="font-medium">Data for education and research. Not investment advice.</p>
       </footer>
     </div>

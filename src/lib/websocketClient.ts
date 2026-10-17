@@ -6,9 +6,42 @@
  * Ticks are keyed by "segment:securityId" (for example "IDX_I:13"), because security ids are only
  * unique within an exchange segment. Two statuses are tracked separately: whether the browser can
  * reach the proxy, and whether the proxy has a live Dhan feed.
+ *
+ * Importing this module opens nothing. DashboardLayout calls startMarketWS() once the proxy
+ * reachability gate (src/lib/api/proxyClient.ts) reports the proxy online. Reconnects back off
+ * (1 s growing to 30 s), pause while the tab is hidden or the device is offline, and stop after
+ * MAX_RECONNECT_FAILURES consecutive failures until the gate sees the proxy come back.
  */
 import { getDhanCredentials, onBrokerCredentialsChange } from "./brokerConfig";
-import { proxyWsUrl } from "./api/proxyClient";
+import { markProxyOnline, proxyWsUrl, subscribeProxyStatus, type ProxyGateSnapshot } from "./api/proxyClient";
+
+/** Consecutive failed connects before the client gives up until the proxy gate flips back online. */
+export const MAX_RECONNECT_FAILURES = 5;
+
+/** Why the client is not currently trying to reconnect (null while connected or retrying). */
+export type ReconnectHold = "hidden" | "offline" | "gave-up" | null;
+
+/** Pure reconnect decision: hold reasons win over retrying; returns the hold or null to retry. */
+export function reconnectHold(state: { failures: number; hidden: boolean; online: boolean }): ReconnectHold {
+  if (state.failures >= MAX_RECONNECT_FAILURES) return "gave-up";
+  if (!state.online) return "offline";
+  if (state.hidden) return "hidden";
+  return null;
+}
+
+/** Reconnect delay after `failures` consecutive failures: 1.5 s, 2.25 s … capped at 30 s. */
+export function reconnectDelayMs(failures: number): number {
+  const n = Math.max(1, Math.floor(failures));
+  return Math.min(Math.round(1000 * 1.5 ** n), 30_000);
+}
+
+function docHidden(): boolean {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
+function deviceOnline(): boolean {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
+}
 
 // ── Types ──
 
@@ -134,7 +167,8 @@ class MarketWebSocket {
   private feedListeners = new Set<FeedStatusListener>();
   private latestData = new Map<string, TickData>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectDelay = 1000;
+  private failures = 0;
+  private hold: ReconnectHold = null;
   private intentionalClose = false;
   private lastCredentialFingerprint: string | null = null;
   private status: FeedStatus = { proxyConnected: false, dhanConnected: false, disconnectCode: null, message: null };
@@ -186,7 +220,9 @@ class MarketWebSocket {
 
     ws.onopen = () => {
       if (!current()) return;
-      this.reconnectDelay = 1000;
+      this.failures = 0;
+      this.hold = null;
+      markProxyOnline();
       this.lastCredentialFingerprint = null;
       this.setStatus({ proxyConnected: true });
       this.sendCredentials();
@@ -334,10 +370,43 @@ class MarketWebSocket {
     this.setStatus({ proxyConnected: false, dhanConnected: false });
   }
 
+  /** Why reconnects are paused right now (null while connected or retrying). */
+  get reconnectHold(): ReconnectHold {
+    return this.hold;
+  }
+
+  /** Consecutive failed connects since the last successful open. */
+  get failureCount(): number {
+    return this.failures;
+  }
+
+  /**
+   * Try again now if a reconnect is held or the client gave up (tab visible again, device back
+   * online, proxy gate back online). `resetFailures` clears the give-up counter.
+   */
+  resume(resetFailures = false): void {
+    if (this.intentionalClose) return;
+    if (resetFailures) this.failures = 0;
+    if (this.ws) return;
+    if (reconnectHold({ failures: this.failures, hidden: docHidden(), online: deviceOnline() }) !== null) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.hold = null;
+    this.connect();
+  }
+
   private scheduleReconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 30000);
-    this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
+    this.reconnectTimer = null;
+    this.failures += 1;
+    this.hold = reconnectHold({ failures: this.failures, hidden: docHidden(), online: deviceOnline() });
+    if (this.hold !== null) return; // resume() picks it up later
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, reconnectDelayMs(this.failures));
   }
 
   private setStatus(patch: Partial<FeedStatus>): void {
@@ -350,8 +419,38 @@ class MarketWebSocket {
 
 export const marketWS = new MarketWebSocket();
 
-if (typeof window !== "undefined") {
-  setTimeout(() => marketWS.connect(), 500);
+let started = false;
+
+/**
+ * Open the live feed. Idempotent: the first call wires the visibility, network, proxy-gate and
+ * credential listeners and connects; later calls just nudge a held reconnect. Call it only once
+ * the proxy gate reports online (DashboardLayout does).
+ */
+export function startMarketWS(): void {
+  if (typeof window === "undefined") return;
+  if (started) {
+    marketWS.resume(true);
+    return;
+  }
+  started = true;
   // Resend credentials whenever they change (save, unlock, remove).
   onBrokerCredentialsChange(() => marketWS.sendCredentials());
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (!docHidden()) marketWS.resume();
+    });
+  }
+  window.addEventListener("online", () => marketWS.resume());
+  // The gate flipping back to online (a good /health or any proxied response) lifts a give-up.
+  let lastGate: ProxyGateSnapshot["status"] | null = null;
+  subscribeProxyStatus((s) => {
+    if (s.status === "online" && lastGate !== "online") marketWS.resume(true);
+    lastGate = s.status;
+  });
+  marketWS.connect();
+}
+
+/** True once startMarketWS() has run in this page session. */
+export function isMarketWSStarted(): boolean {
+  return started;
 }

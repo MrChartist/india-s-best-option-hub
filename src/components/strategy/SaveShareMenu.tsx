@@ -1,6 +1,6 @@
 import { useState, type RefObject } from "react";
 import { toast } from "sonner";
-import { BookmarkPlus, Briefcase, ClipboardCopy, FolderOpen, ImageDown, Link2, Share2, Trash2 } from "lucide-react";
+import { BookmarkPlus, Briefcase, ClipboardCopy, FolderOpen, ImageDown, Images, Link2, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDateIST, formatTimeIST } from "@/lib/options";
-import { exportChartPng } from "./exportPng";
-import { deleteSavedStrategy, encodeShare, loadSavedStrategies, saveStrategy, type BuilderLeg, type SavedStrategy, type ShareState } from "./strategyState";
+import { copyChartPng, exportChartPng } from "./exportPng";
+import { deleteSavedStrategy, encodeShare, loadSavedStrategies, saveStrategy, type BuilderLeg, type SavedStrategy, type ShareSource, type ShareState } from "./strategyState";
 
 export interface SaveShareMenuProps {
   legs: BuilderLeg[];
@@ -25,7 +25,14 @@ export interface SaveShareMenuProps {
   chartRef: RefObject<HTMLDivElement>;
   onLoad: (share: string) => void;
   onAddToPositions: () => void;
+  /** Source of the prices on screen; carried in share links and stamped on images. */
+  source: ShareSource;
+  spot: number;
+  /** When re-sharing a shared snapshot, keep its original price time. Defaults to now. */
+  pricedAt?: number;
 }
+
+const SOURCE_TAG: Record<ShareSource, string | undefined> = { sample: "SAMPLE DATA", delayed: "DELAYED", live: undefined };
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -36,7 +43,7 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, onAddToPositions }: SaveShareMenuProps) {
+export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, onAddToPositions, source, spot, pricedAt }: SaveShareMenuProps) {
   const [saveOpen, setSaveOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
@@ -47,8 +54,23 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
   const shareUrl = () => {
     const url = new URL(window.location.href);
     url.search = "";
-    url.searchParams.set("s", encodeShare(state));
+    url.hash = "";
+    url.searchParams.set("s", encodeShare({ ...state, pricedAt: pricedAt ?? Date.now(), source, spot }));
     return url.toString();
+  };
+
+  const imageOpts = () => {
+    const at = new Date(pricedAt ?? Date.now());
+    const legText = legs
+      .filter((l) => l.enabled)
+      .map((l) => `${l.side === "BUY" ? "B" : "S"} ${l.lots}× ${l.type === "FUT" ? "FUT" : `${l.strike} ${l.type}`} ${formatDateIST(l.expiry)}`)
+      .join("  ·  ");
+    return {
+      title: `${name || "Custom strategy"} · ${symbol}`,
+      subtitle: `${legText}  |  Priced ${formatDateIST(at)} ${formatTimeIST(at)}${source === "sample" ? " · sample data" : source === "delayed" ? " · delayed" : " · live"}`,
+      tag: SOURCE_TAG[source],
+      fileName: `${symbol}-${(name || "strategy").replace(/\s+/g, "-").toLowerCase()}-payoff.png`,
+    };
   };
 
   return (
@@ -83,7 +105,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
             disabled={empty}
             onSelect={async () => {
               const ok = await copyText(shareUrl());
-              if (ok) toast.success("Share link copied", { description: "Anyone with the link sees these legs and entry prices." });
+              if (ok) toast.success("Share link copied", { description: "The link opens a read-only snapshot with these legs and entry prices, stamped with the time and data source." });
               else toast.error("Could not copy the link");
             }}
           >
@@ -102,11 +124,18 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
           <DropdownMenuItem
             disabled={empty}
             onSelect={async () => {
-              const ok = await exportChartPng(chartRef.current, {
-                title: `${name || "Custom strategy"} · ${symbol}`,
-                subtitle: `${legs.filter((l) => l.enabled).map((l) => `${l.side === "BUY" ? "B" : "S"} ${l.lots}× ${l.type === "FUT" ? "FUT" : `${l.strike} ${l.type}`} ${formatDateIST(l.expiry)}`).join("  ·  ")}  |  ${formatDateIST(new Date())} ${formatTimeIST(new Date())}`,
-                fileName: `${symbol}-${(name || "strategy").replace(/\s+/g, "-").toLowerCase()}-payoff.png`,
-              });
+              const res = await copyChartPng(chartRef.current, imageOpts());
+              if (res === "copied") toast.success("Payoff image copied", { description: "Paste it into X, WhatsApp or Telegram." });
+              else if (res === "downloaded") toast.message("Image downloaded", { description: "This browser cannot copy images, so the PNG was saved instead." });
+              else if (res === "failed") toast.error("Could not create the image", { description: "Your browser blocked it. Try again or take a screenshot." });
+            }}
+          >
+            <Images className="mr-2 h-4 w-4" /> Copy as image
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={empty}
+            onSelect={async () => {
+              const ok = await exportChartPng(chartRef.current, imageOpts());
               if (!ok) toast.error("PNG export failed", { description: "Your browser blocked the image. Try again or take a screenshot." });
             }}
           >

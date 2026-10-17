@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/PageHeader";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import Glossary from "@/components/learn/Glossary";
 import LessonCard from "@/components/learn/LessonCard";
@@ -70,58 +71,59 @@ export default function Learn() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-6 px-1.5 py-1 sm:px-0">
-      {/* Hero */}
-      <header className="relative overflow-hidden rounded-panel border border-border bg-card p-5 shadow-card sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-capsule bg-wash-brand opacity-70" aria-hidden="true" />
-        <div className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-capsule bg-product-wash opacity-80" aria-hidden="true" />
-        <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2 text-label uppercase text-muted-foreground">
-              <GraduationCap className="h-4 w-4 text-primary-ink" aria-hidden="true" />
-              Mr. Chartist <span aria-hidden="true">×</span> <span className="text-product">NISMExams.com</span>
-            </p>
-            <h1 className="mt-3 max-w-3xl font-display text-[2rem] font-extrabold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-[2.6rem]">
-              Learn options with <span className="font-serif font-normal italic text-primary-ink">NISMExams.com</span>
-            </h1>
-            <p className="mt-3 max-w-2xl text-lead font-normal text-muted-foreground">
-              Plain-English lessons on Indian F&O, from calls and puts to GEX, with interactive simulators that use the same maths as the terminal. Every lesson ends with a short quiz.
-            </p>
-            <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-body-sm" aria-label="What is inside">
-              {[
-                [String(LESSONS.length), "lessons"],
-                [`${TOTAL_MINUTES} min`, "total reading"],
-                [String(SIM_CARDS.length), "simulators"],
-                [String(GLOSSARY.length), "glossary terms"],
-              ].map(([v, k]) => (
-                <li key={k} className="flex items-baseline gap-1.5">
-                  <span className="font-num text-title tabular-nums text-foreground">{v}</span>
-                  <span className="text-muted-foreground">{k}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+      <PageHeader
+        icon={GraduationCap}
+        eyebrow="Free course · In partnership"
+        title="Learn options with NISMExams.com"
+        description="Plain-English lessons on Indian F&O, from calls and puts to GEX, with interactive simulators that use the same maths as the terminal. Every lesson ends with a short quiz."
+        actions={
+          <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:items-end">
             <Link
               to={`/learn/${nextLesson?.slug ?? LESSONS[0].slug}`}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-pill bg-primary px-5 text-lead font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-pill bg-primary px-5 text-lead font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
             >
               {allDone ? "Review from the start" : started ? "Continue learning" : "Start with Options 101"}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            {nextLesson && started ? <span className="text-center text-body-sm text-muted-foreground lg:max-w-[16rem]">Next up: {nextLesson.title}</span> : null}
+            {nextLesson && started ? <span className="text-center text-body-sm text-muted-foreground sm:max-w-[16rem] sm:text-right">Next up: {nextLesson.title}</span> : null}
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <aside role="note" className="flex gap-3 rounded-card border border-bearish/25 bg-wash-loss p-4">
+      {/* At a glance: one quiet orange radial (6%) instead of decorative circles */}
+      <section
+        aria-label="Course at a glance"
+        className="relative overflow-hidden rounded-card border border-border bg-card bg-[radial-gradient(80%_140%_at_100%_0%,hsl(var(--primary)/0.06),transparent_65%)] p-4 shadow-card sm:p-5"
+      >
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <p className="max-w-xl font-display text-title font-semibold text-foreground">
+            From your first call option to reading dealer gamma, <span className="font-display font-medium italic text-primary-ink">built for Indian markets.</span>
+          </p>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-body-sm sm:flex sm:flex-wrap" aria-label="What is inside">
+            {[
+              [String(LESSONS.length), "lessons"],
+              [`${TOTAL_MINUTES} min`, "total reading"],
+              [String(SIM_CARDS.length), "simulators"],
+              [String(GLOSSARY.length), "glossary terms"],
+            ].map(([v, k]) => (
+              <li key={k} className="flex flex-col sm:flex-row sm:items-baseline sm:gap-1.5">
+                <span className="whitespace-nowrap font-num text-title tabular-nums text-foreground">{v}</span>
+                <span className="text-muted-foreground">{k}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <aside role="note" aria-label="Risk notice" className="flex gap-3 rounded-card border border-border bg-card p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-bearish" aria-hidden="true" />
         <p className="text-body text-foreground">
           <span className="font-semibold">Know the odds first.</span> SEBI found that about 9 in 10 individual F&O traders lost money between FY22 and FY24.{" "}
-          <a href={SEBI_STUDY_2024_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-bearish underline underline-offset-4 focus-visible:shadow-ember focus-visible:outline-none">
+          <a href={SEBI_STUDY_2024_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-ember focus-visible:outline-none">
             Read the SEBI study<span className="sr-only"> (PDF, opens in a new tab)</span>
           </a>{" "}
           or start with the{" "}
-          <Link to="/learn/risk-disclosure" className="font-semibold text-bearish underline underline-offset-4 focus-visible:shadow-ember focus-visible:outline-none">
+          <Link to="/learn/risk-disclosure" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-ember focus-visible:outline-none">
             risk disclosure lesson
           </Link>
           .

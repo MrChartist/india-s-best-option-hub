@@ -1,11 +1,12 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Flame } from "lucide-react";
 import { type OptionData } from "@/lib/mockData";
 import { tokenColor } from "@/lib/chartTheme";
 import { findATMStrike } from "@/lib/options";
-import { significantStrikes, maxLegOI, SIGNIFICANT_OI_FRACTION } from "@/lib/oiUtils";
+import { significantStrikes, maxLegOI, SIGNIFICANT_OI_FRACTION, windowAround } from "@/lib/oiUtils";
 import { EmptyState, ModuleHeader } from "@/components/oi/shared";
 import { fmtOI, fmtOIChange, fmtStrike } from "@/components/oi/format";
 import { cn } from "@/lib/utils";
@@ -19,11 +20,17 @@ interface OIHeatmapProps {
   highlightStrike?: number;
 }
 
+/** Strikes shown each side of ATM before "Show all". */
+const HEATMAP_PER_SIDE = 12;
+
 /**
  * Call and put OI per strike as two colour ramps: calls in the call (resistance) colour,
- * puts in the put (support) colour. Strikes under 5% of the largest leg OI are hidden.
+ * puts in the put (support) colour. Strikes under 5% of the largest leg OI are hidden, and the map
+ * is capped at ATM ± 12 strikes until "Show all" is pressed. The colour scale always uses the
+ * largest OI in the full chain so cells do not change shade when the cap is lifted.
  */
 export function OIHeatmap({ chain, spotPrice, highlightStrike }: OIHeatmapProps) {
+  const [showAll, setShowAll] = useState(false);
   const heatmapData = useMemo(() => {
     const filtered = significantStrikes(chain, SIGNIFICANT_OI_FRACTION);
     const maxOI = Math.max(maxLegOI(filtered), 1);
@@ -40,11 +47,35 @@ export function OIHeatmap({ chain, spotPrice, highlightStrike }: OIHeatmapProps)
     }));
   }, [chain, spotPrice]);
 
+  const atmRow = heatmapData.find((d) => d.isATM);
+  const visible = useMemo(() => {
+    if (showAll || !atmRow) return heatmapData;
+    const win = windowAround(heatmapData, atmRow.strike, HEATMAP_PER_SIDE);
+    // Keep a deep-linked strike visible even outside the window.
+    if (highlightStrike && !win.some((d) => d.strike === highlightStrike)) {
+      const extra = heatmapData.find((d) => d.strike === highlightStrike);
+      if (extra) return [...win, extra].sort((a, b) => a.strike - b.strike);
+    }
+    return win;
+  }, [heatmapData, showAll, atmRow, highlightStrike]);
+  const hidden = heatmapData.length - visible.length;
+
   const fill = (intensity: number, token: "chart-call" | "chart-put") => tokenColor(token, 0.08 + Math.max(0, Math.min(1, intensity)) * 0.72);
 
   return (
     <Card className="overflow-hidden">
-      <ModuleHeader icon={<Flame className="h-4 w-4 text-primary-ink" />} title="OI heatmap" hint="Darker cells hold more open interest. Strikes under 5% of the largest OI are hidden." />
+      <ModuleHeader
+        icon={<Flame className="h-4 w-4 text-primary-ink" />}
+        title="OI heatmap"
+        hint={`Darker cells hold more open interest. ${showAll ? "All strikes" : `ATM ± ${HEATMAP_PER_SIDE} strikes`} holding at least 5% of the largest OI.`}
+        right={
+          heatmapData.length > HEATMAP_PER_SIDE * 2 + 1 ? (
+            <Button variant="outline" size="pill" className="h-7 text-xs" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>
+              {showAll ? `Show ATM ± ${HEATMAP_PER_SIDE}` : `Show all (${heatmapData.length})`}
+            </Button>
+          ) : undefined
+        }
+      />
       <CardContent className="p-4">
         {heatmapData.length === 0 ? (
           <EmptyState icon={<Flame className="h-5 w-5" />} title="No open interest to map" />
@@ -70,7 +101,7 @@ export function OIHeatmap({ chain, spotPrice, highlightStrike }: OIHeatmapProps)
               <div className="pb-1 text-center text-label uppercase text-muted-foreground">Strike</div>
               <div className="pb-1 text-center text-label uppercase text-bullish">Put OI</div>
 
-              {heatmapData.map((d) => (
+              {visible.map((d) => (
                 <Fragment key={d.strike}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -118,6 +149,14 @@ export function OIHeatmap({ chain, spotPrice, highlightStrike }: OIHeatmapProps)
                 </Fragment>
               ))}
             </div>
+            {!showAll && hidden > 0 && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {hidden} far strike{hidden === 1 ? "" : "s"} hidden.{" "}
+                <button type="button" className="rounded-chip font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:shadow-ember focus-visible:outline-none" onClick={() => setShowAll(true)}>
+                  Show all
+                </button>
+              </p>
+            )}
           </>
         )}
       </CardContent>

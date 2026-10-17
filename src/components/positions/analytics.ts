@@ -72,8 +72,10 @@ export interface PositionLive {
   theta: number;
   /** ₹ per 1 vol point. */
   vega: number;
-  /** Change in ₹ delta (delta × spot) for a 1% move in the underlying. */
+  /** Change in ₹ delta (delta × spot) for a 1% move in the underlying (notional gamma). */
   gamma1pct: number;
+  /** Gamma P&L for a 1% move: ½ · Γ · (0.01 · S)² · qty, in ₹ (sign follows the position's gamma). */
+  gammaPnl1pct: number;
   grossPnl: number;
   /** Entry + exit charges if squared off at the CMP now. */
   charges: number;
@@ -88,6 +90,16 @@ export interface LiveContext {
   r: number;
   /** Chain IV in percent for this contract (fallback when the CMP cannot be inverted). */
   chainIvPct?: number;
+}
+
+/**
+ * Second-order (gamma) P&L in ₹ for a fractional spot move: ½ · Γ · (pct · S)² · qty.
+ * Γ is per unit of the underlying; qty is signed (short gamma gives a negative number).
+ */
+export function gammaPnlForMove(gammaUnit: number, spot: number, qty: number, pct = 0.01): number {
+  if (!Number.isFinite(gammaUnit) || !isPos(spot) || !Number.isFinite(qty)) return NaN;
+  const dS = pct * spot;
+  return 0.5 * gammaUnit * dS * dS * qty;
 }
 
 /** Solve IV from the CMP on the forward, then Black-76 Greeks converted to spot sensitivities. */
@@ -159,6 +171,7 @@ export function livePosition(p: TrackedPosition, ctx: LiveContext): PositionLive
     theta: thetaUnit * qty,
     vega: vegaUnit * qty,
     gamma1pct: isPos(spot) ? gammaUnit * qty * spot * spot * 0.01 : NaN,
+    gammaPnl1pct: isPos(spot) ? gammaPnlForMove(gammaUnit, spot, qty, 0.01) : NaN,
     grossPnl: gross,
     charges,
     netPnl: gross - charges,
@@ -211,6 +224,7 @@ export interface UnderlyingSummary {
   theta: number;
   vega: number;
   gamma1pct: number;
+  gammaPnl1pct: number;
   grossPnl: number;
   charges: number;
   netPnl: number;
@@ -230,6 +244,7 @@ export interface PortfolioSummary {
   theta: number;
   vega: number;
   gamma1pct: number;
+  gammaPnl1pct: number;
   grossPnl: number;
   charges: number;
   netPnl: number;
@@ -300,6 +315,7 @@ export function summarisePortfolio(
       theta: sum("theta"),
       vega: sum("vega"),
       gamma1pct: sum("gamma1pct"),
+      gammaPnl1pct: sum("gammaPnl1pct"),
       grossPnl: sum("grossPnl"),
       charges: sum("charges"),
       netPnl: sum("netPnl"),
@@ -319,6 +335,7 @@ export function summarisePortfolio(
     theta: total("theta"),
     vega: total("vega"),
     gamma1pct: total("gamma1pct"),
+    gammaPnl1pct: total("gammaPnl1pct"),
     grossPnl: total("grossPnl"),
     charges: total("charges"),
     netPnl: total("netPnl"),

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   fetchLiveOptionChain,
+  fetchProxyHealth,
   parseAllIndices,
   parseChainMulti,
   parseDhanOptionChain,
@@ -10,6 +11,7 @@ import {
   parseNSEOptionChain,
   toExpiryDate,
   toExpiryDates,
+  testDhanConnection,
 } from "@/lib/marketApi";
 import type { ChainMultiDTO, NSEOptionChainDTO } from "@/lib/types/market";
 
@@ -304,5 +306,47 @@ describe("fetchLiveOptionChain source fallback", () => {
   it("throws when every source fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("network down"); }));
     await expect(fetchLiveOptionChain("NIFTY")).rejects.toThrow();
+  });
+});
+
+describe("proxy reachability gate integration", () => {
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    const proxy = await import("@/lib/api/proxyClient");
+    proxy.setProxyGateEnabled(false);
+    proxy.resetProxyGate();
+  });
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  it("fetchProxyHealth sends /health straight through and resets the gate on success", async () => {
+    const proxy = await import("@/lib/api/proxyClient");
+    proxy.setProxyGateEnabled(true);
+    proxy.resetProxyGate();
+    const fetchMock = vi.fn(async () => json({ status: "ok", dhanConfigured: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchProxyHealth()).resolves.toMatchObject({ status: "ok" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(proxy.getProxyStatus().status).toBe("online");
+  });
+
+  it("fetchProxyHealth skips the network inside the backoff window", async () => {
+    const proxy = await import("@/lib/api/proxyClient");
+    proxy.setProxyGateEnabled(true);
+    proxy.resetProxyGate();
+    proxy.markProxyOffline();
+    const fetchMock = vi.fn(async () => json({ status: "ok" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchProxyHealth()).rejects.toThrow("Proxy unreachable");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("testDhanConnection reports an unreachable proxy and a readable result", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    await expect(testDhanConnection()).resolves.toMatchObject({ status: "error", message: expect.stringMatching(/npm run proxy/) });
+    vi.stubGlobal("fetch", vi.fn(async () => json({ status: "success", message: "Connected" })));
+    await expect(testDhanConnection()).resolves.toEqual({ status: "success", message: "Connected" });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>", { status: 502 })));
+    await expect(testDhanConnection()).resolves.toMatchObject({ status: "error", message: expect.stringMatching(/HTTP 502/) });
   });
 });

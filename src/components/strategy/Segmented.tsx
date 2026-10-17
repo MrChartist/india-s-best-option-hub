@@ -34,7 +34,8 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             className={cn(
               "rounded-chip px-2 py-1 text-[11px] font-semibold leading-none transition-colors duration-fast focus-visible:outline-none focus-visible:shadow-ember",
-              active ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
+              // Strong active state: a filled, ringed pill that reads clearly on the muted track in both themes.
+              active ? "bg-card text-foreground shadow-card ring-1 ring-border dark:bg-white/10 dark:ring-white/15" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {o.label}

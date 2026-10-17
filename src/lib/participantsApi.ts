@@ -9,9 +9,17 @@
  * Everything below the "derived" header is pure and unit-tested. The fetchers never throw:
  * they fall back to history recorded in this browser, and then to clearly labelled sample data.
  */
-import { proxyGet, type ProxyMeta } from "@/lib/api/proxyClient";
-import { fetchFIIDII, type FIIDIIData } from "@/lib/marketApi";
-import { addCalendarDays, isTradingDay, isValidIsoDate, normalizeExpiry, nowIST, previousTradingDay } from "@/lib/options";
+import { proxyFetchJSON, proxyGet, type ProxyMeta } from "@/lib/api/proxyClient";
+import { fetchFIIDII, type FIIDIIData, type HistoricalCandleResponse } from "@/lib/marketApi";
+import {
+  addCalendarDays,
+  istDateString,
+  isTradingDay,
+  isValidIsoDate,
+  normalizeExpiry,
+  nowIST,
+  previousTradingDay,
+} from "@/lib/options";
 import type { FiiStatsRow, Participant, ParticipantOIRow } from "@/lib/types/market";
 
 export type { FiiStatsRow, Participant, ParticipantOIRow };
@@ -123,7 +131,14 @@ export function longShortRatio(long: number, short: number): number {
 export function productStats(row: ParticipantOIRow, product: Product): ProductStats {
   const long = finite(row[LONG_KEY[product]]);
   const short = finite(row[SHORT_KEY[product]]);
-  return { long, short, net: long - short, gross: long + short, longPct: longPercent(long, short), lsRatio: longShortRatio(long, short) };
+  return {
+    long,
+    short,
+    net: long - short,
+    gross: long + short,
+    longPct: longPercent(long, short),
+    lsRatio: longShortRatio(long, short),
+  };
 }
 
 export function productChange(today: ProductStats, prev: ProductStats | null | undefined): ProductChange | null {
@@ -203,12 +218,18 @@ export function deriveFiiStats(oiRows: ParticipantOIRow[], volRows?: Participant
       netVol: v ? v.net : null,
     };
   };
-  return [seg("Index Futures", "futIdx"), seg("Index Calls", "optIdxCall"), seg("Index Puts", "optIdxPut"), seg("Stock Futures", "futStk")];
+  return [
+    seg("Index Futures", "futIdx"),
+    seg("Index Calls", "optIdxCall"),
+    seg("Index Puts", "optIdxPut"),
+    seg("Stock Futures", "futStk"),
+  ];
 }
 
 // ── FII long % zones ──
 
-export type LongPctZone = "extreme-short" | "heavy-short" | "leaning-short" | "leaning-long" | "heavy-long" | "extreme-long" | "unknown";
+export type LongPctZone =
+  "extreme-short" | "heavy-short" | "leaning-short" | "leaning-long" | "heavy-long" | "extreme-long" | "unknown";
 
 /** Extreme bands sit below 10% and above 90%; "heavy" between 10–25% and 75–90%. */
 export const LONG_PCT_BANDS = { extremeLow: 10, heavyLow: 25, heavyHigh: 75, extremeHigh: 90 } as const;
@@ -224,13 +245,32 @@ export function classifyLongPct(pct: number): LongPctZone {
   return "extreme-long";
 }
 
-export const ZONE_TEXT: Record<LongPctZone, { label: string; note: string; tone: "bullish" | "bearish" | "warning" | "neutral" }> = {
-  "extreme-short": { label: "Extreme short", note: "FIIs are rarely this short. Past extremes often came near short-term bottoms, as shorts later covered.", tone: "warning" },
-  "heavy-short": { label: "Heavily short", note: "FIIs hold far more short than long index futures. Short covering can drive sharp rallies.", tone: "bearish" },
+export const ZONE_TEXT: Record<
+  LongPctZone,
+  { label: string; note: string; tone: "bullish" | "bearish" | "warning" | "neutral" }
+> = {
+  "extreme-short": {
+    label: "Extreme short",
+    note: "FIIs are rarely this short. Past extremes often came near short-term bottoms, as shorts later covered.",
+    tone: "warning",
+  },
+  "heavy-short": {
+    label: "Heavily short",
+    note: "FIIs hold far more short than long index futures. Short covering can drive sharp rallies.",
+    tone: "bearish",
+  },
   "leaning-short": { label: "Leaning short", note: "More shorts than longs, but not stretched.", tone: "bearish" },
   "leaning-long": { label: "Leaning long", note: "More longs than shorts, but not stretched.", tone: "bullish" },
-  "heavy-long": { label: "Heavily long", note: "FIIs are positioned for upside. Long unwinding can add to falls.", tone: "bullish" },
-  "extreme-long": { label: "Extreme long", note: "FIIs are rarely this long. Crowded longs have often preceded pauses or pullbacks.", tone: "warning" },
+  "heavy-long": {
+    label: "Heavily long",
+    note: "FIIs are positioned for upside. Long unwinding can add to falls.",
+    tone: "bullish",
+  },
+  "extreme-long": {
+    label: "Extreme long",
+    note: "FIIs are rarely this long. Crowded longs have often preceded pauses or pullbacks.",
+    tone: "warning",
+  },
   unknown: { label: "No data", note: "Participant data is not available for this date.", tone: "neutral" },
 };
 
@@ -423,7 +463,10 @@ export interface KVStorage {
 export const OI_STORE_KEY = "mc_participant_oi_v1";
 export const VOL_STORE_KEY = "mc_participant_vol_v1";
 export const CASH_STORE_KEY = "mc_fii_dii_cash_v1";
-export const MAX_STORED_DAYS = 120;
+/** About 13 months of sessions, so the 1Y window can be served from this browser. */
+export const MAX_STORED_DAYS = 270;
+/** Longest history window the page offers (1 year of sessions). */
+export const MAX_HISTORY_DAYS = 250;
 
 function defaultStorage(): KVStorage | null {
   try {
@@ -478,11 +521,18 @@ export function flattenStore(store: DateKeyed<ParticipantOIRow>): ParticipantOIR
     .flatMap((d) => sanitizeRows(store[d]));
 }
 
-export function loadStoredRows(kind: "oi" | "vol" = "oi", storage: KVStorage | null = defaultStorage()): ParticipantOIRow[] {
+export function loadStoredRows(
+  kind: "oi" | "vol" = "oi",
+  storage: KVStorage | null = defaultStorage(),
+): ParticipantOIRow[] {
   return flattenStore(readStore<ParticipantOIRow>(kind === "oi" ? OI_STORE_KEY : VOL_STORE_KEY, storage));
 }
 
-export function saveRows(rows: ParticipantOIRow[], kind: "oi" | "vol" = "oi", storage: KVStorage | null = defaultStorage()): ParticipantOIRow[] {
+export function saveRows(
+  rows: ParticipantOIRow[],
+  kind: "oi" | "vol" = "oi",
+  storage: KVStorage | null = defaultStorage(),
+): ParticipantOIRow[] {
   const key = kind === "oi" ? OI_STORE_KEY : VOL_STORE_KEY;
   const merged = mergeByDate(readStore<ParticipantOIRow>(key, storage), sanitizeRows(rows));
   writeStore(key, merged, storage);
@@ -562,7 +612,9 @@ export function cumulativeCash(days: CashFlowDay[]): Array<CashFlowDay & { fiiCu
 function isCashDay(v: unknown): v is CashFlowDay {
   if (!v || typeof v !== "object") return false;
   const r = v as Record<string, unknown>;
-  return typeof r.date === "string" && isValidIsoDate(r.date) && typeof r.fiiNet === "number" && typeof r.diiNet === "number";
+  return (
+    typeof r.date === "string" && isValidIsoDate(r.date) && typeof r.fiiNet === "number" && typeof r.diiNet === "number"
+  );
 }
 
 export function loadStoredCash(storage: KVStorage | null = defaultStorage()): CashFlowDay[] {
@@ -615,18 +667,29 @@ export function lastTradingDays(endDate: string, count: number): string[] {
 export function sampleParticipantHistory(days: number, endDate: string, seed = 20261017): ParticipantOIRow[] {
   const rand = mulberry32(seed);
   const between = (lo: number, hi: number) => lo + (hi - lo) * rand();
-  const dates = lastTradingDays(endDate, Math.max(1, Math.min(250, Math.floor(days))));
+  // Always walk the same 250-day path and keep the last `days`, so the latest sample day is the
+  // same whether a page asks for 20 days (Dashboard card) or 60 (FII/DII page).
+  const keep = Math.max(1, Math.min(250, Math.floor(days)));
+  const dates = lastTradingDays(endDate, 250);
+  const firstKept = dates.length - keep;
   const out: ParticipantOIRow[] = [];
+  let dayIndex = -1;
   let fiiPct = between(0.22, 0.32);
   let fiiGross = between(2.4e5, 2.9e5);
   for (const date of dates) {
+    dayIndex += 1;
     fiiPct = Math.min(0.62, Math.max(0.08, fiiPct + (rand() - 0.5) * 0.045 + (0.27 - fiiPct) * 0.05));
     fiiGross = Math.max(1.6e5, fiiGross * (1 + (rand() - 0.5) * 0.05));
     const fii = { futIdxLong: fiiGross * fiiPct, futIdxShort: fiiGross * (1 - fiiPct) };
     const dii = { futIdxLong: between(0.55e5, 0.75e5), futIdxShort: between(0.02e5, 0.05e5) };
     const pro = { futIdxLong: between(0.35e5, 0.7e5), futIdxShort: between(0.35e5, 0.75e5) };
 
-    const rows: Record<Participant, Record<string, number>> = { FII: { ...fii }, DII: { ...dii }, Pro: { ...pro }, Client: {} };
+    const rows: Record<Participant, Record<string, number>> = {
+      FII: { ...fii },
+      DII: { ...dii },
+      Pro: { ...pro },
+      Client: {},
+    };
 
     rows.FII.futStkLong = between(1.6e6, 1.9e6);
     rows.FII.futStkShort = between(1.15e6, 1.35e6);
@@ -651,7 +714,12 @@ export function sampleParticipantHistory(days: number, endDate: string, seed = 2
     rows.Pro.optIdxPutShort = between(2.2e6, 3.0e6) * putScale;
 
     // Client balances every product so the market clears.
-    const clientGross: Record<Product, number> = { futIdx: between(2.6e5, 3.2e5), futStk: between(3.0e6, 3.4e6), optIdxCall: between(3.4e6, 4.4e6) * callScale, optIdxPut: between(3.0e6, 4.0e6) * putScale };
+    const clientGross: Record<Product, number> = {
+      futIdx: between(2.6e5, 3.2e5),
+      futStk: between(3.0e6, 3.4e6),
+      optIdxCall: between(3.4e6, 4.4e6) * callScale,
+      optIdxPut: between(3.0e6, 4.0e6) * putScale,
+    };
     for (const p of PRODUCTS) {
       const lk = LONG_KEY[p] as string;
       const sk = SHORT_KEY[p] as string;
@@ -663,6 +731,7 @@ export function sampleParticipantHistory(days: number, endDate: string, seed = 2
       rows.Client[sk] = (gross - net) / 2;
     }
 
+    if (dayIndex < firstKept) continue;
     for (const p of PARTICIPANTS) {
       const r = rows[p];
       // Round longs, then make the client absorb rounding so totals stay equal.
@@ -725,7 +794,15 @@ export function sampleCashFlows(days: number, endDate: string, seed = 99): CashF
     const diiNet = Math.round((-fiiNet * (0.55 + rand() * 0.5) + (rand() - 0.4) * 2500) * 100) / 100;
     const fiiBuy = Math.round((11000 + rand() * 7000) * 100) / 100;
     const diiBuy = Math.round((12000 + rand() * 6000) * 100) / 100;
-    return { date, fiiBuy, fiiSell: Math.round((fiiBuy - fiiNet) * 100) / 100, fiiNet, diiBuy, diiSell: Math.round((diiBuy - diiNet) * 100) / 100, diiNet };
+    return {
+      date,
+      fiiBuy,
+      fiiSell: Math.round((fiiBuy - fiiNet) * 100) / 100,
+      fiiNet,
+      diiBuy,
+      diiSell: Math.round((diiBuy - diiNet) * 100) / 100,
+      diiNet,
+    };
   });
 }
 
@@ -745,7 +822,10 @@ function liveMode(meta: ProxyMeta): DataMode {
   return meta.source === "sample" ? "sample" : meta.stale || meta.source === "cache" ? "cache" : "live";
 }
 
-export async function fetchParticipantOI(date?: string, signal?: AbortSignal): Promise<Sourced<ParticipantOIRow[]> | null> {
+export async function fetchParticipantOI(
+  date?: string,
+  signal?: AbortSignal,
+): Promise<Sourced<ParticipantOIRow[]> | null> {
   const env = await proxyGet<unknown>("/api/x/participant-oi", { date }, { signal, timeoutMs: 20000 });
   const rows = sanitizeRows(env.data);
   if (rows.length === 0) return null;
@@ -753,7 +833,10 @@ export async function fetchParticipantOI(date?: string, signal?: AbortSignal): P
   return { data: rows, mode: liveMode(env.meta), asOf: env.meta.asOf, reason: env.meta.reason };
 }
 
-export async function fetchParticipantVol(date?: string, signal?: AbortSignal): Promise<Sourced<ParticipantVolRow[]> | null> {
+export async function fetchParticipantVol(
+  date?: string,
+  signal?: AbortSignal,
+): Promise<Sourced<ParticipantVolRow[]> | null> {
   const env = await proxyGet<unknown>("/api/x/participant-vol", { date }, { signal, timeoutMs: 20000 });
   const rows = sanitizeRows(env.data);
   if (rows.length === 0) return null;
@@ -761,8 +844,15 @@ export async function fetchParticipantVol(date?: string, signal?: AbortSignal): 
   return { data: rows, mode: liveMode(env.meta), asOf: env.meta.asOf, reason: env.meta.reason };
 }
 
-export async function fetchParticipantHistory(days: number, signal?: AbortSignal): Promise<Sourced<ParticipantOIRow[]> | null> {
-  const env = await proxyGet<unknown>("/api/x/participant-oi/history", { days: Math.max(1, Math.min(60, Math.floor(days))) }, { signal, timeoutMs: 45000 });
+export async function fetchParticipantHistory(
+  days: number,
+  signal?: AbortSignal,
+): Promise<Sourced<ParticipantOIRow[]> | null> {
+  const env = await proxyGet<unknown>(
+    "/api/x/participant-oi/history",
+    { days: Math.max(1, Math.min(60, Math.floor(days))) },
+    { signal, timeoutMs: 45000 },
+  );
   const rows = sanitizeRows(env.data);
   if (rows.length === 0) return null;
   return { data: saveRows(rows, "oi"), mode: liveMode(env.meta), asOf: env.meta.asOf, reason: env.meta.reason };
@@ -790,9 +880,141 @@ export async function fetchCashFlows(): Promise<Sourced<CashFlowDay[]>> {
   }
   const stored = latest.length ? saveCash(latest) : loadStoredCash();
   if (latest.length) return { data: stored, mode: "live", asOf: Date.now() };
-  if (stored.length) return { data: stored, mode: "cache", reason: "FII/DII feed unavailable. Showing days recorded in this browser." };
+  if (stored.length)
+    return { data: stored, mode: "cache", reason: "FII/DII feed unavailable. Showing days recorded in this browser." };
   const t = nowIST();
-  return { data: sampleCashFlows(60, latestExpectedDate()), mode: "sample", reason: `FII/DII feed unavailable on ${t.date}.` };
+  return {
+    data: sampleCashFlows(60, latestExpectedDate()),
+    mode: "sample",
+    reason: `FII/DII feed unavailable on ${t.date}.`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FII positioning vs next-day NIFTY (lead-lag)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DailyClose {
+  date: string;
+  close: number;
+}
+
+/** Daily closes from the proxy's columnar candles (timestamps in seconds or ms), ascending, one per IST date. */
+export function parseDailyCloses(
+  data:
+    | { timestamp?: Array<number | string>; start_Time?: Array<number | string>; close?: Array<number | null> }
+    | null
+    | undefined,
+): DailyClose[] {
+  const ts = data?.timestamp ?? data?.start_Time ?? [];
+  const byDate = new Map<string, number>();
+  ts.forEach((t, i) => {
+    const sec = typeof t === "number" ? t : Number(t);
+    const close = data?.close?.[i];
+    if (!Number.isFinite(sec) || typeof close !== "number" || !Number.isFinite(close) || close <= 0) return;
+    byDate.set(istDateString(new Date(sec > 1e12 ? sec : sec * 1000)), close);
+  });
+  return [...byDate.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([date, close]) => ({ date, close }));
+}
+
+export interface LeadLagPoint {
+  date: string;
+  /** FII index-futures long % on the day. */
+  fiiLong: number;
+  /** Day-over-day change in FII long %, percentage points. */
+  fiiChange: number;
+  /** NIFTY return from this day's close to the next session's close, percent. */
+  nextRet: number;
+}
+
+export interface LeadLag {
+  points: LeadLagPoint[];
+  n: number;
+  /** Pearson correlation of the day's change in FII long % with the next-day NIFTY return. */
+  corrChange: number;
+  /** Pearson correlation of the FII long % level with the next-day NIFTY return. */
+  corrLevel: number;
+}
+
+/**
+ * Pair each participant day t with NIFTY's close-to-close return from t to the next session in
+ * `closes`. Days without a close on t or a later close are skipped; the first day has no change.
+ */
+export function nextDayCorrelation(series: HistoryPoint[], closes: DailyClose[]): LeadLag {
+  const sorted = [...closes].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const idx = new Map(sorted.map((c, i) => [c.date, i]));
+  const points: LeadLagPoint[] = [];
+  for (let k = 1; k < series.length; k++) {
+    const p = series[k];
+    const i = idx.get(p.date);
+    if (i === undefined || i + 1 >= sorted.length) continue;
+    const change = p.fiiLongPct - series[k - 1].fiiLongPct;
+    if (!Number.isFinite(change) || !Number.isFinite(p.fiiLongPct)) continue;
+    points.push({
+      date: p.date,
+      fiiLong: p.fiiLongPct,
+      fiiChange: change,
+      nextRet: (sorted[i + 1].close / sorted[i].close - 1) * 100,
+    });
+  }
+  return {
+    points,
+    n: points.length,
+    corrChange: pearson(
+      points.map((x) => x.fiiChange),
+      points.map((x) => x.nextRet),
+    ),
+    corrLevel: pearson(
+      points.map((x) => x.fiiLong),
+      points.map((x) => x.nextRet),
+    ),
+  };
+}
+
+/** Plain-English strength of a correlation coefficient. */
+export function correlationStrength(r: number): "none" | "weak" | "moderate" | "strong" | "unknown" {
+  if (!Number.isFinite(r)) return "unknown";
+  const a = Math.abs(r);
+  return a < 0.1 ? "none" : a < 0.3 ? "weak" : a < 0.5 ? "moderate" : "strong";
+}
+
+/**
+ * Simulated NIFTY closes for the sample dashboard: a seeded random walk on the series' dates plus
+ * the next session, with only a faint link to FII positioning. Never shown as market data.
+ */
+export function sampleNiftyCloses(series: HistoryPoint[], seed = 31): DailyClose[] {
+  const rand = mulberry32(seed);
+  const out: DailyClose[] = [];
+  let close = 25200;
+  const dates = series.map((p) => p.date);
+  const levels: number[] = [];
+  for (let k = dates.length - 1; k >= 0; k--) {
+    levels.unshift(close);
+    const change = k > 0 ? series[k].fiiLongPct - series[k - 1].fiiLongPct : 0;
+    const ret = (rand() - 0.5) * 0.018 + (Number.isFinite(change) ? change : 0) * 0.0004;
+    close = close / (1 + ret);
+  }
+  dates.forEach((date, k) => out.push({ date, close: Math.round(levels[k] * 100) / 100 }));
+  return out;
+}
+
+/** NIFTY 50 daily closes through the proxy (Yahoo daily candles). Null when unavailable. */
+export async function fetchNiftyCloses(
+  fromIso: string,
+  toIso: string,
+  signal?: AbortSignal,
+): Promise<Sourced<DailyClose[]> | null> {
+  try {
+    const res = await proxyFetchJSON<HistoricalCandleResponse>(
+      "/api/yahoo-chart",
+      { symbol: "NIFTY", interval: "D", fromDate: fromIso, toDate: toIso },
+      { withDhan: false, signal },
+    );
+    const closes = parseDailyCloses(res?.data);
+    return closes.length ? { data: closes, mode: "live", asOf: Date.now() } : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -841,11 +1063,16 @@ function previousDateIn(rows: ParticipantOIRow[], date: string): string | null {
 
 /**
  * Load everything the Participants page needs. `date` null = latest published file.
- * `days` is the history window (up to 90; the proxy serves 60, older days come from this browser).
+ * `days` is the history window (up to 250 sessions, 1Y; the proxy serves 60, older days come from this browser).
  */
-export async function loadParticipantsDashboard(opts: { date: string | null; days: number; now?: Date; signal?: AbortSignal }): Promise<ParticipantsDashboard> {
+export async function loadParticipantsDashboard(opts: {
+  date: string | null;
+  days: number;
+  now?: Date;
+  signal?: AbortSignal;
+}): Promise<ParticipantsDashboard> {
   const { date, signal } = opts;
-  const days = Math.max(5, Math.min(90, Math.floor(opts.days)));
+  const days = Math.max(5, Math.min(MAX_HISTORY_DAYS, Math.floor(opts.days)));
   const now = opts.now ?? new Date();
 
   const [oiRes, volRes, histRes, statsRes] = await Promise.all([
@@ -862,7 +1089,7 @@ export async function loadParticipantsDashboard(opts: { date: string | null; day
   let history: ParticipantOIRow[];
   let historyMode: DataMode;
   if (histRes || stored.length > 0) {
-    history = stored.length ? stored : histRes?.data ?? [];
+    history = stored.length ? stored : (histRes?.data ?? []);
     historyMode = histRes ? histRes.mode : "cache";
   } else {
     history = [];
@@ -895,7 +1122,9 @@ export async function loadParticipantsDashboard(opts: { date: string | null; day
         shownDate = fallbackDate;
         mode = historyMode === "live" ? "cache" : historyMode;
         fellBack = !!date;
-        reason = date ? `No participant file for ${date}.` : "Latest file unavailable. Showing the most recent saved day.";
+        reason = date
+          ? `No participant file for ${date}.`
+          : "Latest file unavailable. Showing the most recent saved day.";
       } else {
         mode = "sample";
       }
@@ -956,7 +1185,10 @@ export async function loadParticipantsDashboard(opts: { date: string | null; day
     fiiStatsDerived = true;
   }
 
-  const windowDates = [...new Set(history.map((r) => r.date))].sort().filter((d) => d <= shownDate).slice(-days);
+  const windowDates = [...new Set(history.map((r) => r.date))]
+    .sort()
+    .filter((d) => d <= shownDate)
+    .slice(-days);
   const windowed = history.filter((r) => windowDates.includes(r.date));
 
   return {

@@ -6,6 +6,7 @@ import type { BanListData, MwplRow } from "./ban";
 import type { DealRow } from "./bigMoney";
 import { buildupTag, mwplStatus, type ScreenerRow } from "./metrics";
 import { FNO_INDICES, STATIC_FNO_STOCKS, sectorOf } from "./universe";
+import { SPOT_PRICE_MAP } from "@/lib/positionStore";
 
 /** mulberry32: small, fast, deterministic PRNG. */
 export function seededRandom(seed: number): () => number {
@@ -30,7 +31,15 @@ function hashSymbol(s: string): number {
 
 const r2 = (x: number) => Math.round(x * 100) / 100;
 
-const INDEX_SPOT: Record<string, number> = { NIFTY: 25200, BANKNIFTY: 56400, FINNIFTY: 26700, MIDCPNIFTY: 13100 };
+/**
+ * Sample spot for a symbol. Symbols in the reference spot table (every F&O index and the
+ * large caps) use exactly the spot the sample option chain, Dashboard and Strategy Builder
+ * use, so one sample session shows one price everywhere. Other stocks get a seeded price.
+ */
+export function sampleSpotFor(symbol: string, seededFallback: number): number {
+  const ref = SPOT_PRICE_MAP[symbol];
+  return typeof ref === "number" && ref > 0 ? ref : seededFallback;
+}
 
 /** One sample row per static F&O stock plus the four indices. Same output for the same seed. */
 export function sampleRows(seed = 20261017): ScreenerRow[] {
@@ -38,7 +47,8 @@ export function sampleRows(seed = 20261017): ScreenerRow[] {
   return symbols.map((symbol) => {
     const rnd = seededRandom(hashSymbol(symbol) ^ seed);
     const isIndex = FNO_INDICES.includes(symbol);
-    const ltp = isIndex ? INDEX_SPOT[symbol] ?? 20000 : r2(80 + rnd() * 4200);
+    // Stocks always draw the seeded fallback, so the rest of the row is unchanged by the lookup.
+    const ltp = isIndex ? sampleSpotFor(symbol, 20000) : sampleSpotFor(symbol, r2(80 + rnd() * 4200));
     const changePct = r2((rnd() - 0.5) * (isIndex ? 2.4 : 7));
     const oiChangePct = r2((rnd() - 0.45) * 24);
     const hv20 = r2((isIndex ? 10 : 18) + rnd() * (isIndex ? 8 : 26));

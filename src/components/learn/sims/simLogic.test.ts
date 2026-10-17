@@ -157,3 +157,20 @@ describe("charges helpers", () => {
     expect(pnlTone(NaN)).toBeUndefined();
   });
 });
+
+describe("sample spot and ATM centring", () => {
+  it("takes the simulator spot from the sample chain", async () => {
+    const { sampleSimSpot } = await import("./simLogic");
+    const now = new Date("2026-10-15T05:00:00Z");
+    expect(sampleSimSpot(24250, now)).toBe(24250);
+    expect(sampleSimSpot(0, now)).toBe(0);
+  });
+
+  it("finds the ATM strike index in a ladder", async () => {
+    const { atmIndex, strikeLadder } = await import("./simLogic");
+    const ladder = strikeLadder(24260, 50, 3);
+    expect(ladder[atmIndex(ladder, 24260)]).toBe(24250);
+    expect(atmIndex([], 24260)).toBe(-1);
+    expect(atmIndex(ladder, Number.NaN)).toBe(-1);
+  });
+});

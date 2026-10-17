@@ -18,6 +18,7 @@ const KIND: Record<LedgerKind, { label: string; variant: "default" | "neutral" |
   SETTLEMENT: { label: "Settlement", variant: "info" },
   EXERCISE_STT: { label: "STT exercise", variant: "warning" },
   RESET: { label: "Reset", variant: "neutral" },
+  ARCHIVE: { label: "Archived", variant: "neutral" },
 };
 
 function csvCell(v: string | number): string {
@@ -29,11 +30,16 @@ export function PaperLedger({ ledger }: { ledger: LedgerEntry[] }) {
   const rows = useMemo(() => [...ledger].sort((a, b) => b.ts - a.ts), [ledger]);
   const totals = useMemo(() => {
     const t = { charges: 0, stt: 0, premium: 0, settlement: 0 };
+    const add = (kind: LedgerKind, amount: number) => {
+      if (kind === "CHARGES") t.charges += -amount;
+      if (kind === "EXERCISE_STT") t.stt += -amount;
+      if (kind === "PREMIUM") t.premium += amount;
+      if (kind === "SETTLEMENT") t.settlement += amount;
+    };
     for (const e of ledger) {
-      if (e.kind === "CHARGES") t.charges += -e.amount;
-      if (e.kind === "EXERCISE_STT") t.stt += -e.amount;
-      if (e.kind === "PREMIUM") t.premium += e.amount;
-      if (e.kind === "SETTLEMENT") t.settlement += e.amount;
+      // Archive rows carry per-kind totals for the entries they replaced, so the totals still add up.
+      if (e.kind === "ARCHIVE" && e.archived) for (const [k, v] of Object.entries(e.archived.byKind)) add(k as LedgerKind, v ?? 0);
+      else add(e.kind, e.amount);
     }
     return t;
   }, [ledger]);
@@ -90,13 +96,23 @@ export function PaperLedger({ ledger }: { ledger: LedgerEntry[] }) {
               <TableCell>
                 <Badge variant={KIND[e.kind].variant}>{KIND[e.kind].label}</Badge>
               </TableCell>
-              <TableCell className="text-body-sm">{e.description}</TableCell>
+              <TableCell className="text-body-sm">
+                {e.description}
+                {e.archived ? (
+                  <span className="block text-micro text-muted-foreground">
+                    {formatDateIST(e.archived.from)} to {formatDateIST(e.archived.to)} · net of premium, charges and settlements
+                  </span>
+                ) : null}
+              </TableCell>
               <TableCell className={cn("text-right tabular-nums", signedClass(e.amount))}>{signedINR(e.amount, 2)}</TableCell>
               <TableCell className="text-right tabular-nums">{formatINR(e.balance)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      {ledger.some((e) => e.kind === "ARCHIVE") ? (
+        <p className="px-4 pb-1 text-body-sm text-muted-foreground">Entries older than 90 days are folded into one archived row per month to keep this browser's storage small. Trades and the P&L calendar keep full detail.</p>
+      ) : null}
       {rows.length > 500 ? <p className="px-4 pb-3 text-body-sm text-muted-foreground">Showing the latest 500 of {rows.length} entries. Export CSV for the full ledger.</p> : null}
     </div>
   );

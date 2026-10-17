@@ -1,10 +1,13 @@
-import { useId, type ReactNode } from "react";
-import { Info } from "lucide-react";
+import { useId, useMemo, useState, type ReactNode } from "react";
+import { CalendarDays, Info } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateIST, istDateString } from "@/lib/options";
 import { cn } from "@/lib/utils";
-import { symbolOptions, type Tone } from "./calcLogic";
+import { calendarDateToIso, isoToCalendarDate, symbolOptions, type Tone } from "./calcLogic";
 
 /** Card-like section used by every calculator. */
 export function Panel({
@@ -24,7 +27,7 @@ export function Panel({
     <section className={cn("rounded-card border border-border bg-card p-4 shadow-card sm:p-5", className)} aria-label={title}>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 className="font-display text-title">{title}</h2>
+          <h2 data-card-title="" className="font-display text-[15px] font-bold leading-snug text-foreground">{title}</h2>
           {description ? <p className="mt-1 max-w-3xl text-body-sm text-muted-foreground">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -123,7 +126,7 @@ export function SelectField<T extends string>({
         {label}
       </Label>
       <Select value={value} onValueChange={(v) => onChange(v as T)}>
-        <SelectTrigger id={id}>
+        <SelectTrigger id={id} className={compact ? undefined : "sm:min-w-[11rem]"}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -270,16 +273,98 @@ export function KV({ k, v, strong, className }: { k: ReactNode; v: ReactNode; st
   );
 }
 
-/** Native date input styled like the shadcn Input (accessible and mobile-friendly). */
-export function DateField({ label, value, onChange, min, hint, className }: { label: string; value: string; onChange: (v: string) => void; min?: string; hint?: ReactNode; className?: string }) {
+/**
+ * Date picker: a button showing the date in Indian format ("20 Oct 2026", IST) that
+ * opens a calendar popover. Value is an ISO "yyyy-mm-dd" IST calendar date.
+ * `markDates` highlights dates such as NSE expiries.
+ */
+export function DateField({
+  label,
+  value,
+  onChange,
+  min,
+  hint,
+  className,
+  markDates,
+  markLabel = "Expiry",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  min?: string;
+  hint?: ReactNode;
+  className?: string;
+  markDates?: readonly string[];
+  markLabel?: string;
+}) {
   const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+  const [open, setOpen] = useState(false);
+  const selected = isoToCalendarDate(value) ?? undefined;
+  const minDate = isoToCalendarDate(min) ?? undefined;
+  const marked = useMemo(() => (markDates ?? []).map((d) => isoToCalendarDate(d)).filter((d): d is Date => d !== null), [markDates]);
+  const today = isoToCalendarDate(istDateString()) ?? new Date();
+  const pick = (iso: string) => {
+    if (!iso) return;
+    onChange(iso);
+    setOpen(false);
+  };
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
       <Label htmlFor={id} className="block text-label uppercase text-muted-foreground">
         {label}
       </Label>
-      <Input id={id} type="date" value={value} min={min} onChange={(e) => onChange(e.target.value)} className="font-num tabular-nums" />
-      {hint ? <div className="text-body-sm text-muted-foreground">{hint}</div> : null}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            id={id}
+            type="button"
+            lang="en-IN"
+            aria-describedby={hintId}
+            aria-haspopup="dialog"
+            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-left text-sm text-foreground transition-[border-color,box-shadow] duration-fast ease-expo hover:border-foreground/25 focus-visible:border-primary focus-visible:shadow-ember focus-visible:outline-none data-[state=open]:border-primary"
+          >
+            <span className={cn("min-w-0 truncate font-num tabular-nums", !value && "text-muted-foreground")}>{value ? formatDateIST(value) : "Pick a date"}</span>
+            <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-auto p-0" aria-label={`${label} calendar`}>
+          <Calendar
+            mode="single"
+            selected={selected}
+            defaultMonth={selected ?? minDate ?? today}
+            onSelect={(d) => pick(calendarDateToIso(d))}
+            disabled={minDate ? { before: minDate } : undefined}
+            modifiers={marked.length ? { marked } : undefined}
+            modifiersClassNames={marked.length ? { marked: "font-bold underline decoration-primary decoration-2 underline-offset-4" } : undefined}
+            weekStartsOn={1}
+            initialFocus
+          />
+          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-body-sm">
+            {marked.length ? (
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="font-bold text-foreground underline decoration-primary decoration-2 underline-offset-4">Underlined</span>
+                <span>= {markLabel.toLowerCase()}</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Dates in IST</span>
+            )}
+            <button
+              type="button"
+              onClick={() => pick(istDateString())}
+              disabled={!!min && istDateString() < min}
+              className="rounded-chip px-2 py-1 font-semibold text-primary-ink hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none disabled:opacity-50"
+            >
+              Today
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {hint ? (
+        <div id={hintId} className="text-body-sm text-muted-foreground">
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import {
   bsPrice,
   calcCharges,
   exerciseSTT,
+  generateSampleChain,
+  getExpiries,
   greeks,
   MINUTES_PER_YEAR,
   strategyValueAt,
@@ -239,4 +241,23 @@ export function roundTripSummary(o: { entry: number; exit: number; qty: number; 
 export function pnlTone(v: number): "bullish" | "bearish" | undefined {
   if (!Number.isFinite(v) || v === 0) return undefined;
   return v > 0 ? "bullish" : "bearish";
+}
+
+/**
+ * Sample NIFTY spot for the simulators when no quote is available. Taken from the same
+ * labelled sample chain the terminal shows in sample mode, so Learn and the Option Chain
+ * agree. Falls back to the given reference level if the chain cannot be built.
+ */
+export function sampleSimSpot(reference: number, now: Date = new Date()): number {
+  const expiry = getExpiries("NIFTY", now, 1)[0]?.date ?? "";
+  const { spotPrice } = generateSampleChain({ symbol: "NIFTY", spot: reference, expiry, now, strikes: 11 });
+  return spotPrice > 0 ? spotPrice : reference;
+}
+
+/** Index of the strike nearest to ATM in a ladder (for centring a scroller); −1 when empty. */
+export function atmIndex(ladder: readonly number[], spot: number): number {
+  if (ladder.length === 0 || !Number.isFinite(spot)) return -1;
+  let best = 0;
+  for (let i = 1; i < ladder.length; i++) if (Math.abs(ladder[i] - spot) < Math.abs(ladder[best] - spot)) best = i;
+  return best;
 }

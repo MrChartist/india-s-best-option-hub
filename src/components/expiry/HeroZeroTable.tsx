@@ -1,19 +1,25 @@
 /** Hero-zero screen: far-OTM contracts under ₹10 with the biggest gains and volume, gamma per ₹ and POP. */
-import { useMemo, useState } from "react";
-import { AlertTriangle, Ticket } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { AlertTriangle, ScanSearch, ShoppingBasket, Ticket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { addLegs, readBasket, writeBasket } from "@/components/option-chain/basket";
+import { contractPath } from "@/lib/history/contractSeries";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatCompactIN, formatINR, formatPct } from "@/lib/options";
+import { formatCompactIN, formatINR, formatPct, formatStrike } from "@/lib/options";
 import type { OptionData } from "@/lib/mockData";
 import type { ChainSnapshot } from "@/lib/snapshotStore";
 import { cn } from "@/lib/utils";
-import { heroZeroCandidates, openingLtpMap, sortHeroZero, type HeroSort, signTone } from "./expiryMath";
+import { heroZeroCandidates, heroZeroLeg, openingLtpMap, sortHeroZero, type HeroSort, type HeroZeroRow, signTone } from "./expiryMath";
 import { DerivedBadge, EmptyState, HelpTip, Panel, PanelSkeleton, SampleBadge } from "./ExpiryUi";
 import type { SessionMode } from "./useExpirySession";
 
 interface Props {
+  symbol: string;
   chain: OptionData[];
   spot: number;
   expiry: string;
@@ -34,7 +40,7 @@ const SORTS: Array<{ value: HeroSort; label: string }> = [
   { value: "pop", label: "POP" },
 ];
 
-export function HeroZeroTable({ chain, spot, expiry, r, q, lotSize, snaps, mode, at, loading }: Props) {
+export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snaps, mode, at, loading }: Props) {
   const [sort, setSort] = useState<HeroSort>("gain");
   const [maxPrice, setMaxPrice] = useState("10");
   const [side, setSide] = useState<"ALL" | "CE" | "PE">("ALL");
@@ -45,6 +51,17 @@ export function HeroZeroTable({ chain, spot, expiry, r, q, lotSize, snaps, mode,
     [chain, spot, expiry, r, q, maxPrice, openLtp, atMinute],
   );
   const shown = useMemo(() => sortHeroZero(side === "ALL" ? rows : rows.filter((x) => x.type === side), sort).slice(0, 15), [rows, sort, side]);
+
+  const addToBasket = useCallback(
+    (x: HeroZeroRow) => {
+      const leg = heroZeroLeg(symbol, expiry, x);
+      writeBasket(addLegs(readBasket(), [leg]));
+      toast.success(`Added ${leg.symbol} ${formatStrike(leg.strike)} ${leg.type} to the basket`, {
+        description: `Buy 1 lot at ${formatINR(leg.premium)}${lotSize > 0 ? ` · ${formatINR(leg.premium * lotSize, { decimals: 0 })} per lot` : ""}${mode === "sample" ? " · sample price" : ""}. Open the basket from the Option Chain.`,
+      });
+    },
+    [symbol, expiry, lotSize, mode],
+  );
 
   if (loading) return <PanelSkeleton height={300} label="Loading hero-zero table" />;
 
@@ -127,13 +144,22 @@ export function HeroZeroTable({ chain, spot, expiry, r, q, lotSize, snaps, mode,
                 <TableHead scope="col" className="hidden text-right sm:table-cell">P(ITM)</TableHead>
                 <TableHead scope="col" className="text-right">POP</TableHead>
                 <TableHead scope="col" className="hidden text-right lg:table-cell">Cost / lot</TableHead>
+                <TableHead scope="col" className="text-right">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {shown.map((x) => (
                 <TableRow key={`${x.strike}-${x.type}`}>
                   <TableCell className="whitespace-nowrap font-num tabular-nums">
-                    {x.strike} <Badge variant={x.type === "CE" ? "bearish" : "bullish"} className="ml-1">{x.type}</Badge>
+                    <Link
+                      to={contractPath(symbol, expiry, x.strike, x.type)}
+                      className="inline-flex items-center gap-1 rounded-chip underline-offset-2 hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+                      aria-label={`Open the ${symbol} ${formatStrike(x.strike)} ${x.type} contract page`}
+                    >
+                      {formatStrike(x.strike)} <Badge variant={x.type === "CE" ? "bearish" : "bullish"} className="ml-1">{x.type}</Badge>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-right font-num tabular-nums">{formatINR(x.ltp)}</TableCell>
                   <TableCell className={cn("text-right font-num tabular-nums", signTone(x.changePct))} title={x.changeBasis === "prev-close" ? "vs previous close" : x.changeBasis === "session-open" ? "vs first snapshot of the session" : "No reference price"}>
@@ -146,6 +172,18 @@ export function HeroZeroTable({ chain, spot, expiry, r, q, lotSize, snaps, mode,
                   <TableCell className="hidden text-right font-num tabular-nums sm:table-cell">{Number.isFinite(x.probITM) ? formatPct(x.probITM * 100, { decimals: 1 }) : "—"}</TableCell>
                   <TableCell className="text-right font-num tabular-nums">{Number.isFinite(x.pop) ? formatPct(x.pop * 100, { decimals: 1 }) : "—"}</TableCell>
                   <TableCell className="hidden text-right font-num tabular-nums lg:table-cell">{lotSize > 0 ? formatINR(x.ltp * lotSize, { decimals: 0 }) : "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => addToBasket(x)} aria-label={`Add ${formatStrike(x.strike)} ${x.type} to basket`} title="Add to basket (buy 1 lot)">
+                        <ShoppingBasket aria-hidden="true" />
+                      </Button>
+                      <Button asChild size="icon" variant="ghost" className="h-7 w-7">
+                        <Link to={contractPath(symbol, expiry, x.strike, x.type)} aria-label={`${formatStrike(x.strike)} ${x.type} contract details`} title="Contract details">
+                          <ScanSearch aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

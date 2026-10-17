@@ -213,3 +213,47 @@ describe("analytics", () => {
     expect(hints.some((h) => h.id.startsWith("profit-"))).toBe(true);
   });
 });
+
+describe("round 2: source, reference spots, gamma P&L and the paper account", () => {
+  it("keeps an optional sample/live source through create, storage and validation", () => {
+    const p = nifty({ source: "sample" });
+    expect(p.source).toBe("sample");
+    addPosition(p);
+    expect(getPositions()[0].source).toBe("sample");
+    expect(validatePosition({ ...p, source: "bogus" })?.source).toBeUndefined();
+    expect(nifty().source).toBeUndefined();
+  });
+
+  it("reference spots come from a dated table with post-corporate-action prices", async () => {
+    const { REFERENCE_SPOTS_AS_OF, REFERENCE_SPOT_TABLE, SPOT_PRICE_MAP, getSpotPrice } = await import("@/lib/positionStore");
+    expect(REFERENCE_SPOTS_AS_OF).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(SPOT_PRICE_MAP.RELIANCE).toBeGreaterThanOrEqual(1400);
+    expect(SPOT_PRICE_MAP.RELIANCE).toBeLessThanOrEqual(1500);
+    expect(SPOT_PRICE_MAP.HDFCBANK).toBeLessThan(1200);
+    expect(SPOT_PRICE_MAP.BAJFINANCE).toBeLessThan(1500);
+    expect(SPOT_PRICE_MAP.TMPV).toBeGreaterThan(0);
+    expect(SPOT_PRICE_MAP.TMCV).toBeGreaterThan(0);
+    expect("TATAMOTORS" in SPOT_PRICE_MAP).toBe(false);
+    expect(new Set(REFERENCE_SPOT_TABLE.map((r) => r.symbol)).size).toBe(REFERENCE_SPOT_TABLE.length);
+    expect(getSpotPrice("NIFTY")).toBe(SPOT_PRICE_MAP.NIFTY);
+  });
+
+  it("gamma P&L for a 1% move is ½·Γ·(0.01·S)²·qty and equals notional × 0.005", async () => {
+    const { gammaPnlForMove } = await import("@/components/positions/analytics");
+    expect(gammaPnlForMove(0.001, 25000, 65)).toBeCloseTo(0.5 * 0.001 * 250 * 250 * 65, 6);
+    expect(gammaPnlForMove(0.001, 25000, -65)).toBeLessThan(0);
+    expect(Number.isNaN(gammaPnlForMove(NaN, 25000, 65))).toBe(true);
+    const live = livePosition(nifty({ action: "SELL", currentPrice: 120 }), { spot: 25000, now: NOW, r: 0.065 });
+    expect(live.gammaPnl1pct).toBeLessThan(0);
+    expect(live.gammaPnl1pct).toBeCloseTo(live.gamma1pct * 0.005, 6);
+    const sum = summarisePortfolio([nifty({ currentPrice: 120 })], { x: live }, { spots: { NIFTY: 25000 }, betas: {}, niftySpot: 25000, niftyLot: 65, now: NOW });
+    expect(Number.isFinite(sum.gammaPnl1pct)).toBe(true);
+  });
+
+  it("maps paper positions to read-only tracked positions", async () => {
+    const { paperToTracked } = await import("@/components/positions/paperAccount");
+    const t = paperToTracked({ key: "NIFTY|2026-10-27|25000|PE", symbol: "NIFTY", expiry: "2026-10-27", strike: 25000, type: "PE", netLots: -2, lotSize: 65, avgPrice: 110, openedAt: NOW.getTime(), ltp: 95, markSource: "sample" });
+    expect(t).toMatchObject({ id: "paper:NIFTY|2026-10-27|25000|PE", action: "SELL", lots: 2, entryPrice: 110, currentPrice: 95, source: "sample", expiry: "2026-10-27" });
+    expect(t.pnl).toBe(Math.round((95 - 110) * -1 * 2 * 65));
+  });
+});

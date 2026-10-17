@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { parseColumnarCandles, lookupSecurity, findDuplicateSecurityIds, istDaysAgo, SECURITY_MAP } from "@/hooks/useChartData";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { parseColumnarCandles, lookupSecurity, findDuplicateSecurityIds, istDaysAgo, SECURITY_MAP, fetchHistorical } from "@/hooks/useChartData";
+import { markProxyOffline, resetProxyGate, setProxyGateEnabled } from "@/lib/api/proxyClient";
 
 describe("parseColumnarCandles", () => {
   it("returns empty array for null/undefined/malformed input", () => {
@@ -98,5 +99,35 @@ describe("istDaysAgo", () => {
     const now = new Date("2026-10-16T20:00:00Z");
     expect(istDaysAgo(0, now)).toBe("2026-10-17");
     expect(istDaysAgo(1, now)).toBe("2026-10-16");
+  });
+});
+
+describe("fetchHistorical", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setProxyGateEnabled(false);
+    resetProxyGate();
+  });
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  it("falls back to Yahoo when Dhan has no candles", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("dhan-proxy") ? json({ error: "no keys" }, 502) : json({ close: [100, 101], timestamp: [1779200000, 1779286400] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const candles = await fetchHistorical("NIFTY", "1M");
+    expect(candles.map((c) => c.close)).toEqual([100, 101]);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("yahoo-chart"))).toBe(true);
+  });
+
+  it("returns no candles without touching the network while the proxy gate is closed", async () => {
+    setProxyGateEnabled(true);
+    resetProxyGate();
+    markProxyOffline();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(fetchHistorical("RELIANCE", "3M")).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

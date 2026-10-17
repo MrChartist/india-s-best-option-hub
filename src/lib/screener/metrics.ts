@@ -102,7 +102,13 @@ export interface ChainMetrics {
 }
 
 /** Put-call ratio (OI and volume) and ATM IV from one expiry's chain. */
-export function chainMetrics(chain: readonly OptionData[], spot: number, expiryIso: string, now: Date = new Date(), r: number = DEFAULT_MARKET_PARAMS.r): ChainMetrics {
+export function chainMetrics(
+  chain: readonly OptionData[],
+  spot: number,
+  expiryIso: string,
+  now: Date = new Date(),
+  r: number = DEFAULT_MARKET_PARAMS.r,
+): ChainMetrics {
   let ceOi = 0;
   let peOi = 0;
   let ceVol = 0;
@@ -134,7 +140,10 @@ export function chainMetrics(chain: readonly OptionData[], spot: number, expiryI
 /** IV percentile of the current ATM IV against a history of daily ATM IVs (percent). */
 export function ivpFromHistory(currentIv: number | null, history: readonly number[]): number | null {
   if (currentIv === null || !finite(currentIv)) return null;
-  const v = ivPercentile(currentIv, history.filter((x) => finite(x) && x > 0));
+  const v = ivPercentile(
+    currentIv,
+    history.filter((x) => finite(x) && x > 0),
+  );
   return v === null ? null : round(v, 0);
 }
 
@@ -185,6 +194,32 @@ export interface BhavRow {
   underlyingClose: number;
 }
 
+/** Validate the /api/x/bhavcopy-fo payload into BhavRow[]; null when it is not an array. */
+export function parseBhavRows(data: unknown): BhavRow[] | null {
+  if (!Array.isArray(data)) return null;
+  const out: BhavRow[] = [];
+  for (const d of data) {
+    if (!d || typeof d !== "object") continue;
+    const r = d as Record<string, unknown>;
+    const type = r.type === "CE" || r.type === "PE" || r.type === "FUT" ? r.type : null;
+    if (!type || typeof r.expiry !== "string") continue;
+    const n = (k: string) => (typeof r[k] === "number" && Number.isFinite(r[k]) ? (r[k] as number) : 0);
+    out.push({
+      symbol: String(r.symbol ?? ""),
+      expiry: r.expiry,
+      strike: n("strike"),
+      type,
+      close: n("close"),
+      settle: n("settle"),
+      oi: n("oi"),
+      chgOi: n("chgOi"),
+      volume: n("volume"),
+      underlyingClose: n("underlyingClose"),
+    });
+  }
+  return out;
+}
+
 export interface FuturesSummary {
   nearExpiry: string | null;
   nearPrice: number | null;
@@ -221,7 +256,9 @@ export function rolloverPct(oiByExpiry: readonly number[]): number | null {
 
 /** Summarise one symbol's bhavcopy rows (futures basis, carry, rollover, OI change, EOD PCR). */
 export function summariseFutures(rows: readonly BhavRow[], asOfIso: string | null): FuturesSummary {
-  const fut = rows.filter((r) => r && r.type === "FUT" && r.expiry).sort((a, b) => (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0));
+  const fut = rows
+    .filter((r) => r && r.type === "FUT" && r.expiry)
+    .sort((a, b) => (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0));
   let ceOi = 0;
   let peOi = 0;
   for (const r of rows) {
@@ -230,12 +267,23 @@ export function summariseFutures(rows: readonly BhavRow[], asOfIso: string | nul
   }
   const eodPcr = ceOi > 0 ? round(peOi / ceOi, 3) : null;
   const empty: FuturesSummary = {
-    nearExpiry: null, nearPrice: null, underlying: null, futOi: 0, futOiChgPct: null, basis: null, basisPct: null,
-    carryPct: null, rolloverPct: null, futDte: null, eodPcr, asOfDate: asOfIso,
+    nearExpiry: null,
+    nearPrice: null,
+    underlying: null,
+    futOi: 0,
+    futOiChgPct: null,
+    basis: null,
+    basisPct: null,
+    carryPct: null,
+    rolloverPct: null,
+    futDte: null,
+    eodPcr,
+    asOfDate: asOfIso,
   };
   if (fut.length === 0) return empty;
   const near = fut[0];
-  const nearPrice = finite(near.close) && near.close > 0 ? near.close : finite(near.settle) && near.settle > 0 ? near.settle : null;
+  const nearPrice =
+    finite(near.close) && near.close > 0 ? near.close : finite(near.settle) && near.settle > 0 ? near.settle : null;
   const underlying = rows.map((r) => r.underlyingClose).find((u) => finite(u) && u > 0) ?? null;
   const futOi = fut.reduce((s, r) => s + (finite(r.oi) ? r.oi : 0), 0);
   const chg = fut.reduce((s, r) => s + (finite(r.chgOi) ? r.chgOi : 0), 0);
@@ -250,7 +298,10 @@ export function summariseFutures(rows: readonly BhavRow[], asOfIso: string | nul
     futOiChgPct: prevOi > 0 ? round((chg / prevOi) * 100, 2) : null,
     basis,
     basisPct: basis !== null && underlying ? round((basis / underlying) * 100, 3) : null,
-    carryPct: nearPrice !== null && underlying !== null && futDte !== null ? annualisedCarry(nearPrice, underlying, futDte) : null,
+    carryPct:
+      nearPrice !== null && underlying !== null && futDte !== null
+        ? annualisedCarry(nearPrice, underlying, futDte)
+        : null,
     rolloverPct: rolloverPct(fut.map((r) => r.oi)),
     futDte: futDte !== null && Number.isFinite(futDte) ? futDte : null,
     eodPcr,

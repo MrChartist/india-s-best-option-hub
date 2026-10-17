@@ -11,6 +11,7 @@
  * expiry day and earlier days. Displayed ATM IV stays in the usual calendar convention.
  */
 import type { OptionData, OptionLegData } from "@/lib/mockData";
+import type { BasketLeg } from "@/components/option-chain/basket";
 import type { ChainSnapshot, StrikeSnap } from "@/lib/snapshotStore";
 import {
   DIVIDEND_YIELD,
@@ -201,7 +202,10 @@ export function hhmmIST(ts: number): string {
 export interface StraddlePoint {
   ts: number;
   spot: number;
+  /** Call strike (the straddle strike; for a custom pair, the CE strike). */
   strike: number;
+  /** Put strike: equal to `strike` for a straddle, different for a custom CE/PE pair. */
+  peStrike: number;
   ce: number;
   pe: number;
   straddle: number;
@@ -209,25 +213,39 @@ export interface StraddlePoint {
   vol: number;
 }
 
-export type StrikeMode = { kind: "floating" } | { kind: "fixed"; strike: number };
+/** Floating ATM, a fixed straddle strike, or a custom pair (CE and PE at their own strikes). */
+export type StrikeMode = { kind: "floating" } | { kind: "fixed"; strike: number } | { kind: "pair"; ce: number; pe: number };
 
-/** ATM straddle (floating) or a fixed-strike straddle for each snapshot. Snapshots without prices are skipped. */
+/** True when the mode prices two legs at different strikes (a strangle or any custom pair). */
+export function isSplitPair(mode: StrikeMode | undefined): boolean {
+  return mode?.kind === "pair" && mode.ce !== mode.pe;
+}
+
+/** ATM straddle (floating), a fixed-strike straddle or a custom CE/PE pair for each snapshot. Snapshots without prices are skipped. */
 export function straddleSeries(snaps: ChainSnapshot[], mode: StrikeMode = { kind: "floating" }): StraddlePoint[] {
   const out: StraddlePoint[] = [];
   for (const s of snaps ?? []) {
     if (!s || !finite(s.ts)) continue;
     const idx = indexSnapshot(s);
-    const strikes = pairedStrikes(idx);
-    if (strikes.length === 0) continue;
-    const strike = mode.kind === "fixed" ? mode.strike : nearestOf(strikes, s.spot);
-    if (!strikes.includes(strike)) continue;
-    const c = idx.get(key(strike, "CE"));
-    const p = idx.get(key(strike, "PE"));
+    let ceK: number;
+    let peK: number;
+    if (mode.kind === "pair") {
+      ceK = mode.ce;
+      peK = mode.pe;
+    } else {
+      const strikes = pairedStrikes(idx);
+      if (strikes.length === 0) continue;
+      ceK = mode.kind === "fixed" ? mode.strike : nearestOf(strikes, s.spot);
+      if (!strikes.includes(ceK)) continue;
+      peK = ceK;
+    }
+    const c = idx.get(key(ceK, "CE"));
+    const p = idx.get(key(peK, "PE"));
     const ce = snapMid(c);
     const pe = snapMid(p);
     if (!finite(ce) || !finite(pe)) continue;
     const vol = c && p && finite(c.vol) && finite(p.vol) ? c.vol + p.vol : NaN;
-    out.push({ ts: s.ts, spot: s.spot, strike, ce, pe, straddle: ce + pe, vol });
+    out.push({ ts: s.ts, spot: s.spot, strike: ceK, peStrike: peK, ce, pe, straddle: ce + pe, vol });
   }
   return out;
 }
@@ -247,7 +265,7 @@ export function vwapSeries(points: StraddlePoint[]): { values: number[]; basis: 
     tw += p.straddle;
     n += 1;
     const prev = points[i - 1];
-    if (prev && prev.strike === p.strike && finite(prev.vol) && finite(p.vol)) {
+    if (prev && prev.strike === p.strike && prev.peStrike === p.peStrike && finite(prev.vol) && finite(p.vol)) {
       const w = p.vol - prev.vol;
       if (w > 0) {
         pv += w * p.straddle;
@@ -380,6 +398,8 @@ export function analyseStraddle(
 ): StraddleAnalytics {
   const points = straddleSeries(snaps, o.mode ?? { kind: "floating" });
   if (points.length === 0) return EMPTY_ANALYTICS;
+  // A split CE/PE pair has no single-strike Black-76 straddle, so its IV, theta and theory stay NaN.
+  const modelled = !isSplitPair(o.mode);
   const { values: vwap, basis: vwapBasis } = vwapSeries(points);
   const open = points[0];
   const last = points[points.length - 1];
@@ -390,10 +410,10 @@ export function analyseStraddle(
   const T0 = tradingT(o.expiry, open.ts);
   const F0 = forwardFromSpot(open.spot, T0, r, q);
   const K0 = open.strike;
-  const sigmaOpen = straddleIV76(open.straddle, F0, K0, T0, r);
+  const sigmaOpen = modelled ? straddleIV76(open.straddle, F0, K0, T0, r) : NaN;
   const Tn = tradingT(o.expiry, last.ts);
   const Fn = forwardFromSpot(last.spot, Tn, r, q);
-  const sigmaNow = straddleIV76(last.straddle, Fn, last.strike, Tn, r);
+  const sigmaNow = modelled ? straddleIV76(last.straddle, Fn, last.strike, Tn, r) : NaN;
   const T0c = timeToExpiryYears(o.expiry, new Date(open.ts));
   const Tnc = timeToExpiryYears(o.expiry, new Date(last.ts));
   const sigmaOpenCalendar = pos(T0c) && finite(sigmaOpen) ? sigmaOpen * Math.sqrt(T0 / T0c) : NaN;
@@ -464,6 +484,12 @@ export function decaySchedule(
     out.push({ time, ts, value, remainingPct: a.open.straddle > 0 ? value / a.open.straddle : NaN });
   }
   return out;
+}
+
+/** Premium chart Y domain: ₹10 per unit either side of the data (scaled by the lot multiplier), never below zero. */
+export function premiumDomain(mult: number): [(min: number) => number, (max: number) => number] {
+  const pad = 10 * (Number.isFinite(mult) && mult > 0 ? mult : 1);
+  return [(min: number) => Math.max(0, Math.floor(min - pad)), (max: number) => Math.ceil(max + pad)];
 }
 
 // ── Multi-straddle / strangle combos ──
@@ -633,6 +659,20 @@ export function heroZeroCandidates(
     }
   }
   return out;
+}
+
+/** One long lot of a hero-zero contract as a basket leg (premium ₹ per unit, IV decimal). */
+export function heroZeroLeg(symbol: string, expiry: string, x: Pick<HeroZeroRow, "strike" | "type" | "ltp" | "iv">): BasketLeg {
+  return {
+    symbol: symbol.toUpperCase(),
+    expiry,
+    strike: x.strike,
+    type: x.type,
+    side: "BUY",
+    lots: 1,
+    premium: Math.round(x.ltp * 100) / 100,
+    iv: Number.isFinite(x.iv) && x.iv > 0 ? Math.round(x.iv * 10_000) / 10_000 : null,
+  };
 }
 
 export type HeroSort = "gain" | "volume" | "gamma" | "pop";

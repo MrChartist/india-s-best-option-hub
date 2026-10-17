@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Target } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateIST, formatINR, formatNumberIN, formatPct } from "@/lib/options";
+import { EM_METHOD_LABEL, formatDateIST, formatINR, formatNumberIN, formatPct } from "@/lib/options";
 import { ivMoveHitRate, type SpotIvRow } from "@/lib/volatility/history";
 import type { ExpectedMoveRow } from "@/lib/volatility/surface";
 import { DerivedBadge, EmptyState, HelpTip, PanelHeader, SampleBadge } from "./VolUi";
@@ -16,11 +16,13 @@ export interface ExpectedMoveTableProps {
   /** Daily spot + IV history for the hit-rate back-test. */
   hitRows: SpotIvRow[];
   hitLabel: string;
+  /** The hit-rate history is the labelled sample. */
+  hitIsSample?: boolean;
 }
 
 const n0 = (v: number) => formatNumberIN(v, 0);
 
-export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLabel }: ExpectedMoveTableProps) {
+export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLabel, hitIsSample = false }: ExpectedMoveTableProps) {
   const hits = useMemo(() => new Map(rows.map((r) => [r.expiry, ivMoveHitRate(hitRows, Math.max(1, r.tradingDte))])), [rows, hitRows]);
   const front = rows.find((r) => r.dte >= 1) ?? rows[0];
 
@@ -53,7 +55,7 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
               {formatDateIST(front.expiry)} · {front.dte} day{front.dte === 1 ? "" : "s"}
             </p>
             <p className="text-body-sm text-muted-foreground">
-              1σ ±{n0(front.iv1.move)} ({formatPct(front.iv1.pct)}) · straddle ±{n0(front.straddleMove.move)}
+              {EM_METHOD_LABEL.iv} ±{n0(front.iv1.move)} ({formatPct(front.iv1.pct)}) · {EM_METHOD_LABEL.straddle} ±{n0(front.straddleMove.move)}
             </p>
           </div>
           <div className="relative h-9 rounded-md bg-muted" role="img" aria-label={`2 sigma range ${n0(lo2)} to ${n0(hi2)}, 1 sigma range ${n0(front.iv1.lower)} to ${n0(front.iv1.upper)}, spot ${n0(spot)}`}>
@@ -80,11 +82,11 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
                 <TableHead>Expiry</TableHead>
                 <TableHead className="text-right">DTE</TableHead>
                 <TableHead className="text-right">ATM IV</TableHead>
-                <TableHead className="text-right">1σ move</TableHead>
+                <TableHead className="text-right">{EM_METHOD_LABEL.iv} move</TableHead>
                 <TableHead className="text-right">1σ range</TableHead>
                 <TableHead className="text-right">2σ range</TableHead>
                 <TableHead className="text-right">Straddle</TableHead>
-                <TableHead className="text-right">Straddle move</TableHead>
+                <TableHead className="text-right">{EM_METHOD_LABEL.straddle} move</TableHead>
                 <TableHead className="text-right">
                   <span className="inline-flex items-center gap-1">
                     Ratio <HelpTip text="Straddle move ÷ 1σ IV move. Around 0.8 is normal (0.85 × straddle ≈ the mean absolute move, which is about 0.8σ). Much higher means the straddle prices extra event risk." />
@@ -121,7 +123,7 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
                           {formatPct(h.rate * 100, { decimals: 0 })} <span className="text-muted-foreground">n={h.n}</span>
                         </>
                       ) : (
-                        <span className="text-muted-foreground" title="Fewer than 10 past windows">Insufficient ({h?.n ?? 0})</span>
+                        <span className="text-muted-foreground" title="Fewer than 10 past windows">No history ({h?.n ?? 0})</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -131,7 +133,7 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
           </Table>
         </div>
         <p className="text-body-sm text-muted-foreground">
-          Hit rate source: {hitLabel} ({hitRows.length} days). Past hit rates describe history, not the future.
+          Hit rate source: {hitLabel} ({hitRows.length} days){hitIsSample ? ", a labelled sample for illustration" : ""}. Past hit rates describe history, not the future.
         </p>
       </CardContent>
     </Card>

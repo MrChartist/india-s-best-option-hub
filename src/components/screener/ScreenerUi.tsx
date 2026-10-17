@@ -7,7 +7,8 @@ import { BUILDUP_LABEL, formatTimeIST, type Buildup } from "@/lib/options";
 import { MWPL_BAN_PCT, MWPL_DANGER_PCT, MWPL_NEAR_PCT, type MwplStatus } from "@/lib/screener/metrics";
 import type { FeedMeta } from "@/lib/screener/banList";
 import { cn } from "@/lib/utils";
-import { BUILDUP_SHORT, BUILDUP_VARIANT } from "./buildupStyle";
+import { BuildupBadge as SharedBuildupBadge } from "@/components/ui/buildup-badge";
+import { BUILDUP_KIND } from "@/lib/screener/display";
 
 export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; label?: string }) {
   return (
@@ -35,7 +36,13 @@ export function SampleBadge({ title = "Sample data" }: { title?: string }) {
   );
 }
 
-export function DerivedBadge({ title = "Derived", hint = "Computed in your browser from exchange data" }: { title?: string; hint?: string }) {
+export function DerivedBadge({
+  title = "Derived",
+  hint = "Computed in your browser from exchange data",
+}: {
+  title?: string;
+  hint?: string;
+}) {
   return (
     <Badge variant="info" title={hint}>
       <Sigma aria-hidden="true" />
@@ -44,10 +51,27 @@ export function DerivedBadge({ title = "Derived", hint = "Computed in your brows
   );
 }
 
-const SOURCE_NAME: Record<string, string> = { dhan: "Dhan", nse: "NSE", bse: "BSE", yahoo: "Yahoo", tv: "TradingView", cache: "Cache", sample: "Sample", database: "Local DB" };
+const SOURCE_NAME: Record<string, string> = {
+  dhan: "Dhan",
+  nse: "NSE",
+  bse: "BSE",
+  yahoo: "Yahoo",
+  tv: "TradingView",
+  cache: "Cache",
+  sample: "Sample",
+  database: "Local DB",
+};
 
 /** Feed source chip: Sample / Live / Last saved, with as-of time and reason in a tooltip. */
-export function FeedBadge({ meta, label, eod = false }: { meta: FeedMeta | null | undefined; label?: string; eod?: boolean }) {
+export function FeedBadge({
+  meta,
+  label,
+  eod = false,
+}: {
+  meta: FeedMeta | null | undefined;
+  label?: string;
+  eod?: boolean;
+}) {
   if (!meta) return null;
   if (meta.source === "sample") {
     return (
@@ -88,12 +112,18 @@ export function FeedBadge({ meta, label, eod = false }: { meta: FeedMeta | null 
   );
 }
 
+/** The app-wide OI build-up badge, keyed by the screener's Buildup enum. Neutral renders a muted dash. */
 export function BuildupBadge({ buildup, short = false }: { buildup: Buildup; short?: boolean }) {
-  return (
-    <Badge variant={BUILDUP_VARIANT[buildup]} title={BUILDUP_LABEL[buildup]}>
-      {short ? BUILDUP_SHORT[buildup] : BUILDUP_LABEL[buildup]}
-    </Badge>
-  );
+  const kind = BUILDUP_KIND[buildup];
+  if (!kind) {
+    return (
+      <span className="text-muted-foreground" title={BUILDUP_LABEL.NEUTRAL}>
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">{BUILDUP_LABEL.NEUTRAL}</span>
+      </span>
+    );
+  }
+  return <SharedBuildupBadge kind={kind} variant={short ? "compact" : "full"} />;
 }
 
 const MWPL_TONE: Record<MwplStatus, string> = {
@@ -104,7 +134,17 @@ const MWPL_TONE: Record<MwplStatus, string> = {
 };
 
 /** Compact MWPL meter with the 80/85/95 marks. */
-export function MwplMeter({ pct, status, banned, className }: { pct: number | null; status: MwplStatus | null; banned?: boolean; className?: string }) {
+export function MwplMeter({
+  pct,
+  status,
+  banned,
+  className,
+}: {
+  pct: number | null;
+  status: MwplStatus | null;
+  banned?: boolean;
+  className?: string;
+}) {
   if (pct === null && !banned) return <span className="text-muted-foreground">—</span>;
   const w = Math.max(0, Math.min(100, pct ?? 100));
   return (
@@ -117,12 +157,20 @@ export function MwplMeter({ pct, status, banned, className }: { pct: number | nu
         aria-valuenow={pct ?? undefined}
         aria-label={`MWPL used ${pct === null ? "not available" : `${pct.toFixed(1)}%`}`}
       >
-        <div className={cn("h-full rounded-capsule", status ? MWPL_TONE[status] : "bg-muted-foreground/45")} style={{ width: `${w}%` }} />
+        <div
+          className={cn("h-full rounded-capsule", status ? MWPL_TONE[status] : "bg-muted-foreground/45")}
+          style={{ width: `${w}%` }}
+        />
         {[MWPL_NEAR_PCT, MWPL_DANGER_PCT, MWPL_BAN_PCT].map((m) => (
           <span key={m} aria-hidden="true" className="absolute top-0 h-full w-px bg-card" style={{ left: `${m}%` }} />
         ))}
       </div>
-      <span className={cn("font-num tabular-nums", status === "BAN" || status === "DANGER" ? "text-bearish" : status === "NEAR" ? "text-warning" : "")}>
+      <span
+        className={cn(
+          "font-num tabular-nums",
+          status === "BAN" || status === "DANGER" ? "text-bearish" : status === "NEAR" ? "text-warning" : "",
+        )}
+      >
         {banned ? "Ban" : `${(pct ?? 0).toFixed(1)}%`}
       </span>
     </div>
@@ -140,7 +188,17 @@ export function EmptyState({ title, body, action }: { title: string; body?: Reac
   );
 }
 
-export function PanelHeader({ title, icon, children, help }: { title: string; icon?: ReactNode; children?: ReactNode; help?: ReactNode }) {
+export function PanelHeader({
+  title,
+  icon,
+  children,
+  help,
+}: {
+  title: string;
+  icon?: ReactNode;
+  children?: ReactNode;
+  help?: ReactNode;
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
       <h2 className="flex items-center gap-2 font-display text-lead font-bold">
@@ -154,7 +212,15 @@ export function PanelHeader({ title, icon, children, help }: { title: string; ic
 }
 
 /** Small signed value with bullish/bearish ink. */
-export function Signed({ value, decimals = 2, suffix = "%" }: { value: number | null; decimals?: number; suffix?: string }) {
+export function Signed({
+  value,
+  decimals = 2,
+  suffix = "%",
+}: {
+  value: number | null;
+  decimals?: number;
+  suffix?: string;
+}) {
   if (value === null || !Number.isFinite(value)) return <span className="text-muted-foreground">—</span>;
   const cls = value > 0 ? "text-bullish" : value < 0 ? "text-bearish" : "text-muted-foreground";
   const sign = value > 0 ? "+" : value < 0 ? "−" : "";

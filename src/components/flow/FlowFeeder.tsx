@@ -40,7 +40,11 @@ export function FlowFeeder({ symbol, persist = true }: { symbol: string; persist
       .then((snaps) => {
         if (cancelled) return;
         const lastDay = snaps.length ? istDateString(new Date(snaps[snaps.length - 1].ts)) : "";
-        flowStore.hydrate(symbol.toUpperCase(), expiry, snaps.filter((s) => istDateString(new Date(s.ts)) === lastDay));
+        flowStore.hydrate(
+          symbol.toUpperCase(),
+          expiry,
+          snaps.filter((s) => istDateString(new Date(s.ts)) === lastDay),
+        );
       })
       .catch(() => {
         if (!cancelled) flowStore.hydrate(symbol.toUpperCase(), expiry, []);

@@ -24,8 +24,9 @@ export function ColumnPicker({ prefs, onChange }: ColumnPickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="pill" aria-label="Choose columns">
-          <Columns3 />
+        <Button variant="outline" size="pill">
+          <Columns3 aria-hidden="true" />
+          <span className="sr-only">Columns:</span>
           <span className="hidden sm:inline">{prefs.preset === "custom" ? "Custom" : PRESETS[prefs.preset].label}</span>
         </Button>
       </PopoverTrigger>

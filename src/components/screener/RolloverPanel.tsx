@@ -5,7 +5,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { dteLabel, formatDateIST, formatNumberIN, getExpiries } from "@/lib/options";
 import type { ScreenerRow } from "@/lib/screener/metrics";
 import { cn } from "@/lib/utils";
-import { DerivedBadge, EmptyState, PanelHeader, SampleBadge, Signed } from "./ScreenerUi";
+import { DerivedBadge, EmptyState, PanelHeader, Signed } from "./ScreenerUi";
 
 type SortBy = "rollover" | "carry" | "basis";
 
@@ -38,11 +38,17 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
         icon={<Repeat className="h-4 w-4 text-primary-ink" aria-hidden="true" />}
         help="From the NSE F&O bhavcopy (end of day). Basis = near-month future close minus the underlying close in the same file. Carry is annualised: (F ÷ S − 1) × 365 ÷ days to expiry. Rollover = share of futures OI already in the next and far months."
       >
-        {isSample ? <SampleBadge /> : <DerivedBadge title="EOD · derived" />}
+        {/* In sample mode the page header carries the one sample label. */}
+        {isSample ? null : <DerivedBadge title="EOD · derived" />}
       </PanelHeader>
 
       <div className="grid grid-cols-2 gap-3 border-b border-border p-4 sm:grid-cols-4">
-        <div className={cn("rounded-tile border p-3", rolloverWeek ? "border-warning/50 bg-wash-warning" : "border-border")}>
+        <div
+          className={cn(
+            "rounded-tile border p-3",
+            rolloverWeek ? "border-warning/50 bg-wash-warning" : "border-border",
+          )}
+        >
           <p className="text-label uppercase text-muted-foreground">Stock futures expiry</p>
           <p className="mt-1 font-display text-title">{monthly ? formatDateIST(monthly.date) : "—"}</p>
           <p className={cn("text-body-sm", rolloverWeek ? "text-warning" : "text-muted-foreground")}>
@@ -70,7 +76,13 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
         <span className="text-body-sm text-muted-foreground">Top 40 by</span>
-        <ToggleGroup type="single" value={sortBy} onValueChange={(v) => v && setSortBy(v as SortBy)} aria-label="Sort rollover table" size="sm">
+        <ToggleGroup
+          type="single"
+          value={sortBy}
+          onValueChange={(v) => v && setSortBy(v as SortBy)}
+          aria-label="Sort rollover table"
+          size="sm"
+        >
           <ToggleGroupItem value="rollover">Rollover</ToggleGroupItem>
           <ToggleGroupItem value="carry">Carry</ToggleGroupItem>
           <ToggleGroupItem value="basis">Basis</ToggleGroupItem>
@@ -78,31 +90,60 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
       </div>
 
       {sorted.length === 0 ? (
-        <EmptyState title="Futures data is still loading" body="The scanner fetches each symbol's bhavcopy rows in turn, at most one request every 3 seconds. Rows appear here as they arrive." />
+        <EmptyState
+          title="Futures data is still loading"
+          body="The scanner fetches each symbol's bhavcopy rows in turn, at most one request every 3 seconds. Rows appear here as they arrive."
+        />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[620px] text-body-sm">
             <caption className="sr-only">Futures rollover, basis and carry</caption>
             <thead>
               <tr className="border-y border-border bg-muted/40 text-label uppercase text-muted-foreground">
-                <th scope="col" className="px-4 py-2 text-left">Symbol</th>
-                <th scope="col" className="px-2 py-2 text-right" aria-sort={sortBy === "rollover" ? "descending" : "none"}>Rollover</th>
-                <th scope="col" className="px-2 py-2 text-right" aria-sort={sortBy === "basis" ? "descending" : "none"}>Basis ₹</th>
-                <th scope="col" className="px-2 py-2 text-right">Basis %</th>
-                <th scope="col" className="px-2 py-2 text-right" aria-sort={sortBy === "carry" ? "descending" : "none"}>Carry p.a.</th>
-                <th scope="col" className="px-4 py-2 text-right">Days</th>
+                <th scope="col" className="px-4 py-2 text-left">
+                  Symbol
+                </th>
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right"
+                  aria-sort={sortBy === "rollover" ? "descending" : "none"}
+                >
+                  Rollover
+                </th>
+                <th scope="col" className="px-2 py-2 text-right" aria-sort={sortBy === "basis" ? "descending" : "none"}>
+                  Basis ₹
+                </th>
+                <th scope="col" className="px-2 py-2 text-right">
+                  Basis %
+                </th>
+                <th scope="col" className="px-2 py-2 text-right" aria-sort={sortBy === "carry" ? "descending" : "none"}>
+                  Carry p.a.
+                </th>
+                <th scope="col" className="px-4 py-2 text-right">
+                  Days
+                </th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.symbol} className="border-b border-border/60">
-                  <th scope="row" className="px-4 py-1.5 text-left font-semibold">{r.symbol}</th>
+                  <th scope="row" className="px-4 py-1.5 text-left font-semibold">
+                    {r.symbol}
+                  </th>
                   <td className="px-2 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <div className="hidden h-1.5 w-16 overflow-hidden rounded-capsule bg-muted sm:block" aria-hidden="true">
-                        <div className="h-full rounded-capsule bg-primary" style={{ width: `${Math.max(0, Math.min(100, r.rolloverPct ?? 0))}%` }} />
+                      <div
+                        className="hidden h-1.5 w-16 overflow-hidden rounded-capsule bg-muted sm:block"
+                        aria-hidden="true"
+                      >
+                        <div
+                          className="h-full rounded-capsule bg-primary"
+                          style={{ width: `${Math.max(0, Math.min(100, r.rolloverPct ?? 0))}%` }}
+                        />
                       </div>
-                      <span className="font-num tabular-nums">{r.rolloverPct === null ? "—" : `${r.rolloverPct.toFixed(0)}%`}</span>
+                      <span className="font-num tabular-nums">
+                        {r.rolloverPct === null ? "—" : `${r.rolloverPct.toFixed(0)}%`}
+                      </span>
                     </div>
                   </td>
                   <td className="px-2 text-right">
@@ -114,7 +155,9 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
                   <td className="px-2 text-right">
                     <Signed value={r.carryPct} decimals={1} />
                   </td>
-                  <td className="px-4 text-right font-num tabular-nums">{r.futDte === null ? "—" : formatNumberIN(r.futDte)}</td>
+                  <td className="px-4 text-right font-num tabular-nums">
+                    {r.futDte === null ? "—" : formatNumberIN(r.futDte)}
+                  </td>
                 </tr>
               ))}
             </tbody>

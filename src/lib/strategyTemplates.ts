@@ -22,6 +22,7 @@ import {
   greeks76,
   legIV,
   legMid,
+  marginFundsRequired,
   maxProfitLoss,
   lognormalGrid,
   pctToDec,
@@ -515,7 +516,8 @@ export function rankTemplates(view: ViewInput, ctx: ResolveContext, templates: r
       pnl = valueAt(view.targetPrice);
     }
     const charges = chargesForLegs(legs, { roundTrip: true, broker: view.broker }).total;
-    const margin = estimateMargin(legs, { spot: ctx.spot, now, sigma: ctx.atmIv }).total;
+    // Funds required, the same capital base the Optimizer and Strategy Builder use.
+    const margin = marginFundsRequired(estimateMargin(legs, { spot: ctx.spot, now, sigma: ctx.atmIv }));
     const mpl = maxProfitLoss(legs);
     const front = frontExpiry(legs);
     const T = timeToExpiryYears(front, now);

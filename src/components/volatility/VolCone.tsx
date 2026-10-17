@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { axisProps, chartColors, gridProps, tokenColor, tooltipCursor, tooltipLabelStyle, tooltipStyle } from "@/lib/chartTheme";
 import { volCone, type OHLC } from "@/lib/options";
 import type { TermPoint } from "@/lib/volatility/surface";
-import { DerivedBadge, EmptyState, HelpTip, LegendChip, PanelHeader, SampleBadge } from "./VolUi";
+import { DerivedBadge, EmptyState, HelpTip, LegendChip, PanelHeader, SampleBadge, SampleWatermark } from "./VolUi";
 import { fmtVol } from "@/lib/volatility/format";
 
 const CONE_WINDOWS = [5, 10, 20, 30, 60, 90];
@@ -17,11 +17,13 @@ export interface VolConeProps {
   barsLoading: boolean;
   term: TermPoint[];
   isSample: boolean;
+  /** The daily bars are the labelled sample history. */
+  barsIsSample?: boolean;
 }
 
 const pct = (x: number) => Math.round(x * 10000) / 100;
 
-export function VolCone({ symbol, bars, barsLoading, term, isSample }: VolConeProps) {
+export function VolCone({ symbol, bars, barsLoading, term, isSample, barsIsSample = false }: VolConeProps) {
   const cone = useMemo(() => {
     const closes = (bars ?? []).map((b) => b.c);
     return volCone(closes, CONE_WINDOWS).map((c) => ({
@@ -58,12 +60,16 @@ export function VolCone({ symbol, bars, barsLoading, term, isSample }: VolConePr
       <PanelHeader
         icon={Cone}
         title={`${symbol} volatility cone`}
-        subtitle={`Realised volatility percentiles over ${years.toFixed(1)} years of daily closes, by window length in trading days.`}
+        subtitle={`Realised volatility percentiles over ${years.toFixed(1)} years of ${barsIsSample ? "sample " : ""}daily closes, by window length in trading days.`}
         right={
-          <>
-            <DerivedBadge />
-            {isSample ? <SampleBadge title="IV overlay: sample" /> : null}
-          </>
+          barsIsSample ? (
+            <SampleBadge title="Sample history" />
+          ) : (
+            <>
+              <DerivedBadge />
+              {isSample ? <SampleBadge title="IV overlay: sample" /> : null}
+            </>
+          )
         }
       />
       <CardContent className="space-y-3 p-4 pt-0">
@@ -71,9 +77,10 @@ export function VolCone({ symbol, bars, barsLoading, term, isSample }: VolConePr
           <HelpTip text="Each window shows the lowest, 25th percentile, median, 75th percentile and highest realised vol seen over the history. Dots show today's ATM IV for each expiry placed at its trading days to expiry. IV near the top of the cone means options are rich versus history." />
           When the IV dots sit above the median line, options price more movement than is typical for that horizon.
         </p>
-        <div className="h-[320px]" role="img" aria-label="Volatility cone with current implied volatility">
+        <div className="relative h-[320px]" role="img" aria-label={`Volatility cone with current implied volatility${barsIsSample ? " (sample data)" : ""}`}>
+          {barsIsSample ? <SampleWatermark /> : null}
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={cone} margin={{ top: 10, right: 12, bottom: 0, left: -10 }}>
+            <ComposedChart data={cone} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid {...gridProps} />
               <XAxis type="number" dataKey="window" domain={[0, 95]} ticks={CONE_WINDOWS} {...axisProps} tickFormatter={(v: number) => `${v}d`} />
               <YAxis {...axisProps} width={44} domain={["auto", "auto"]} tickFormatter={(v: number) => `${v}%`} />
@@ -98,7 +105,7 @@ export function VolCone({ symbol, bars, barsLoading, term, isSample }: VolConePr
           <LegendChip color={tokenColor("chart-2", 0.5)} label="Min – max / IQR band" />
           <LegendChip color={chartColors.iv} label="Median" dashed />
           <LegendChip color={chartColors.foreground} label="Realised now" />
-          <LegendChip color={chartColors.spot} label="ATM IV term structure" />
+          {ivPts.length ? <LegendChip color={chartColors.spot} label="ATM IV term structure" /> : null}
         </div>
         <div className="overflow-x-auto rounded-tile border border-border">
           <Table>

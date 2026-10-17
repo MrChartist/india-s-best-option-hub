@@ -166,18 +166,6 @@ export const fnoStocks = [
   "UPL", "ZEEL",
 ];
 
-// -- Utility --
-
-
-function seededRandom(seed: number): () => number {
-  let s = seed;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-
 // ── Strategy Definitions ──
 
 export interface StrategyLeg {
@@ -546,9 +534,11 @@ export interface GreeksDecayPoint {
   totalDelta: number;
 }
 
+/**
+ * Deterministic premium-decay sketch for a set of positions (no random noise: the result is a
+ * rough illustration, not a forecast). Prefer the payoff and Greeks helpers in "@/lib/options".
+ */
 export function simulateGreeksDecay(positions: Position[], daysForward: number = 7): GreeksDecayPoint[] {
-
-  const rand = seededRandom(positions.length * 31);
   const points: GreeksDecayPoint[] = [];
   let cumulativeTheta = 0;
 
@@ -560,7 +550,7 @@ export function simulateGreeksDecay(positions: Position[], daysForward: number =
     for (const p of positions) {
       const mult = p.action === "BUY" ? 1 : -1;
       const decayFactor = Math.max(0, 1 - d * 0.12 * (1 + d * 0.03));
-      const priceMove = p.currentPrice * decayFactor + (rand() - 0.5) * p.currentPrice * 0.05;
+      const priceMove = p.currentPrice * decayFactor;
       const pnl = (priceMove - p.entryPrice) * mult * p.lots * p.lotSize;
       totalPnl += pnl;
       totalTheta += p.theta * mult * p.lots * p.lotSize;

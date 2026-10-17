@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDateIST } from "@/lib/options";
 import { PCR_BANDS, pcrSignal, type PCRResult } from "@/lib/oiUtils";
 import { cn } from "@/lib/utils";
+import MetricHelp from "@/components/learn/MetricHelp";
 import { EmptyState, ModuleHeader, StatTile } from "./shared";
 import { fmtOI, fmtRatio } from "./format";
 import type { ExpiryRow } from "./MaxPainTable";
@@ -86,6 +87,8 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
     );
   }
   const p = current.pcr;
+  // Tint sample rows only when live and sample expiries are mixed; otherwise the page header says it.
+  const mixed = rows.some((r) => r.sample) && rows.some((r) => !r.sample);
   const sig = pcrSignal(p.pcrOI);
   const tableRows: Array<{ key: string; label: string; pcr: PCRResult; expiry?: string; sample?: boolean }> = [
     ...rows.map((r) => ({ key: r.expiry, label: formatDateIST(r.expiry), pcr: r.pcr, expiry: r.expiry, sample: r.sample })),
@@ -98,14 +101,15 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
         icon={<Scale className="h-4 w-4 text-primary-ink" />}
         title="Put-call ratio suite"
         hint={`${formatDateIST(current.expiry)} expiry. OI PCR drives the signal; the others show where today's activity is.`}
-        right={current.sample ? <Badge variant="warning">Sample data</Badge> : undefined}
       />
       <CardContent className="space-y-4 p-4">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <div className="space-y-3 rounded-tile border border-border bg-surface/60 p-4">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <p className="text-label uppercase text-muted-foreground">PCR (OI)</p>
+                <p className="text-label uppercase text-muted-foreground">
+                  <MetricHelp metric="pcr" value={p.pcrOI}>PCR (OI)</MetricHelp>
+                </p>
                 <p className={cn("font-num text-num-hero", sig.className)}>{fmtRatio(p.pcrOI)}</p>
               </div>
               <Badge variant={sig.tone === "neutral" ? "neutral" : sig.tone}>{sig.label}</Badge>
@@ -116,7 +120,7 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
           <div className="grid grid-cols-2 gap-2">
             <StatTile label="Volume PCR" value={fmtRatio(p.pcrVolume)} sub={`Put ${fmtOI(p.totalPEVol)} · Call ${fmtOI(p.totalCEVol)}`} />
             <StatTile
-              label="Change-in-OI PCR"
+              label={<MetricHelp metric="pcrChg">Change-in-OI PCR</MetricHelp>}
               value={fmtRatio(p.pcrChgOI)}
               sub={p.pcrChgOI === null ? "Needs OI added on both sides" : `Put +${fmtOI(p.totalPEOIChg)} · Call +${fmtOI(p.totalCEOIChg)}`}
             />
@@ -142,23 +146,30 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
                 const s = pcrSignal(r.pcr.pcrOI);
                 const active = r.expiry === current.expiry;
                 return (
-                  <TableRow key={r.key} className={cn("font-num text-xs", active && "bg-wash-brand/55", !r.expiry && "font-semibold")}>
+                  <TableRow key={r.key} className={cn("font-num text-xs", active && "bg-wash-brand/55", !r.expiry && "font-semibold", mixed && r.sample && "italic")} title={mixed && r.sample ? "Sample data for this expiry" : undefined}>
                     <TableCell className="whitespace-nowrap">
                       {r.expiry ? (
-                        <button type="button" onClick={() => onSelect(r.expiry as string)} className="rounded-chip font-semibold hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none">
+                        <button
+                          type="button"
+                          onClick={() => onSelect(r.expiry as string)}
+                          className={cn("rounded-chip font-semibold hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none", mixed && r.sample && "text-warning")}
+                          aria-label={`Show ${r.label} expiry${r.sample ? " (sample data)" : ""}`}
+                        >
                           {r.label}
                         </button>
                       ) : (
                         r.label
                       )}
-                      {r.sample && <Badge variant="warning" className="ml-1.5">Sample</Badge>}
                     </TableCell>
                     <TableCell className={cn("text-right font-semibold", s.className)}>{fmtRatio(r.pcr.pcrOI)}</TableCell>
                     <TableCell className="text-right">{fmtRatio(r.pcr.pcrVolume)}</TableCell>
                     <TableCell className="text-right">{fmtRatio(r.pcr.pcrChgOI)}</TableCell>
                     <TableCell className="text-right">{fmtRatio(r.pcr.pcrPremium)}</TableCell>
                     <TableCell>
-                      <Badge variant={s.tone === "neutral" ? "neutral" : s.tone}>{s.label}</Badge>
+                      {/* Short reading ("PUT HEAVY") so the badge never clips in a narrow card; full label on hover. */}
+                      <Badge variant={s.tone === "neutral" ? "neutral" : s.tone} title={s.label}>
+                        {s.label.split(" · ")[0]}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 );
@@ -167,7 +178,7 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
           </Table>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Bands: below {PCR_BANDS.low} call heavy, {PCR_BANDS.low} to {PCR_BANDS.high} balanced, above {PCR_BANDS.high} put heavy, above {PCR_BANDS.extreme} extreme (contrarian). Premium PCR uses LTP × volume.
+          Bands: below {PCR_BANDS.low} call heavy, {PCR_BANDS.low} to {PCR_BANDS.high} balanced, above {PCR_BANDS.high} put heavy, above {PCR_BANDS.extreme} extreme (contrarian). Premium PCR uses LTP × volume.{mixed && " Amber italic rows are sample data."}
         </p>
       </CardContent>
     </Card>

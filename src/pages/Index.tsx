@@ -1,15 +1,20 @@
 /**
  * Market dashboard. Every section renders on its own (no full-page skeleton), sits in its own
- * error boundary, and can be hidden or reordered. Layout and density persist in localStorage.
+ * error boundary, and can be hidden or reordered. Named workspaces (with Scalper, Writer, Swing and
+ * Expiry presets) and density persist in localStorage. Without the proxy, sections fall back to a
+ * labelled sample snapshot; anything still unavailable is named once in the "Needs live data" strip
+ * below the populated sections.
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Activity, BarChart3, CalendarClock, Crosshair, Gauge, Layers, Target, TrendingUp, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3, CalendarClock, Crosshair, Gauge, LayoutDashboard, Layers, Newspaper, Target, TrendingUp, Zap } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
 import { IVRankDashboard } from "@/components/IVRankWidget";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { formatDateIST, nowIST } from "@/lib/options";
 import { cn } from "@/lib/utils";
 
-import { MarketHeader } from "@/components/dashboard/MarketHeader";
 import { LayoutCustomizer } from "@/components/dashboard/LayoutCustomizer";
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { QuickTradeActions } from "@/components/dashboard/QuickTradeActions";
@@ -22,28 +27,26 @@ import { FuturesVIX } from "@/components/dashboard/FuturesVIX";
 import { SectorHeatmap } from "@/components/dashboard/SectorHeatmap";
 import { MostActiveFnO } from "@/components/dashboard/MostActiveFnO";
 import { MarketBreadth } from "@/components/dashboard/MarketBreadth";
+import { DailyBrief } from "@/components/dashboard/DailyBrief";
+import { useMarketBrief } from "@/components/dashboard/useMarketBrief";
+import { DataSourcesBar } from "@/components/dashboard/DataSourcesBar";
+import { NeedsLiveStrip } from "@/components/dashboard/NeedsLiveStrip";
+import { OnboardingTour } from "@/components/dashboard/OnboardingTour";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { WidgetBoundary } from "@/components/dashboard/WidgetBoundary";
 import { DensityContext, useDensityClasses } from "@/components/dashboard/density";
-import {
-  DEFAULT_LAYOUT,
-  WELCOME_DISMISS_KEY,
-  loadLayout,
-  moveSection,
-  readFlag,
-  saveLayout,
-  sectionMeta,
-  setSectionVisible,
-  visibleSections,
-  writeFlag,
-  type DashLayout,
-  type Density,
-  type SectionId,
-} from "@/components/dashboard/dashboardModel";
+import { useNow } from "@/components/dashboard/useNow";
+import { useDashFno, useDashIndices } from "@/components/dashboard/useDashboardData";
+import { collectLiveGaps, partitionSections } from "@/components/dashboard/liveGaps";
+import { loadTour, saveTour, tourReducer } from "@/components/dashboard/onboarding";
+import { activeWorkspace, loadWorkspaces, saveWorkspaces, updateActiveLayout, type WorkspaceState } from "@/components/dashboard/workspaces";
+import { DEFAULT_LAYOUT, WELCOME_DISMISS_KEY, readFlag, sectionMeta, visibleSections, writeFlag, type SectionId } from "@/components/dashboard/dashboardModel";
 
+const WEEKDAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const ICONS: Record<SectionId, ReactNode> = {
   indices: <TrendingUp className="h-4 w-4" />,
+  brief: <Newspaper className="h-4 w-4" />,
   metrics: <BarChart3 className="h-4 w-4" />,
   positioning: <Crosshair className="h-4 w-4" />,
   volatility: <Target className="h-4 w-4" />,
@@ -73,6 +76,8 @@ function renderSection(id: SectionId): ReactNode {
   switch (id) {
     case "indices":
       return <IndexCards />;
+    case "brief":
+      return <DailyBrief />;
     case "metrics":
       return <KeyMetrics />;
     case "positioning":
@@ -96,31 +101,100 @@ function renderSection(id: SectionId): ReactNode {
   }
 }
 
+/** Sections whose data finished loading with nothing to show, even after the sample fallback. */
+function useEmptySections(): Set<SectionId> {
+  const idx = useDashIndices();
+  const fno = useDashFno();
+  const noIndices = !idx.isLoading && idx.data.data.length === 0;
+  const noStocks = !fno.isLoading && (fno.data?.allStocks.length ?? 0) === 0;
+  return useMemo(() => {
+    const s = new Set<SectionId>();
+    if (noIndices) s.add("indices").add("futures");
+    if (noStocks) s.add("movers").add("active");
+    return s;
+  }, [noIndices, noStocks]);
+}
+
+function DashboardDate() {
+  const ist = nowIST(useNow(60_000));
+  return (
+    <>
+      <time dateTime={ist.date}>
+        {WEEKDAY[ist.weekday]}, {formatDateIST(ist.date)}
+      </time>{" "}
+      · IST. Indices, positioning and volatility at a glance; select any card to open its page.
+    </>
+  );
+}
+
 export default function Index() {
   useDocumentTitle("Dashboard");
+  const qc = useQueryClient();
 
-  const [layout, setLayout] = useState<DashLayout>(() => loadLayout());
+  const [ws, setWs] = useState<WorkspaceState>(() => loadWorkspaces());
+  const [saved, setSaved] = useState(true);
   const [showContext, setShowContext] = useState(() => !readFlag(WELCOME_DISMISS_KEY));
+  const [tour, dispatchTour] = useReducer(tourReducer, undefined, () => loadTour());
 
-  useEffect(() => saveLayout(layout), [layout]);
+  useEffect(() => setSaved(saveWorkspaces(ws)), [ws]);
+  useEffect(() => saveTour(tour), [tour]);
 
-  const setDensity = useCallback((density: Density) => setLayout((l) => ({ ...l, density })), []);
-  const onMove = useCallback((id: SectionId, dir: -1 | 1) => setLayout((l) => moveSection(l, id, dir)), []);
-  const onToggle = useCallback((id: SectionId, visible: boolean) => setLayout((l) => setSectionVisible(l, id, visible)), []);
-  const onReset = useCallback(() => setLayout((l) => ({ ...DEFAULT_LAYOUT, order: [...DEFAULT_LAYOUT.order], density: l.density })), []);
+  const layout = activeWorkspace(ws).layout;
+  const onChange = useCallback((fn: (s: WorkspaceState) => WorkspaceState) => setWs(fn), []);
   const onShowContext = useCallback((v: boolean) => {
     setShowContext(v);
     writeFlag(WELCOME_DISMISS_KEY, !v);
   }, []);
+  const onReset = useCallback(() => setWs((s) => updateActiveLayout(s, (l) => ({ ...DEFAULT_LAYOUT, order: [...DEFAULT_LAYOUT.order], density: l.density }))), []);
 
-  const sections = visibleSections(layout);
+  const visible = visibleSections(layout);
+  const emptySet = useEmptySections();
+  const { populated, empty } = partitionSections(visible, emptySet);
+
+  const brief = useMarketBrief();
+  const idx = useDashIndices();
+  const fno = useDashFno();
+  const offline = idx.isSample || fno.isSample || brief.chainIsSample;
+  const gaps = useMemo(() => {
+    const emptySections = empty.map((id) => ({ id, title: sectionMeta(id).title }));
+    if (!offline) return collectLiveGaps({ gift: true, pcrPrev: true, maxPainPrev: true, emptySections });
+    const list = collectLiveGaps({ gift: brief.giftAvailable, pcrPrev: brief.hasPrevPcr, maxPainPrev: brief.hasPrevMaxPain, emptySections });
+    for (const item of brief.items) {
+      if (!item.available && !list.some((g) => g.label === item.label)) list.push({ key: `brief:${item.key}`, label: item.label, to: item.to });
+    }
+    return list;
+  }, [empty, offline, brief.giftAvailable, brief.hasPrevPcr, brief.hasPrevMaxPain, brief.items]);
+
+  const onRecovered = useCallback(() => void qc.invalidateQueries(), [qc]);
 
   return (
     <DensityContext.Provider value={layout.density}>
       <div className={cn("animate-fade-in", layout.density === "compact" ? "space-y-2" : "space-y-3")} data-density={layout.density}>
-        <MarketHeader density={layout.density} onDensity={setDensity}>
-          <LayoutCustomizer layout={layout} onMove={onMove} onToggle={onToggle} onReset={onReset} showContext={showContext} onShowContext={onShowContext} />
-        </MarketHeader>
+        <PageHeader
+          icon={LayoutDashboard}
+          eyebrow="Overview"
+          title="Market dashboard"
+          description={<DashboardDate />}
+          actions={
+            <>
+              <DataSourcesBar />
+              <LayoutCustomizer
+                state={ws}
+                onChange={onChange}
+                showContext={showContext}
+                onShowContext={onShowContext}
+                onRestartTour={() => dispatchTour({ type: "restart" })}
+                saved={saved}
+              />
+            </>
+          }
+        />
+
+        {!tour.done ? (
+          <WidgetBoundary name="Getting started tour">
+            <OnboardingTour state={tour} dispatch={dispatchTour} />
+          </WidgetBoundary>
+        ) : null}
 
         {showContext ? (
           <WidgetBoundary name="Market context">
@@ -130,9 +204,9 @@ export default function Index() {
 
         <QuickTradeActions />
 
-        {sections.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="rounded-card border border-dashed border-border bg-card p-6 text-center">
-            <p className="text-body font-medium">All sections are hidden.</p>
+            <p className="text-body font-medium">All sections are hidden in this workspace.</p>
             <button
               type="button"
               onClick={onReset}
@@ -143,7 +217,7 @@ export default function Index() {
           </div>
         ) : null}
 
-        {sections.map((id) => {
+        {populated.map((id) => {
           const meta = sectionMeta(id);
           const headingId = `dash-${id}-title`;
           return (
@@ -160,6 +234,8 @@ export default function Index() {
             </section>
           );
         })}
+
+        <NeedsLiveStrip gaps={gaps} onRecovered={onRecovered} />
 
         <p className="pt-4 text-center text-body-sm text-muted-foreground">
           Data for education and research. Not investment advice. Lot sizes and MCX dates should be verified with the exchange.

@@ -6,5 +6,6 @@ export * from "./unusual";
 export * from "./filters";
 export * from "./sampleSession";
 export * from "./flowStore";
+export * from "./hedgePressure";
 export * from "./rules";
 export * from "./alertContext";

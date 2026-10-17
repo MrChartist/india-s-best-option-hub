@@ -121,7 +121,7 @@ export default function ChargesCalculator() {
           description="Enter each trade with its entry and exit price. Leave exit blank for an open position to see entry-side charges only."
           actions={<Badge variant="info">Rates from {formatDateIST(rates.effectiveFrom)}</Badge>}
         >
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
             <SymbolField value={symbol} onChange={changeSymbol} />
             <NumField label="Lot size" value={lotSize} onChange={setLotSize} invalid={!isPos(lot)} hint={!isPos(lot) ? "Enter a lot size" : "Units per lot"} />
             <SelectField label="Broker" value={brokerId} onChange={setBrokerId} options={BROKER_PRESETS.map((b) => ({ value: b.id, label: b.id === "custom" ? "Custom" : `${b.name} · ₹${b.perOrder}/order` }))} />
@@ -173,7 +173,7 @@ export default function ChargesCalculator() {
                       <div>
                         <dt className="text-muted-foreground">Breakeven exit</dt>
                         <dd className="font-num tabular-nums">
-                          {formatINR(res.breakevenExit)} <span className="text-muted-foreground">({formatPoints(res.breakevenPoints)} pts)</span>
+                          {formatINR(res.breakevenExit)} <span className="text-muted-foreground">({formatPoints(res.breakevenPoints)})</span>
                         </dd>
                       </div>
                     </dl>
@@ -267,7 +267,7 @@ export default function ChargesCalculator() {
                       Trade {i + 1} · {rows[i].side === "BUY" ? "Buy" : "Sell"} {rows[i].instrument}
                     </span>
                     <span className="text-right font-num tabular-nums">
-                      {formatPoints(r.breakevenPoints)} pts
+                      {formatPoints(r.breakevenPoints)}
                       <span className="block text-body-sm text-muted-foreground">{formatINR(r.chargesPerLot)} / lot</span>
                     </span>
                   </li>

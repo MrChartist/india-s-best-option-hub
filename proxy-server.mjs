@@ -17,7 +17,9 @@
  * Usage:  npm run proxy   |   npm run dev:live
  * Env:    PROXY_PORT (4002), PROXY_HOST (127.0.0.1), PROXY_ALLOWED_ORIGINS (comma list),
  *         PROXY_ALLOWED_HOSTS (comma list of extra Host names),
- *         DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN (optional; browser keys are sent per request instead)
+ *         DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN (optional; browser keys are sent per request instead),
+ *         RECORD_SYMBOLS (comma list; turns on the snapshot recorder), RECORD_INTERVAL_SEC (60–180),
+ *         RECORD_EXPIRIES (1–3), RECORD_RETENTION_DAYS (default 30), RECORD_DIR (default ./data/snapshots)
  */
 
 import http from "node:http";
@@ -1547,6 +1549,320 @@ async function chainMulti(symbol, expiriesParam, creds) {
   return { data: { symbol, spot, expiries: out }, source: "nse" };
 }
 
+// ── Opt-in server snapshot recorder ──
+//
+// RECORD_SYMBOLS=NIFTY,BANKNIFTY turns it on. During NSE market hours (Mon–Fri 09:15–15:30 IST,
+// NSE F&O holidays skipped when the holiday list is reachable) the proxy fetches the nearest
+// RECORD_EXPIRIES (1–3, default 1) chains every RECORD_INTERVAL_SEC (60–180, default 60) and appends
+// one NDJSON line per symbol/expiry to ./data/snapshots/<SYMBOL>/<yyyy-mm-dd>.ndjson (RECORD_DIR to
+// move it). A chain identical to the previous one (frozen feed, holiday) is not written. Files older
+// than RECORD_RETENTION_DAYS (default 30) are deleted. Read back with GET /api/x/snapshots (JSON
+// envelope) or /api/x/snapshots.csv; /api/x/snapshots/status describes the recorder.
+
+/** Parse recorder settings from the environment. Invalid symbols are dropped; numbers are clamped. */
+export function parseRecordConfig(env = process.env, baseDir = __dirname) {
+  const symbols = [...new Set(String(env.RECORD_SYMBOLS || "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => SYMBOL_RE.test(s)))].slice(0, 10);
+  const num = (v, min, max, dflt) => {
+    const n = Number(v);
+    if (v === undefined || v === null || v === "" || !Number.isFinite(n)) return dflt;
+    return Math.min(max, Math.max(min, Math.round(n)));
+  };
+  return {
+    enabled: symbols.length > 0,
+    symbols,
+    intervalSec: num(env.RECORD_INTERVAL_SEC, 60, 180, 60),
+    expiries: num(env.RECORD_EXPIRIES, 1, 3, 1),
+    retentionDays: num(env.RECORD_RETENTION_DAYS, 1, 365, 30),
+    dir: resolve(baseDir, env.RECORD_DIR || "data/snapshots"),
+  };
+}
+
+/** True Mon–Fri between 09:15 and 15:30 IST inclusive (holidays are checked separately). */
+export function isRecordingWindow(now = new Date()) {
+  const t = istNow(now);
+  if (t.weekday === 0 || t.weekday === 6) return false;
+  const m = t.hh * 60 + t.mm;
+  return m >= 9 * 60 + 15 && m <= 15 * 60 + 30;
+}
+
+const r2 = (v) => Math.round(toNum(v) * 100) / 100;
+const qtyOrNull = (v) => (v === undefined || v === null || !Number.isFinite(Number(v)) ? null : toNum(v));
+
+/**
+ * One NDJSON line object for a chain: rows are compact tuples
+ * [strike, side (0 = CE, 1 = PE), ltp, oi, volume, iv%, bid, ask, bidQty|null, askQty|null].
+ * Legs with no price, OI, volume or quote are left out (same rule as the browser store).
+ */
+export function chainToSnapshotLine({ ts, symbol, expiry, spot, source, chain }) {
+  const rows = [];
+  const sorted = (Array.isArray(chain) ? chain : []).filter((r) => r && toNum(r.strikePrice) > 0).sort((a, b) => a.strikePrice - b.strikePrice);
+  for (const r of sorted) {
+    for (const [side, leg] of [[0, r.ce], [1, r.pe]]) {
+      if (!leg) continue;
+      const ltp = r2(leg.ltp);
+      const oi = toNum(leg.oi);
+      const vol = toNum(leg.volume);
+      const bid = r2(leg.bidPrice);
+      const ask = r2(leg.askPrice);
+      if (ltp <= 0 && oi <= 0 && vol <= 0 && bid <= 0 && ask <= 0) continue;
+      rows.push([toNum(r.strikePrice), side, ltp, oi, vol, r2(leg.iv), bid, ask, qtyOrNull(leg.bidQty), qtyOrNull(leg.askQty)]);
+    }
+  }
+  return { v: 1, ts, symbol, expiry, spot: r2(spot), source: source || "unknown", rows };
+}
+
+/** Parse one NDJSON line into the browser ChainSnapshot shape, or null when it is malformed. */
+export function decodeSnapshotLine(text) {
+  let o;
+  try { o = JSON.parse(text); } catch { return null; }
+  if (!o || o.v !== 1 || !Number.isFinite(o.ts) || typeof o.symbol !== "string" || typeof o.expiry !== "string" || !Array.isArray(o.rows)) return null;
+  const rows = [];
+  for (const t of o.rows) {
+    if (!Array.isArray(t) || t.length < 8 || !(toNum(t[0]) > 0)) continue;
+    const row = { strike: toNum(t[0]), side: t[1] === 1 ? "PE" : "CE", ltp: toNum(t[2]), oi: toNum(t[3]), vol: toNum(t[4]), iv: toNum(t[5]), bid: toNum(t[6]), ask: toNum(t[7]) };
+    if (t[8] !== null && t[8] !== undefined) row.bidQty = toNum(t[8]);
+    if (t[9] !== null && t[9] !== undefined) row.askQty = toNum(t[9]);
+    rows.push(row);
+  }
+  return { id: `${o.symbol}|${o.expiry}|${o.ts}`, symbol: o.symbol, expiry: o.expiry, ts: o.ts, spot: toNum(o.spot), source: o.source || "unknown", rows };
+}
+
+/** Cheap fingerprint of a line's rows: identical consecutive chains are not written twice. */
+export function snapshotFingerprint(line) {
+  const h = createHash("sha1");
+  h.update(String(line.spot));
+  for (const r of line.rows) h.update(`${r[0]},${r[1]},${r[2]},${r[3]},${r[4]};`);
+  return h.digest("hex");
+}
+
+export function snapshotFileFor(dir, symbol, dateIso) {
+  return join(dir, symbol, `${dateIso}.ndjson`);
+}
+
+const IST_MS = 330 * 60000;
+const istIsoOf = (ms) => new Date(ms + IST_MS).toISOString().slice(0, 10);
+const istStartOf = (iso) => Date.parse(`${iso}T00:00:00Z`) - IST_MS;
+
+/** Validate /api/x/snapshots query params. from/to accept epoch ms or yyyy-mm-dd (IST days). */
+export function parseSnapshotQuery(params, now = Date.now()) {
+  const get = (k) => (typeof params?.get === "function" ? params.get(k) : params?.[k]);
+  const symbol = vSymbol(get("symbol"));
+  const expiry = vExpiry(get("expiry"));
+  const time = (v, endOfDay) => {
+    if (v === null || v === undefined || v === "") return null;
+    const s = String(v).trim();
+    if (ISO_RE.test(s)) {
+      const iso = vDate(s, { optional: false });
+      return istStartOf(iso) + (endOfDay ? 86400000 - 1 : 0);
+    }
+    if (!/^\d{10,14}$/.test(s)) throw new InputError("from/to must be epoch milliseconds or yyyy-mm-dd");
+    return Number(s);
+  };
+  const to = time(get("to"), true) ?? now;
+  const from = time(get("from"), false) ?? istStartOf(istIsoOf(to));
+  if (from > to) throw new InputError("from must be before to");
+  if (to - from > 31 * 86400000) throw new InputError("Range too long (31 days at most)");
+  const limit = vInt(get("limit"), { min: 1, max: 5000, fallback: 2000 });
+  const strikeRaw = get("strike");
+  const strike = strikeRaw === null || strikeRaw === undefined || strikeRaw === "" ? null : Number(strikeRaw);
+  if (strike !== null && !(Number.isFinite(strike) && strike > 0 && strike < 1e7)) throw new InputError("Invalid strike");
+  const typeRaw = get("type");
+  const type = typeRaw === null || typeRaw === undefined || typeRaw === "" ? null : String(typeRaw).toUpperCase();
+  if (type !== null && type !== "CE" && type !== "PE") throw new InputError("type must be CE or PE");
+  return { symbol, expiry, from, to, limit, strike, type };
+}
+
+/** IST dates (yyyy-mm-dd) touched by [from, to], oldest first. */
+export function istDaysInRange(from, to) {
+  const out = [];
+  for (let d = istIsoOf(from); d <= istIsoOf(to) && out.length < 40; d = addDaysIso(d, 1)) out.push(d);
+  return out;
+}
+
+/** Apply expiry, time and row filters (pure). Returns snapshots oldest first. */
+export function filterSnapshots(snaps, q) {
+  const out = [];
+  for (const s of snaps) {
+    if (!s || s.ts < q.from || s.ts > q.to) continue;
+    if (q.expiry && s.expiry !== q.expiry) continue;
+    const rows = q.strike !== null || q.type !== null ? s.rows.filter((r) => (q.strike === null || r.strike === q.strike) && (q.type === null || r.side === q.type)) : s.rows;
+    if (rows.length === 0) continue;
+    out.push(rows === s.rows ? s : { ...s, rows });
+  }
+  return out.sort((a, b) => a.ts - b.ts);
+}
+
+/** Read and filter recorded snapshots from disk. Missing files are skipped. */
+export async function readRecordedSnapshots(dir, q) {
+  const all = [];
+  for (const day of istDaysInRange(q.from, q.to)) {
+    let text = "";
+    try { text = await fsp.readFile(snapshotFileFor(dir, q.symbol, day), "utf8"); } catch { continue; }
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      const s = decodeSnapshotLine(line);
+      if (s) all.push(s);
+    }
+  }
+  const filtered = filterSnapshots(all, q);
+  const truncated = filtered.length > q.limit;
+  return { snapshots: truncated ? filtered.slice(0, q.limit) : filtered, truncated };
+}
+
+const csvCell = (v) => {
+  if (v === undefined || v === null || (typeof v === "number" && !Number.isFinite(v))) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const istStamp = (ts) => new Date(ts + IST_MS).toISOString().slice(0, 19).replace("T", " ");
+
+/** Same columns as the browser's snapshot CSV export (src/lib/snapshotStore.ts). */
+export const SERVER_SNAPSHOT_CSV_HEADER = "time_ist,ts,symbol,expiry,spot,strike,side,ltp,oi,volume,iv,bid,ask,bid_qty,ask_qty";
+
+export function snapshotsToCsvText(snaps) {
+  const lines = [SERVER_SNAPSHOT_CSV_HEADER];
+  for (const s of snaps) {
+    const t = istStamp(s.ts);
+    for (const r of s.rows) lines.push([t, s.ts, s.symbol, s.expiry, s.spot, r.strike, r.side, r.ltp, r.oi, r.vol, r.iv, r.bid, r.ask, r.bidQty, r.askQty].map(csvCell).join(","));
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export async function appendSnapshotLine(dir, line) {
+  const file = snapshotFileFor(dir, line.symbol, istIsoOf(line.ts));
+  await fsp.mkdir(dirname(file), { recursive: true });
+  await fsp.appendFile(file, `${JSON.stringify(line)}\n`, "utf8");
+  return file;
+}
+
+/** Delete day files older than keepDays (by file name date). Returns the number removed. */
+export async function pruneSnapshotFiles(dir, keepDays, now = Date.now()) {
+  const cutoff = addDaysIso(istIsoOf(now), -keepDays);
+  let removed = 0;
+  let symbols = [];
+  try { symbols = await fsp.readdir(dir); } catch { return 0; }
+  for (const sym of symbols) {
+    if (!SYMBOL_RE.test(sym)) continue;
+    let files = [];
+    try { files = await fsp.readdir(join(dir, sym)); } catch { continue; }
+    for (const f of files) {
+      const m = /^(\d{4}-\d{2}-\d{2})\.ndjson$/.exec(f);
+      if (m && m[1] < cutoff) {
+        try { await fsp.unlink(join(dir, sym, f)); removed++; } catch { /* in use */ }
+      }
+    }
+  }
+  return removed;
+}
+
+const recorderState = {
+  config: parseRecordConfig(),
+  running: false,
+  lastRunAt: null,
+  lastWriteAt: null,
+  lastError: null,
+  writes: 0,
+  skippedSame: 0,
+  timer: null,
+  prunedOn: "",
+};
+const lastFingerprint = new Map();
+
+async function isNseHolidayToday() {
+  try {
+    const out = await handleX("holidays", new URLSearchParams("segment=FO"), null);
+    const rows = out?.body?.data;
+    if (!Array.isArray(rows)) return false;
+    const today = istNow().iso;
+    return rows.some((h) => h.date === today);
+  } catch {
+    return false;
+  }
+}
+
+async function recordOnce(now = new Date()) {
+  const cfg = recorderState.config;
+  recorderState.lastRunAt = now.getTime();
+  const today = istNow(now).iso;
+  if (recorderState.prunedOn !== today) {
+    recorderState.prunedOn = today;
+    pruneSnapshotFiles(cfg.dir, cfg.retentionDays, now.getTime()).catch(() => undefined);
+  }
+  if (!isRecordingWindow(now) || (await isNseHolidayToday())) return;
+  const creds = envDhanCreds();
+  for (const symbol of cfg.symbols) {
+    try {
+      let list = [];
+      if (creds && UNDERLYING_MAP[symbol]) {
+        try { list = (await dhanExpiryList(symbol, creds)).data; } catch { list = []; }
+      }
+      if (list.length === 0 && !BSE_ONLY.has(symbol)) list = await nseExpiries(symbol);
+      const wanted = list.filter((e) => e >= today).slice(0, cfg.expiries);
+      if (wanted.length === 0) continue;
+      const res = await chainMulti(symbol, wanted.join(","), creds);
+      for (const e of res.data.expiries) {
+        if (!e.chain.length) continue;
+        const line = chainToSnapshotLine({ ts: Date.now(), symbol, expiry: e.expiry, spot: res.data.spot, source: res.source, chain: e.chain });
+        if (line.rows.length === 0) continue;
+        const key = `${symbol}|${e.expiry}`;
+        const fp = snapshotFingerprint(line);
+        if (lastFingerprint.get(key) === fp) { recorderState.skippedSame++; continue; }
+        await appendSnapshotLine(cfg.dir, line);
+        lastFingerprint.set(key, fp);
+        recorderState.writes++;
+        recorderState.lastWriteAt = line.ts;
+      }
+      recorderState.lastError = null;
+    } catch (e) {
+      recorderState.lastError = `${symbol}: ${truncate(e?.message || "fetch failed", 160)}`;
+    }
+  }
+}
+
+export function startRecorder() {
+  const cfg = recorderState.config;
+  if (!cfg.enabled || recorderState.running) return false;
+  recorderState.running = true;
+  const loop = async () => {
+    try { await recordOnce(); } catch (e) { recorderState.lastError = truncate(e?.message, 160); }
+    if (recorderState.running) recorderState.timer = setTimeout(loop, cfg.intervalSec * 1000);
+  };
+  recorderState.timer = setTimeout(loop, 2000);
+  return true;
+}
+
+export function stopRecorder() {
+  recorderState.running = false;
+  if (recorderState.timer) clearTimeout(recorderState.timer);
+  recorderState.timer = null;
+}
+
+function recorderStatus() {
+  const cfg = recorderState.config;
+  return {
+    enabled: cfg.enabled,
+    running: recorderState.running,
+    symbols: cfg.symbols,
+    intervalSec: cfg.intervalSec,
+    expiries: cfg.expiries,
+    retentionDays: cfg.retentionDays,
+    inWindow: isRecordingWindow(),
+    lastRunAt: recorderState.lastRunAt,
+    lastWriteAt: recorderState.lastWriteAt,
+    writes: recorderState.writes,
+    skippedSame: recorderState.skippedSame,
+    lastError: recorderState.lastError,
+  };
+}
+
+async function handleSnapshots(params) {
+  const q = parseSnapshotQuery(params);
+  const { snapshots, truncated } = await readRecordedSnapshots(recorderState.config.dir, q);
+  const meta = { source: "cache", asOf: snapshots.length ? snapshots[snapshots.length - 1].ts : Date.now(), stale: false };
+  if (!recorderState.config.enabled) meta.reason = "Server recorder is off (set RECORD_SYMBOLS to enable); showing any files already on disk";
+  return { status: 200, body: { data: { symbol: q.symbol, expiry: q.expiry || null, from: q.from, to: q.to, snapshots, truncated }, meta } };
+}
+
 // ── /api/x router ──
 
 async function handleX(route, params, creds) {
@@ -1708,6 +2024,12 @@ async function handleX(route, params, creds) {
       });
     }
 
+    case "snapshots":
+      return handleSnapshots(params);
+
+    case "snapshots/status":
+      return { status: 200, body: { data: recorderStatus(), meta: { source: "cache", asOf: Date.now(), stale: false } } };
+
     case "chain-multi": {
       const symbol = vSymbol(params.get("symbol"), "NIFTY");
       const raw = String(params.get("expiries") || "next3");
@@ -1805,9 +2127,145 @@ export function parseDhanFrame(buffer) {
   return out;
 }
 
+/**
+ * Upstream feed subscriptions, reference-counted per browser socket.
+ *
+ * Dhan caps one feed connection at 5000 instruments; we keep a 4000 budget. Pinned keys (the
+ * index feeds) are never released. Other keys are released when no socket uses them any more
+ * (explicit unsubscribe or socket close). If one long-lived socket keeps subscribing new
+ * instruments, the least recently subscribed unpinned keys are evicted to make room instead of
+ * failing every later subscribe until the proxy restarts.
+ */
+export class SubscriptionRegistry {
+  constructor({ limit = 4000, pinned = [] } = {}) {
+    this.limit = limit;
+    this.entries = new Map(); // key → instrument, in least-recently-subscribed-first order
+    this.refs = new Map(); // key → Set<owner>
+    this.byOwner = new Map(); // owner → Set<key>
+    this.pinned = new Set();
+    for (const i of pinned) {
+      const key = SubscriptionRegistry.keyOf(i);
+      this.pinned.add(key);
+      this.entries.set(key, i);
+    }
+  }
+
+  static keyOf(i) {
+    return `${i.ExchangeSegment}:${i.SecurityId}`;
+  }
+
+  get size() {
+    return this.entries.size;
+  }
+
+  has(key) {
+    return this.entries.has(key);
+  }
+
+  values() {
+    return this.entries.values();
+  }
+
+  /** Add `owner`'s interest in `list`. Returns { added, released } instrument lists for upstream. */
+  subscribe(owner, list) {
+    const keys = [...new Map(list.map((i) => [SubscriptionRegistry.keyOf(i), i])).entries()];
+    const freshCount = keys.filter(([k]) => !this.entries.has(k)).length;
+    const requested = new Set(keys.map(([k]) => k));
+    const need = this.entries.size + freshCount - this.limit;
+    if (need > 0) {
+      let evictable = 0;
+      for (const key of this.entries.keys()) if (!this.pinned.has(key) && !requested.has(key)) evictable++;
+      if (evictable < need) throw new InputError("Subscription limit reached");
+    }
+    const added = [];
+    const released = [];
+    let owned = this.byOwner.get(owner);
+    if (!owned) { owned = new Set(); this.byOwner.set(owner, owned); }
+    // Touch the keys that are already present first, so they are not chosen for eviction.
+    for (const [key, inst] of keys) {
+      if (!this.entries.has(key)) continue;
+      const cur = this.entries.get(key);
+      this.entries.delete(key);
+      this.entries.set(key, cur || inst);
+    }
+    let overflow = this.entries.size + freshCount - this.limit;
+    if (overflow > 0) {
+      for (const key of [...this.entries.keys()]) {
+        if (overflow <= 0) break;
+        if (this.pinned.has(key) || requested.has(key)) continue;
+        released.push(this.#drop(key));
+        overflow--;
+      }
+    }
+    for (const [key, inst] of keys) {
+      if (!this.entries.has(key)) { this.entries.set(key, inst); added.push(inst); }
+      let set = this.refs.get(key);
+      if (!set) { set = new Set(); this.refs.set(key, set); }
+      set.add(owner);
+      owned.add(key);
+    }
+    return { added, released };
+  }
+
+  /** Remove `owner`'s interest in `list`. Returns instruments no longer used by anyone. */
+  unsubscribe(owner, list) {
+    const owned = this.byOwner.get(owner);
+    if (!owned) return [];
+    const released = [];
+    for (const i of list) {
+      const key = SubscriptionRegistry.keyOf(i);
+      if (!owned.has(key)) continue;
+      owned.delete(key);
+      const r = this.#unref(owner, key);
+      if (r) released.push(r);
+    }
+    if (owned.size === 0) this.byOwner.delete(owner);
+    return released;
+  }
+
+  /** Drop every subscription held by `owner` (socket closed). Returns released instruments. */
+  release(owner) {
+    const owned = this.byOwner.get(owner);
+    if (!owned) return [];
+    this.byOwner.delete(owner);
+    const released = [];
+    for (const key of owned) {
+      const r = this.#unref(owner, key);
+      if (r) released.push(r);
+    }
+    return released;
+  }
+
+  #unref(owner, key) {
+    const set = this.refs.get(key);
+    if (set) {
+      set.delete(owner);
+      if (set.size > 0) return null;
+      this.refs.delete(key);
+    }
+    if (this.pinned.has(key) || !this.entries.has(key)) return null;
+    const inst = this.entries.get(key);
+    this.entries.delete(key);
+    return inst;
+  }
+
+  #drop(key) {
+    const inst = this.entries.get(key);
+    this.entries.delete(key);
+    for (const owner of this.refs.get(key) || []) {
+      const owned = this.byOwner.get(owner);
+      if (owned) { owned.delete(key); if (owned.size === 0) this.byOwner.delete(owner); }
+    }
+    this.refs.delete(key);
+    return inst;
+  }
+}
+
 const latestTicks = new Map(); // "segment:id" → merged tick
-const subscribed = new Map(); // "segment:id" → { ExchangeSegment, SecurityId }
-for (const id of Object.values(INDEX_SECURITY_IDS)) subscribed.set(`IDX_I:${id}`, { ExchangeSegment: "IDX_I", SecurityId: String(id) });
+const subscribed = new SubscriptionRegistry({
+  limit: 4000,
+  pinned: Object.values(INDEX_SECURITY_IDS).map((id) => ({ ExchangeSegment: "IDX_I", SecurityId: String(id) })),
+});
 
 let dhanWS = null;
 let dhanWSTimer = null;
@@ -1833,6 +2291,18 @@ function sendSubscriptions(list) {
   for (let i = 0; i < list.length; i += 100) {
     const chunk = list.slice(i, i + 100);
     dhanWS.send(JSON.stringify({ RequestCode: 21, InstrumentCount: chunk.length, InstrumentList: chunk }));
+  }
+}
+
+/** Tell Dhan to stop streaming instruments no browser socket uses, and forget their last ticks. */
+function releaseInstruments(list) {
+  if (!list.length) return;
+  for (const i of list) latestTicks.delete(SubscriptionRegistry.keyOf(i));
+  if (!dhanWS || dhanWS.readyState !== WebSocket.OPEN) return;
+  for (let i = 0; i < list.length; i += 100) {
+    const chunk = list.slice(i, i + 100);
+    // RequestCode 22 = unsubscribe (full packet), the counterpart of 21.
+    dhanWS.send(JSON.stringify({ RequestCode: 22, InstrumentCount: chunk.length, InstrumentList: chunk }));
   }
 }
 
@@ -1993,6 +2463,7 @@ localWSS.on("connection", (ws) => {
   const cleanup = () => {
     clearInterval(msgWindow);
     releaseFeedCreds(ws);
+    releaseInstruments(subscribed.release(ws));
   };
   // ws emits 'error' for protocol violations (frame over maxPayload, invalid UTF-8, bad opcode).
   // Without a listener Node throws and the whole proxy exits.
@@ -2024,10 +2495,12 @@ localWSS.on("connection", (ws) => {
         releaseFeedCreds(ws);
       } else if (msg.type === "subscribe") {
         const list = validateSubscribe(msg.instruments);
-        const fresh = list.filter((i) => !subscribed.has(`${i.ExchangeSegment}:${i.SecurityId}`));
-        if (subscribed.size + fresh.length > 4000) throw new InputError("Subscription limit reached");
-        for (const i of fresh) subscribed.set(`${i.ExchangeSegment}:${i.SecurityId}`, i);
-        sendSubscriptions(fresh);
+        const { added, released } = subscribed.subscribe(ws, list);
+        releaseInstruments(released);
+        sendSubscriptions(added);
+      } else if (msg.type === "unsubscribe") {
+        const list = validateSubscribe(msg.instruments);
+        releaseInstruments(subscribed.unsubscribe(ws, list));
       }
     } catch (e) {
       ws.send(JSON.stringify({ type: "error", message: truncate(e.message, 120) }));
@@ -2110,6 +2583,7 @@ function healthPayload() {
     // Back-compat flags: sources.dhan = credentials present in .env.
     sources: { dhan: !!(process.env.DHAN_CLIENT_ID && process.env.DHAN_ACCESS_TOKEN), nse: true, tradingview: true, yahoo: true },
     cache: { entries: cache.size, lastGood: lastGood.size, inflight: inflight.size },
+    recorder: recorderStatus(),
     security: { host: HOST, allowedOrigins: [...ALLOWED_ORIGINS] },
   };
 }
@@ -2161,6 +2635,18 @@ const server = http.createServer(async (req, res) => {
       const { status, body } = await handleYahooChart(params);
       return send(res, status, body);
     }
+    if (path === "/api/x/snapshots.csv") {
+      const q = parseSnapshotQuery(params);
+      const { snapshots, truncated } = await readRecordedSnapshots(recorderState.config.dir, q);
+      if (res.headersSent) return;
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Disposition": `attachment; filename="${q.symbol}${q.expiry ? `_${q.expiry}` : ""}_snapshots_${istIsoOf(q.from)}.csv"`,
+        "X-Truncated": truncated ? "1" : "0",
+      });
+      return res.end(snapshotsToCsvText(snapshots));
+    }
     if (path.startsWith("/api/x/")) {
       const out = await handleX(path.slice("/api/x/".length), params, creds());
       if (!out) return send(res, 404, { data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: "Unknown /api/x route" } });
@@ -2177,7 +2663,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (path === "/health") return send(res, 200, healthPayload());
-    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/test-connection", "/health", "/ws"] });
+    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
   } catch (err) {
     if (err instanceof InputError) {
       if (path.startsWith("/api/x/")) return send(res, 400, { data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: truncate(err.message, 200) } });
@@ -2214,7 +2700,10 @@ export function startServer() {
     console.log(`  └─ Origins:   ${[...ALLOWED_ORIGINS].join(", ")}`);
     console.log("");
     console.log("  Dhan keys in .env:", process.env.DHAN_CLIENT_ID ? "yes" : "no (browser keys are used per request)");
+    const rc = recorderState.config;
+    console.log("  Snapshot recorder:", rc.enabled ? `on · ${rc.symbols.join(", ")} every ${rc.intervalSec}s · ${rc.dir}` : "off (set RECORD_SYMBOLS=NIFTY,BANKNIFTY to record chains during market hours)");
     console.log("");
+    startRecorder();
     // Warm up the NSE session so the first request is fast.
     getNseSession().catch(() => undefined);
     try {

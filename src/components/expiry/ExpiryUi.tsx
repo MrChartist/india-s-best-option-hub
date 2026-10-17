@@ -133,20 +133,21 @@ export function EmptyState({ icon, title, children, action }: { icon?: ReactNode
 
 export function PanelSkeleton({ height = 280, label = "Loading" }: { height?: number; label?: string }) {
   return (
-    <Card className="p-4" aria-busy="true" aria-label={label}>
+    <Card className="p-4" role="status" aria-busy="true" aria-label={label}>
       <Skeleton className="mb-3 h-4 w-40" />
       <Skeleton className="w-full" style={{ height }} />
     </Card>
   );
 }
 
-export function Stat({ label, value, hint, tone, help }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode }) {
+export function Stat({ label, value, hint, tone, help, tag, className }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode; tag?: ReactNode; className?: string }) {
   return (
-    <div className="min-w-0 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card">
+    <div className={cn("min-w-0 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card", className)}>
       {/* div, not p: the HelpTip tooltip content renders inline (not portalled) as a div. */}
-      <div className="flex items-center gap-1 text-label uppercase text-muted-foreground">
-        {label}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-label uppercase text-muted-foreground">
+        <span className="truncate">{label}</span>
         {help ? <HelpTip text={help} label={`About ${label}`} /> : null}
+        {tag ? <span className="ml-auto shrink-0">{tag}</span> : null}
       </div>
       <p className={cn("mt-1 truncate font-num text-title tabular-nums", tone)}>{value}</p>
       {hint ? <p className="mt-0.5 truncate text-body-sm text-muted-foreground">{hint}</p> : null}

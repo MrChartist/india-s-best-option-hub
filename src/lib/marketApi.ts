@@ -6,7 +6,16 @@
  */
 import type { ExpiryDate, IndexData } from "./mockData";
 import { calendarDaysBetween, formatDateIST, istDateString, normalizeExpiry } from "@/lib/options";
-import { PROXY_BASE, dhanHeaders, proxyFetchJSON, proxyGet, type ProxyEnvelope } from "@/lib/api/proxyClient";
+import {
+  PROXY_BASE,
+  dhanHeaders,
+  markProxyOffline,
+  markProxyOnline,
+  proxyFetchJSON,
+  proxyGet,
+  shouldTryProxy,
+  type ProxyEnvelope,
+} from "@/lib/api/proxyClient";
 import type {
   ChainMultiDTO,
   ColumnarCandlesDTO,
@@ -585,17 +594,29 @@ export async function fetchFIIDII(): Promise<FIIDIIData[]> {
 // ── Connection and health ──
 
 export async function testDhanConnection(): Promise<{ status: string; message: string }> {
+  // User-initiated, so it ignores the reachability backoff, but its outcome still updates the gate.
+  let res: Response;
   try {
-    const res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers: dhanHeaders(), signal: AbortSignal.timeout(15000) });
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(15000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/test-connection`, { headers: dhanHeaders(), signal });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
     const body = (await res.json()) as { status?: string; message?: string; reason?: string };
     return { status: body.status || (res.ok ? "success" : "error"), message: body.message || body.reason || "" };
   } catch {
-    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
   }
 }
 
 export async function fetchProxyHealth(): Promise<ProxyHealthDTO> {
-  return proxyFetchJSON<ProxyHealthDTO>("/health", undefined, { withDhan: false, timeoutMs: 5000 });
+  // A /health call is itself a probe: skip it inside the backoff window, otherwise send it straight
+  // through (no second probe in front of it) and let its outcome reset or extend the backoff.
+  if (!shouldTryProxy()) throw new Error("Proxy unreachable");
+  return proxyFetchJSON<ProxyHealthDTO>("/health", undefined, { withDhan: false, timeoutMs: 5000, bypassGate: true });
 }
 
 // ── Instrument master ──

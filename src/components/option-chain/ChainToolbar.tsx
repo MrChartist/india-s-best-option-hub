@@ -86,10 +86,11 @@ export function ChainToolbar(p: ChainToolbarProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-0.5">
-          <Button variant={p.basketCount > 0 ? "default" : "outline"} size="pill" onClick={p.onOpenBasket} className="mr-1" aria-label={`Open basket, ${p.basketCount} legs`}>
-            <ShoppingBasket />
+          <Button variant={p.basketCount > 0 ? "default" : "outline"} size="pill" onClick={p.onOpenBasket} className="mr-1">
+            <ShoppingBasket aria-hidden="true" />
             Basket
             <span className={cn("rounded-capsule px-1.5 text-[10px] font-bold tabular-nums", p.basketCount > 0 ? "bg-primary-foreground/15" : "bg-muted")}>{p.basketCount}</span>
+            <span className="sr-only">legs, open basket</span>
           </Button>
           <IconAction label="Refresh (R)" onClick={p.onRefresh}>
             <RefreshCw className={cn(p.isFetching && "animate-spin")} />
@@ -180,7 +181,7 @@ export function ChainToolbar(p: ChainToolbarProps) {
                   )}
                 >
                   <span className="font-semibold">{label}</span>
-                  <span className={cn("text-[10px]", sel ? "opacity-80" : "text-muted-foreground")}>{e.daysToExpiry}d</span>
+                  <span className={cn("text-[10px]", sel ? undefined : "text-muted-foreground")}>{e.daysToExpiry}d</span>
                 </button>
               );
             })}

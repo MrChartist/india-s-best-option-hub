@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Calculator } from "lucide-react";
+import { Calculator, ShieldCheck } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import ChargesCalculator from "@/components/calculators/ChargesCalculator";
@@ -44,18 +45,21 @@ export default function Calculators() {
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
-      <header className="min-w-0">
-        <h1 className="flex items-center gap-2 font-display text-display">
-          <Calculator className="h-6 w-6 text-primary-ink" aria-hidden="true" />
-          Calculators
-        </h1>
-        <p className="mt-1 max-w-3xl text-body text-muted-foreground">
-          F&O charges with the 2026 STT, SPAN-style margin, position sizing, option fair value and Greeks, implied volatility, exercise STT, futures basis and lot size lookup. Everything runs in your browser.
-        </p>
-      </header>
+      <PageHeader
+        icon={Calculator}
+        eyebrow="Tools"
+        title="Calculators"
+        description="F&O charges with the 2026 STT, SPAN-style margin, position sizing, option fair value and Greeks, implied volatility, exercise STT, futures basis and lot size lookup."
+        source={
+          <span className="inline-flex items-center gap-1.5 rounded-chip border border-border bg-card px-2 py-0.5 text-body-sm text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-bullish" aria-hidden="true" />
+            Runs in your browser · rates from a dated table
+          </span>
+        }
+      />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <div className="-mx-1.5 overflow-x-auto px-1.5 sm:mx-0 sm:px-0">
+        <div className="-mx-1.5 overflow-x-auto px-1.5 pb-1 sm:mx-0 sm:px-0">
           <TabsList className="w-max" aria-label="Calculators">
             {TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">

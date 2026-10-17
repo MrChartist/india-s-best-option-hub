@@ -1,5 +1,5 @@
 /** Daily realised P&L heatmap (net of charges), one month at a time, weeks starting Monday (IST dates). */
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCompactIN, istDateString } from "@/lib/options";
@@ -14,13 +14,17 @@ function pad(n: number): string {
 }
 
 /** Cells for a month grid: leading blanks so the 1st lands on its weekday (Mon = 0). */
-function monthCells(year: number, month: number): Array<string | null> {
+function monthCells(year: number, month: number): Array<{ key: string; date: string | null }> {
   const first = new Date(Date.UTC(year, month, 1)).getUTCDay(); // 0 = Sun
   const lead = (first + 6) % 7;
   const days = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const cells: Array<string | null> = Array.from({ length: lead }, () => null);
-  for (let d = 1; d <= days; d++) cells.push(`${year}-${pad(month + 1)}-${pad(d)}`);
-  while (cells.length % 7) cells.push(null);
+  const cells: Array<{ key: string; date: string | null }> = Array.from({ length: lead }, (_, k) => ({ key: `lead-${k}`, date: null }));
+  for (let d = 1; d <= days; d++) {
+    const date = `${year}-${pad(month + 1)}-${pad(d)}`;
+    cells.push({ key: date, date });
+  }
+  let tail = 0;
+  while (cells.length % 7) cells.push({ key: `tail-${tail++}`, date: null });
   return cells;
 }
 
@@ -30,9 +34,13 @@ function tint(v: number, maxAbs: number): CSSProperties {
   return { backgroundColor: `hsl(var(${v > 0 ? "--wash-profit" : "--wash-loss"}) / ${a.toFixed(3)})` };
 }
 
-export function PnLCalendar({ daily }: { daily: Record<string, number> }) {
+export function PnLCalendar({ daily, initialMonth, footnote }: { daily: Record<string, number>; /** "yyyy-mm" to open on (default: this month in IST). */ initialMonth?: string; footnote?: string }) {
   const today = istDateString();
-  const [cursor, setCursor] = useState(() => ({ y: +today.slice(0, 4), m: +today.slice(5, 7) - 1 }));
+  const start = initialMonth && /^\d{4}-\d{2}$/.test(initialMonth) ? initialMonth : today.slice(0, 7);
+  const [cursor, setCursor] = useState(() => ({ y: +start.slice(0, 4), m: +start.slice(5, 7) - 1 }));
+  useEffect(() => {
+    if (initialMonth && /^\d{4}-\d{2}$/.test(initialMonth)) setCursor({ y: +initialMonth.slice(0, 4), m: +initialMonth.slice(5, 7) - 1 });
+  }, [initialMonth]);
   const cells = useMemo(() => monthCells(cursor.y, cursor.m), [cursor]);
   const prefix = `${cursor.y}-${pad(cursor.m + 1)}`;
   const monthDays = Object.entries(daily).filter(([d]) => d.startsWith(prefix));
@@ -93,8 +101,8 @@ export function PnLCalendar({ daily }: { daily: Record<string, number> }) {
             {d}
           </div>
         ))}
-        {cells.map((d, i) => {
-          if (!d) return <div key={`b${i}`} role="gridcell" aria-hidden="true" />;
+        {cells.map(({ key, date: d }) => {
+          if (!d) return <div key={key} role="gridcell" aria-hidden="true" />;
           const v = daily[d];
           const has = v !== undefined;
           return (
@@ -117,7 +125,7 @@ export function PnLCalendar({ daily }: { daily: Record<string, number> }) {
           );
         })}
       </div>
-      <p className="text-body-sm text-muted-foreground">Realised P&L per IST trading day after all charges (entry charges count on the day they are paid). Expiry settlements land on the expiry date.</p>
+      <p className="text-body-sm text-muted-foreground">{footnote ?? "Realised P&L per IST trading day after all charges (entry charges count on the day they are paid). Expiry settlements land on the expiry date."}</p>
     </div>
   );
 }

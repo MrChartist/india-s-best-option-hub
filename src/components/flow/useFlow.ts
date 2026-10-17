@@ -33,7 +33,11 @@ export function useFlowState(): FlowState {
 }
 
 /** Labelled sample feeds (simulated session) for the given symbols, used when the user asks for a demo. */
-export function useSampleFeeds(symbols: readonly string[], enabled: boolean, liveSpots: Record<string, number>): Record<string, FeedEntry> {
+export function useSampleFeeds(
+  symbols: readonly string[],
+  enabled: boolean,
+  liveSpots: Record<string, number>,
+): Record<string, FeedEntry> {
   const key = symbols.join(",");
   const spotKey = symbols.map((s) => Math.round(liveSpots[s] || 0)).join(",");
   return useMemo(() => {
@@ -109,7 +113,10 @@ export function useBanList(enabled: boolean) {
   return useQuery({
     queryKey: ["flow-ban-list"],
     queryFn: async ({ signal }) => {
-      const env = await proxyGet<{ date: string; symbols: string[] }>("/api/x/ban-list", undefined, { signal, timeoutMs: 12_000 });
+      const env = await proxyGet<{ date: string; symbols: string[] }>("/api/x/ban-list", undefined, {
+        signal,
+        timeoutMs: 12_000,
+      });
       const symbols = Array.isArray(env.data?.symbols) ? env.data.symbols.map((s) => String(s).toUpperCase()) : null;
       return { symbols, date: env.data?.date ?? "", meta: env.meta };
     },

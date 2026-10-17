@@ -12,7 +12,15 @@ import { getDailyStats, putDailyStat, computeDailyStat } from "@/lib/snapshotSto
 import { addCalendarDays, getMarketSession, istDateString, isTradingDay, nowIST } from "@/lib/options";
 import { useBanData, type FeedMeta } from "./banList";
 import { parseDealsPayload, parseOiSpurtsPayload, type DealRow, type OiSpurtRow } from "./bigMoney";
-import { buildRow, chainMetrics, ivpFromHistory, summariseFutures, type BhavRow, type DailyBar, type ScreenerRow } from "./metrics";
+import {
+  buildRow,
+  chainMetrics,
+  ivpFromHistory,
+  parseBhavRows,
+  summariseFutures,
+  type DailyBar,
+  type ScreenerRow,
+} from "./metrics";
 import { sampleDeals, sampleRows } from "./sample";
 import {
   OFFLINE_BACKOFF_MS,
@@ -49,9 +57,14 @@ export function useDeals(kind: "bulk" | "block") {
   return useQuery({
     queryKey: ["screener", "deals", kind],
     queryFn: async ({ signal }): Promise<{ data: DealRow[]; meta: FeedMeta }> => {
-      const env = await proxyGet<unknown>(kind === "bulk" ? "/api/x/bulk-deals" : "/api/x/block-deals", undefined, { signal });
+      const env = await proxyGet<unknown>(kind === "bulk" ? "/api/x/bulk-deals" : "/api/x/block-deals", undefined, {
+        signal,
+      });
       if (env.data !== null && Array.isArray(env.data)) return { data: parseDealsPayload(env.data), meta: env.meta };
-      return { data: sampleDeals(kind, istDateString()), meta: { source: "sample", asOf: Date.now(), stale: true, reason: env.meta.reason || "Deals feed unavailable" } };
+      return {
+        data: sampleDeals(kind, istDateString()),
+        meta: { source: "sample", asOf: Date.now(), stale: true, reason: env.meta.reason || "Deals feed unavailable" },
+      };
     },
     refetchInterval: 15 * 60000,
     staleTime: 5 * 60000,
@@ -94,14 +107,18 @@ function afterCloseToday(): boolean {
 async function runChain(symbol: string, signal: AbortSignal): Promise<JobResult> {
   const env = await fetchChainMulti(symbol, "next3", signal);
   const first = env.data?.expiries.find((e) => e.chain.length > 0);
-  if (!env.data || !first) return { ok: false, offline: OFFLINE_REASONS.has(env.meta.reason ?? ""), reason: env.meta.reason || "No chain" };
+  if (!env.data || !first)
+    return { ok: false, offline: OFFLINE_REASONS.has(env.meta.reason ?? ""), reason: env.meta.reason || "No chain" };
   const spot = env.data.spot;
   const m = chainMetrics(first.chain, spot, first.expiry);
   const today = istDateString();
   let ivp: number | null = null;
   try {
     const stats = await getDailyStats(symbol, 365);
-    ivp = ivpFromHistory(m.atmIv, stats.filter((s) => s.date !== today).map((s) => s.atmIv));
+    ivp = ivpFromHistory(
+      m.atmIv,
+      stats.filter((s) => s.date !== today).map((s) => s.atmIv),
+    );
     if (!env.meta.stale && afterCloseToday() && m.atmIv !== null) {
       await putDailyStat(computeDailyStat({ symbol, date: today, spot, chain: first.chain, expiry: first.expiry }));
     }
@@ -110,28 +127,26 @@ async function runChain(symbol: string, signal: AbortSignal): Promise<JobResult>
   }
   return {
     ok: true,
-    patch: { chain: { pcrOi: m.pcrOi, pcrVol: m.pcrVol, atmIv: m.atmIv, ivp, expiry: first.expiry, spot, source: env.meta.stale ? "cache" : env.meta.source, asOf: Date.now() } },
+    patch: {
+      chain: {
+        pcrOi: m.pcrOi,
+        pcrVol: m.pcrVol,
+        atmIv: m.atmIv,
+        ivp,
+        expiry: first.expiry,
+        spot,
+        source: env.meta.stale ? "cache" : env.meta.source,
+        asOf: Date.now(),
+      },
+    },
   };
-}
-
-function parseBhavRows(data: unknown): BhavRow[] | null {
-  if (!Array.isArray(data)) return null;
-  const out: BhavRow[] = [];
-  for (const d of data) {
-    if (!d || typeof d !== "object") continue;
-    const r = d as Record<string, unknown>;
-    const type = r.type === "CE" || r.type === "PE" || r.type === "FUT" ? r.type : null;
-    if (!type || typeof r.expiry !== "string") continue;
-    const n = (k: string) => (typeof r[k] === "number" && Number.isFinite(r[k]) ? (r[k] as number) : 0);
-    out.push({ symbol: String(r.symbol ?? ""), expiry: r.expiry, strike: n("strike"), type, close: n("close"), settle: n("settle"), oi: n("oi"), chgOi: n("chgOi"), volume: n("volume"), underlyingClose: n("underlyingClose") });
-  }
-  return out;
 }
 
 async function runFutures(symbol: string, signal: AbortSignal): Promise<JobResult> {
   const env = await proxyGet<unknown>("/api/x/bhavcopy-fo", { symbol }, { signal, timeoutMs: 30000 });
   const rows = parseBhavRows(env.data);
-  if (!rows) return { ok: false, offline: OFFLINE_REASONS.has(env.meta.reason ?? ""), reason: env.meta.reason || "No bhavcopy" };
+  if (!rows)
+    return { ok: false, offline: OFFLINE_REASONS.has(env.meta.reason ?? ""), reason: env.meta.reason || "No bhavcopy" };
   const asOfIso = istDateString(new Date(env.meta.asOf));
   return { ok: true, patch: { futures: { ...summariseFutures(rows, asOfIso), asOf: Date.now() } } };
 }
@@ -223,7 +238,12 @@ export function useRotatingScan(order: readonly string[], enabled: boolean) {
       lastStartRef.current = t0;
       let res: JobResult;
       try {
-        res = job.part === "chain" ? await runChain(job.symbol, ctrl.signal) : job.part === "futures" ? await runFutures(job.symbol, ctrl.signal) : await runHistory(job.symbol, ctrl.signal);
+        res =
+          job.part === "chain"
+            ? await runChain(job.symbol, ctrl.signal)
+            : job.part === "futures"
+              ? await runFutures(job.symbol, ctrl.signal)
+              : await runHistory(job.symbol, ctrl.signal);
       } catch (e) {
         res = { ok: false, offline: false, reason: e instanceof Error ? e.message : "Scan failed" };
       }
@@ -330,7 +350,7 @@ export function useScreenerData(priority: readonly string[]): ScreenerData {
     const now = Date.now();
     const spurtMap = new Map((spurts.data?.data ?? []).map((s) => [s.symbol, s.chgOiPct]));
     const mwplMap = new Map(mwplLive ? ban.mwpl.map((m) => [m.symbol, m.mwplPct]) : []);
-    const banned = new Set(banLive ? ban.ban?.symbols ?? [] : []);
+    const banned = new Set(banLive ? (ban.ban?.symbols ?? []) : []);
     return universe.map((u) => {
       const e = scan.entries[u.symbol];
       return buildRow({
@@ -341,7 +361,15 @@ export function useScreenerData(priority: readonly string[]): ScreenerData {
         changePct: u.changePct,
         volume: u.volume,
         spurtOiChgPct: spurtMap.get(u.symbol) ?? null,
-        chain: e?.chain ? { pcrOi: e.chain.pcrOi, atmIv: e.chain.atmIv, ivp: e.chain.ivp, stale: isChainStale(e, now, ttl), asOf: e.chain.asOf } : null,
+        chain: e?.chain
+          ? {
+              pcrOi: e.chain.pcrOi,
+              atmIv: e.chain.atmIv,
+              ivp: e.chain.ivp,
+              stale: isChainStale(e, now, ttl),
+              asOf: e.chain.asOf,
+            }
+          : null,
         futures: e?.futures ?? null,
         bars: e?.history?.bars ?? null,
         todayIso: today,
@@ -352,7 +380,13 @@ export function useScreenerData(priority: readonly string[]): ScreenerData {
   }, [liveMode, universe, scan.entries, spurts.data, ban.mwpl, ban.ban, mwplLive, banLive]);
 
   const src = fno.data?.source;
-  const universeSource: UniverseSource = !liveMode ? "sample" : src === "tradingview" ? "tv" : src === "database" ? "database" : "nse";
+  const universeSource: UniverseSource = !liveMode
+    ? "sample"
+    : src === "tradingview"
+      ? "tv"
+      : src === "database"
+        ? "database"
+        : "nse";
 
   return {
     rows,

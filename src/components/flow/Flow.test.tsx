@@ -40,7 +40,10 @@ vi.mock("@/hooks/useMarketData", () => ({
 }));
 
 vi.mock("@/lib/api/proxyClient", () => ({
-  proxyGet: vi.fn(async () => ({ data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: "offline" } })),
+  proxyGet: vi.fn(async () => ({
+    data: null,
+    meta: { source: "cache", asOf: Date.now(), stale: true, reason: "offline" },
+  })),
 }));
 
 vi.mock("@/lib/snapshotStore", async (orig) => {
@@ -79,9 +82,20 @@ describe("Flow page", () => {
     const { default: Flow } = await import("@/pages/Flow");
     wrap(<Flow />);
     expect(screen.getByText(/NSE does not publish trade-level data/)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/simulated sample session/));
-    expect(screen.getAllByText("Sample data").length).toBeGreaterThan(0);
+    // One page-level source label (the global SampleBanner covers the proxy state); no duplicate alert banner.
+    await waitFor(() => expect(screen.getAllByText("Sample data").length).toBeGreaterThan(0));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText(/prints? of|print[s]? · newest first/).length).toBeGreaterThan(0));
+    // Tape rows link to the contract page and to the option chain at that strike.
+    const chainLinks = screen.getAllByRole("link", { name: /in the option chain/ });
+    expect(chainLinks[0].getAttribute("href")).toMatch(
+      /^\/option-chain\?symbol=[A-Z]+&expiry=\d{4}-\d{2}-\d{2}&strike=\d+/,
+    );
+    expect(
+      screen
+        .getAllByRole("link", { name: /Contract details|CE|PE/ })
+        .some((a) => /^\/contract\//.test(a.getAttribute("href") ?? "")),
+    ).toBe(true);
     expect(screen.getByText(/Not investment advice/)).toBeInTheDocument();
   });
 });
@@ -93,7 +107,8 @@ describe("AlertSystem", () => {
     wrap(<AlertSystem />);
     fireEvent.click(screen.getByRole("button", { name: /Alerts, 0 active/ }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getAllByText("Educational, not advice").length).toBeGreaterThan(3);
+    // The disclaimer is shown once for the whole ideas list, not on every card.
+    expect(within(dialog).getAllByText("Educational, not advice")).toHaveLength(1);
     fireEvent.click(within(dialog).getByRole("button", { name: /Add rule: NIFTY PCR \(OI\) crosses 1.00/ }));
     await waitFor(() => expect(JSON.parse(localStorage.getItem("mc_alert_rules_v1") ?? "[]")).toHaveLength(1));
     expect(within(dialog).getByText("1 active")).toBeInTheDocument();

@@ -16,12 +16,14 @@ export interface MiniChainPickerProps {
   loading?: boolean;
   /** Strikes already in the strategy, highlighted. */
   usedStrikes?: Set<string>;
+  /** When set, the B/S buttons are disabled and this explains why (e.g. the leg limit). */
+  disabledReason?: string;
   onAdd: (o: { type: OptionType; side: Side; strike: number; premium: number; ivPct: number }) => void;
 }
 
 const RANGES = [6, 10, 15] as const;
 
-export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedStrikes, onAdd }: MiniChainPickerProps) {
+export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedStrikes, disabledReason, onAdd }: MiniChainPickerProps) {
   const [range, setRange] = useState<(typeof RANGES)[number]>(6);
   const rows = useMemo(() => {
     const sorted = [...chain].filter((r) => r.strikePrice > 0).sort((a, b) => a.strikePrice - b.strikePrice);
@@ -40,12 +42,12 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
     const label = `${formatStrike(row.strikePrice)} ${type}`;
     return (
       <div className={cn("flex items-center gap-1 px-1.5 py-1", type === "CE" ? "justify-end" : "justify-start", itm && "bg-surface/80")}>
-        {type === "PE" && <QuickButtons label={label} disabled={!(buy > 0)} onBuy={() => onAdd({ type, side: "BUY", strike: row.strikePrice, premium: buy, ivPct: leg.iv })} onSell={() => onAdd({ type, side: "SELL", strike: row.strikePrice, premium: sell, ivPct: leg.iv })} />}
+        {type === "PE" && <QuickButtons label={label} disabled={!(buy > 0) || !!disabledReason} title={disabledReason} onBuy={() => onAdd({ type, side: "BUY", strike: row.strikePrice, premium: buy, ivPct: leg.iv })} onSell={() => onAdd({ type, side: "SELL", strike: row.strikePrice, premium: sell, ivPct: leg.iv })} />}
         <div className={cn("min-w-[58px] text-right font-num text-xs", type === "PE" && "text-left", used && "font-bold text-primary-ink")}>
           {buy > 0 ? buy.toFixed(2) : "—"}
           <div className="text-[10px] text-muted-foreground">{leg.iv > 0 ? `${leg.iv.toFixed(1)}%` : ""}</div>
         </div>
-        {type === "CE" && <QuickButtons label={label} disabled={!(buy > 0)} onBuy={() => onAdd({ type, side: "BUY", strike: row.strikePrice, premium: buy, ivPct: leg.iv })} onSell={() => onAdd({ type, side: "SELL", strike: row.strikePrice, premium: sell, ivPct: leg.iv })} />}
+        {type === "CE" && <QuickButtons label={label} disabled={!(buy > 0) || !!disabledReason} title={disabledReason} onBuy={() => onAdd({ type, side: "BUY", strike: row.strikePrice, premium: buy, ivPct: leg.iv })} onSell={() => onAdd({ type, side: "SELL", strike: row.strikePrice, premium: sell, ivPct: leg.iv })} />}
       </div>
     );
   };
@@ -65,19 +67,20 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
                 type="button"
                 onClick={() => setRange(n)}
                 aria-pressed={range === n}
-                className={cn("rounded-chip px-2 py-0.5 text-[11px] font-semibold transition-colors", range === n ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}
+                className={cn("rounded-chip px-2 py-0.5 text-[11px] font-semibold transition-colors [@media(pointer:coarse)]:min-h-8 [@media(pointer:coarse)]:px-3", range === n ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}
               >
                 ±{n}
               </button>
             ))}
           </div>
         </div>
+        {disabledReason ? <p className="text-[11px] font-medium text-warning">{disabledReason}</p> : null}
         <p className="text-[11px] text-muted-foreground">Tap B or S to add a leg at the {priceMode === "natural" ? "natural (ask to buy, bid to sell)" : priceMode === "ltp" ? "last traded" : "mid"} price.</p>
       </CardHeader>
       <CardContent className="px-2 pb-3 sm:px-4">
         {loading && rows.length === 0 ? (
-          <div className="space-y-1.5" aria-busy="true" aria-label="Loading chain">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+          <div className="space-y-1.5" role="status" aria-busy="true" aria-label="Loading chain">
+            {["s1", "s2", "s3", "s4", "s5", "s6"].map((k) => <Skeleton key={k} className="h-8 w-full" />)}
           </div>
         ) : rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No chain for this expiry yet. You can still add legs by hand.</p>
@@ -104,13 +107,13 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
   );
 }
 
-function QuickButtons({ label, disabled, onBuy, onSell }: { label: string; disabled: boolean; onBuy: () => void; onSell: () => void }) {
+function QuickButtons({ label, disabled, title, onBuy, onSell }: { label: string; disabled: boolean; title?: string; onBuy: () => void; onSell: () => void }) {
   return (
-    <div className="flex gap-0.5">
-      <Button type="button" variant="buy" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold" disabled={disabled} onClick={onBuy} aria-label={`Buy ${label}`}>
+    <div className="flex gap-0.5" title={title}>
+      <Button type="button" variant="buy" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-xs" disabled={disabled} onClick={onBuy} aria-label={`Buy ${label}`}>
         B
       </Button>
-      <Button type="button" variant="sell" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold" disabled={disabled} onClick={onSell} aria-label={`Sell ${label}`}>
+      <Button type="button" variant="sell" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-xs" disabled={disabled} onClick={onSell} aria-label={`Sell ${label}`}>
         S
       </Button>
     </div>

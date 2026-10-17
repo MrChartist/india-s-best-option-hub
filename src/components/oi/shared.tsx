@@ -63,7 +63,7 @@ export function ExpiryPills({
             )}
           >
             <span className="font-num">{e.label || formatDateIST(e.value)}</span>
-            <span className={cn("text-micro font-normal normal-case", active ? "text-primary-ink/80" : "text-muted-foreground/80")}>{shortDte(e.value)}</span>
+            <span className={cn("text-micro font-normal normal-case", active ? "text-primary-ink" : "text-muted-foreground")}>{shortDte(e.value)}</span>
           </button>
         );
       })}
@@ -94,7 +94,7 @@ export function ModuleHeader({ icon, title, hint, right }: { icon?: ReactNode; t
 }
 
 /** Small metric tile. */
-export function StatTile({ label, value, sub, valueClass, title }: { label: string; value: ReactNode; sub?: ReactNode; valueClass?: string; title?: string }) {
+export function StatTile({ label, value, sub, valueClass, title }: { label: ReactNode; value: ReactNode; sub?: ReactNode; valueClass?: string; title?: string }) {
   return (
     <div className="min-w-0 rounded-tile border border-border bg-surface/60 px-3 py-2" title={title}>
       <p className="truncate text-label uppercase text-muted-foreground">{label}</p>
@@ -147,4 +147,25 @@ export function Segmented<T extends string | number>({
       ))}
     </div>
   );
+}
+
+/** Source label for intraday charts: a recorded session or the labelled sample day. */
+export function SessionBadge({ source, count }: { source: "recorded" | "sample"; count: number }) {
+  return source === "sample" ? (
+    <span
+      className="inline-flex h-5 items-center rounded-chip border border-warning/40 px-1.5 text-label uppercase text-warning"
+      title="No recorded session in this browser yet. This is a deterministic sample day built from the sample chain, not market data."
+    >
+      Sample session
+    </span>
+  ) : (
+    <span className="inline-flex h-5 items-center rounded-chip bg-wash-info px-1.5 text-label uppercase text-info" title="Snapshots recorded by this browser or the local proxy recorder">
+      Recorded · {count} snapshots
+    </span>
+  );
+}
+
+/** The one place a chart states its units (axis ticks stay unit-free). */
+export function ChartCaption({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("text-[11px] text-muted-foreground", className)}>{children}</p>;
 }

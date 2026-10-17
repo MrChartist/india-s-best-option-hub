@@ -10,6 +10,8 @@ import {
   oneSigmaPoints,
   sliceAroundATM,
   spotDividerIndex,
+  buildupCode,
+  buildupCounts,
 } from "./chainModel";
 
 const NOW = new Date("2026-10-15T05:00:00Z"); // 10:30 IST, Thursday
@@ -177,5 +179,24 @@ describe("chainToCSV", () => {
     expect(lines.length).toBe(m.rows.length + 1);
     expect(lines[0].startsWith("Strike,CE_LTP")).toBe(true);
     expect(lines[0].split(",").length).toBe(lines[1].split(",").length);
+  });
+});
+
+describe("buildup counts", () => {
+  it("counts classified legs per side and maps codes", () => {
+    const m = buildChainModel(generateSampleChain({ symbol: "NIFTY", spot: 24512.3, expiry: "2026-10-20", now: new Date("2026-10-15T05:00:00Z"), seed: 4, strikes: 21 }).chain, {
+      spot: 24512.3,
+      expiry: "2026-10-20",
+      lotSize: 65,
+      now: new Date("2026-10-15T05:00:00Z"),
+    });
+    const c = buildupCounts(m.rows);
+    const manual = m.rows.filter((r) => r.ce.buildup && r.ce.buildup !== "NEUTRAL").length;
+    expect(c.ce.LB + c.ce.SB + c.ce.SC + c.ce.LU).toBe(manual);
+    expect(buildupCounts([])).toEqual({ ce: { LB: 0, SB: 0, SC: 0, LU: 0 }, pe: { LB: 0, SB: 0, SC: 0, LU: 0 } });
+    expect(buildupCode("LONG_BUILDUP")).toBe("LB");
+    expect(buildupCode("SHORT_COVERING")).toBe("SC");
+    expect(buildupCode("NEUTRAL")).toBeNull();
+    expect(buildupCode(null)).toBeNull();
   });
 });

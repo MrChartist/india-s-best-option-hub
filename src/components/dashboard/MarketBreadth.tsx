@@ -6,18 +6,18 @@ import { useMemo, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Activity, BarChart3, Gauge, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { useAllIndices, useFnOStocks } from "@/hooks/useMarketData";
 import { formatNumberIN, formatPct } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { sentimentLabel, sentimentScore, sourceName, statusFrom, vixRegime, TONE_TEXT } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { useDashAllIndices, useDashFno } from "./useDashboardData";
 
 export function MarketBreadth() {
   const qc = useQueryClient();
   const d = useDensityClasses();
-  const idx = useAllIndices();
-  const fno = useFnOStocks();
+  const idx = useDashAllIndices();
+  const fno = useDashFno();
 
   const { advances, declines, unchanged } = idx.data;
   const total = advances + declines + unchanged;
@@ -39,7 +39,10 @@ export function MarketBreadth() {
   const sl = sentimentLabel(score);
 
   const hasAny = total > 0 || stocks.length > 0 || vix !== null;
-  const status = statusFrom({ isLoading: idx.isLoading || fno.isLoading, hasData: hasAny, source: idx.data.isLive ? idx.source : fno.data?.source, stale: idx.stale && !!fno.data?.stale, isLive: idx.data.isLive || fno.data?.isLive });
+  // Any sample input makes the composite a sample; it is never shown as live.
+  const anySample = idx.isSample || fno.isSample;
+  const status = statusFrom({ isLoading: idx.isLoading || fno.isLoading, hasData: hasAny, source: anySample ? "sample" : idx.data.isLive ? idx.source : fno.data?.source, stale: idx.stale && !!fno.data?.stale, isLive: idx.data.isLive || fno.data?.isLive });
+  const idxStatus = statusFrom({ hasData: total > 0 || vix !== null, source: idx.source, stale: idx.stale, isLive: idx.data.isLive });
   const retry = () => {
     void qc.invalidateQueries({ queryKey: ["nse-all-indices"] });
     void fno.refetch();
@@ -83,7 +86,7 @@ export function MarketBreadth() {
       </Card>
 
       <Card>
-        {head(<BarChart3 className="h-4 w-4" />, "Advance / decline")}
+        {head(<BarChart3 className="h-4 w-4" />, "Advance / decline", idx.isSample ? <DataStatus status="sample" reason="Advances and declines across the sample F&O stock list, not the NSE market." /> : null)}
         <div className={cn("space-y-3 pt-0", d.pad)}>
           {total > 0 ? (
             <>
@@ -117,7 +120,7 @@ export function MarketBreadth() {
       </Card>
 
       <Card>
-        {head(<Activity className="h-4 w-4" />, "VIX regime")}
+        {head(<Activity className="h-4 w-4" />, "VIX regime", idx.isSample ? <DataStatus status={idxStatus} reason={idx.data.reason} /> : null)}
         <div className={cn("space-y-3 pt-0", d.pad)}>
           <div className="text-center">
             <p className={cn("font-num text-num-hero tabular-nums", regime ? TONE_TEXT[regime.tone] : "text-muted-foreground")}>{vix !== null ? formatNumberIN(vix, 2, { minDecimals: 2 }) : "—"}</p>

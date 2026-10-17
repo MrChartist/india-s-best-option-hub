@@ -3,8 +3,9 @@
  *
  * Every number comes from "@/lib/options": P&L at the target via strategyValueAt (Black-76 per leg),
  * probabilityOfProfit (lognormal, with the chain's smile), maxProfitLoss, estimateMargin (SPAN-style
- * estimate) and chargesForLegs (round trip). ROI = net-of-charges profit at target ÷ estimated margin.
- * utility = w · ROI_norm + (1 − w) · POP.
+ * estimate) and chargesForLegs (round trip). ROI = net-of-charges profit at target ÷ funds required
+ * (span + exposure + expiry-day ELM + net debit, so a debit spread is not charged its gross long premium).
+ * utility = w · ROI_norm + (1 − w) · POP, plus NEUTRAL_VIEW_BOOST for delta-neutral fits to a Neutral view.
  */
 import type { OptionData } from "@/lib/mockData";
 import {
@@ -16,6 +17,8 @@ import {
   expectedMoveFromIV,
   forwardFromSpot,
   getDividendYield,
+  greeks76Spot,
+  profitableIntervals,
   legIV,
   maxProfitLoss,
   netPremium,
@@ -25,9 +28,13 @@ import {
   strategyValueAt,
   timeToExpiryYears,
   toISTDate,
+  type Interval,
   type Leg,
+  expectedMoveSigma,
 } from "@/lib/options";
 import { isDefinedRisk } from "./candidates";
+import { inZones, matchesView, NEUTRAL_VIEW_BOOST, profitZonesFromGrid } from "./insights";
+import type { Sentiment } from "./preview";
 import {
   CATEGORY_ORDER,
   KIND_META,
@@ -205,7 +212,7 @@ export function strategyLabel(c: Candidate): string {
 
 /** Log-spaced price grid around a forward: F·e^{±k·σ√T}. */
 export function priceGrid(F: number, sigma: number, T: number, points = GRID_POINTS, k = 5, strikes: number[] = []): number[] {
-  const sd = Math.max(sigma * Math.sqrt(Math.max(T, 1 / 365)), 0.02);
+  const sd = expectedMoveSigma(sigma, T, { minSd: 0.02 });
   const lo = Math.log(F) - k * sd;
   const hi = Math.log(F) + k * sd;
   const out: number[] = [];
@@ -218,23 +225,14 @@ export function priceGrid(F: number, sigma: number, T: number, points = GRID_POI
 export function popFromGrid(grid: number[], values: number[], F: number, T: number, smile: (K: number) => number): number {
   if (grid.length < 2 || grid.length !== values.length || !(F > 0)) return NaN;
   if (!(T > 0)) return strategyAtSpotPositive(grid, values, F) ? 1 : 0;
-  const intervals: Array<{ from: number; to: number }> = [];
-  let start: number | null = values[0] > 0 ? 0 : null;
-  for (let i = 1; i < grid.length; i++) {
-    const a = values[i - 1];
-    const b = values[i];
-    if (a > 0 !== b > 0) {
-      const x = grid[i - 1] + ((0 - a) * (grid[i] - grid[i - 1])) / (b - a);
-      if (b > 0) start = x;
-      else if (start !== null) {
-        intervals.push({ from: start, to: x });
-        start = null;
-      }
-    }
-  }
-  if (start !== null) intervals.push({ from: start, to: values[values.length - 1] > 0 ? Infinity : grid[grid.length - 1] });
+  return popFromZones(profitZonesFromGrid(grid, values), F, T, smile);
+}
+
+/** Lognormal mass of the given profit zones (each zone uses the smile at a representative strike). */
+export function popFromZones(zones: Interval[], F: number, T: number, smile: (K: number) => number): number {
+  if (!(F > 0) || !(T > 0)) return NaN;
   let p = 0;
-  for (const iv of intervals) {
+  for (const iv of zones) {
     const ref = iv.to === Infinity ? Math.max(iv.from, F) : iv.from === 0 ? Math.min(iv.to, F) : (iv.from + iv.to) / 2;
     const v = probBetween(F, iv.from, iv.to, T, smile(ref));
     if (Number.isFinite(v)) p += v;
@@ -270,18 +268,18 @@ export function scoreCandidate(c: Candidate, ctx: ScoreContext): ScoreOutcome {
 
   const marginOpts = { spot: ctx.spot, now: ctx.now, sigma: ctx.sigma };
   const m1 = estimateMargin(legs1, marginOpts);
-  if (!(m1.total > 0)) return { ok: false, reason: "invalid" };
-  let units = Math.min(ctx.maxLots, Math.floor(ctx.budget / m1.total));
+  if (!(m1.fundsRequired > 0)) return { ok: false, reason: "invalid" };
+  let units = Math.min(ctx.maxLots, Math.floor(ctx.budget / m1.fundsRequired));
   if (units < 1) return { ok: false, reason: "over_budget" };
 
   let legs = toLegs(c, units, ctx.symbol, ctx.lotSize);
   let margin = estimateMargin(legs, marginOpts);
-  while (margin.total > ctx.budget && units > 1) {
+  while (margin.fundsRequired > ctx.budget && units > 1) {
     units--;
     legs = toLegs(c, units, ctx.symbol, ctx.lotSize);
     margin = estimateMargin(legs, marginOpts);
   }
-  if (margin.total > ctx.budget) return { ok: false, reason: "over_budget" };
+  if (margin.fundsRequired > ctx.budget) return { ok: false, reason: "over_budget" };
 
   const gross = profitAtTarget(legs, ctx, multi);
   const charges = chargesForLegs(legs, { roundTrip: true }).total;
@@ -314,14 +312,18 @@ export function scoreCandidate(c: Candidate, ctx: ScoreContext): ScoreOutcome {
   }
 
   let pop: number;
+  let profitZones: Interval[];
   if (ctx.atExpiry && !multi) {
     pop = probabilityOfProfit(legs, { F: ctx.forward, T: ctx.tExpiry, sigma: ctx.smile });
+    profitZones = profitableIntervals(legs);
   } else {
     const grid = priceGrid(ctx.forwardTarget, ctx.sigma, ctx.tTarget, GRID_POINTS, 5, strikes);
     const vals = grid.map((S) => strategyValueAt(legs, S, { now: ctx.now, atDate: ctx.atDate, r: ctx.r, q: ctx.q }));
     pop = popFromGrid(grid, vals, ctx.forwardTarget, ctx.tTarget, ctx.smile);
+    profitZones = profitZonesFromGrid(grid, vals);
   }
   if (!Number.isFinite(pop)) pop = 0;
+  const fundsRequired = margin.fundsRequired;
 
   const result: ScoredCandidate = {
     ...c,
@@ -331,8 +333,14 @@ export function scoreCandidate(c: Candidate, ctx: ScoreContext): ScoreOutcome {
     profitAtTarget: gross,
     charges,
     netProfit: net,
-    capital: margin.total,
-    roi: net / margin.total,
+    capital: fundsRequired,
+    fundsRequired,
+    marginTotal: margin.total,
+    elm: margin.elmExpiryDay,
+    roi: net / fundsRequired,
+    deltaPerSet: deltaPerSet(c, ctx),
+    profitZones,
+    spotInProfitZone: inZones(profitZones, ctx.spot),
     pop,
     maxProfit,
     maxLoss,
@@ -346,6 +354,29 @@ export function scoreCandidate(c: Candidate, ctx: ScoreContext): ScoreOutcome {
     quoteWarning: c.legs.some((l) => l.noQuote),
   };
   return { ok: true, result };
+}
+
+/**
+ * Net spot delta of one strategy unit: Σ side × ratio × Δ (Black-76 on each leg's forward, converted
+ * to spot delta), with each leg's own IV or the front smile. NaN when a leg cannot be priced.
+ */
+export function deltaPerSet(c: Pick<Candidate, "legs">, ctx: Pick<ScoreContext, "spot" | "now" | "r" | "q" | "smile">): number {
+  let d = 0;
+  for (const l of c.legs) {
+    const T = timeToExpiryYears(l.expiry, ctx.now);
+    const sign = l.side === "BUY" ? 1 : -1;
+    if (!(T > 0)) {
+      const itm = l.type === "CE" ? ctx.spot > l.strike : ctx.spot < l.strike;
+      d += sign * l.ratio * (itm ? (l.type === "CE" ? 1 : -1) : 0);
+      continue;
+    }
+    const F = forwardFromSpot(ctx.spot, T, ctx.r, ctx.q);
+    const sigma = l.iv !== null && l.iv > 0 ? l.iv : ctx.smile(l.strike);
+    const g = greeks76Spot({ F, K: l.strike, T, r: ctx.r, sigma, type: l.type }, ctx.spot);
+    if (!Number.isFinite(g.delta)) return NaN;
+    d += sign * l.ratio * g.delta;
+  }
+  return Math.round(d * 1e4) / 1e4;
 }
 
 // ───────────────────────────── ranking ─────────────────────────────
@@ -383,13 +414,24 @@ export interface RankedResults {
   counts: Record<StrategyCategory, number>;
 }
 
-/** Rank by utility (ties: higher ROI, then higher POP, then id) and keep the top N overall and per category. */
-export function rankResults(results: ScoredCandidate[], w: number, perCategory = 10): RankedResults {
+export interface RankOptions {
+  /** Reader's market view. Neutral boosts delta-neutral structures; every view sets matchesView. */
+  view?: Sentiment | null;
+}
+
+/**
+ * Rank by utility (ties: higher ROI, then higher POP, then id) and keep the top N overall and per
+ * category. With a Neutral view, structures that match it get NEUTRAL_VIEW_BOOST added to utility.
+ */
+export function rankResults(results: ScoredCandidate[], w: number, perCategory = 10, opts: RankOptions = {}): RankedResults {
   const norm = roiNormaliser(results);
+  const view = opts.view ?? null;
   const ranked: RankedCandidate[] = results
     .map((r) => {
       const roiNorm = norm(r.roi);
-      return { ...r, roiNorm, utility: utility(roiNorm, r.pop, w), rank: 0 };
+      const fits = matchesView(r, view);
+      const boost = view === "neutral" && fits ? NEUTRAL_VIEW_BOOST : 0;
+      return { ...r, roiNorm, utility: utility(roiNorm, r.pop, w) + boost, rank: 0, matchesView: fits };
     })
     .sort((a, b) => b.utility - a.utility || b.roi - a.roi || b.pop - a.pop || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   ranked.forEach((r, i) => (r.rank = i + 1));

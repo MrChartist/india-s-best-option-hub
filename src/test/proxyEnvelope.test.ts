@@ -160,3 +160,109 @@ describe("Dhan header injection and credential storage", () => {
     await expect(decryptJSON(blob, "wrong")).rejects.toBeTruthy();
   }, 20000);
 });
+
+// ── Server snapshot recorder (proxy-server.mjs) ──
+
+interface RecorderModule {
+  parseRecordConfig: (env: Record<string, string | undefined>, baseDir?: string) => { enabled: boolean; symbols: string[]; intervalSec: number; expiries: number; retentionDays: number; dir: string };
+  isRecordingWindow: (now?: Date) => boolean;
+  chainToSnapshotLine: (o: { ts: number; symbol: string; expiry: string; spot: number; source: string; chain: unknown[] }) => { v: 1; ts: number; symbol: string; expiry: string; spot: number; source: string; rows: unknown[][] };
+  decodeSnapshotLine: (text: string) => { id: string; symbol: string; expiry: string; ts: number; spot: number; rows: Array<Record<string, unknown>> } | null;
+  snapshotFingerprint: (line: unknown) => string;
+  parseSnapshotQuery: (params: URLSearchParams, now?: number) => { symbol: string; expiry: string; from: number; to: number; limit: number; strike: number | null; type: string | null };
+  istDaysInRange: (from: number, to: number) => string[];
+  filterSnapshots: <T extends { ts: number; expiry: string; rows: Array<{ strike: number; side: string }> }>(snaps: T[], q: { from: number; to: number; expiry: string; strike: number | null; type: string | null }) => T[];
+  readRecordedSnapshots: (dir: string, q: ReturnType<RecorderModule["parseSnapshotQuery"]>) => Promise<{ snapshots: Array<{ ts: number; rows: unknown[] }>; truncated: boolean }>;
+  appendSnapshotLine: (dir: string, line: unknown) => Promise<string>;
+  pruneSnapshotFiles: (dir: string, keepDays: number, now?: number) => Promise<number>;
+  snapshotsToCsvText: (snaps: unknown[]) => string;
+  SERVER_SNAPSHOT_CSV_HEADER: string;
+}
+
+const PROXY_SERVER = "../../proxy-server.mjs";
+
+describe("proxy server snapshot recorder", async () => {
+  const rec = (await import(/* @vite-ignore */ PROXY_SERVER)) as RecorderModule;
+  const { SNAPSHOT_CSV_HEADER } = await import("@/lib/snapshotStore");
+  const fs = await import("node:fs/promises");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const leg = (ltp: number, oi: number, extra: Record<string, number> = {}) => ({ ltp, oi, oiChange: 0, volume: oi * 2, iv: 12.345, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: ltp - 0.5, askPrice: ltp + 0.5, ...extra });
+  const chain = [
+    { strikePrice: 25100, ce: leg(40.123, 900), pe: leg(0, 0, { volume: 0, bidPrice: 0, askPrice: 0 }) },
+    { strikePrice: 25000, ce: leg(90, 500, { bidQty: 75, askQty: 150 }), pe: leg(60, 700) },
+  ];
+  const T = Date.UTC(2026, 9, 16, 5, 0); // Fri 10:30 IST
+
+  it("parses the opt-in configuration and clamps the interval", () => {
+    expect(rec.parseRecordConfig({}).enabled).toBe(false);
+    const c = rec.parseRecordConfig({ RECORD_SYMBOLS: " nifty, BANKNIFTY ,bad sym,NIFTY", RECORD_INTERVAL_SEC: "10", RECORD_EXPIRIES: "9" }, "/srv");
+    expect(c).toEqual({ enabled: true, symbols: ["NIFTY", "BANKNIFTY"], intervalSec: 60, expiries: 3, retentionDays: 30, dir: "/srv/data/snapshots" });
+    expect(rec.parseRecordConfig({ RECORD_SYMBOLS: "NIFTY", RECORD_INTERVAL_SEC: "999" }).intervalSec).toBe(180);
+    expect(rec.parseRecordConfig({ RECORD_SYMBOLS: "NIFTY", RECORD_INTERVAL_SEC: "abc" }).intervalSec).toBe(60);
+  });
+
+  it("records only during market hours on weekdays", () => {
+    expect(rec.isRecordingWindow(new Date("2026-10-16T03:44:00Z"))).toBe(false); // 09:14 IST
+    expect(rec.isRecordingWindow(new Date("2026-10-16T03:45:00Z"))).toBe(true); // 09:15 IST
+    expect(rec.isRecordingWindow(new Date("2026-10-16T10:00:00Z"))).toBe(true); // 15:30 IST
+    expect(rec.isRecordingWindow(new Date("2026-10-16T10:01:00Z"))).toBe(false);
+    expect(rec.isRecordingWindow(new Date("2026-10-17T05:00:00Z"))).toBe(false); // Saturday
+  });
+
+  it("encodes compact NDJSON lines and decodes them to the browser snapshot shape", () => {
+    const line = rec.chainToSnapshotLine({ ts: T, symbol: "NIFTY", expiry: "2026-10-20", spot: 25012.345, source: "nse", chain });
+    expect(line.rows).toHaveLength(3); // the empty 25100 PE is dropped
+    expect(line.rows[0]).toEqual([25000, 0, 90, 500, 1000, 12.35, 89.5, 90.5, 75, 150]);
+    const back = rec.decodeSnapshotLine(JSON.stringify(line));
+    expect(back).toMatchObject({ id: `NIFTY|2026-10-20|${T}`, symbol: "NIFTY", expiry: "2026-10-20", ts: T, spot: 25012.35 });
+    expect(back?.rows[0]).toEqual({ strike: 25000, side: "CE", ltp: 90, oi: 500, vol: 1000, iv: 12.35, bid: 89.5, ask: 90.5, bidQty: 75, askQty: 150 });
+    expect(back?.rows[1]).toEqual({ strike: 25000, side: "PE", ltp: 60, oi: 700, vol: 1400, iv: 12.35, bid: 59.5, ask: 60.5 });
+    expect(rec.decodeSnapshotLine("{bad json")).toBeNull();
+    expect(rec.decodeSnapshotLine(JSON.stringify({ v: 2 }))).toBeNull();
+    const same = rec.chainToSnapshotLine({ ts: T + 60_000, symbol: "NIFTY", expiry: "2026-10-20", spot: 25012.345, source: "nse", chain });
+    expect(rec.snapshotFingerprint(same)).toBe(rec.snapshotFingerprint(line));
+  });
+
+  it("validates the query and defaults to today's IST session", () => {
+    const q = rec.parseSnapshotQuery(new URLSearchParams("symbol=nifty&expiry=20-Oct-2026"), T);
+    expect(q).toMatchObject({ symbol: "NIFTY", expiry: "2026-10-20", to: T, from: Date.UTC(2026, 9, 15, 18, 30), limit: 2000, strike: null, type: null });
+    const d = rec.parseSnapshotQuery(new URLSearchParams("symbol=NIFTY&from=2026-10-14&to=2026-10-15&strike=25000&type=pe"), T);
+    expect(d).toMatchObject({ from: Date.UTC(2026, 9, 13, 18, 30), to: Date.UTC(2026, 9, 15, 18, 30) - 1, strike: 25000, type: "PE" });
+    expect(rec.istDaysInRange(d.from, d.to)).toEqual(["2026-10-14", "2026-10-15"]);
+    for (const bad of ["", "symbol=NIFTY&from=abc", "symbol=NIFTY&from=2026-10-01&to=2026-12-31", "symbol=NIFTY&type=FUT", "symbol=NIFTY&strike=-1", `symbol=NIFTY&from=${T}&to=${T - 1}`]) {
+      expect(() => rec.parseSnapshotQuery(new URLSearchParams(bad), T)).toThrow();
+    }
+  });
+
+  it("appends, reads back, filters, exports CSV and prunes day files", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mc-snapshots-"));
+    try {
+      const l1 = rec.chainToSnapshotLine({ ts: T, symbol: "NIFTY", expiry: "2026-10-20", spot: 25000, source: "nse", chain });
+      const l2 = rec.chainToSnapshotLine({ ts: T + 60_000, symbol: "NIFTY", expiry: "2026-10-27", spot: 25010, source: "nse", chain });
+      const file = await rec.appendSnapshotLine(dir, l1);
+      await rec.appendSnapshotLine(dir, l2);
+      expect(file.endsWith(path.join("NIFTY", "2026-10-16.ndjson"))).toBe(true);
+      await fs.appendFile(file, "not json\n");
+      const all = await rec.readRecordedSnapshots(dir, rec.parseSnapshotQuery(new URLSearchParams("symbol=NIFTY"), T + 120_000));
+      expect(all.snapshots.map((s) => s.ts)).toEqual([T, T + 60_000]);
+      const one = await rec.readRecordedSnapshots(dir, rec.parseSnapshotQuery(new URLSearchParams("symbol=NIFTY&expiry=2026-10-27&strike=25000&type=CE&limit=1"), T + 120_000));
+      expect(one.snapshots).toHaveLength(1);
+      expect(one.snapshots[0].rows).toHaveLength(1);
+      const capped = await rec.readRecordedSnapshots(dir, rec.parseSnapshotQuery(new URLSearchParams("symbol=NIFTY&limit=1"), T + 120_000));
+      expect(capped).toMatchObject({ truncated: true });
+      const csv = rec.snapshotsToCsvText(all.snapshots).trim().split("\n");
+      expect(rec.SERVER_SNAPSHOT_CSV_HEADER).toBe(SNAPSHOT_CSV_HEADER);
+      expect(csv[0]).toBe(SNAPSHOT_CSV_HEADER);
+      expect(csv[1].startsWith("2026-10-16 10:30:00,")).toBe(true);
+      expect(csv).toHaveLength(1 + 3 + 3);
+
+      await fs.mkdir(path.join(dir, "NIFTY"), { recursive: true });
+      await fs.writeFile(path.join(dir, "NIFTY", "2026-08-01.ndjson"), "");
+      expect(await rec.pruneSnapshotFiles(dir, 30, T)).toBe(1);
+      expect(await rec.pruneSnapshotFiles(path.join(dir, "missing"), 30, T)).toBe(0);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});

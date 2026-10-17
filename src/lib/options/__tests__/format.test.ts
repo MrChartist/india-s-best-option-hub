@@ -83,3 +83,22 @@ describe("Indian number formatting", () => {
     expect(formatDateIST("nonsense")).toBe("—");
   });
 });
+
+describe("compactAxisFormatter (shared unit per axis)", () => {
+  it("formats every tick in one unit picked from the axis max", async () => {
+    const { compactAxisFormatter } = await import("../format");
+    const f = compactAxisFormatter(220_000);
+    expect([220_000, 165_000, 110_000, 55_000, 0].map(f)).toEqual(["2.2L", "1.65L", "1.1L", "0.55L", "0"]);
+    const g = compactAxisFormatter(-100_000, 25_000);
+    expect([-100_000, -75_000, 25_000].map(g)).toEqual(["−1L", "−0.75L", "0.25L"]);
+  });
+
+  it("uses upper-case K and Cr, and plain numbers below 1,000", async () => {
+    const { compactAxisFormatter, compactAxisUnit } = await import("../format");
+    expect(compactAxisFormatter(45_000)(45_000)).toBe("45K");
+    expect(compactAxisFormatter(3e7)(1.5e7)).toBe("1.5Cr");
+    expect(compactAxisFormatter(800)(400)).toBe("400");
+    expect(compactAxisUnit(NaN).suffix).toBe("");
+    expect(compactAxisFormatter(1e5)(NaN)).toBe("");
+  });
+});

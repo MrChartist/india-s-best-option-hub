@@ -18,6 +18,19 @@ export function expectedMoveFromIV(F: number, sigma: number, T: number, k = 1): 
 }
 
 /**
+ * One-sigma move in log space, σ·√T, with the floors each caller needs made explicit:
+ * - `minT` (default one day, 1/365) so an expiring contract still has a visible band;
+ * - `minSigma` floors the IV before scaling (guards a missing or zero IV);
+ * - `minSd` floors the result (keeps a grid or chart from collapsing to a point).
+ */
+export function expectedMoveSigma(sigma: number, T: number, opts: { minT?: number; minSigma?: number; minSd?: number } = {}): number {
+  const { minT = 1 / 365, minSigma = 0, minSd = 0 } = opts;
+  const s = Math.max(Number.isFinite(sigma) ? sigma : 0, minSigma);
+  const t = Math.max(Number.isFinite(T) ? T : 0, minT);
+  return Math.max(s * Math.sqrt(t), minSd);
+}
+
+/**
  * Straddle-implied "typical move": 0.85 × ATM straddle.
  *
  * An ATM straddle prices the expected absolute move, E|ΔS| ≈ √(2/π)·σ√T·S ≈ 0.8σ. So
@@ -38,4 +51,34 @@ export function emHitRate(history: Array<{ spotAtStart: number; move: number; cl
   if (valid.length === 0) return NaN;
   const hits = valid.filter((h) => Math.abs(h.close - h.spotAtStart) <= h.move).length;
   return hits / valid.length;
+}
+
+export interface ExpectedMoveBand {
+  move: number;
+  upper: number;
+  lower: number;
+  pct: number;
+}
+
+export type ExpectedMoveMethod = "iv" | "straddle";
+
+/** Short tags to show next to a move so readers know which definition they are looking at. */
+export const EM_METHOD_LABEL: Record<ExpectedMoveMethod, string> = { iv: "IV 1σ", straddle: "Straddle ×0.85" };
+
+/**
+ * Both expected-move definitions side by side.
+ *  - `iv`: 1σ band from ATM IV around the forward (spot when no forward is given); see expectedMoveFromIV.
+ *  - `straddle`: 0.85 × ATM straddle around spot (≈ a 50% band); null when no usable straddle is given.
+ * Invalid inputs give NaN fields for `iv` rather than throwing.
+ */
+export function expectedMoves(o: { spot: number; forward?: number; atmIv: number; tYears: number; straddle?: number }): {
+  iv: ExpectedMoveBand;
+  straddle: ExpectedMoveBand | null;
+} {
+  const spot = Number(o?.spot);
+  const centre = typeof o?.forward === "number" && Number.isFinite(o.forward) && o.forward > 0 ? o.forward : spot;
+  const iv = expectedMoveFromIV(centre, Number(o?.atmIv), Number(o?.tYears));
+  const st = o?.straddle;
+  const straddle = typeof st === "number" && Number.isFinite(st) && st > 0 && spot > 0 ? expectedMoveFromStraddle(st, spot) : null;
+  return { iv, straddle };
 }

@@ -71,9 +71,9 @@ export function WeeklyCompare({ session }: { session?: MarketSession }) {
       subtitle="The two weekly index expiries, nearest contract each"
     >
       {loading ? (
-        <div className="space-y-2" aria-busy="true" aria-label="Loading comparison">
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} className="h-6 w-full" />
+        <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading comparison">
+          {["a", "b", "c", "d", "e", "f"].map((k) => (
+            <Skeleton key={k} className="h-6 w-full" />
           ))}
         </div>
       ) : (

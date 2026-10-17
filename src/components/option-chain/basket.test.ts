@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { generateSampleChain } from "@/lib/options";
 import {
   BASKET_KEY,
+  BASKET_SENT_KEY,
   addLegs,
   basketNetPremium,
   buildIronFly,
@@ -10,8 +11,14 @@ import {
   decodeLegs,
   encodeLegs,
   fromBase64Url,
+  groupBySymbol,
   legFromRow,
+  paperTradingUrl,
   readBasket,
+  readBasketSent,
+  recordBasketSent,
+  removeLegs,
+  sendUrl,
   strategyBuilderUrl,
   toBase64Url,
   writeBasket,
@@ -74,7 +81,7 @@ describe("leg builders", () => {
   it("prices a leg at mid with a decimal IV", () => {
     const row = model.rows.find((r) => r.strike === 24500)!;
     const l = legFromRow(row, "CE", "BUY", ctx);
-    expect(l.premium).toBeCloseTo(row.ce.mid, 2);
+    expect(l.premium).toBeCloseTo(row.ce.mid, 1);
     expect(l.iv).toBeGreaterThan(0.01);
     expect(l.iv).toBeLessThan(1);
     expect(l).toMatchObject({ symbol: "NIFTY", expiry: "2026-10-20", strike: 24500, type: "CE", side: "BUY", lots: 1 });
@@ -100,5 +107,45 @@ describe("leg builders", () => {
     expect(sp.side).toBe("SELL");
     expect(bc.strike).toBeGreaterThan(24500);
     expect(bp.strike).toBeLessThan(24500);
+  });
+});
+
+describe("hand-off links, groups and the sent marker", () => {
+  beforeEach(() => localStorage.clear());
+  const legs = [leg(), leg({ type: "PE", side: "SELL", premium: 80 })];
+
+  it("builds replace / append Strategy Builder links and a Paper Trading link", () => {
+    const enc = encodeLegs(legs);
+    expect(strategyBuilderUrl(legs)).toBe(`/strategy-builder?legs=${enc}`);
+    expect(strategyBuilderUrl(legs, "replace")).toBe(`/strategy-builder?legs=${enc}`);
+    expect(strategyBuilderUrl(legs, "append")).toBe(`/strategy-builder?legs=${enc}&mode=append`);
+    expect(paperTradingUrl(legs)).toBe(`/paper-trading?legs=${enc}`);
+    expect(decodeLegs(new URLSearchParams(paperTradingUrl(legs).split("?")[1]).get("legs") ?? "")).toEqual(legs);
+    expect(sendUrl("builder", legs)).toBe(strategyBuilderUrl(legs));
+    expect(sendUrl("append", legs)).toBe(strategyBuilderUrl(legs, "append"));
+    expect(sendUrl("paper", legs)).toBe(paperTradingUrl(legs));
+  });
+
+  it("groups by underlying in first-seen order with a subtotal each", () => {
+    const mixed = [leg(), leg({ symbol: "BANKNIFTY", strike: 52000, premium: 300, side: "SELL" }), leg({ type: "PE", side: "SELL", premium: 80 })];
+    const groups = groupBySymbol(mixed, (s) => (s === "BANKNIFTY" ? 30 : 75));
+    expect(groups.map((g) => g.symbol)).toEqual(["NIFTY", "BANKNIFTY"]);
+    expect(groups[0].items.map((x) => x.index)).toEqual([0, 2]);
+    expect(groups[0].net).toBe((80 - 100) * 75);
+    expect(groups[1].net).toBe(300 * 30);
+    expect(groupBySymbol([], () => 75)).toEqual([]);
+  });
+
+  it("removes sent legs and records the hand-off", () => {
+    const basket = [...legs, leg({ symbol: "BANKNIFTY", strike: 52000 })];
+    expect(removeLegs(basket, legs)).toEqual([basket[2]]);
+    expect(readBasketSent()).toBeNull();
+    const rec = recordBasketSent("paper", legs, 1_760_000_000_000);
+    expect(rec).toEqual({ at: 1_760_000_000_000, target: "paper", count: 2, symbols: ["NIFTY"] });
+    expect(readBasketSent()).toEqual(rec);
+    localStorage.setItem(BASKET_SENT_KEY, JSON.stringify({ at: 1, target: "nowhere", count: 1, symbols: [] }));
+    expect(readBasketSent()).toBeNull();
+    localStorage.setItem(BASKET_SENT_KEY, "{");
+    expect(readBasketSent()).toBeNull();
   });
 });

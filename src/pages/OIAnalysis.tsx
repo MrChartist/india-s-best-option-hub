@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, ArrowUpRight, Keyboard, Loader2, MapPin, RefreshCw, WifiOff, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUpRight, ChartColumn, Keyboard, Loader2, MapPin, RefreshCw, WifiOff, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BuildupBadge } from "@/components/ui/buildup-badge";
+import { PageHeader } from "@/components/PageHeader";
+import MetricHelp from "@/components/learn/MetricHelp";
 import { OIHeatmap } from "@/components/OIHeatmap";
 import { SupportResistance } from "@/components/SupportResistance";
 import { MultiExpiryOI } from "@/components/MultiExpiryOI";
@@ -18,17 +21,23 @@ import { canonicalSymbol } from "@/components/option-chain/symbols";
 import { BuildupQuadrant } from "@/components/oi/BuildupQuadrant";
 import { OIReplay } from "@/components/oi/OIReplay";
 import { PCRSuite } from "@/components/oi/PCRSuite";
+import { OITimeSeries } from "@/components/oi/OITimeSeries";
+import { CumulativeOIChange, RangeOIChange } from "@/components/oi/OIFlowCharts";
+import { useOiSession } from "@/components/oi/useOiSession";
+import { emMethodTag } from "@/components/oi/MaxPainTable";
 import { EmptyState, ExpiryPills, ModuleHeader, Segmented, StatTile } from "@/components/oi/shared";
 import { EDU_NOTE, fmtOI, fmtOIChange, fmtRatio, fmtStrike } from "@/components/oi/format";
 import { useExpiryList, useLiveOptionChain } from "@/hooks/useMarketData";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { axisProps, barCursor, chartColors, gridProps, legendStyle, tokenColor, tooltipCursor, tooltipStyle } from "@/lib/chartTheme";
 import { inferOiUnit } from "@/lib/gexData";
-import { enrichChain, findATMStrike, getMarketParams, normalizeExpiry } from "@/lib/options";
+import { contractPath } from "@/lib/history/contractSeries";
+import { compactAxisFormatter, enrichChain, findATMStrike, getMarketParams, normalizeExpiry } from "@/lib/options";
 import {
   BUILDUP_LABEL,
-  buildupTone,
+  buildupCode,
   calculatePCR,
+  dominantBuildup,
   expirySummary,
   getATMZoneAnalysis,
   getBuildup,
@@ -39,6 +48,8 @@ import {
   legPriceChange,
   pcrSignal,
   significantStrikes,
+  spotMaxPainLabel,
+  strikeGap,
 } from "@/lib/oiUtils";
 import { cn } from "@/lib/utils";
 
@@ -59,10 +70,38 @@ type TabValue = (typeof TABS)[number]["value"];
 
 const ZONE_SIZES = [2, 5] as const;
 
+/** "CE · PE" links from a strike row to the two contract pages. */
+function ContractLinks({ symbol, expiry, strike }: { symbol: string; expiry: string; strike: number }) {
+  if (!expiry) return null;
+  return (
+    <span className="ml-1.5 inline-flex gap-1 align-middle">
+      {(["CE", "PE"] as const).map((t) => (
+        <Link
+          key={t}
+          to={contractPath(symbol, expiry, strike, t)}
+          className="rounded-chip border border-border px-1 text-[10px] font-medium leading-4 text-muted-foreground hover:border-primary/50 hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none"
+          aria-label={`Open the ${fmtStrike(strike)} ${t} contract page`}
+        >
+          {t}
+        </Link>
+      ))}
+    </span>
+  );
+}
+
+/** Build-up badge for a leg; a muted dash when the build-up is neutral or unknown. */
+function LegBuildup({ b, compact }: { b: Parameters<typeof buildupCode>[0]; compact?: boolean }) {
+  const code = buildupCode(b);
+  return code ? <BuildupBadge kind={code} variant={compact ? "compact" : "full"} /> : <span className="text-muted-foreground" title={BUILDUP_LABEL[b]}>—</span>;
+}
+
 function isTypingTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
   return t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.getAttribute("role") === "combobox";
 }
+
+/** Prefix "+" on positive ticks of a change axis ("+1.2L"). */
+const signedTick = (f: (v: number) => string) => (v: number) => (v > 0 ? `+${f(v)}` : f(v));
 
 export default function OIAnalysis() {
   const [params, setParams] = useSearchParams();
@@ -131,15 +170,29 @@ export default function OIAnalysis() {
   const significant = useMemo(() => significantStrikes(chain), [chain]);
   const oiUnit = useMemo(() => inferOiUnit(chain, lotSize), [chain, lotSize]);
 
-  const oiData = useMemo(
-    () => significant.map((o) => ({ strike: o.strikePrice, callOI: o.ce.oi, putOI: o.pe.oi, callChg: o.ce.oiChange, putChg: o.pe.oiChange, callVol: o.ce.volume, putVol: o.pe.volume })),
-    [significant],
-  );
+  // The x-axis is categorical, so keep every listed strike between the first and last significant
+  // strike: small strikes inside the range show as short bars instead of silently vanishing, and the
+  // category spacing stays a uniform strike grid.
+  const oiData = useMemo(() => {
+    if (significant.length === 0) return [];
+    const ks = significant.map((o) => o.strikePrice);
+    const lo = Math.min(...ks);
+    const hi = Math.max(...ks);
+    return chain
+      .filter((o) => o.strikePrice >= lo && o.strikePrice <= hi)
+      .sort((a, b) => a.strikePrice - b.strikePrice)
+      .map((o) => ({ strike: o.strikePrice, callOI: o.ce.oi, putOI: o.pe.oi, callChg: o.ce.oiChange, putChg: o.pe.oiChange, callVol: o.ce.volume, putVol: o.pe.volume }));
+  }, [significant, chain]);
   const oiChangeData = useMemo(() => {
     const maxChg = Math.max(0, ...chain.map((o) => Math.max(Math.abs(o.ce.oiChange), Math.abs(o.pe.oiChange))));
     const cut = maxChg * 0.05;
+    const ks = chain.filter((o) => maxChg > 0 && (Math.abs(o.ce.oiChange) >= cut || Math.abs(o.pe.oiChange) >= cut)).map((o) => o.strikePrice);
+    if (ks.length === 0) return [];
+    const lo = Math.min(...ks);
+    const hi = Math.max(...ks);
+    // Contiguous strike range (see oiData): no hidden gaps on the categorical axis.
     return chain
-      .filter((o) => maxChg > 0 && (Math.abs(o.ce.oiChange) >= cut || Math.abs(o.pe.oiChange) >= cut))
+      .filter((o) => o.strikePrice >= lo && o.strikePrice <= hi)
       .sort((a, b) => a.strikePrice - b.strikePrice)
       .map((o) => ({ strike: o.strikePrice, callOIChg: o.ce.oiChange, putOIChg: o.pe.oiChange }));
   }, [chain]);
@@ -149,6 +202,14 @@ export default function OIAnalysis() {
     const withDelta = hasData && spotPrice > 0 && expiry ? enrichChain(chain, { spot: spotPrice, expiry }) : chain;
     return getDeltaOI(withDelta, spotPrice, undefined, { oiUnit, lotSize });
   }, [chain, spotPrice, expiry, hasData, oiUnit, lotSize]);
+  // Shared-unit axis ticks: one unit (K / L / Cr) per axis, picked from the data extent, so an axis
+  // never mixes "1.1L" with "55K".
+  const oiAxisTick = useMemo(() => compactAxisFormatter(...oiData.flatMap((d) => [d.callOI, d.putOI])), [oiData]);
+  const oiChgAxisTick = useMemo(() => signedTick(compactAxisFormatter(...oiChangeData.flatMap((d) => [d.callOIChg, d.putOIChg]))), [oiChangeData]);
+  const deltaAxisTick = useMemo(
+    () => signedTick(compactAxisFormatter(...deltaOIData.flatMap((d) => [d.ceDeltaOI, d.peDeltaOI, d.netDeltaOI]))),
+    [deltaOIData],
+  );
   const strikePCRData = useMemo(() => getStrikePCR(chain, spotPrice), [chain, spotPrice]);
   const zone = useMemo(() => getATMZoneAnalysis(chain, spotPrice, undefined, zonePerSide), [chain, spotPrice, zonePerSide]);
 
@@ -170,6 +231,10 @@ export default function OIAnalysis() {
   const topCEOI = useMemo(() => [...chain].sort((a, b) => b.ce.oi - a.ce.oi).slice(0, 5), [chain]);
   const topPEOI = useMemo(() => [...chain].sort((a, b) => b.pe.oi - a.pe.oi).slice(0, 5), [chain]);
 
+  const session = useOiSession(symbol, expiry, spotPrice);
+  const ceDominant = useMemo(() => dominantBuildup(chain, "CE"), [chain]);
+  const peDominant = useMemo(() => dominantBuildup(chain, "PE"), [chain]);
+
   const pcrRows = useMemo(() => {
     if (!hasData || !expiry) return [];
     return [{ ...expirySummary(chain, spotPrice, expiry, { r: getMarketParams().r }), sample: isSample }];
@@ -177,51 +242,82 @@ export default function OIAnalysis() {
 
   const strikeTick = (v: number) => fmtStrike(v);
   const strikeLabel = (v: number) => `Strike ${fmtStrike(v)}`;
+  const mpLabel = spotMaxPainLabel(spotPrice, maxPain, strikeGap(chain.map((r) => r.strikePrice)));
   const refLines = () => {
     const out: JSX.Element[] = [];
-    if (Number.isFinite(atmStrike)) out.push(<ReferenceLine key="atm" x={atmStrike} stroke={chartColors.spot} strokeDasharray="4 4" label={{ value: "ATM", fill: chartColors.spot, fontSize: 11, position: "top" }} />);
+    // When spot sits on max pain, the max pain line carries one combined label instead of two.
+    if (Number.isFinite(atmStrike)) out.push(<ReferenceLine key="atm" x={atmStrike} stroke={chartColors.spot} strokeDasharray="4 4" label={mpLabel.combined ? undefined : { value: "ATM", fill: chartColors.spot, fontSize: 11, position: "top" }} />);
     if (highlight) out.push(<ReferenceLine key="hl" x={highlight} stroke={chartColors.foreground} strokeWidth={1.5} label={{ value: fmtStrike(highlight), fill: chartColors.foreground, fontSize: 11, position: "insideTopRight" }} />);
     return out;
   };
 
-  const metricCards = [
-    { label: "Max pain", value: fmtStrike(maxPain), cls: "text-warning", sub: spotPrice > 0 && maxPain > 0 ? `${maxPain - spotPrice >= 0 ? "+" : "−"}${Math.abs(maxPain - spotPrice).toFixed(0)} pts from spot` : undefined },
-    { label: "PCR (OI)", value: fmtRatio(pcrData.pcrOI), cls: signal.className, sub: signal.label },
-    { label: "Call OI", value: fmtOI(pcrData.totalCEOI), cls: "text-bearish", sub: "Resistance side" },
-    { label: "Put OI", value: fmtOI(pcrData.totalPEOI), cls: "text-bullish", sub: "Support side" },
-    { label: "Call OI change", value: fmtOIChange(pcrData.totalCEOIChg), cls: "text-bearish", sub: pcrData.totalCEOIChg >= 0 ? "Writers adding" : "Writers exiting" },
-    { label: "Put OI change", value: fmtOIChange(pcrData.totalPEOIChg), cls: "text-bullish", sub: pcrData.totalPEOIChg >= 0 ? "Writers adding" : "Writers exiting" },
+  const summary = pcrRows[0];
+  const metricCards: Array<{ key: string; label: ReactNode; value: ReactNode; cls?: string; sub?: ReactNode }> = [
+    {
+      key: "maxPain",
+      label: <MetricHelp metric="maxPain" value={maxPain || undefined}>Max pain</MetricHelp>,
+      value: fmtStrike(maxPain),
+      cls: "text-warning",
+      sub: spotPrice > 0 && maxPain > 0 ? `${maxPain - spotPrice >= 0 ? "+" : "−"}${Math.abs(maxPain - spotPrice).toLocaleString("en-IN", { maximumFractionDigits: 0 })} pts from spot` : undefined,
+    },
+    { key: "pcr", label: <MetricHelp metric="pcr" value={pcrData.pcrOI || undefined}>PCR (OI)</MetricHelp>, value: fmtRatio(pcrData.pcrOI), cls: signal.className, sub: signal.label },
+    {
+      key: "em",
+      label: <MetricHelp metric="em">Expected move</MetricHelp>,
+      value: summary?.expectedMove ? `±${summary.expectedMove.toLocaleString("en-IN", { maximumFractionDigits: 0 })}` : "—",
+      sub: summary?.emSource ? `${emMethodTag(summary.emSource)} · to expiry` : "Needs IV or an ATM straddle",
+    },
+    {
+      key: "buildup",
+      label: <MetricHelp metric="buildup">Dominant buildup</MetricHelp>,
+      value: (
+        <span className="inline-flex items-center gap-1.5 text-xs">
+          <span className="text-label text-muted-foreground">CE</span>
+          <LegBuildup b={ceDominant.buildup} compact />
+          <span className="text-label text-muted-foreground">PE</span>
+          <LegBuildup b={peDominant.buildup} compact />
+        </span>
+      ),
+      sub: ceDominant.share > 0 || peDominant.share > 0 ? `By OI change · ${Math.round(ceDominant.share * 100)}% / ${Math.round(peDominant.share * 100)}%` : "Premium changes not sent",
+    },
+    { key: "ceoi", label: "Call OI", value: fmtOI(pcrData.totalCEOI), cls: "text-bearish", sub: "Resistance side" },
+    { key: "peoi", label: "Put OI", value: fmtOI(pcrData.totalPEOI), cls: "text-bullish", sub: "Support side" },
+    { key: "cechg", label: "Call OI change", value: fmtOIChange(pcrData.totalCEOIChg), cls: "text-bearish", sub: pcrData.totalCEOIChg >= 0 ? "Writers adding" : "Writers exiting" },
+    { key: "pechg", label: "Put OI change", value: fmtOIChange(pcrData.totalPEOIChg), cls: "text-bullish", sub: pcrData.totalPEOIChg >= 0 ? "Writers adding" : "Writers exiting" },
   ];
 
   const chartCard = (title: string, hint: string, body: ReactNode, right?: ReactNode) => (
     <Card className="overflow-hidden">
-      <ModuleHeader title={title} hint={hint} right={right ?? (isSample ? <Badge variant="warning">Sample data</Badge> : undefined)} />
+      <ModuleHeader title={title} hint={hint} right={right} />
       <CardContent className="p-4">{body}</CardContent>
     </Card>
   );
 
   return (
     <div className="space-y-4">
-      <header className="rounded-card border border-border bg-card px-4 py-3 shadow-card">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="font-display text-title">OI Analysis</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {liveData && <SourceBadge source={liveData.source} asOf={liveData.asOf} stale={liveData.stale} isLive={liveData.isLive} reason={liveData.reason} />}
-              {spotPrice > 0 && (
-                <span className="font-num text-xs text-muted-foreground">
-                  Spot <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
-                  {maxPain > 0 && (
-                    <>
-                      {" "}· Max pain <span className="font-semibold text-warning">{fmtStrike(maxPain)}</span>
-                    </>
-                  )}
-                </span>
-              )}
-              {hasData && <Badge variant={signal.tone === "neutral" ? "neutral" : signal.tone}>PCR {fmtRatio(pcrData.pcrOI)} · {signal.label}</Badge>}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        icon={ChartColumn}
+        eyebrow="Chain & OI"
+        title="OI Analysis"
+        description="Open interest walls, intraday OI change, buildup and PCR by strike for one expiry."
+        source={
+          <>
+            {liveData && <SourceBadge source={liveData.source} asOf={liveData.asOf} stale={liveData.stale} isLive={liveData.isLive} reason={liveData.reason} />}
+            {spotPrice > 0 && (
+              <span className="font-num text-xs text-muted-foreground">
+                Spot <span className="font-semibold text-foreground">{spotPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                {maxPain > 0 && (
+                  <>
+                    {" "}· Max pain <span className="font-semibold text-warning">{fmtStrike(maxPain)}</span>
+                  </>
+                )}
+              </span>
+            )}
+            {hasData && <Badge variant={signal.tone === "neutral" ? "neutral" : signal.tone}>PCR {fmtRatio(pcrData.pcrOI)} · {signal.label}</Badge>}
+          </>
+        }
+        actions={
+          <>
             <SymbolSearch value={symbol} onSelect={(v) => setParam({ symbol: v, expiry: null, strike: null })} />
             <Button variant="outline" size="pill" className="h-8 gap-1.5" onClick={handleRefetch} disabled={isFetching} aria-label="Refresh data (R)">
               {isFetching ? <Loader2 className="animate-spin" /> : <RefreshCw />}
@@ -256,11 +352,13 @@ export default function OIAnalysis() {
                 </dl>
               </PopoverContent>
             </Popover>
-          </div>
-        </div>
-        <ExpiryPills className="mt-3" expiries={expiries} value={expiry} onChange={selectExpiry} />
+          </>
+        }
+      />
+      <div className="space-y-2">
+        <ExpiryPills expiries={expiries} value={expiry} onChange={selectExpiry} />
         {highlight && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-capsule border border-border bg-muted px-2.5 py-1 text-xs">
+          <div className="inline-flex items-center gap-1.5 rounded-capsule border border-border bg-muted px-2.5 py-1 text-xs">
             <MapPin className="h-3.5 w-3.5 text-primary-ink" aria-hidden="true" />
             Strike {fmtStrike(highlight)} highlighted
             <button type="button" className="ml-1 rounded-chip p-0.5 hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none" onClick={() => setParam({ strike: null })} aria-label="Clear highlighted strike">
@@ -268,7 +366,7 @@ export default function OIAnalysis() {
             </button>
           </div>
         )}
-      </header>
+      </div>
 
       {afterHours && (
         <div className="flex items-center gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-warning" role="status">
@@ -299,9 +397,9 @@ export default function OIAnalysis() {
         )
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-4">
             {metricCards.map((m) => (
-              <StatTile key={m.label} label={m.label} value={m.value} valueClass={m.cls} sub={m.sub} />
+              <StatTile key={m.key} label={m.label} value={m.value} valueClass={m.cls} sub={m.sub} />
             ))}
           </div>
 
@@ -320,7 +418,7 @@ export default function OIAnalysis() {
               }
             />
             <CardContent className="space-y-3 p-4">
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 items-start gap-2 md:grid-cols-3 xl:grid-cols-6">
                 <StatTile label="Zone PCR" value={fmtRatio(zone.pcr)} valueClass={pcrSignal(zone.pcr).className} />
                 <StatTile label="PCR change" value={zone.prevPcr > 0 ? `${zone.pcrChange >= 0 ? "+" : ""}${zone.pcrChange.toFixed(2)}` : "—"} sub={zone.prevPcr > 0 ? `from ${zone.prevPcr.toFixed(2)}` : undefined} valueClass={zone.pcrChange > 0 ? "text-bullish" : zone.pcrChange < 0 ? "text-bearish" : undefined} />
                 <StatTile label="Call OI" value={fmtOI(zone.totalCEOI)} valueClass="text-bearish" />
@@ -346,6 +444,7 @@ export default function OIAnalysis() {
                         <TableCell className="font-semibold">
                           {fmtStrike(s.strike)}
                           {s.isATM && <span className="ml-1.5 text-micro uppercase text-primary-ink">ATM</span>}
+                          <ContractLinks symbol={symbol} expiry={expiry} strike={s.strike} />
                         </TableCell>
                         <TableCell className="text-right">{fmtOI(s.ceOI)}</TableCell>
                         <TableCell className="text-right text-bearish">
@@ -364,12 +463,29 @@ export default function OIAnalysis() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid items-start gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <OIHeatmap chain={chain} spotPrice={spotPrice} highlightStrike={highlight} />
             </div>
             <SupportResistance chain={chain} spotPrice={spotPrice} symbol={symbol} expiry={expiry} asOf={liveData?.asOf} />
           </div>
+
+          <section aria-labelledby="intraday-oi" className="space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="intraday-oi" className="flex items-center gap-2 font-display text-lg font-semibold">
+                <Activity className="h-4 w-4 text-primary-ink" aria-hidden="true" />
+                Intraday OI
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {session.source === "recorded" ? "From snapshots recorded in this browser today." : "No recorded session yet: showing a labelled sample day. Keep this tab open in market hours to record your own."}
+              </p>
+            </div>
+            <div className="grid items-start gap-4 xl:grid-cols-2">
+              <CumulativeOIChange session={session} unit={oiUnit} />
+              <RangeOIChange session={session} unit={oiUnit} />
+            </div>
+            <OITimeSeries session={session} unit={oiUnit} />
+          </section>
 
           <Tabs value={tab} onValueChange={(v) => setParam({ tab: v === "oi-dist" ? null : v })}>
             <div className="-mx-1 overflow-x-auto px-1 pb-1">
@@ -385,16 +501,16 @@ export default function OIAnalysis() {
             <TabsContent value="oi-dist">
               {chartCard(
                 "Call and put OI by strike",
-                "Strikes holding at least 5% of the largest OI. Calls are resistance, puts are support.",
+                "Every listed strike across the range where OI is at least 5% of the largest. Calls are resistance, puts are support.",
                 <div className="h-[340px] sm:h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={oiData} barGap={0} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
                       <CartesianGrid {...gridProps} />
                       <XAxis {...axisProps} dataKey="strike" tickFormatter={strikeTick} minTickGap={14} />
-                      <YAxis {...axisProps} tickFormatter={(v: number) => fmtOI(v)} width={52} />
+                      <YAxis {...axisProps} tickFormatter={oiAxisTick} width={52} />
                       <Tooltip contentStyle={tooltipStyle} cursor={barCursor} labelFormatter={strikeLabel} formatter={(v: number, n: string) => [fmtOI(v), n]} />
                       <Legend wrapperStyle={legendStyle} />
-                      {maxPain > 0 && <ReferenceLine x={maxPain} stroke={chartColors.warning} strokeDasharray="5 4" label={{ value: "Max pain", fill: chartColors.warning, fontSize: 11, position: "insideTopLeft" }} />}
+                      {maxPain > 0 && <ReferenceLine x={maxPain} stroke={chartColors.warning} strokeDasharray="5 4" label={{ value: mpLabel.combined ? (mpLabel.text ?? "") : "Max pain", fill: chartColors.warning, fontSize: 11, position: mpLabel.combined ? "top" : "insideTopLeft" }} />}
                       {refLines()}
                       <Bar dataKey="callOI" name="Call OI" fill={chartColors.call} fillOpacity={0.85} radius={[2, 2, 0, 0]} isAnimationActive={false} />
                       <Bar dataKey="putOI" name="Put OI" fill={chartColors.put} fillOpacity={0.85} radius={[2, 2, 0, 0]} isAnimationActive={false} />
@@ -413,7 +529,7 @@ export default function OIAnalysis() {
                     <BarChart data={oiChangeData} barGap={0} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
                       <CartesianGrid {...gridProps} />
                       <XAxis {...axisProps} dataKey="strike" tickFormatter={strikeTick} minTickGap={14} />
-                      <YAxis {...axisProps} tickFormatter={(v: number) => fmtOIChange(v)} width={56} />
+                      <YAxis {...axisProps} tickFormatter={oiChgAxisTick} width={56} />
                       <Tooltip contentStyle={tooltipStyle} cursor={barCursor} labelFormatter={strikeLabel} formatter={(v: number, n: string) => [fmtOIChange(v), n]} />
                       <Legend wrapperStyle={legendStyle} />
                       <ReferenceLine y={0} stroke={tokenColor("muted-foreground", 0.6)} />
@@ -439,7 +555,6 @@ export default function OIAnalysis() {
                 <ModuleHeader
                   title="Buildup by strike"
                   hint="The 12 most active strikes. Same rule for calls and puts: premium and OI up = long build-up; premium down, OI up = short build-up; premium up, OI down = short covering; both down = long unwinding."
-                  right={isSample ? <Badge variant="warning">Sample data</Badge> : undefined}
                 />
                 <CardContent className="p-0">
                   {!hasPriceChange && <p className="border-b border-border px-4 py-2 text-xs text-muted-foreground">This source did not send premium changes, so buildup shows as neutral.</p>}
@@ -460,15 +575,18 @@ export default function OIAnalysis() {
                         {buildupRows.map((r) => (
                           <TableRow key={r.strike} className={cn("font-num text-xs", r.strike === atmStrike && "bg-wash-brand/55", highlight === r.strike && "outline outline-2 -outline-offset-2 outline-primary")}>
                             <TableCell>
-                              <Badge variant={buildupTone(r.ce.b)}>{BUILDUP_LABEL[r.ce.b]}</Badge>
+                              <LegBuildup b={r.ce.b} />
                             </TableCell>
                             <TableCell className="text-right">{fmtOIChange(r.ce.chg)}</TableCell>
                             <TableCell className={cn("text-right", r.ce.px > 0 ? "text-bullish" : r.ce.px < 0 ? "text-bearish" : "text-muted-foreground")}>{Number.isFinite(r.ce.px) ? `${r.ce.px > 0 ? "+" : ""}${r.ce.px.toFixed(2)}` : "—"}</TableCell>
-                            <TableCell className="text-center font-semibold">{fmtStrike(r.strike)}</TableCell>
+                            <TableCell className="whitespace-nowrap text-center font-semibold">
+                              {fmtStrike(r.strike)}
+                              <ContractLinks symbol={symbol} expiry={expiry} strike={r.strike} />
+                            </TableCell>
                             <TableCell className={cn(r.pe.px > 0 ? "text-bullish" : r.pe.px < 0 ? "text-bearish" : "text-muted-foreground")}>{Number.isFinite(r.pe.px) ? `${r.pe.px > 0 ? "+" : ""}${r.pe.px.toFixed(2)}` : "—"}</TableCell>
                             <TableCell>{fmtOIChange(r.pe.chg)}</TableCell>
                             <TableCell className="text-right">
-                              <Badge variant={buildupTone(r.pe.b)}>{BUILDUP_LABEL[r.pe.b]}</Badge>
+                              <LegBuildup b={r.pe.b} />
                             </TableCell>
                           </TableRow>
                         ))}
@@ -495,7 +613,7 @@ export default function OIAnalysis() {
                       <ComposedChart data={deltaOIData} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
                         <CartesianGrid {...gridProps} />
                         <XAxis {...axisProps} dataKey="strike" tickFormatter={strikeTick} minTickGap={14} />
-                        <YAxis {...axisProps} tickFormatter={(v: number) => fmtOIChange(v)} width={56} />
+                        <YAxis {...axisProps} tickFormatter={deltaAxisTick} width={56} />
                         <Tooltip contentStyle={tooltipStyle} cursor={barCursor} labelFormatter={strikeLabel} formatter={(v: number, n: string) => [`${fmtOIChange(v)} lots`, n]} />
                         <Legend wrapperStyle={legendStyle} />
                         <ReferenceLine y={0} stroke={tokenColor("muted-foreground", 0.6)} />
@@ -574,7 +692,7 @@ export default function OIAnalysis() {
             </TabsContent>
 
             <TabsContent value="top-oi">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid items-start gap-4 md:grid-cols-2">
                 {([
                   { title: "Top 5 call OI (resistance)", rows: topCEOI, side: "ce" as const, cls: "text-bearish" },
                   { title: "Top 5 put OI (support)", rows: topPEOI, side: "pe" as const, cls: "text-bullish" },
@@ -597,7 +715,19 @@ export default function OIAnalysis() {
                             const leg = r[blk.side];
                             return (
                               <TableRow key={r.strikePrice} className={cn("font-num text-xs", highlight === r.strikePrice && "outline outline-2 -outline-offset-2 outline-primary")}>
-                                <TableCell className="font-semibold">{fmtStrike(r.strikePrice)}</TableCell>
+                                <TableCell className="font-semibold">
+                                  {expiry ? (
+                                    <Link
+                                      to={contractPath(symbol, expiry, r.strikePrice, blk.side === "ce" ? "CE" : "PE")}
+                                      className="rounded-chip underline-offset-4 hover:text-primary-ink hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+                                      aria-label={`Open the ${fmtStrike(r.strikePrice)} ${blk.side === "ce" ? "CE" : "PE"} contract page`}
+                                    >
+                                      {fmtStrike(r.strikePrice)}
+                                    </Link>
+                                  ) : (
+                                    fmtStrike(r.strikePrice)
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-right">{fmtOI(leg.oi)}</TableCell>
                                 <TableCell className={cn("text-right", blk.cls)}>{fmtOIChange(leg.oiChange)}</TableCell>
                                 <TableCell className="text-right">{leg.iv > 0 ? `${leg.iv.toFixed(1)}%` : "—"}</TableCell>

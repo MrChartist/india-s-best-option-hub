@@ -80,6 +80,12 @@ describe("Expiry Day page", () => {
     // Straddle stats come from the simulated session.
     expect(screen.getAllByText("Theta / min").length).toBeGreaterThan(0);
     expect(screen.getByText("Straddle now")).toBeInTheDocument();
+    // One KPI row: the unit toggle rescales it, and the expected move carries its method tag.
+    expect(screen.getAllByText("Decayed today")).toHaveLength(1);
+    expect(screen.getByText("Straddle ×0.85")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "₹/lot" }));
+    await waitFor(() => expect(screen.getAllByText(/per lot \(\d+\)/).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("radio", { name: "₹/unit" }));
 
     // Decay vs theory (default tab)
     expect(screen.getByRole("heading", { level: 2, name: /Decay vs theory/ })).toBeInTheDocument();
@@ -87,6 +93,12 @@ describe("Expiry Day page", () => {
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Hero-zero" }));
     await waitFor(() => expect(screen.getByText("Lottery, high risk")).toBeInTheDocument());
+    const add = screen.getAllByRole("button", { name: /^Add .* to basket$/ })[0];
+    fireEvent.click(add);
+    const basket = JSON.parse(localStorage.getItem("mc_basket_v1") ?? "[]");
+    expect(basket).toHaveLength(1);
+    expect(basket[0]).toMatchObject({ symbol: "NIFTY", side: "BUY", lots: 1 });
+    expect(screen.getAllByRole("link", { name: /contract details$/ })[0].getAttribute("href")).toMatch(/^\/contract\/NIFTY\/\d{4}-\d{2}-\d{2}\/\d+\/(CE|PE)$/);
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Multi-straddle" }));
     await waitFor(() => expect(screen.getByRole("button", { name: /Add/ })).toBeInTheDocument());
@@ -102,5 +114,6 @@ describe("Expiry Day page", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Rules" }));
     await waitFor(() => expect(screen.getByText("Extra 2% ELM on short index options")).toBeInTheDocument());
     expect(screen.getByText(/STT on exercise/)).toBeInTheDocument();
-  });
+    // Heavy multi-tab render: ~2s alone, can exceed the 5s default under full-suite load.
+  }, 20000);
 });

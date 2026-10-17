@@ -49,7 +49,15 @@ describe("layout", () => {
     expect(sanitizeLayout({ order: ["nope", 3], hidden: "all", density: "huge" })).toEqual(DEFAULT_LAYOUT);
   });
 
-  it("keeps a saved order, drops duplicates and appends new sections", () => {
+  it("inserts a section missing from an older saved order after its default predecessor", () => {
+    const old = SECTION_IDS.filter((id) => id !== "brief").reverse();
+    const l = sanitizeLayout({ order: old, hidden: [], density: "comfortable" });
+    expect(l.order).toHaveLength(SECTION_IDS.length);
+    expect(l.order.indexOf("brief")).toBe(l.order.indexOf("indices") + 1);
+    expect(sanitizeLayout({ order: ["indices", "metrics"] }).order.slice(0, 3)).toEqual(["indices", "brief", "metrics"]);
+  });
+
+  it("keeps a saved order, drops duplicates and adds new sections", () => {
     const l = sanitizeLayout({ order: ["breadth", "indices", "breadth"], hidden: ["sectors", "bogus"], density: "compact" });
     expect(l.order.slice(0, 2)).toEqual(["breadth", "indices"]);
     expect(l.order).toHaveLength(SECTION_IDS.length);
@@ -59,8 +67,8 @@ describe("layout", () => {
   });
 
   it("moves and hides sections", () => {
-    const moved = moveSection(DEFAULT_LAYOUT, "metrics", -1);
-    expect(moved.order[0]).toBe("metrics");
+    const moved = moveSection(DEFAULT_LAYOUT, "brief", -1);
+    expect(moved.order[0]).toBe("brief");
     expect(moveSection(DEFAULT_LAYOUT, "indices", -1)).toBe(DEFAULT_LAYOUT);
     const hidden = setSectionVisible(DEFAULT_LAYOUT, "indices", false);
     expect(visibleSections(hidden)).not.toContain("indices");

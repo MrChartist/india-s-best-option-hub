@@ -25,21 +25,25 @@ export const COLUMN_ORDER = [
   "oi",
   "oiBar",
   "iv",
-  "ltpChg",
   "ltp",
 ] as const;
 
 export type ColumnId = (typeof COLUMN_ORDER)[number];
 
-export type PresetId = "basic" | "greeks" | "liquidity" | "sensibull" | "custom";
+export type PresetId = "basic" | "greeks" | "liquidity" | "sensibull" | "compact" | "custom";
 
 export const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; description: string; columns: ColumnId[] }> = {
   // The id stays "sensibull" so preferences already stored in localStorage keep resolving;
   // only the visible label is neutral (no third-party brand names in the UI).
   sensibull: {
     label: "Classic",
-    description: "Buildup, OI change, OI with bars, IV and LTP",
-    columns: ["buildup", "oiChg", "oi", "oiBar", "iv", "ltpChg", "ltp"],
+    description: "Buildup, OI change, OI with bars, IV and LTP (with change %)",
+    columns: ["buildup", "oiChg", "oi", "oiBar", "iv", "ltp"],
+  },
+  compact: {
+    label: "Compact",
+    description: "LTP and OI only: the phone layout",
+    columns: ["oi", "ltp"],
   },
   basic: {
     label: "Basic",
@@ -59,8 +63,13 @@ export const PRESETS: Record<Exclude<PresetId, "custom">, { label: string; descr
 };
 
 export const DEFAULT_PRESET: Exclude<PresetId, "custom"> = "sensibull";
+/** Phones (below 640px) keep their own column set, compact by default (no Buildup, no OI bar). */
+export const MOBILE_DEFAULT_PRESET: Exclude<PresetId, "custom"> = "compact";
+/** Viewport width below which the phone layout and its column preferences apply. */
+export const MOBILE_BREAKPOINT = 640;
 
 export const COLUMNS_KEY = "mc_chain_columns_v1";
+export const MOBILE_COLUMNS_KEY = "mc_chain_columns_mobile_v1";
 export const RANGE_KEY = "mc_chain_range_v1";
 export const DELTA_VIEW_KEY = "mc_chain_delta_view_v1";
 
@@ -90,10 +99,10 @@ export function matchPreset(visible: readonly ColumnId[]): PresetId {
   return "custom";
 }
 
-export function readColumnPrefs(): ColumnPrefs {
-  const fallback: ColumnPrefs = { preset: DEFAULT_PRESET, visible: presetColumns(DEFAULT_PRESET) };
+export function readColumnPrefs(key: string = COLUMNS_KEY, defaultPreset: Exclude<PresetId, "custom"> = DEFAULT_PRESET): ColumnPrefs {
+  const fallback: ColumnPrefs = { preset: defaultPreset, visible: presetColumns(defaultPreset) };
   try {
-    const raw = localStorage.getItem(COLUMNS_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return fallback;
@@ -106,9 +115,9 @@ export function readColumnPrefs(): ColumnPrefs {
   }
 }
 
-export function writeColumnPrefs(p: ColumnPrefs): void {
+export function writeColumnPrefs(p: ColumnPrefs, key: string = COLUMNS_KEY): void {
   try {
-    localStorage.setItem(COLUMNS_KEY, JSON.stringify({ preset: p.preset, visible: p.visible }));
+    localStorage.setItem(key, JSON.stringify({ preset: p.preset, visible: p.visible }));
   } catch {
     /* ignore */
   }

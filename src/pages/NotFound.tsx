@@ -63,11 +63,9 @@ const NotFound = () => {
   const list = suggestions.length > 0 ? suggestions : fallback;
 
   return (
-    <main
-      id="main"
-      className="flex min-h-svh items-center justify-center bg-background px-4 py-10 text-foreground"
-    >
-      <div className="w-full max-w-lg">
+    // Rendered inside DashboardLayout's <main id="main">, so this is a plain block.
+    <div className="flex min-h-[60svh] items-center justify-center px-1 py-8 text-foreground sm:py-12">
+      <div className="mx-auto w-full max-w-xl">
         <div className="mb-6 flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile border border-border bg-card shadow-card">
             <SearchX className="h-5 w-5 text-primary-ink" aria-hidden />
@@ -108,7 +106,7 @@ const NotFound = () => {
           )}
           <Button asChild className="gap-2">
             <Link to="/">
-              <Home className="h-4 w-4" aria-hidden /> Open dashboard
+              <Home className="h-4 w-4" aria-hidden /> Back to home
             </Link>
           </Button>
         </div>
@@ -119,7 +117,7 @@ const NotFound = () => {
           between pages once you are back in the terminal.
         </p>
       </div>
-    </main>
+    </div>
   );
 };
 

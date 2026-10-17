@@ -6,7 +6,7 @@
  * be posted to a Web Worker.
  */
 import type { OptionData } from "@/lib/mockData";
-import type { OptionType, Side } from "@/lib/options";
+import type { Interval, OptionType, Side } from "@/lib/options";
 
 export type StrategyKind =
   | "long_call"
@@ -154,10 +154,25 @@ export interface ScoredCandidate extends Candidate {
   charges: number;
   /** profitAtTarget − charges. */
   netProfit: number;
-  /** Estimated margin / capital required (rupees). */
+  /**
+   * Funds required (rupees): SPAN-style span + exposure + expiry-day ELM + net debit
+   * (MarginEstimate.fundsRequired). This is the capital the return is measured on.
+   */
   capital: number;
-  /** netProfit / capital. */
+  /** Same as capital, named after MarginEstimate.fundsRequired. */
+  fundsRequired: number;
+  /** Legacy margin total (span + exposure + ELM + gross premium paid), for reference. */
+  marginTotal: number;
+  /** Expiry-day extra loss margin included in fundsRequired (rupees, 0 unless a short index leg expires today). */
+  elm: number;
+  /** netProfit / fundsRequired. */
   roi: number;
+  /** Net spot delta per strategy unit (sum of side × ratio × leg delta); ~0 for delta-neutral structures. */
+  deltaPerSet: number;
+  /** Price intervals where P&L at the valuation instant (before charges) is positive. `to` may be Infinity. */
+  profitZones: Interval[];
+  /** Today's spot already sits inside a profit zone. */
+  spotInProfitZone: boolean;
   /** Probability of profit (0..1) at the target date. */
   pop: number;
   maxProfit: number;
@@ -180,6 +195,8 @@ export interface RankedCandidate extends ScoredCandidate {
   roiNorm: number;
   utility: number;
   rank: number;
+  /** Fits the view passed to rankResults (see matchesView). False when no view was given. */
+  matchesView: boolean;
 }
 
 export interface OptimizerStats {

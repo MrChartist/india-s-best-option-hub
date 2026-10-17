@@ -9,7 +9,7 @@ import { Activity, Plane } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkline } from "@/components/MiniChart";
-import { useAllIndices, useLiveIndices, useMarketStatus, useStoredCandles } from "@/hooks/useMarketData";
+import { useMarketStatus, useStoredCandles } from "@/hooks/useMarketData";
 import { useChartData } from "@/hooks/useChartData";
 import { formatDateIST, formatNumberIN, formatPct, formatSigned, istDateString } from "@/lib/options";
 import type { IndexData } from "@/lib/mockData";
@@ -17,21 +17,22 @@ import { cn } from "@/lib/utils";
 import { ARROW, rangePosition, signTone, statusFrom, sourceName, vixRegime, TONE_TEXT } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { useDashAllIndices, useDashIndices } from "./useDashboardData";
 
 const n2 = (v: number) => formatNumberIN(v, 2, { minDecimals: 2 });
 
 /** Header chip for the indices section. */
 export function IndexCardsStatus() {
-  const r = useLiveIndices();
+  const r = useDashIndices();
   const status = statusFrom({ isLoading: r.isLoading, hasData: r.data.data.length > 0, source: r.source, stale: r.stale, isLive: r.data.isLive });
   return <DataStatus status={status} lastUpdated={r.asOf} source={sourceName(r.source)} reason={r.data.reason} pulse />;
 }
 
 export function IndexCards() {
   const qc = useQueryClient();
-  const r = useLiveIndices();
+  const r = useDashIndices();
   const { data: status } = useMarketStatus();
-  const { data: all } = useAllIndices();
+  const { data: all, isSample: vixSample } = useDashAllIndices();
   const d = useDensityClasses();
   const indices = r.data.data;
   const st = statusFrom({ isLoading: r.isLoading, hasData: indices.length > 0, source: r.source, stale: r.stale, isLive: r.data.isLive });
@@ -40,8 +41,8 @@ export function IndexCards() {
     return (
       <div className={cn("grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4", d.gap)} aria-busy="true">
         <span className="sr-only">Loading indices</span>
-        {[0, 1, 2, 3].map((i) => (
-          <Card key={i} className={cn("space-y-3", d.pad)}>
+        {["sk-a", "sk-b", "sk-c", "sk-d"].map((id) => (
+          <Card key={id} className={cn("space-y-3", d.pad)}>
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-7 w-32" />
             <Skeleton className="h-10 w-full" />
@@ -67,21 +68,23 @@ export function IndexCards() {
 
   const vix = all?.vix ?? null;
   const gift = status?.giftNifty ?? null;
+  const hasGift = !!gift && gift.lastPrice > 0;
 
   return (
     <div className={cn("grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4", d.gap)}>
       {indices.map((index) => (
-        <IndexCard key={index.symbol} index={index} />
+        <IndexCard key={index.symbol} index={index} samplePath={r.spark[index.symbol]} />
       ))}
-      <div className={cn("grid grid-cols-2 sm:col-span-2 xl:col-span-4", d.gap)}>
-        <VixTile value={vix?.value ?? null} changePct={vix?.changePercent ?? null} high={vix?.high} low={vix?.low} />
-        <GiftTile lastPrice={gift?.lastPrice ?? 0} change={gift?.change ?? 0} changePct={gift?.changePercent ?? 0} niftyClose={status?.indicativeNifty?.value} />
+      {/* GIFT Nifty has no sample: when it is unavailable it is listed in the "Needs live data" strip instead. */}
+      <div className={cn("grid sm:col-span-2 xl:col-span-4", hasGift ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1", d.gap)}>
+        <VixTile value={vix?.value ?? null} changePct={vix?.changePercent ?? null} high={vix?.high} low={vix?.low} sample={vixSample} />
+        {hasGift && gift ? <GiftTile lastPrice={gift.lastPrice} change={gift.change} changePct={gift.changePercent} niftyClose={status?.indicativeNifty?.value} /> : null}
       </div>
     </div>
   );
 }
 
-function useIndexSpark(symbol: string): { values: number[]; label: string } {
+function useIndexSpark(symbol: string, samplePath?: number[]): { values: number[]; label: string } {
   const { data: stored, isFetched } = useStoredCandles(symbol, "5");
   const intraday = useMemo(() => {
     const candles = stored?.candles ?? [];
@@ -92,33 +95,41 @@ function useIndexSpark(symbol: string): { values: number[]; label: string } {
     const today = istDateString(new Date());
     return { values, label: lastDay === today ? "Today, 5 min" : `${formatDateIST(lastDay).replace(/ \d{4}$/, "")}, 5 min` };
   }, [stored]);
-  const { data: week } = useChartData(symbol, "1W", isFetched && !intraday);
+  const { data: week } = useChartData(symbol, "1W", isFetched && !intraday && !samplePath);
   return useMemo(() => {
+    // Sample quotes only ever pair with the sample path generated alongside them.
+    if (samplePath && samplePath.length > 2) return { values: samplePath, label: "Sample, 5 min" };
     if (intraday) return intraday;
     if (week && week.length > 2) return { values: week.map((c) => c.close), label: "1W" };
     return { values: [], label: "" };
-  }, [intraday, week]);
+  }, [samplePath, intraday, week]);
 }
 
-function IndexCard({ index }: { index: IndexData }) {
+function IndexCard({ index, samplePath }: { index: IndexData; samplePath?: number[] }) {
   const d = useDensityClasses();
   const up = index.change >= 0;
-  const spark = useIndexSpark(index.symbol);
+  const spark = useIndexSpark(index.symbol, samplePath);
   const hasRange = index.high > index.low && index.low > 0;
   const pos = rangePosition(index.ltp, index.low, index.high);
   const pcPos = index.prevClose > 0 && hasRange ? rangePosition(index.prevClose, index.low, index.high) : null;
   const dir = index.change > 0 ? "up" : index.change < 0 ? "down" : "flat";
 
   return (
-    <Link
-      to={`/option-chain?symbol=${encodeURIComponent(index.symbol)}`}
-      aria-label={`${index.name}: ${n2(index.ltp)}, ${up ? "up" : "down"} ${formatPct(Math.abs(index.changePercent))}. Open option chain`}
-      className="group block rounded-card focus-visible:shadow-ember focus-visible:outline-none"
-    >
+    // Stretched link: the index name is the link (so its accessible name matches what is shown)
+    // and its ::after covers the whole card, keeping the full card clickable.
+    <div className="group relative block rounded-card focus-within:shadow-ember">
       <Card className={cn("h-full transition-shadow duration-200 group-hover:shadow-card-hover", d.pad)}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-label uppercase text-muted-foreground">{index.name}</p>
+            <p className="truncate text-label uppercase text-muted-foreground">
+              <Link
+                to={`/option-chain?symbol=${encodeURIComponent(index.symbol)}`}
+                className="after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none"
+              >
+                {index.name}
+                <span className="sr-only">: open option chain</span>
+              </Link>
+            </p>
             <p className="mt-1 font-num text-[24px] font-bold leading-none tabular-nums text-foreground">{n2(index.ltp)}</p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
@@ -157,20 +168,26 @@ function IndexCard({ index }: { index: IndexData }) {
           </dl>
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }
 
-function VixTile({ value, changePct, high, low }: { value: number | null; changePct: number | null; high?: number; low?: number }) {
+function VixTile({ value, changePct, high, low, sample }: { value: number | null; changePct: number | null; high?: number; low?: number; sample?: boolean }) {
   const d = useDensityClasses();
   const regime = vixRegime(value);
   const dir = changePct === null ? null : changePct > 0 ? "up" : changePct < 0 ? "down" : "flat";
   return (
-    <Link to="/volatility" aria-label={value !== null ? `India VIX ${n2(value)}${regime ? `, ${regime.label}` : ""}. Open volatility` : "India VIX unavailable. Open volatility"} className="group block rounded-card focus-visible:shadow-ember focus-visible:outline-none">
+    <div className="group relative block rounded-card focus-within:shadow-ember">
       <Card className={cn("flex h-full items-center gap-3 transition-shadow group-hover:shadow-card-hover", d.padX, "py-2.5")}>
         <Activity className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="text-label uppercase text-muted-foreground">India VIX</p>
+          <p className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+            <Link to="/volatility" className="after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none">
+              India VIX
+              <span className="sr-only">: open volatility</span>
+            </Link>
+            {sample ? <span className="rounded-chip bg-wash-warning px-1 text-micro font-semibold text-warning">Sample</span> : null}
+          </p>
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-num text-lead font-bold tabular-nums">{value !== null ? n2(value) : "—"}</span>
             {/* VIX up = more fear, so rising VIX is shown in the bearish colour */}
@@ -186,14 +203,16 @@ function VixTile({ value, changePct, high, low }: { value: number | null; change
           {high && low ? <p className="font-num text-body-sm tabular-nums text-muted-foreground">{n2(low)} – {n2(high)}</p> : null}
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }
 
 function GiftTile({ lastPrice, change, changePct, niftyClose }: { lastPrice: number; change: number; changePct: number; niftyClose?: number }) {
   const d = useDensityClasses();
   const has = lastPrice > 0;
-  const gap = has && niftyClose && niftyClose > 0 ? lastPrice - niftyClose : null;
+  // Implied NIFTY gap from GIFT's own move (vs its previous close). Comparing the
+  // GIFT futures level with NIFTY spot would include the carry premium every day.
+  const gap = has && niftyClose && niftyClose > 0 && Number.isFinite(changePct) ? (niftyClose * changePct) / 100 : null;
   const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
   return (
     <Card className={cn("flex h-full items-center gap-3", d.padX, "py-2.5")}>
@@ -213,7 +232,7 @@ function GiftTile({ lastPrice, change, changePct, niftyClose }: { lastPrice: num
       </div>
       {gap !== null ? (
         <div className="hidden shrink-0 text-right sm:block">
-          <p className="text-micro uppercase text-muted-foreground">vs Nifty close</p>
+          <p className="text-micro uppercase text-muted-foreground" title="GIFT Nifty's % change applied to the NIFTY close">Implied gap</p>
           <p className={cn("font-num text-body-sm font-semibold tabular-nums", signTone(gap))}>{formatSigned(gap, 0)} pts</p>
         </div>
       ) : null}

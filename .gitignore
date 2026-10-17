@@ -48,3 +48,6 @@ _agents/
 # Playwright
 playwright-report/
 test-results/
+
+# Server snapshot recorder output (proxy-server.mjs)
+data/

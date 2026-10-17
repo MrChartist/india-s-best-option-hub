@@ -103,7 +103,7 @@ export function EmptyState({ icon, title, children, action }: { icon?: ReactNode
 
 export function PanelSkeleton({ height = 280, label = "Loading" }: { height?: number; label?: string }) {
   return (
-    <Card className="p-4" aria-busy="true" aria-label={label}>
+    <Card className="p-4" role="status" aria-busy="true" aria-label={label}>
       <Skeleton className="mb-3 h-4 w-40" />
       <Skeleton className="w-full" style={{ height }} />
     </Card>

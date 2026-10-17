@@ -228,3 +228,25 @@ describe("priceOption", () => {
     expect(b76.forward).toBe(25100);
   });
 });
+
+describe("calendar date helpers", () => {
+  it("round-trips ISO dates through local calendar dates", async () => {
+    const { isoToCalendarDate, calendarDateToIso } = await import("./calcLogic");
+    const d = isoToCalendarDate("2026-10-20");
+    expect(d?.getFullYear()).toBe(2026);
+    expect(d?.getMonth()).toBe(9);
+    expect(d?.getDate()).toBe(20);
+    expect(calendarDateToIso(d)).toBe("2026-10-20");
+    expect(calendarDateToIso(new Date(2027, 0, 5))).toBe("2027-01-05");
+  });
+
+  it("rejects malformed and impossible dates", async () => {
+    const { isoToCalendarDate, calendarDateToIso } = await import("./calcLogic");
+    expect(isoToCalendarDate("2026-02-30")).toBeNull();
+    expect(isoToCalendarDate("20-10-2026")).toBeNull();
+    expect(isoToCalendarDate("")).toBeNull();
+    expect(isoToCalendarDate(undefined)).toBeNull();
+    expect(calendarDateToIso(null)).toBe("");
+    expect(calendarDateToIso(new Date(Number.NaN))).toBe("");
+  });
+});

@@ -101,8 +101,8 @@ export function DataState({ status, children, onRetry, emptyText = "No data yet"
     return (
       <div className={cn("space-y-2", className)} style={{ minHeight }} aria-busy="true" aria-live="polite">
         <span className="sr-only">Loading</span>
-        {Array.from({ length: lines }).map((_, i) => (
-          <Skeleton key={i} className={cn("h-4", i === 0 ? "w-2/5" : i % 2 ? "w-full" : "w-4/5")} />
+        {Array.from({ length: lines }, (_, i) => `skeleton-line-${i}`).map((id, i) => (
+          <Skeleton key={id} className={cn("h-4", i === 0 ? "w-2/5" : i % 2 ? "w-full" : "w-4/5")} />
         ))}
       </div>
     );

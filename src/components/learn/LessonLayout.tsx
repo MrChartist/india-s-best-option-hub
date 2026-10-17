@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronRight, Clock, FlaskConical, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/PageHeader";
 import { adjacentLessons, getPath, lessonsInPath } from "@/content/learn/lessons";
 import type { Lesson } from "@/content/learn/types";
 import LessonBlocks from "./LessonBlocks";
@@ -46,26 +47,30 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
           <article className="min-w-0">
-            <header className="rounded-card border border-border bg-card p-5 shadow-card sm:p-6">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={LEVEL_VARIANT[lesson.level]}>{lesson.level}</Badge>
-                <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" aria-hidden="true" /> {lesson.minutes} min read
-                </span>
-                {lesson.sims.length > 0 ? (
+            <PageHeader
+              eyebrow={path ? `${path.title} · Lesson ${position + 1}` : undefined}
+              title={lesson.title}
+              description={<p className="text-lead font-normal">{lesson.summary}</p>}
+              source={
+                <>
+                  <Badge variant={LEVEL_VARIANT[lesson.level]}>{lesson.level}</Badge>
                   <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground">
-                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Interactive
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" /> {lesson.minutes} min read
                   </span>
-                ) : null}
-                {done ? (
-                  <Badge variant="bullish">
-                    <CheckCircle2 aria-hidden="true" /> Completed
-                  </Badge>
-                ) : null}
-              </div>
-              <h1 className="mt-3 font-display text-display text-foreground">{lesson.title}</h1>
-              <p className="mt-2 max-w-3xl text-lead font-normal text-muted-foreground">{lesson.summary}</p>
-            </header>
+                  {lesson.sims.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground">
+                      <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Interactive
+                    </span>
+                  ) : null}
+                  {done ? (
+                    <Badge variant="bullish">
+                      <CheckCircle2 aria-hidden="true" /> Completed
+                    </Badge>
+                  ) : null}
+                </>
+              }
+              className="border-b border-border pb-5"
+            />
 
             <div className="mt-2 px-1 sm:px-2">
               <LessonBlocks blocks={lesson.blocks} />

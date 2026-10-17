@@ -1,6 +1,7 @@
 /** Open paper positions with MTM, editable SL / target and exit, plus the closed-trade log. */
 import { useEffect, useMemo, useState } from "react";
-import { LogOut } from "lucide-react";
+import { Link } from "react-router-dom";
+import { LineChart, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +46,11 @@ export function PaperPositions({
   positions,
   onExit,
   onRisk,
+  builderHref,
 }: {
   positions: PaperPosition[];
+  /** Strategy Builder link with every open leg on this underlying. */
+  builderHref?: (symbol: string) => string;
   onExit: (key: string) => void;
   onRisk: (key: string, risk: { sl?: number | null; target?: number | null }) => void;
 }) {
@@ -60,7 +64,7 @@ export function PaperPositions({
     );
   }
   return (
-    <Table className="min-w-[960px]">
+    <Table className="min-w-[1040px]">
       <TableHeader>
         <TableRow>
           <TableHead className="sticky left-0 z-10 bg-surface">Contract</TableHead>
@@ -113,9 +117,18 @@ export function PaperPositions({
                 <ContextChips context={p.context} />
               </TableCell>
               <TableCell className="text-right">
-                <Button variant="outline" size="pill" onClick={() => onExit(p.key)} aria-label={`Exit ${p.symbol} ${p.strike} ${p.type} at market`}>
-                  <LogOut aria-hidden="true" /> Exit
-                </Button>
+                <div className="flex justify-end gap-1">
+                  {builderHref ? (
+                    <Button asChild variant="ghost" size="pill" title={`Open every ${p.symbol} paper leg in the Strategy Builder`}>
+                      <Link to={builderHref(p.symbol)} aria-label={`Analyse ${p.symbol} paper positions in the Strategy Builder`}>
+                        <LineChart aria-hidden="true" /> Analyse
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" size="pill" onClick={() => onExit(p.key)} aria-label={`Exit ${p.symbol} ${p.strike} ${p.type} at market`}>
+                    <LogOut aria-hidden="true" /> Exit
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );

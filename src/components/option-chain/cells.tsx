@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { formatCompactIN, formatNumberIN, MINUS } from "@/lib/options";
+import { formatCompactIN, formatNumberIN, MINUS, type OptionType, type Side } from "@/lib/options";
 import type { LegView } from "./chainModel";
 import type { CellContext } from "./columns";
 
@@ -12,7 +12,20 @@ function num(v: number, dp = 2): string {
 }
 
 /** "▲ +1.2L" style change with sign, arrow and colour. */
-export function ChangeText({ value, pct, compact = false, className }: { value: number | null; pct?: number | null; compact?: boolean; className?: string }) {
+export function ChangeText({
+  value,
+  pct,
+  compact = false,
+  stacked = false,
+  className,
+}: {
+  value: number | null;
+  pct?: number | null;
+  compact?: boolean;
+  /** Put the % on a second micro line (keeps chain columns narrow). */
+  stacked?: boolean;
+  className?: string;
+}) {
   if (value === null || !fin(value)) {
     if (pct !== null && pct !== undefined && fin(pct)) return <ChangePct pct={pct} className={className} />;
     return <span className={cn("text-muted-foreground", className)}>{DASH}</span>;
@@ -21,12 +34,14 @@ export function ChangeText({ value, pct, compact = false, className }: { value: 
   const down = value < 0;
   const body = compact ? formatCompactIN(Math.abs(value)) : formatNumberIN(Math.abs(value), 2, { minDecimals: 2 });
   return (
-    <span className={cn("whitespace-nowrap", up && "text-bullish", down && "text-bearish", !up && !down && "text-muted-foreground", className)}>
-      <span aria-hidden="true" className="mr-0.5 text-[10px]">{up ? "▲" : down ? "▼" : ""}</span>
-      {up ? "+" : down ? MINUS : ""}
-      {body}
+    <span className={cn("whitespace-nowrap", stacked && "inline-flex flex-col items-end leading-none [[data-side=PE]_&]:items-start", up && "text-bullish", down && "text-bearish", !up && !down && "text-muted-foreground", className)}>
+      <span className={cn(stacked && "leading-[15px]")}>
+        <span aria-hidden="true" className="mr-0.5 text-[10px]">{up ? "▲" : down ? "▼" : ""}</span>
+        {up ? "+" : down ? MINUS : ""}
+        {body}
+      </span>
       {pct !== undefined && pct !== null && fin(pct) && (
-        <span className="ml-1 text-[10px] opacity-80">
+        <span className={cn("text-[10px]", stacked ? "leading-[12px]" : "ml-1")}>
           ({pct > 0 ? "+" : pct < 0 ? MINUS : ""}
           {Math.abs(pct) >= 1000 ? ">999" : Math.abs(pct).toFixed(1)}%)
         </span>
@@ -76,37 +91,64 @@ export function OIBarCell({ lv, ctx }: { lv: LegView; ctx: CellContext }) {
 }
 
 export function LtpCell({ lv, ctx }: { lv: LegView; ctx: CellContext }) {
-  const isCE = ctx.side === "CE";
-  const strike = ctx.row.strike;
-  const label = `${strike} ${ctx.side}`;
+  const pct = lv.ltpChgPct;
   return (
-    <div className={cn("group/ltp relative flex items-center gap-1", isCE ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "pointer-events-none absolute top-1/2 z-[1] flex -translate-y-1/2 gap-0.5 opacity-0 transition-opacity duration-fast focus-within:pointer-events-auto focus-within:opacity-100 group-hover/row:pointer-events-auto group-hover/row:opacity-100 group-aria-selected/row:pointer-events-auto group-aria-selected/row:opacity-100",
-          isCE ? "left-0" : "right-0",
-        )}
+    <div className={cn("flex flex-col leading-none", ctx.side === "CE" ? "items-end" : "items-start")}>
+      <span className="font-semibold leading-[15px] text-foreground">{lv.leg.ltp > 0 ? num(lv.leg.ltp) : DASH}</span>
+      {pct !== null && fin(pct) ? <ChangePct pct={pct} className="text-[10px] leading-[12px]" /> : null}
+    </div>
+  );
+}
+
+export interface TradeButtonsProps {
+  strike: number;
+  side: OptionType;
+  onTrade: (strike: number, type: OptionType, side: Side) => void;
+  /** Within ±3 strikes of ATM: buttons stay faintly visible even without hover. */
+  near: boolean;
+}
+
+/**
+ * Buy / sell buttons in their own narrow column next to the strike, so they never cover the LTP.
+ * Hidden until row hover or focus on mouse devices (faint on ATM±3), always shown on touch
+ * screens, and 32px tall on coarse pointers.
+ */
+export function TradeButtons({ strike, side, onTrade, near }: TradeButtonsProps) {
+  const label = `${strike} ${side}`;
+  const btn =
+    "grid h-6 w-6 place-items-center rounded-chip border text-[10px] font-bold transition-[transform,background-color,color] duration-fast active:scale-95 focus-visible:shadow-ember focus-visible:outline-none [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:text-[11px]";
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-center gap-0.5 transition-opacity duration-fast",
+        near ? "opacity-40" : "opacity-0",
+        "focus-within:opacity-100 group-hover/row:opacity-100 group-aria-selected/row:opacity-100 [@media(hover:none)]:opacity-100",
+      )}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onTrade(strike, side, "BUY");
+        }}
+        className={cn(btn, "border-bullish/35 bg-wash-profit text-bullish hover:bg-bullish hover:text-bullish-foreground")}
+        aria-label={`Buy ${label}: add to basket`}
+        title={`Buy ${label}`}
       >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); ctx.onTrade(strike, ctx.side, "BUY"); }}
-          className="h-5 w-5 rounded-chip bg-bullish text-[10px] font-bold text-bullish-foreground shadow-card focus-visible:opacity-100 focus-visible:shadow-ember focus-visible:outline-none"
-          aria-label={`Buy ${label}: add to basket`}
-          title={`Buy ${label}`}
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); ctx.onTrade(strike, ctx.side, "SELL"); }}
-          className="h-5 w-5 rounded-chip bg-bearish text-[10px] font-bold text-bearish-foreground shadow-card focus-visible:opacity-100 focus-visible:shadow-ember focus-visible:outline-none"
-          aria-label={`Sell ${label}: add to basket`}
-          title={`Sell ${label}`}
-        >
-          S
-        </button>
-      </div>
-      <span className="font-semibold text-foreground">{lv.leg.ltp > 0 ? num(lv.leg.ltp) : DASH}</span>
+        B
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onTrade(strike, side, "SELL");
+        }}
+        className={cn(btn, "border-bearish/35 bg-wash-loss text-bearish hover:bg-bearish hover:text-bearish-foreground")}
+        aria-label={`Sell ${label}: add to basket`}
+        title={`Sell ${label}`}
+      >
+        S
+      </button>
     </div>
   );
 }
@@ -115,8 +157,8 @@ export function LiquidityDots({ score }: { score: number }) {
   if (!score) return <span className="text-muted-foreground">{DASH}</span>;
   return (
     <span className="inline-flex items-center gap-[3px]" role="img" aria-label={`Liquidity ${score} of 5`} title={`Liquidity ${score}/5 (spread and volume rank)`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={cn("h-1.5 w-1.5 rounded-full", i <= score ? (score >= 4 ? "bg-bullish" : score >= 3 ? "bg-warning" : "bg-bearish") : "bg-muted")} />
+      {[1, 2, 3, 4, 5].map((level) => (
+        <span key={level} className={cn("h-1.5 w-1.5 rounded-full", level <= score ? (score >= 4 ? "bg-bullish" : score >= 3 ? "bg-warning" : "bg-bearish") : "bg-muted")} />
       ))}
     </span>
   );

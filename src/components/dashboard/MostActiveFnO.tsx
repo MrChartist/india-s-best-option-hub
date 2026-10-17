@@ -6,12 +6,13 @@ import { Link } from "react-router-dom";
 import { Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { useFnOStocks } from "@/hooks/useMarketData";
+import { ScrollRegion } from "@/components/ScrollRegion";
 import { formatCompactIN, formatNumberIN, formatPct } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { ARROW, signTone, sourceName, statusFrom } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { useDashFno } from "./useDashboardData";
 
 const BUILDUP: Record<string, { short: string; variant: "bullish" | "bearish" | "info" | "warning" | "neutral" }> = {
   "Long Buildup": { short: "Long buildup", variant: "bullish" },
@@ -22,10 +23,10 @@ const BUILDUP: Record<string, { short: string; variant: "bullish" | "bearish" | 
 };
 
 export function MostActiveFnO() {
-  const q = useFnOStocks();
+  const q = useDashFno();
   const d = useDensityClasses();
   const rows = q.data?.mostActive ?? [];
-  const hasOI = q.data?.source === "nse" || q.data?.source === "database";
+  const hasOI = q.data?.source === "nse" || q.data?.source === "database" || q.data?.source === "sample";
   const status = statusFrom({ isLoading: q.isLoading, isError: q.isError, hasData: rows.length > 0, source: q.data?.source, stale: q.data?.stale, isLive: q.data?.isLive });
 
   return (
@@ -39,7 +40,7 @@ export function MostActiveFnO() {
         </div>
       </div>
       <DataState status={status} onRetry={() => void q.refetch()} className={d.padX} emptyText="No F&O activity data" emptyHint="Loads from NSE during market hours">
-        <div className="overflow-x-auto">
+        <ScrollRegion label="Most active F&O stocks table">
           <table className="w-full min-w-[560px] text-body">
             <caption className="sr-only">Most active F&O stocks by volume</caption>
             <thead>
@@ -86,7 +87,7 @@ export function MostActiveFnO() {
               })}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
         <p className="px-4 py-2 text-body-sm text-muted-foreground">Volume and OI are in shares. Buildup compares today's price change with the OI change.</p>
       </DataState>
     </Card>

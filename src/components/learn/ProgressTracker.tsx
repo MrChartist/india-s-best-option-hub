@@ -84,7 +84,7 @@ export default function ProgressTracker({
                     current ? "bg-wash-brand font-semibold text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
-                  <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", done ? "text-bullish" : current ? "text-primary-ink" : "text-muted-foreground/60")} aria-hidden="true" />
+                  <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", done ? "text-bullish" : current ? "text-primary-ink" : "text-muted-foreground-subtle")} aria-hidden="true" />
                   <span className="min-w-0">{l.title}</span>
                   {done ? <span className="sr-only">(completed)</span> : null}
                 </Link>

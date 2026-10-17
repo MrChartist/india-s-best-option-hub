@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,7 +34,18 @@ const hookData: OptionChainHookData = {
 vi.mock("@/hooks/useMarketData", () => ({
   useLiveOptionChain: () => ({ data: hookData, isLoading: false, isError: false, refetch: vi.fn(), isFetching: false }),
   useChainMulti: () => ({
-    data: { symbol: "NIFTY", spot: SPOT, expiries: [{ expiry: EXP1, chain: c1 }, { expiry: EXP2, chain: c2 }], isLive: false, source: "sample", asOf: Date.now(), stale: true },
+    data: {
+      symbol: "NIFTY",
+      spot: SPOT,
+      expiries: [
+        { expiry: EXP1, chain: c1 },
+        { expiry: EXP2, chain: c2 },
+      ],
+      isLive: false,
+      source: "sample",
+      asOf: Date.now(),
+      stale: true,
+    },
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
@@ -46,11 +57,18 @@ vi.mock("@/hooks/useMarketData", () => ({
 // Recharts needs a measured container; jsdom has none.
 vi.mock("recharts", async (orig) => {
   const mod = await orig<typeof import("recharts")>();
-  return { ...mod, ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div style={{ width: 800, height: 300 }}>{children}</div> };
+  return {
+    ...mod,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <div style={{ width: 800, height: 300 }}>{children}</div>
+    ),
+  };
 });
 
 import GammaExposure from "@/pages/GammaExposure";
 import GammaLevelsCard from "./GammaLevelsCard";
+
+beforeEach(() => localStorage.removeItem("mc_gex_convention"));
 
 function renderWithShell(ui: React.ReactElement, path = "/gex") {
   return render(
@@ -63,7 +81,10 @@ function renderWithShell(ui: React.ReactElement, path = "/gex") {
 describe("heatmap model", () => {
   it("merges expiries, windows strikes and marks walls", () => {
     const m = buildHeatmapModel(
-      [{ expiry: EXP1, chain: c1, lotSize: 65 }, { expiry: EXP2, chain: c2, lotSize: 65 }],
+      [
+        { expiry: EXP1, chain: c1, lotSize: 65 },
+        { expiry: EXP2, chain: c2, lotSize: 65 },
+      ],
       SPOT,
       "gex",
       { convention: "sellerShortBoth", oiUnit: "contracts", window: 10 },
@@ -72,8 +93,12 @@ describe("heatmap model", () => {
     expect(m.strikes).toHaveLength(21);
     expect(m.values[0]).toHaveLength(2);
     expect(m.maxAbs).toBeGreaterThan(0);
-    expect(m.markers[0].callWall).toBeGreaterThanOrEqual(SPOT - 50);
-    expect(m.markers[0].putWall).toBeLessThanOrEqual(SPOT + 50);
+    // Walls are listed strikes near spot (the exact strike depends on the sample OI shape).
+    const listed = new Set(c1.map((r) => r.strikePrice));
+    for (const w of [m.markers[0].callWall, m.markers[0].putWall]) {
+      expect(listed.has(w)).toBe(true);
+      expect(Math.abs(w - SPOT) / SPOT).toBeLessThan(0.1);
+    }
     expect(heatAlpha(m.maxAbs, m.maxAbs)).toBeCloseTo(0.6);
     expect(heatAlpha(NaN, 1)).toBe(0);
   });
@@ -103,11 +128,46 @@ describe("GammaExposure page", () => {
   });
 });
 
+describe("GammaExposure session cards", () => {
+  it("shows levels through the session and hedging pressure, labelled as sample and derived", async () => {
+    renderWithShell(<GammaExposure />);
+    expect(await screen.findByText("Levels through the session")).toBeInTheDocument();
+    expect(screen.getByText(/Hedging pressure · NIFTY/)).toBeInTheDocument();
+    expect(screen.getByText("Derived estimate")).toBeInTheDocument();
+    expect(screen.getByText(/Changed since open/)).toBeInTheDocument();
+    expect(screen.getAllByText("Sample data").length).toBeGreaterThan(1);
+  });
+});
+
 describe("GammaLevelsCard", () => {
   it("renders the embeddable card with a link to the page", () => {
+    localStorage.removeItem("mc_gex_convention");
     renderWithShell(<GammaLevelsCard symbol="nifty" />, "/");
     expect(screen.getByText(/Gamma levels · NIFTY/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open GEX/ })).toHaveAttribute("href", "/gex?symbol=NIFTY");
     expect(screen.getByText("Put wall")).toBeInTheDocument();
+  });
+
+  it("follows the page's stored convention and only shows a regime in the dealer model", () => {
+    localStorage.removeItem("mc_gex_convention");
+    renderWithShell(
+      <>
+        <GammaExposure />
+        <GammaLevelsCard symbol="NIFTY" />
+      </>,
+    );
+    // Seller view (India default): no damped / amplified badge, the construction note instead.
+    expect(screen.getAllByText("Seller view (India)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Writers short gamma at all levels \(by construction\)/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Short gamma · amplified|Long gamma · damped/)).not.toBeInTheDocument();
+    // Switching on the page updates the card through the shared preference.
+    fireEvent.click(screen.getByRole("radio", { name: "Dealer model (US)" }));
+    expect(localStorage.getItem("mc_gex_convention")).toBe("dealerLongCallShortPut");
+    expect(screen.getAllByText("Dealer model (US)").length).toBeGreaterThan(1);
+    expect(screen.queryByText(/by construction/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Long gamma · damped|Short gamma · amplified|Near flat gamma/).length).toBeGreaterThan(
+      0,
+    );
+    localStorage.removeItem("mc_gex_convention");
   });
 });

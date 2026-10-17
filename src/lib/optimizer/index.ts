@@ -10,4 +10,6 @@ export * from "./candidates";
 export * from "./score";
 export * from "./engine";
 export * from "./preview";
+export * from "./insights";
+export * from "./urlParams";
 export { runOptimizer, runOnMainThread, isAbortError, OptimizerAbortError, type RunMode, type RunOptions } from "./client";

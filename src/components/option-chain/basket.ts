@@ -3,7 +3,9 @@
  *
  * Contract (shared across streams):
  *  - localStorage key "mc_basket_v1" holds BasketLeg[].
- *  - "Open in Strategy Builder" navigates to /strategy-builder?legs=<base64url(JSON.stringify(BasketLeg[]))>.
+ *  - "Open in Strategy Builder" navigates to /strategy-builder?legs=<base64url(JSON.stringify(BasketLeg[]))>
+ *    (replaces the builder's legs); "Add to current strategy" appends &mode=append.
+ *  - "Paper trade" navigates to /paper-trading?legs=<same encoding>.
  *  - `premium` is rupees per unit (mid when a two-sided quote exists, else LTP).
  *  - `iv` is a DECIMAL (0.142 = 14.2%), matching Leg.iv in "@/lib/options"; null when unknown.
  */
@@ -13,6 +15,9 @@ import { nearestStrike } from "./chainModel";
 
 export const BASKET_KEY = "mc_basket_v1";
 export const STRATEGY_BUILDER_PATH = "/strategy-builder";
+export const PAPER_TRADING_PATH = "/paper-trading";
+/** Last hand-off from the basket: { at, target, count, symbols }. */
+export const BASKET_SENT_KEY = "mc_basket_sent_v1";
 
 export interface BasketLeg {
   symbol: string;
@@ -108,8 +113,83 @@ export function decodeLegs(s: string): BasketLeg[] {
   }
 }
 
-export function strategyBuilderUrl(legs: BasketLeg[]): string {
-  return `${STRATEGY_BUILDER_PATH}?legs=${encodeLegs(legs)}`;
+export type BuilderMode = "replace" | "append";
+
+/** Strategy Builder link. "replace" (default) loads only these legs; "append" adds them to the current strategy. */
+export function strategyBuilderUrl(legs: BasketLeg[], mode: BuilderMode = "replace"): string {
+  return `${STRATEGY_BUILDER_PATH}?legs=${encodeLegs(legs)}${mode === "append" ? "&mode=append" : ""}`;
+}
+
+/** Paper Trading link that stages these legs for review. */
+export function paperTradingUrl(legs: BasketLeg[]): string {
+  return `${PAPER_TRADING_PATH}?legs=${encodeLegs(legs)}`;
+}
+
+export interface BasketGroup {
+  symbol: string;
+  /** Legs with their index in the full basket (for edits). */
+  items: Array<{ leg: BasketLeg; index: number }>;
+  legs: BasketLeg[];
+  /** Net premium in rupees for the group: positive = credit. */
+  net: number;
+}
+
+/** Group basket legs by underlying, keeping first-seen order, with a net premium subtotal each. */
+export function groupBySymbol(legs: BasketLeg[], lotSizeFor: (symbol: string, expiry: string) => number): BasketGroup[] {
+  const map = new Map<string, BasketGroup>();
+  legs.forEach((leg, index) => {
+    let g = map.get(leg.symbol);
+    if (!g) {
+      g = { symbol: leg.symbol, items: [], legs: [], net: 0 };
+      map.set(leg.symbol, g);
+    }
+    g.items.push({ leg, index });
+    g.legs.push(leg);
+  });
+  for (const g of map.values()) g.net = basketNetPremium(g.legs, lotSizeFor);
+  return [...map.values()];
+}
+
+/** Remove the given legs (by contract and side) from a basket. */
+export function removeLegs(basket: BasketLeg[], legs: BasketLeg[]): BasketLeg[] {
+  return basket.filter((b) => !legs.some((l) => sameLeg(l, b)));
+}
+
+export type SendTarget = "builder" | "append" | "paper";
+
+export interface BasketSent {
+  at: number;
+  target: SendTarget;
+  count: number;
+  symbols: string[];
+}
+
+export function recordBasketSent(target: SendTarget, legs: BasketLeg[], at = Date.now()): BasketSent {
+  const rec: BasketSent = { at, target, count: legs.length, symbols: [...new Set(legs.map((l) => l.symbol))] };
+  try {
+    localStorage.setItem(BASKET_SENT_KEY, JSON.stringify(rec));
+  } catch {
+    /* storage blocked: the hand-off still happened */
+  }
+  return rec;
+}
+
+export function readBasketSent(): BasketSent | null {
+  try {
+    const raw = localStorage.getItem(BASKET_SENT_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Partial<BasketSent>;
+    if (!p || !isNum(p.at) || !isNum(p.count) || (p.target !== "builder" && p.target !== "append" && p.target !== "paper") || !Array.isArray(p.symbols)) return null;
+    return { at: p.at, target: p.target, count: p.count, symbols: p.symbols.filter((x): x is string => typeof x === "string") };
+  } catch {
+    return null;
+  }
+}
+
+/** Where a send target navigates. */
+export function sendUrl(target: SendTarget, legs: BasketLeg[]): string {
+  if (target === "paper") return paperTradingUrl(legs);
+  return strategyBuilderUrl(legs, target === "append" ? "append" : "replace");
 }
 
 /** Net premium in rupees for the basket: positive = credit received. */

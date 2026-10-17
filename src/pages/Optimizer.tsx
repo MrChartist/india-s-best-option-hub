@@ -1,22 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, Cpu, FlaskConical, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, Cpu, FlaskConical, LayoutGrid, RefreshCw, Rows3, Sparkles, WandSparkles } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SourceBadge } from "@/components/option-chain/SourceBadge";
-import { addLegs, readBasket, strategyBuilderUrl, writeBasket } from "@/components/option-chain/basket";
+import { addLegs, paperTradingUrl, readBasket, strategyBuilderUrl, writeBasket } from "@/components/option-chain/basket";
 import { OptimizerForm } from "@/components/optimizer/OptimizerForm";
 import { DEFAULT_FORM_SETTINGS, type FormSettings } from "@/components/optimizer/formSettings";
-import { ResultsGrid } from "@/components/optimizer/ResultsGrid";
-import type { PayoffView } from "@/components/optimizer/ResultCard";
+import { ResultsGrid, type ResultsLayout } from "@/components/optimizer/ResultsGrid";
+import type { PayoffView } from "@/components/optimizer/resultHelpers";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
+  EM_METHOD_LABEL,
+  atmStraddle,
   enrichChain,
+  expectedMoves,
   formatCompactIN,
   formatDateIST,
   formatNumberIN,
@@ -43,7 +48,9 @@ import {
   roundTo,
   runOptimizer,
   sentimentTarget,
+  parseOptimizerParams,
   toBasketLegs,
+  viewFromTarget,
   type OptimizerInput,
   type OptimizerOutput,
   type OptimizerProgress,
@@ -87,6 +94,23 @@ function writePrefs(p: Prefs): void {
   }
 }
 
+const LAYOUT_KEY = "mc_optimizer_layout_v1";
+
+/** Saved layout, else the compact table on desktop (≥ 1024px) and cards on phones and tablets. */
+function initialLayout(): ResultsLayout {
+  try {
+    const saved = localStorage.getItem(LAYOUT_KEY);
+    if (saved === "cards" || saved === "table") return saved;
+  } catch {
+    /* blocked storage */
+  }
+  try {
+    return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches ? "table" : "cards";
+  } catch {
+    return "cards";
+  }
+}
+
 type TabKey = "top" | StrategyCategory;
 
 interface RunState {
@@ -98,14 +122,22 @@ interface RunState {
 }
 
 export default function Optimizer() {
-  useDocumentTitle("Strategy optimizer");
+  useDocumentTitle("Strategy Optimizer");
   const navigate = useNavigate();
-  const initial = useMemo(readPrefs, []);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initial = useMemo(() => {
+    const prefs = readPrefs();
+    const url = parseOptimizerParams(searchParams);
+    return { ...prefs, symbol: url.symbol ?? prefs.symbol, target: url.target };
+    // Read once on mount; later URL changes are handled by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [symbol, setSymbol] = useState(initial.symbol);
   const [settings, setSettings] = useState<FormSettings>(initial.settings);
   const [expiryChoice, setExpiryChoice] = useState("");
-  const [targetChoice, setTargetChoice] = useState<number | null>(null);
-  const [sentiment, setSentiment] = useState<Sentiment | null>("neutral");
+  const [targetChoice, setTargetChoice] = useState<number | null>(initial.target);
+  const [sentiment, setSentiment] = useState<Sentiment | null>(initial.target ? null : "neutral");
+  const [layout, setLayout] = useState<ResultsLayout>(initialLayout);
   const [dateChoice, setDateChoice] = useState("");
   const [tab, setTab] = useState<TabKey>("top");
 
@@ -193,14 +225,48 @@ export default function Optimizer() {
   const targetPrice = targetChoice ?? 0;
 
   // Reset per-underlying choices when the symbol changes.
-  const changeSymbol = (s: string) => {
-    if (s === symbol) return;
-    setSymbol(s);
-    setExpiryChoice("");
-    setTargetChoice(null);
-    setSentiment("neutral");
-    setDateChoice("");
-  };
+  const changeSymbol = useCallback(
+    (s: string, target: number | null = null) => {
+      if (s === symbol) return;
+      setSymbol(s);
+      setExpiryChoice("");
+      setTargetChoice(target);
+      setSentiment(target ? null : "neutral");
+      setDateChoice("");
+    },
+    [symbol],
+  );
+
+  // Follow ?symbol= / ?target= when the URL changes while the page is open (links, back/forward).
+  const urlParams = useMemo(() => parseOptimizerParams(searchParams), [searchParams]);
+  const lastWritten = useRef<string>("");
+  useEffect(() => {
+    if (searchParams.toString() === lastWritten.current) return;
+    if (urlParams.symbol && urlParams.symbol !== symbol) changeSymbol(urlParams.symbol, urlParams.target);
+    else if (urlParams.target && urlParams.target !== targetChoice) {
+      setTargetChoice(urlParams.target);
+      setSentiment(null);
+    }
+    // Only react to URL changes, not to our own state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlParams]);
+
+  // Keep the URL shareable: ?symbol= always, ?target= only for a hand-picked target (a sentiment
+  // shortcut re-derives its target from the live σ).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      next.set("symbol", symbol);
+      if (sentiment === null && targetChoice && targetChoice > 0) next.set("target", String(targetChoice));
+      else next.delete("target");
+      const text = next.toString();
+      if (text !== searchParams.toString()) {
+        lastWritten.current = text;
+        setSearchParams(next, { replace: true });
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [symbol, sentiment, targetChoice, searchParams, setSearchParams]);
   const changeExpiry = (e: string) => {
     setExpiryChoice(e);
     setDateChoice("");
@@ -273,7 +339,13 @@ export default function Optimizer() {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const ranked = useMemo(() => (run ? rankResults(run.output.results, settings.w, 10) : null), [run, settings.w]);
+  // The reader's view: the sentiment shortcut, or the one implied by a hand-picked target.
+  const view: Sentiment = useMemo(() => {
+    if (sentiment) return sentiment;
+    if (!market || !(targetPrice > 0)) return "neutral";
+    return viewFromTarget(spot, targetPrice, market.ctx.sigma, market.ctx.tTarget);
+  }, [sentiment, market, spot, targetPrice]);
+  const ranked = useMemo(() => (run ? rankResults(run.output.results, settings.w, 10, { view }) : null), [run, settings.w, view]);
   const visibleCats = CATEGORY_ORDER.filter((c) => settings.categories.includes(c));
   const activeTab: TabKey = tab !== "top" && !visibleCats.includes(tab) ? "top" : tab;
   const list: RankedCandidate[] = ranked ? (activeTab === "top" ? ranked.overall : ranked.byCategory[activeTab]) : [];
@@ -286,6 +358,21 @@ export default function Optimizer() {
     },
     [navigate, symbol],
   );
+  const paperTrade = useCallback(
+    (c: RankedCandidate) => {
+      navigate(paperTradingUrl(toBasketLegs(c, c.lots, symbol)));
+    },
+    [navigate, symbol],
+  );
+  const changeLayout = (v: string) => {
+    if (v !== "cards" && v !== "table") return;
+    setLayout(v);
+    try {
+      localStorage.setItem(LAYOUT_KEY, v);
+    } catch {
+      /* blocked storage: this session only */
+    }
+  };
   const addToBasket = useCallback(
     (c: RankedCandidate) => {
       const legs = toBasketLegs(c, c.lots, symbol);
@@ -299,18 +386,33 @@ export default function Optimizer() {
   const pctDone = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const daysToTarget = market ? market.summary.tTarget * 365 : NaN;
 
+  // Expected move to the target date: IV 1σ always; the straddle method only prices a move to expiry.
+  const moves = useMemo(() => {
+    if (!market) return null;
+    const st = market.summary.atExpiry ? atmStraddle(frontChain, spot).straddle : NaN;
+    return expectedMoves({
+      spot,
+      forward: market.ctx.forwardTarget,
+      atmIv: market.ctx.sigma,
+      tYears: Math.max(market.ctx.tTarget, 1 / (365 * 24 * 60)),
+      straddle: Number.isFinite(st) ? st : undefined,
+    });
+  }, [market, frontChain, spot]);
+
   return (
     <div className="space-y-3 pb-4">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="font-display text-title">Strategy optimizer</h1>
-          <p className="text-body-sm text-muted-foreground">Set a target price, a date and a budget. We rank liquid NSE strategies by return and chance of profit.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {front && <SourceBadge source={front.source} asOf={front.asOf} stale={front.stale} isLive={front.isLive} reason={front.reason} />}
-          <Badge variant="neutral">Margin & POP derived</Badge>
-        </div>
-      </header>
+      <PageHeader
+        icon={WandSparkles}
+        eyebrow="Strategy"
+        title="Strategy Optimizer"
+        description="Set a target price, a date and a budget. We rank liquid NSE strategies by return on funds required and chance of profit."
+        source={
+          <>
+            {front ? <SourceBadge source={front.source} asOf={front.asOf} stale={front.stale} isLive={front.isLive} reason={front.reason} /> : <Skeleton className="h-5 w-24" />}
+            <Badge variant="neutral">Margin & POP derived</Badge>
+          </>
+        }
+      />
 
       {isSample && (
         <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning px-3 py-2 text-body-sm text-warning">
@@ -322,31 +424,45 @@ export default function Optimizer() {
       )}
 
       {/* Market strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {[
-          { id: "spot", label: `${symbol} spot`, value: spot > 0 ? formatNumberIN(spot, 2) : "—" },
-          { id: "iv", label: "ATM IV", value: market ? formatPct(market.summary.atmIv * 100, { decimals: 1 }) : "—" },
-          {
-            id: "range",
-            // text-transform: uppercase would turn σ into Σ (summation), so keep the symbol lower case.
-            label: (
-              <>
-                1<span className="normal-case">σ</span> to target
-              </>
-            ),
-            value: market ? `${formatStrike(Math.round(market.summary.lower))} – ${formatStrike(Math.round(market.summary.upper))}` : "—" },
-          { id: "days", label: "To target date", value: Number.isFinite(daysToTarget) ? (daysToTarget < 1 ? `${Math.max(0, Math.round(daysToTarget * 24))}h` : `${daysToTarget.toFixed(1)} days`) : "—" },
-          { id: "lot", label: "Lot size", value: lotSize > 0 ? `${lotSize}` : "—" },
-        ].map((m) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {(
+          [
+            { id: "spot", label: `${symbol} spot`, value: spot > 0 ? formatNumberIN(spot, 2) : "—" },
+            { id: "iv", label: "ATM IV", value: market ? formatPct(market.summary.atmIv * 100, { decimals: 1 }) : "—" },
+            {
+              id: "range",
+              label: "Expected move",
+              tag: EM_METHOD_LABEL.iv,
+              value: moves && Number.isFinite(moves.iv.move) ? `±${formatStrike(Math.round(moves.iv.move))} (${formatPct(moves.iv.pct, { decimals: 1 })})` : "—",
+              sub: moves && Number.isFinite(moves.iv.lower) ? `${formatStrike(Math.round(moves.iv.lower))} – ${formatStrike(Math.round(moves.iv.upper))}` : undefined,
+            },
+            {
+              id: "straddle",
+              label: "Expected move",
+              tag: EM_METHOD_LABEL.straddle,
+              value: moves?.straddle ? `±${formatStrike(Math.round(moves.straddle.move))} (${formatPct(moves.straddle.pct, { decimals: 1 })})` : "—",
+              sub: moves?.straddle ? "≈ 50% band to expiry" : market && !market.summary.atExpiry ? "Expiry targets only" : undefined,
+            },
+            { id: "days", label: "To target date", value: Number.isFinite(daysToTarget) ? (daysToTarget < 1 ? `${Math.max(0, Math.round(daysToTarget * 24))}h` : `${daysToTarget.toFixed(1)} days`) : "—" },
+            { id: "lot", label: "Lot size", value: lotSize > 0 ? `${lotSize}` : "—" },
+          ] as Array<{ id: string; label: string; value: string; tag?: string; sub?: string }>
+        ).map((m) => (
           <div key={m.id} className="min-w-0 rounded-tile border border-border bg-card px-3 py-2 shadow-card">
             <div className="truncate text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">{m.label}</div>
             {front ? <div className="truncate font-num text-[15px] font-bold tabular-nums">{m.value}</div> : <Skeleton className="mt-1 h-5 w-20" />}
+            {front && (m.tag || m.sub) && (
+              <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                {/* Method tags keep their case: uppercase would turn σ into Σ. */}
+                {m.tag && <span className="shrink-0 rounded-chip bg-wash-info px-1 text-[10px] font-semibold text-info">{m.tag}</span>}
+                {m.sub && <span className="truncate font-num">{m.sub}</span>}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(300px,360px)_1fr]">
-        <aside className="h-fit rounded-card border border-border bg-card p-3 shadow-card lg:sticky lg:top-16" aria-label="Optimizer settings">
+        <aside className="h-fit rounded-card border border-border bg-card p-3 shadow-card lg:sticky lg:top-4" aria-label="Optimizer settings">
           <OptimizerForm
             symbol={symbol}
             onSymbolChange={changeSymbol}
@@ -385,13 +501,23 @@ export default function Optimizer() {
               <Sparkles className="h-4 w-4 text-primary-ink" aria-hidden="true" />
               Best strategies for {formatStrike(targetPrice)} by {targetDate ? formatDateIST(targetDate) : "expiry"}
             </h2>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ToggleGroup type="single" value={layout} onValueChange={changeLayout} aria-label="Results layout" className="rounded-tab bg-muted p-0.5">
+                <ToggleGroupItem value="table" size="sm" className="h-7 gap-1 px-2 text-xs" aria-label="Table view">
+                  <Rows3 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Table</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="cards" size="sm" className="h-7 gap-1 px-2 text-xs" aria-label="Card view">
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Cards</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
               {newerChain && (
                 <Button size="pill" variant="outline" onClick={() => setNonce((n) => n + 1)}>
                   <RefreshCw aria-hidden="true" /> Newer chain · re-run
                 </Button>
               )}
-              <Button size="pill" variant="ghost" onClick={() => setNonce((n) => n + 1)} disabled={!baseInput || running} aria-label="Run the optimizer again">
+              <Button size="pill" variant="ghost" onClick={() => setNonce((n) => n + 1)} disabled={!baseInput || running} aria-label="Re-run the optimizer">
                 <RefreshCw className={cn(running && "animate-spin")} aria-hidden="true" /> Re-run
               </Button>
             </div>
@@ -468,26 +594,33 @@ export default function Optimizer() {
                 ))}
               </TabsList>
             </div>
+            <TabsContent value={activeTab} className="mt-2" tabIndex={-1}>
+              <ResultsGrid
+                results={list}
+                view={run?.view ?? null}
+                loading={running || (!run && (frontQ.isLoading || !!baseInput))}
+                layout={layout}
+                neutralView={view === "neutral"}
+                onOpen={openInBuilder}
+                onAddToBasket={addToBasket}
+                onPaperTrade={paperTrade}
+                emptyHint={
+                  stats && stats.feasible === 0 && stats.overBudget > stats.unprofitable
+                    ? `Most strategies need more than ${formatCompactIN(settings.budget, { symbol: true })} of funds. Raise the budget or allow fewer lots.`
+                    : undefined
+                }
+              />
+            </TabsContent>
           </Tabs>
-
-          <ResultsGrid
-            results={list}
-            view={run?.view ?? null}
-            loading={running || (!run && (frontQ.isLoading || !!baseInput))}
-            onOpen={openInBuilder}
-            onAddToBasket={addToBasket}
-            emptyHint={
-              stats && stats.feasible === 0 && stats.overBudget > stats.unprofitable
-                ? `Most strategies need more than ${formatCompactIN(settings.budget, { symbol: true })} of margin. Raise the budget or allow fewer lots.`
-                : undefined
-            }
-          />
 
           <div className="space-y-1 rounded-tile bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
             <p>
               <span className="font-semibold text-foreground">How this works.</span> Each structure is priced at {settings.pricing === "mid" ? "the bid/ask midpoint" : "natural prices (buy at ask, sell at bid)"}, valued at your
-              target with Black-76 (time value kept when the target date is before expiry) and sized to your budget using a SPAN-style margin estimate. Return is profit at target after
-              round-trip charges, divided by margin. Chance of profit uses a lognormal model with the chain&apos;s volatility smile. The slider blends the two.
+              target with Black-76 (time value kept when the target date is before expiry) and sized to your budget using funds required: a SPAN-style span and exposure estimate,
+              any expiry-day ELM, plus the net premium paid (premium received on short legs offsets long premium). Return is profit at target after round-trip charges, divided by
+              funds required. Chance of profit uses a lognormal model with the chain&apos;s volatility smile. The slider blends the two. With a Neutral view, delta-neutral
+              structures already in profit at spot get a small boost and a &ldquo;Matches your view&rdquo; chip. Expected moves are tagged by method: {EM_METHOD_LABEL.iv} is one
+              standard deviation from ATM IV; {EM_METHOD_LABEL.straddle} is roughly a 50% band.
             </p>
             <p>Data for education and research. Not investment advice.</p>
           </div>

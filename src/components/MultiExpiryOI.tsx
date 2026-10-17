@@ -127,7 +127,8 @@ export function MultiExpiryOI({ symbol, expiries, primaryExpiry, primaryChain, s
 
   const toggle = (v: string) => setSelected((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev.filter((x) => others.some((o) => o.value === x)), v].slice(-2)));
   const loading = (active[0] && q1.isLoading) || (active[1] && q2.isLoading);
-  const anySample = series.some((s) => s.sample);
+  // The page header labels a sample primary chain; flag only sample secondary expiries here.
+  const anySample = !sample && series.some((s) => s.sample);
 
   return (
     <div className="space-y-4">
@@ -138,7 +139,7 @@ export function MultiExpiryOI({ symbol, expiries, primaryExpiry, primaryChain, s
           hint="The selected expiry is always shown. Add up to two more; they refresh every 45 seconds."
           right={
             <>
-              {anySample && <Badge variant="warning">Sample data</Badge>}
+              {anySample && <Badge variant="warning">Includes sample expiry</Badge>}
               <div className="flex items-center gap-2">
                 <Switch id="multi-exp-chg" checked={showOIChange} onCheckedChange={setShowOIChange} />
                 <Label htmlFor="multi-exp-chg" className="text-xs text-muted-foreground">

@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, Flame, RefreshCw, WifiOff } from "lucide-react";
+import { Flame, Loader2, RefreshCw, SearchX, TableProperties, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StockChart } from "@/components/StockChart";
+import { PageHeader } from "@/components/PageHeader";
+import { BuildupBadge } from "@/components/ui/buildup-badge";
 import { buildSampleChainData, useLiveOptionChain } from "@/hooks/useMarketData";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import {
   LOT_SIZE_HISTORY,
   dteLabel,
   formatCompactIN,
+  formatDateIST,
   formatStrike,
   getContractSpec,
   getLotSize,
@@ -34,6 +36,7 @@ import { ByStrikeView } from "@/components/option-chain/ByStrikeView";
 import { visibleColumns } from "@/components/option-chain/columns";
 import {
   buildChainModel,
+  buildupCounts,
   chainToCSV,
   deltaTargets,
   oneSigmaPoints,
@@ -47,13 +50,23 @@ import {
   buildStraddle,
   buildStrangle,
   legFromRow,
-  strategyBuilderUrl,
+  readBasketSent,
+  recordBasketSent,
+  removeLegs,
+  sendUrl,
   type BasketLeg,
+  type BasketSent,
+  type SendTarget,
 } from "@/components/option-chain/basket";
-import { gammaBadgeMap, safeGammaLevels, type GammaBadge } from "@/components/option-chain/gammaLevels";
+import { gammaBadgeMap, safeGammaLevels } from "@/components/option-chain/gammaLevels";
+import { chainChartLevels } from "@/components/option-chain/chartOverlays";
+import { useLatestCallback, useStableBadgeMap, useStableRows } from "@/components/option-chain/stableRows";
 import { useBasket, useStrikeAlerts } from "@/components/option-chain/hooks";
 import {
   DELTA_VIEW_KEY,
+  MOBILE_BREAKPOINT,
+  MOBILE_COLUMNS_KEY,
+  MOBILE_DEFAULT_PRESET,
   readBool,
   readColumnPrefs,
   readRange,
@@ -62,22 +75,45 @@ import {
   writeRange,
   type ColumnPrefs,
 } from "@/components/option-chain/preferences";
-import { canonicalSymbol } from "@/components/option-chain/symbols";
+import { downloadText as saveText } from "@/lib/download";
+import { ALL_SYMBOLS, canonicalSymbol } from "@/components/option-chain/symbols";
+
+const SKELETON_ROWS = Array.from({ length: 12 }, (_, n) => `skeleton-row-${n + 1}`);
+
+// The price chart pulls in lightweight-charts: load it only when the chart is opened.
+const StockChart = lazy(() => import("@/components/StockChart").then((m) => ({ default: m.StockChart })));
 
 function downloadText(filename: string, text: string, type = "text/csv") {
-  try {
-    const blob = new Blob([text], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch {
-    toast.error("Could not start the download in this browser");
+  if (!saveText(filename, text, type)) toast.error("Could not start the download in this browser");
+}
+
+/** True for an index or stock in the F&O universe (static catalogue or specs loaded from the proxy). */
+function isKnownFnoSymbol(symbol: string): boolean {
+  return ALL_SYMBOLS.some((s) => s.value === symbol) || !!getContractSpec(symbol);
+}
+
+function editDistance(a: string, b: string): number {
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
   }
+  return dp[b.length];
+}
+
+/** Up to five catalogue symbols closest to a mistyped one (prefix matches first, then edit distance). */
+function nearestSymbols(input: string, n = 5): string[] {
+  const q = input.toUpperCase();
+  return ALL_SYMBOLS.map((s) => s.value)
+    .map((v) => ({ v, d: v.startsWith(q) || q.startsWith(v) ? 0 : v.includes(q) ? 1 : editDistance(q, v) + 1 }))
+    .sort((a, b) => a.d - b.d || a.v.localeCompare(b.v))
+    .slice(0, n)
+    .map((x) => x.v);
 }
 
 /** First expiry (ISO) on which the current lot size applies. */
@@ -142,6 +178,8 @@ export default function OptionChain() {
 
   // ── URL is the source of truth for symbol and expiry ──
   const symbol = canonicalSymbol(searchParams.get("symbol"));
+  // A typo in a deep link must not turn into a convincing fake chain.
+  const unknownSymbol = !isKnownFnoSymbol(symbol);
   const urlExpiryRaw = searchParams.get("expiry");
   const urlExpiry = urlExpiryRaw ? normalizeExpiry(urlExpiryRaw) || undefined : undefined;
 
@@ -182,46 +220,61 @@ export default function OptionChain() {
 
   // ── Preferences ──
   const [viewMode, setViewMode] = useState<ChainViewMode>("expiration");
-  const [columnPrefs, setColumnPrefsState] = useState<ColumnPrefs>(() => readColumnPrefs());
+  const [desktopPrefs, setDesktopPrefs] = useState<ColumnPrefs>(() => readColumnPrefs());
+  const [mobilePrefs, setMobilePrefs] = useState<ColumnPrefs>(() => readColumnPrefs(MOBILE_COLUMNS_KEY, MOBILE_DEFAULT_PRESET));
   const [range, setRangeState] = useState<StrikeRange>(() => readRange());
   const [deltaView, setDeltaViewState] = useState<boolean>(() => readBool(DELTA_VIEW_KEY));
   const [showChart, setShowChart] = useState(false);
-  const setColumnPrefs = useCallback((p: ColumnPrefs) => { setColumnPrefsState(p); writeColumnPrefs(p); }, []);
   const setRange = useCallback((r: StrikeRange) => { setRangeState(r); writeRange(r); }, []);
   const setDeltaView = useCallback((v: boolean) => { setDeltaViewState(v); writeBool(DELTA_VIEW_KEY, v); }, []);
 
   // ── Data ──
   const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useLiveOptionChain(symbol, urlExpiry);
-  const expiries = useMemo(() => data?.expiries ?? [], [data]);
+  const expiries = useMemo(() => (unknownSymbol ? [] : data?.expiries ?? []), [data, unknownSymbol]);
   const expiry = data?.expiry || urlExpiry || expiries[0]?.value || "";
   const lotSize = data?.lotSize ?? getLotSize(symbol, expiry) ?? 0;
   const isSample = data?.source === "sample";
 
   const model = useMemo(
-    () => buildChainModel(data?.chain ?? [], { spot: data?.spotPrice ?? 0, expiry, lotSize, symbol, maxPain: data?.maxPain }),
-    [data, expiry, lotSize, symbol],
+    () => buildChainModel(unknownSymbol ? [] : data?.chain ?? [], { spot: data?.spotPrice ?? 0, expiry, lotSize, symbol, maxPain: data?.maxPain }),
+    [data, expiry, lotSize, symbol, unknownSymbol],
   );
   const hasData = model.rows.length > 0;
-  const rows = useMemo(() => sliceAroundATM(model.rows, model.atmStrike, range), [model, range]);
-  // On narrow viewports the two-sided table cannot fit every column: drop the secondary ones
-  // (OI bar below xl, IV below md) unless that would leave too little to read.
+  // Stable identities: only rows whose quotes changed re-render on each poll.
+  const rows = useStableRows(useMemo(() => sliceAroundATM(model.rows, model.atmStrike, range), [model, range]));
+  // Phones (below 640px) keep their own column set, compact by default (LTP and OI only).
   const viewportW = useViewportWidth();
+  const isMobile = viewportW > 0 && viewportW < MOBILE_BREAKPOINT;
+  const columnPrefs = isMobile ? mobilePrefs : desktopPrefs;
+  const setColumnPrefs = useCallback(
+    (p: ColumnPrefs) => {
+      if (isMobile) {
+        setMobilePrefs(p);
+        writeColumnPrefs(p, MOBILE_COLUMNS_KEY);
+      } else {
+        setDesktopPrefs(p);
+        writeColumnPrefs(p);
+      }
+    },
+    [isMobile],
+  );
+  // On narrow desktop viewports the two-sided table cannot fit every column: drop the secondary
+  // ones (OI bar below xl, IV below md) unless that would leave too little to read.
   const columns = useMemo(() => {
     let ids = columnPrefs.visible;
+    if (isMobile) return visibleColumns(ids);
     const drop = (id: string) => {
       if (ids.length > 4 && ids.includes(id as (typeof ids)[number])) ids = ids.filter((x) => x !== id);
     };
     if (viewportW > 0 && viewportW < 1280) drop("oiBar");
     if (viewportW > 0 && viewportW < 768) drop("iv");
     return visibleColumns(ids);
-  }, [columnPrefs.visible, viewportW]);
+  }, [columnPrefs.visible, viewportW, isMobile]);
   const deltas = useMemo(() => deltaTargets(model.rows), [model]);
   const sigmaPoints = useMemo(() => oneSigmaPoints(model), [model]);
-  const gammaMap = useMemo(() => {
-    if (!data || data.chain.length === 0) return new Map<number, GammaBadge[]>();
-    const levels = safeGammaLevels(data.chain, data.spotPrice, expiry, lotSize);
-    return gammaBadgeMap(levels, model.rows.map((r) => r.strike));
-  }, [data, expiry, lotSize, model]);
+  const gammaLevels = useMemo(() => (data && data.chain.length > 0 ? safeGammaLevels(data.chain, data.spotPrice, expiry, lotSize) : null), [data, expiry, lotSize]);
+  const gammaMap = useStableBadgeMap(useMemo(() => gammaBadgeMap(gammaLevels, model.rows.map((r) => r.strike)), [gammaLevels, model]));
+  const buildup = useMemo(() => buildupCounts(model.rows), [model]);
 
   // ── Basket ──
   const { legs, setLegs } = useBasket();
@@ -246,14 +299,12 @@ export default function OptionChain() {
   const rowByStrike = useCallback((k: number): RowView | undefined => model.rows.find((r) => r.strike === k), [model]);
   const legCtx = useMemo(() => ({ symbol, expiry }), [symbol, expiry]);
 
-  const onTrade = useCallback(
-    (strike: number, type: OptionType, side: Side) => {
-      const row = rowByStrike(strike);
-      if (!row) return;
-      addToBasket([legFromRow(row, type, side, legCtx)], `${side === "BUY" ? "Buy" : "Sell"} ${formatStrike(strike)} ${type}`);
-    },
-    [rowByStrike, addToBasket, legCtx],
-  );
+  // Stable identity (reads the latest model) so memoised rows do not re-render on every poll.
+  const onTrade = useLatestCallback((strike: number, type: OptionType, side: Side) => {
+    const row = rowByStrike(strike);
+    if (!row) return;
+    addToBasket([legFromRow(row, type, side, legCtx)], `${side === "BUY" ? "Buy" : "Sell"} ${formatStrike(strike)} ${type}`);
+  });
   const onStraddle = useCallback(
     (strike: number, side: Side) => addToBasket(buildStraddle(model.rows, strike, side, legCtx), `${side === "BUY" ? "Long" : "Short"} ${formatStrike(strike)} straddle`),
     [model, addToBasket, legCtx],
@@ -263,11 +314,18 @@ export default function OptionChain() {
     [model, sigmaPoints, addToBasket, legCtx],
   );
   const onIronFly = useCallback((strike: number) => addToBasket(buildIronFly(model.rows, strike, legCtx), `Short ${formatStrike(strike)} iron fly`), [model, addToBasket, legCtx]);
-  const openInBuilder = useCallback(() => {
-    if (legs.length === 0) return;
-    setBasketOpen(false);
-    navigate(strategyBuilderUrl(legs));
-  }, [legs, navigate]);
+  const [lastSent, setLastSent] = useState<BasketSent | null>(() => readBasketSent());
+  // Hand a group of legs to the builder or paper trading, then mark them sent and clear them.
+  const sendLegs = useCallback(
+    (target: SendTarget, group: BasketLeg[]) => {
+      if (group.length === 0) return;
+      setBasketOpen(false);
+      setLastSent(recordBasketSent(target, group));
+      setLegs((prev) => removeLegs(prev, group));
+      navigate(sendUrl(target, group));
+    },
+    [navigate, setLegs],
+  );
 
   // ── Alerts ──
   const { alerts, addAlert, deleteAlert } = useStrikeAlerts(symbol, expiry, model.rows, dataUpdatedAt);
@@ -275,6 +333,13 @@ export default function OptionChain() {
   const onAlert = useCallback((strike: number, type: OptionType) => setAlertState({ open: true, strike, type }), []);
   const onOIAnalysis = useCallback(
     (strike: number) => navigate(`/oi-analysis?${new URLSearchParams({ symbol, expiry, strike: String(strike) })}`),
+    [navigate, symbol, expiry],
+  );
+  const onOpenContract = useCallback(
+    (strike: number, type: OptionType) => {
+      if (!expiry) return;
+      navigate(`/contract/${encodeURIComponent(symbol)}/${expiry}/${strike}/${type}`);
+    },
     [navigate, symbol, expiry],
   );
 
@@ -318,7 +383,13 @@ export default function OptionChain() {
     const key = `${symbol}|${expiry}`;
     if (centred.current.has(key)) return;
     centred.current.add(key);
-    const id = window.requestAnimationFrame(() => scrollToStrike(model.atmStrike, "centre"));
+    const id = window.requestAnimationFrame(() => {
+      scrollToStrike(model.atmStrike, "centre");
+      // When the table is wider than the screen (phones), centre the strike column sideways too.
+      const box = tableRef.current;
+      const th = box?.querySelector<HTMLElement>(`tr[data-strike="${model.atmStrike}"] th`);
+      if (box && th && box.scrollWidth > box.clientWidth) box.scrollLeft = Math.max(0, th.offsetLeft - (box.clientWidth - th.offsetWidth) / 2);
+    });
     return () => window.cancelAnimationFrame(id);
   }, [viewMode, hasData, model.atmStrike, symbol, expiry, scrollToStrike]);
 
@@ -473,14 +544,27 @@ export default function OptionChain() {
 
   const dte = expiry ? dteLabel(expiry) : "—";
 
+  // ── Price-chart overlays (derived from this chain) ──
+  const chartLevels = useMemo(
+    () => (hasData ? chainChartLevels({ maxPain: model.maxPain, maxOiStrike: model.maxOiStrike, gamma: gammaLevels }) : []),
+    [hasData, model.maxPain, model.maxOiStrike, gammaLevels],
+  );
+  const chartCone = useMemo(() => {
+    const anchor = Number.isFinite(model.forward) && model.forward > 0 ? model.forward : model.spot;
+    if (!hasData || !expiry || !(model.atmIv > 0) || !(anchor > 0)) return undefined;
+    return { expiry, anchor, iv: model.atmIv / 100 };
+  }, [hasData, expiry, model.forward, model.spot, model.atmIv]);
+  const spikeRef = useRef<HTMLDivElement>(null);
+  const spikesOverflow = useCanScrollRight(spikeRef, [spikes.length, viewMode]);
+
   return (
     <div className="space-y-3 pb-4">
-      <header className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="font-display text-title">Option chain</h1>
-          <p className="text-body-sm text-muted-foreground">Live NSE/BSE chain with real Greeks, OI buildup, probabilities and a basket for the Strategy Builder.</p>
-        </div>
-      </header>
+      <PageHeader
+        icon={TableProperties}
+        eyebrow="Chain & OI"
+        title="Option Chain"
+        description="NSE and BSE chain with Greeks, OI build-up, probabilities and a basket that hands off to the Strategy Builder or Paper Trading."
+      />
 
       <ChainToolbar
         symbol={symbol}
@@ -508,18 +592,29 @@ export default function OptionChain() {
         snapshotBusy={snapshotBusy}
       />
 
-      {showChart && <StockChart symbol={symbol} inline height={280} />}
-
-      {isSample && (
-        <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning px-3 py-2 text-warning">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="text-xs">
-            <p className="font-semibold">Sample data: not market prices</p>
-            <p className="opacity-90">
-              {data?.reason ?? "Live chain unavailable"}. The chain below is generated with Black-76 so you can explore the tools. Start the proxy (port 4002) for live NSE/Dhan data.
-            </p>
-          </div>
-        </div>
+      {showChart && !unknownSymbol && (
+        <section aria-label={`${symbol} price chart with option levels`} className="rounded-card border border-border bg-card p-3 shadow-card">
+          <Suspense
+            fallback={
+              <div className="flex h-[280px] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading chart…
+              </div>
+            }
+          >
+            <StockChart
+              symbol={symbol}
+              inline
+              height={280}
+              levels={chartLevels}
+              expectedMoveCone={chartCone}
+              overlayNote={
+                isSample
+                  ? "Levels and cone are derived from the sample chain, not market data."
+                  : `Levels and cone derived from the ${expiry ? formatDateIST(expiry) : ""} chain (walls from GEX when available, else highest OI).`
+              }
+            />
+          </Suspense>
+        </section>
       )}
       {!isSample && data?.afterHours && hasData && (
         <div role="status" className="flex items-start gap-2 rounded-tile border border-border bg-surface px-3 py-2 text-muted-foreground">
@@ -530,7 +625,22 @@ export default function OptionChain() {
         </div>
       )}
 
-      {isError && !data ? (
+      {unknownSymbol ? (
+        <div role="alert" className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border bg-card px-4 py-16 text-center">
+          <SearchX className="h-10 w-10 text-muted-foreground opacity-40" aria-hidden="true" />
+          <p className="font-semibold">Unknown F&amp;O symbol &ldquo;{symbol}&rdquo;</p>
+          <p className="max-w-sm text-xs text-muted-foreground">
+            {symbol} is not in the NSE or BSE derivatives list, so there is no option chain to show. Check the spelling, or pick one of these:
+          </p>
+          <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+            {nearestSymbols(symbol).map((s) => (
+              <Button key={s} variant="outline" size="sm" onClick={() => setSymbol(s)}>
+                {s}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : isError && !data ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border bg-card py-16 text-center">
           <WifiOff className="h-10 w-10 text-muted-foreground opacity-40" />
           <p className="font-semibold">Could not load the {symbol} chain</p>
@@ -548,21 +658,34 @@ export default function OptionChain() {
               lotSize={lotSize}
               lotEffectiveFrom={lotEffectiveFrom(symbol, expiry)}
               dte={dte}
+              gamma={gammaLevels}
+              buildup={buildup}
               source={{ source: data?.source ?? "none", asOf: data?.asOf, stale: data?.stale, isLive: data?.isLive, reason: data?.reason }}
             />
           )}
 
           {viewMode === "expiration" && spikes.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto rounded-tile border border-primary/25 bg-wash-brand/60 px-3 py-1.5 text-xs">
-              <Flame className="h-3.5 w-3.5 shrink-0 text-primary-ink" />
+            <div className="flex items-center gap-2 rounded-tile border border-primary/25 bg-wash-brand/60 px-3 py-1.5 text-xs">
+              <Flame className="h-3.5 w-3.5 shrink-0 text-primary-ink" aria-hidden="true" />
               <span className="shrink-0 font-semibold text-primary-ink">Volume spikes</span>
-              <Badge variant="neutral" title="Volume above 3× the average OI on that side. Derived, not trade-level flow.">Derived</Badge>
-              <div className="flex items-center gap-1">
+              <Badge variant="neutral" className="shrink-0" title="Volume above 3× the average OI on that side. Derived, not trade-level flow.">Derived</Badge>
+              <div
+                ref={spikeRef}
+                role="group"
+                aria-label="Strikes with volume spikes"
+                className={cn(
+                  "flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                  spikesOverflow && "[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]",
+                )}
+              >
                 {spikes.map((s) => (
                   <button
                     key={s.strike}
                     type="button"
-                    onClick={() => { setFocusedStrike(s.strike); scrollToStrike(s.strike, "centre"); }}
+                    onClick={() => {
+                      setFocusedStrike(s.strike);
+                      scrollToStrike(s.strike, "centre");
+                    }}
                     className="shrink-0 rounded-chip border border-border bg-card px-1.5 py-0.5 tabular-nums hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
                   >
                     {formatStrike(s.strike)} {s.ce && <span className="text-bearish">CE</span>}
@@ -578,8 +701,8 @@ export default function OptionChain() {
             <section className="overflow-hidden rounded-card border border-border bg-card shadow-card" aria-busy={isLoading}>
               {isLoading && !data ? (
                 <div className="space-y-2 p-4" aria-label="Loading chain">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                  {SKELETON_ROWS.map((id) => (
+                    <div key={id} className="flex items-center gap-2">
                       <Skeleton className="h-6 flex-1" />
                       <Skeleton className="h-6 w-20" />
                       <Skeleton className="h-6 flex-1" />
@@ -618,6 +741,7 @@ export default function OptionChain() {
                     onIronFly={onIronFly}
                     onAlert={onAlert}
                     onOIAnalysis={onOIAnalysis}
+                    onOpenContract={onOpenContract}
                   />
                   {/* Right-edge fade: the table scrolls sideways when the put side does not fit. */}
                   <div
@@ -632,11 +756,22 @@ export default function OptionChain() {
                     <span>
                       Showing {rows.length} of {model.rows.length} strikes · step {model.step}
                     </span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-warning" /> In the money</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-brand ring-1 ring-primary/45" /> ATM</span>
-                    {deltaView && <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-info" /> 16Δ / 30Δ</span>}
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] border border-border bg-[hsl(var(--wash-itm))]" aria-hidden="true" /> In the money</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-brand/30 ring-1 ring-primary/55" aria-hidden="true" /> ATM</span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex h-[14px] items-center rounded-chip bg-wash-warning px-1 text-[9px] font-bold leading-none text-warning" aria-hidden="true">MP</span> Max pain
+                    </span>
+                    {columns.some((c) => c.id === "buildup") && (
+                      <span className="inline-flex flex-wrap items-center gap-1" aria-label="OI build-up: LB long build-up, SB short build-up, SC short covering, LU long unwinding">
+                        {(["LB", "SB", "SC", "LU"] as const).map((k) => (
+                          <BuildupBadge key={k} kind={k} variant="compact" className="h-4 text-[10px]" />
+                        ))}
+                        <span>build-up</span>
+                      </span>
+                    )}
+                    {deltaView && <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-info" aria-hidden="true" /> 16Δ / 30Δ</span>}
                     {gammaMap.size > 0 && <span>CW call wall · PW put wall · AG abs. gamma · FLIP gamma flip</span>}
-                    <span className="hidden md:inline">Right-click a row for straddles, alerts and OI analysis.</span>
+                    <span className="hidden md:inline">Right-click a row for straddles, alerts, the contract page and OI analysis.</span>
                     <span>Premium traded total {formatCompactIN(model.totals.cePremium + model.totals.pePremium, { symbol: true })}</span>
                   </div>
                 </>
@@ -661,7 +796,7 @@ export default function OptionChain() {
         Data for education and research. Not investment advice. IV and Greeks marked with a dotted underline are computed locally (Black-76 on the chain forward); probabilities assume a lognormal distribution.
       </p>
 
-      <BasketDrawer open={basketOpen} onOpenChange={setBasketOpen} legs={legs} onChange={setLegs} lotSizeFor={lotSizeFor} onOpenInBuilder={openInBuilder} />
+      <BasketDrawer open={basketOpen} onOpenChange={setBasketOpen} legs={legs} onChange={setLegs} lotSizeFor={lotSizeFor} onSend={sendLegs} lastSent={lastSent} />
       <StrikeAlertDialog
         open={alertState.open}
         onOpenChange={(open) => setAlertState((s) => ({ ...s, open }))}

@@ -410,3 +410,30 @@ export const BUILDUP_SHORT: Record<Buildup, string> = {
   LONG_UNWINDING: "LU",
   NEUTRAL: "—",
 };
+
+export interface BuildupCounts {
+  LB: number;
+  SB: number;
+  SC: number;
+  LU: number;
+}
+
+/** How many legs on each side show each OI build-up (neutral and unclassified legs are skipped). */
+export function buildupCounts(rows: RowView[]): { ce: BuildupCounts; pe: BuildupCounts } {
+  const blank = (): BuildupCounts => ({ LB: 0, SB: 0, SC: 0, LU: 0 });
+  const out = { ce: blank(), pe: blank() };
+  for (const r of rows) {
+    for (const side of ["ce", "pe"] as const) {
+      const b = r[side].buildup;
+      if (!b || b === "NEUTRAL") continue;
+      out[side][BUILDUP_SHORT[b] as keyof BuildupCounts] += 1;
+    }
+  }
+  return out;
+}
+
+/** Map the model's buildup enum to the shared BuildupBadge code (null for neutral / unknown). */
+export function buildupCode(b: Buildup | null): keyof BuildupCounts | null {
+  if (!b || b === "NEUTRAL") return null;
+  return BUILDUP_SHORT[b] as keyof BuildupCounts;
+}

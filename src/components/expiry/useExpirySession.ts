@@ -5,13 +5,14 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
+import { useNow } from "@/hooks/useNow";
 import { useSnapshots } from "@/hooks/useSnapshotRecorder";
 import { sampleSessionWindow } from "@/lib/flow";
 import { getMarketParams, getStrikeStep, istDateString } from "@/lib/options";
 import { buildSnapshot, snapshotToChain, type ChainSnapshot } from "@/lib/snapshotStore";
 import type { OptionData } from "@/lib/mockData";
 import { dividendYield, mergeSnapshots } from "./expiryMath";
-import { simulateExpirySession } from "./expirySample";
+import { SAMPLE_SESSION_R, simulateExpirySession } from "./expirySample";
 
 /** live = polling now; recorded = snapshots saved earlier in this browser; sample = simulated; empty = chain but no history. */
 export type SessionMode = "live" | "recorded" | "sample" | "empty";
@@ -19,15 +20,8 @@ export type SessionMode = "live" | "recorded" | "sample" | "empty";
 const RING_MAX = 1600;
 const RING_GAP_MS = 15_000;
 
-/** Re-render every `ms` milliseconds and return the current time. */
-export function useNow(ms = 1000): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), ms);
-    return () => clearInterval(id);
-  }, [ms]);
-  return now;
-}
+/** Shared, boundary-aligned clock (re-exported for the expiry components that import it from here). */
+export { useNow };
 
 export interface ExpirySession {
   symbol: string;
@@ -97,10 +91,11 @@ export function useExpirySession(symbol: string, expiry: string, o: { forceSampl
   const sample = useMemo(() => {
     if (!data || data.chain.length === 0 || !(data.spotPrice > 0)) return [];
     if (!isSampleChain && !forceSample) return [];
-    return simulateExpirySession({ symbol, expiry: expiry || data.expiry, spot: data.spotPrice, chain: data.chain, r, q });
+    // Anchored to the sample chain at this instant, so the last snapshot matches the sample option chain.
+    return simulateExpirySession({ symbol, expiry: expiry || data.expiry, spot: data.spotPrice, now: new Date() });
     // Rebuild only when the inputs that shape the simulation change, not on every poll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSampleChain, forceSample, symbol, expiry, data?.expiry, data ? Math.round(data.spotPrice) : 0, dayKey, data?.chain.length]);
+  }, [isSampleChain, forceSample, symbol, expiry, data?.expiry, data ? Math.round(data.spotPrice) : 0, dayKey]);
 
   const merged = useMemo(() => {
     const inWindow = (s: ChainSnapshot) => s.ts >= win.start - 60_000 && s.ts <= win.end + 15 * 60_000;
@@ -144,7 +139,8 @@ export function useExpirySession(symbol: string, expiry: string, o: { forceSampl
     isLoading: chainQ.isLoading,
     isError: chainQ.isError && !data,
     recordedCount: recorded.length,
-    r,
+    // The sample session is priced at the sample chain's rate; analyse it with the same rate.
+    r: mode === "sample" ? SAMPLE_SESSION_R : r,
     q,
     window: win,
   };

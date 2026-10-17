@@ -1,5 +1,5 @@
-import { Fragment, forwardRef, useCallback, useMemo, useState, type MouseEvent } from "react";
-import { Bell, BarChart3, Layers, TrendingDown, TrendingUp, Crosshair } from "lucide-react";
+import { Fragment, forwardRef, useCallback, useMemo, useState, type MouseEvent, type ProfilerOnRenderCallback } from "react";
+import { Bell, BarChart3, FileSearch, Layers, TrendingDown, TrendingUp, Crosshair } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -26,6 +26,8 @@ export interface ChainMenuActions {
   onIronFly: (strike: number) => void;
   onAlert: (strike: number, type: OptionType) => void;
   onOIAnalysis: (strike: number) => void;
+  /** Open the single-contract page for this strike and side. */
+  onOpenContract: (strike: number, type: OptionType) => void;
 }
 
 export interface ChainTableProps extends ChainMenuActions {
@@ -41,6 +43,8 @@ export interface ChainTableProps extends ChainMenuActions {
   focusedSide: OptionType;
   onFocusRow: (strike: number, side: OptionType) => void;
   sigmaPoints: number;
+  /** Optional per-row React Profiler callback (performance tests). */
+  onRowRender?: ProfilerOnRenderCallback;
 }
 
 function deltaMark(strike: number, s16: number, s30: number): DeltaMark | undefined {
@@ -69,17 +73,24 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
     onIronFly,
     onAlert,
     onOIAnalysis,
+    onOpenContract,
+    onRowRender,
   },
   ref,
 ) {
   const [menuStrike, setMenuStrike] = useState<number | null>(null);
   const peColumns = useMemo(() => [...columns].reverse(), [columns]);
   const n = columns.length;
+  // Depend on scalars only: the model (and its nested objects) is rebuilt on every poll.
+  const { maxOi, maxVol, maxAbsOiChg } = model;
+  const { ce: maxOiCe, pe: maxOiPe } = model.maxOiStrike;
+  const { ce: maxVolCe, pe: maxVolPe } = model.maxVolStrike;
   const cellModel = useMemo<CellContext["model"]>(
-    () => ({ maxOi: model.maxOi, maxVol: model.maxVol, maxAbsOiChg: model.maxAbsOiChg, maxOiStrike: model.maxOiStrike, maxVolStrike: model.maxVolStrike }),
-    [model.maxOi, model.maxVol, model.maxAbsOiChg, model.maxOiStrike, model.maxVolStrike],
+    () => ({ maxOi, maxVol, maxAbsOiChg, maxOiStrike: { ce: maxOiCe, pe: maxOiPe }, maxVolStrike: { ce: maxVolCe, pe: maxVolPe } }),
+    [maxOi, maxVol, maxAbsOiChg, maxOiCe, maxOiPe, maxVolCe, maxVolPe],
   );
   const divider = spotDividerIndex(rows, model.spot);
+  const atmIdx = useMemo(() => rows.findIndex((r) => r.strike === model.atmStrike), [rows, model.atmStrike]);
   const menuRow = menuStrike !== null ? rows.find((r) => r.strike === menuStrike) : undefined;
 
   const handleContextMenu = useCallback((e: MouseEvent<HTMLDivElement>) => {
@@ -90,7 +101,7 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
 
   const spotRow = (
     <tr aria-hidden="true" className="pointer-events-none">
-      <td colSpan={n} className="p-0">
+      <td colSpan={n + 1} className="p-0">
         <div className="flex items-center justify-end gap-2 pr-2">
           {Number.isFinite(model.synthFuture) && (
             <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Synth fut {formatNumberIN(model.synthFuture, 2, { minDecimals: 2 })}</span>
@@ -98,12 +109,12 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
           <div className="h-px flex-1 bg-primary/60" />
         </div>
       </td>
-      <td className="relative p-0 py-1 text-center">
+      <td className="sticky left-0 right-0 z-[1] p-0 py-1 text-center">
         <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-capsule bg-primary px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary-foreground shadow-card">
           {formatNumberIN(model.spot, 2, { minDecimals: 2 })}
         </span>
       </td>
-      <td colSpan={n} className="p-0">
+      <td colSpan={n + 1} className="p-0">
         <div className="flex items-center gap-2 pl-2">
           <div className="h-px flex-1 bg-primary/60" />
           <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">{symbol} spot</span>
@@ -125,9 +136,9 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
           <table className="w-full border-collapse font-num text-[12.5px]">
             <thead className="sticky top-0 z-10 bg-card shadow-[0_1px_0_hsl(var(--border))]">
               <tr className="text-label uppercase">
-                <th colSpan={n} scope="colgroup" className="bg-wash-loss/50 py-1.5 text-center text-bearish">Calls</th>
-                <th scope="col" className="border-x border-border bg-surface py-1.5 text-center text-foreground">Strike</th>
-                <th colSpan={n} scope="colgroup" className="bg-wash-profit/50 py-1.5 text-center text-bullish">Puts</th>
+                <th colSpan={n + 1} scope="colgroup" className="bg-wash-loss/50 py-1.5 text-center text-bearish">Calls</th>
+                <th scope="col" className="sticky left-0 right-0 z-[2] border-x border-border bg-surface py-1.5 text-center text-foreground">Strike</th>
+                <th colSpan={n + 1} scope="colgroup" className="bg-wash-profit/50 py-1.5 text-center text-bullish">Puts</th>
               </tr>
               <tr className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 {columns.map((c) => (
@@ -135,11 +146,17 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
                     {c.header}
                   </th>
                 ))}
-                <th scope="col" className="border-x border-border bg-surface px-2 py-1.5 text-center font-semibold">
+                <th scope="col" className="!px-0.5 py-1.5 text-center font-semibold">
+                  <span className="sr-only">Trade calls</span>
+                </th>
+                <th scope="col" className="sticky left-0 right-0 z-[2] border-x border-border bg-surface px-2 py-1.5 text-center font-semibold">
                   {expiry ? formatDateIST(expiry).replace(/ \d{4}$/, "") : "—"}
                 </th>
-                {peColumns.map((c) => (
-                  <th key={`h-pe-${c.id}`} scope="col" title={`${c.label}: ${c.description}`} className={cn("whitespace-nowrap px-2 py-1.5 text-left font-semibold", c.width)}>
+                <th scope="col" className="!px-0.5 py-1.5 text-center font-semibold">
+                  <span className="sr-only">Trade puts</span>
+                </th>
+                {peColumns.map((c, i) => (
+                  <th key={`h-pe-${c.id}`} scope="col" title={`${c.label}: ${c.description}`} className={cn("whitespace-nowrap px-2 py-1.5 text-left font-semibold", c.width, i === n - 1 && "pr-3")}>
                     {c.header}
                   </th>
                 ))}
@@ -158,6 +175,8 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
                     onTrade={onTrade}
                     onFocusRow={onFocusRow}
                     isATM={row.strike === model.atmStrike}
+                    nearATM={atmIdx >= 0 && Math.abs(i - atmIdx) <= 3}
+                    onRender={onRowRender}
                     isMaxPain={row.strike === model.maxPain}
                     focused={row.strike === focusedStrike}
                     focusedSide={row.strike === focusedStrike ? focusedSide : "CE"}
@@ -183,12 +202,14 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
                     {c.footer ? <span className="text-foreground">{c.footer(model, "CE")}</span> : null}
                   </td>
                 ))}
-                <td className="border-x border-border bg-surface px-2 py-2 text-center">
+                <td aria-hidden="true" />
+                <td className="sticky left-0 right-0 z-[1] border-x border-border bg-surface px-2 py-2 text-center">
                   <span className="text-[10px] uppercase tracking-[0.07em] text-muted-foreground">PCR </span>
                   <span className={cn("font-bold", model.pcrOi >= 1 ? "text-bullish" : "text-bearish")}>{Number.isFinite(model.pcrOi) ? model.pcrOi.toFixed(2) : "—"}</span>
                 </td>
-                {peColumns.map((c) => (
-                  <td key={`f-pe-${c.id}`} className="whitespace-nowrap px-2 py-2 text-left text-muted-foreground">
+                <td aria-hidden="true" />
+                {peColumns.map((c, i) => (
+                  <td key={`f-pe-${c.id}`} className={cn("whitespace-nowrap px-2 py-2 text-left text-muted-foreground", i === n - 1 && "pr-3")}>
                     {c.footer ? <span className="text-foreground">{c.footer(model, "PE")}</span> : null}
                   </td>
                 ))}
@@ -245,6 +266,13 @@ export const ChainTable = forwardRef<HTMLDivElement, ChainTableProps>(function C
             <ContextMenuSeparator />
             <ContextMenuItem className="gap-2 text-xs" onSelect={() => onAlert(menuRow.strike, focusedSide)}>
               <Bell className="h-3.5 w-3.5" /> Set alert…
+            </ContextMenuItem>
+            <ContextMenuItem className="gap-2 text-xs" onSelect={() => onOpenContract(menuRow.strike, focusedSide)}>
+              <FileSearch className="h-3.5 w-3.5" /> Open contract
+              <ContextMenuShortcut>{focusedSide}</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem className="gap-2 pl-7 text-xs text-muted-foreground" onSelect={() => onOpenContract(menuRow.strike, focusedSide === "CE" ? "PE" : "CE")}>
+              Open the {focusedSide === "CE" ? "PE" : "CE"} contract
             </ContextMenuItem>
             <ContextMenuItem className="gap-2 text-xs" onSelect={() => onOIAnalysis(menuRow.strike)}>
               <BarChart3 className="h-3.5 w-3.5" /> View in OI Analysis

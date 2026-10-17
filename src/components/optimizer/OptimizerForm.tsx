@@ -1,17 +1,20 @@
 import { useId, useState, type ReactNode } from "react";
-import { ChevronDown, SlidersHorizontal, TrendingDown, TrendingUp, Minus, ChevronsDown, ChevronsUp } from "lucide-react";
+import { CalendarDays, ChevronDown, SlidersHorizontal, TrendingDown, TrendingUp, Minus, ChevronsDown, ChevronsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Segmented } from "@/components/strategy/Segmented";
 import { SymbolPicker } from "@/components/strategy/SymbolPicker";
 import type { ExpiryDate } from "@/lib/mockData";
-import { formatCompactIN, formatDateIST, formatStrike } from "@/lib/options";
+import { addCalendarDays, calendarDaysBetween, formatCompactIN, formatDateIST, formatStrike } from "@/lib/options";
+import { calendarDateToIso, isoToCalendarDate } from "@/lib/calendarDate";
 import { CATEGORY_LABELS, CATEGORY_ORDER, SENTIMENTS, type Pricing, type Sentiment, type StrategyCategory } from "@/lib/optimizer";
 import { cn } from "@/lib/utils";
 import { TargetPriceChart } from "./TargetPriceChart";
@@ -71,17 +74,20 @@ function FieldLabel({ htmlFor, children, hint }: { htmlFor?: string; children: R
 }
 
 function midDate(a: string, b: string): string {
-  const ta = Date.parse(`${a}T00:00:00Z`);
-  const tb = Date.parse(`${b}T00:00:00Z`);
-  if (!Number.isFinite(ta) || !Number.isFinite(tb) || tb <= ta) return b;
-  const mid = new Date(ta + Math.round((tb - ta) / 2 / 86400000) * 86400000);
-  return mid.toISOString().slice(0, 10);
+  const days = calendarDaysBetween(a, b);
+  if (!Number.isFinite(days) || days <= 0) return b;
+  return addCalendarDays(a, Math.round(days / 2)) || b;
 }
+
+/** yyyy-mm-dd → a local Date at midnight on that calendar day (what the day picker works in). */
+const isoToLocal = (iso: string): Date | undefined => isoToCalendarDate(iso) ?? undefined;
+const localToIso = calendarDateToIso;
 
 /** Inputs for the optimizer: underlying, expiry, target, date, budget and the return-vs-chance slider. */
 export function OptimizerForm(p: OptimizerFormProps) {
   const id = useId();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
   const { settings: s, onSettings } = p;
   const [budgetText, setBudgetText] = useState<string | null>(null);
   const [targetText, setTargetText] = useState<string | null>(null);
@@ -202,15 +208,40 @@ export function OptimizerForm(p: OptimizerFormProps) {
           Target date
         </FieldLabel>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Input
-            id={`${id}-date`}
-            type="date"
-            className="h-8 w-[150px] font-num text-xs"
-            min={p.minDate}
-            max={p.maxDate}
-            value={p.targetDate}
-            onChange={(e) => e.target.value && p.onTargetDate(e.target.value)}
-          />
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id={`${id}-date`}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 w-[132px] justify-start gap-1.5 px-2 font-num text-xs tabular-nums"
+                aria-label={p.targetDate ? `Target date ${formatDateIST(p.targetDate)}. Change date` : "Choose target date"}
+              >
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                {p.targetDate ? formatDateIST(p.targetDate) : "Choose date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={isoToLocal(p.targetDate)}
+                defaultMonth={isoToLocal(p.targetDate) ?? isoToLocal(p.minDate)}
+                fromDate={isoToLocal(p.minDate)}
+                toDate={isoToLocal(p.maxDate)}
+                disabled={[...(isoToLocal(p.minDate) ? [{ before: isoToLocal(p.minDate) as Date }] : []), ...(isoToLocal(p.maxDate) ? [{ after: isoToLocal(p.maxDate) as Date }] : [])]}
+                onSelect={(d) => {
+                  if (!d) return;
+                  p.onTargetDate(localToIso(d));
+                  setDateOpen(false);
+                }}
+                initialFocus
+              />
+              <p className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+                {formatDateIST(p.minDate)} to {formatDateIST(p.maxDate)} (expiry). Valued at the 15:30 IST close.
+              </p>
+            </PopoverContent>
+          </Popover>
           {[
             { label: "Today", value: p.minDate },
             { label: "Midway", value: mid },

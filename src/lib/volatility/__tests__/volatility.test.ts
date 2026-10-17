@@ -52,7 +52,7 @@ describe("history: merging and stats", () => {
     const m = mergeIvPoints(a, b);
     expect(m.map((p) => p.date)).toEqual(["2026-10-01", "2026-10-02"]);
     expect(m[1].iv).toBe(15);
-    expect(countBySource(m)).toEqual({ bhavcopy: 1, snapshot: 1, vix: 0 });
+    expect(countBySource(m)).toEqual({ bhavcopy: 1, snapshot: 1, vix: 0, sample: 0 });
   });
 
   it("converts VIX rows and daily stats, dropping bad values", () => {

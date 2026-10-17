@@ -3,11 +3,12 @@ import { Download, Grid3x3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { tokenColor } from "@/lib/chartTheme";
-import { formatCompactIN, formatINR, formatStrike, pnlMatrix, type Leg } from "@/lib/options";
+import { expectedMoveSigma, formatCompactIN, formatINR, formatStrike, pnlMatrix, type Leg } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { Segmented } from "./Segmented";
 import { downloadText } from "./exportPng";
-import { heatColumns, toCsv } from "./strategyState";
+import { heatColumns, heatFootnote, toCsv } from "./strategyState";
+import { useScrollFocusable } from "@/hooks/useScrollFocusable";
 
 export interface PnlHeatTableProps {
   legs: Leg[];
@@ -33,15 +34,17 @@ type Unit = "inr" | "pct";
 const SIGMA_STEPS = [2, 1.5, 1, 0.75, 0.5, 0.25, 0, -0.25, -0.5, -0.75, -1, -1.5, -2];
 
 export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpiry, T, atmIv, strikes, maxRisk, margin }: PnlHeatTableProps) {
+  const scrollRef0 = useScrollFocusable();
   const [rowMode, setRowMode] = useState<RowMode>("sigma");
   const [unit, setUnit] = useState<Unit>("inr");
 
   const columns = useMemo(() => heatColumns(frontExpiry, now, 9), [frontExpiry, now]);
+  const footnote = useMemo(() => heatFootnote(columns), [columns]);
 
   const rows = useMemo(() => {
     if (!(spot > 0)) return [] as Array<{ spot: number; label: string; atSpot: boolean }>;
     if (rowMode === "sigma") {
-      const sd = Math.max(atmIv, 0.01) * Math.sqrt(Math.max(T, 1 / 365));
+      const sd = expectedMoveSigma(atmIv, T, { minSigma: 0.01 });
       return SIGMA_STEPS.map((k) => ({
         spot: Math.round(spot * Math.exp(k * sd) * 100) / 100,
         label: k === 0 ? "Spot" : `${k > 0 ? "+" : "−"}${Math.abs(k)}σ`,
@@ -120,7 +123,7 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
         {matrix.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">Add legs to see P&L across prices and dates.</p>
         ) : (
-          <div className="overflow-x-auto rounded-tile border border-border">
+          <div ref={scrollRef0} className="overflow-x-auto rounded-tile border border-border">
             <table className="w-full min-w-[480px] border-collapse text-xs">
               <caption className="sr-only">Model P&L by underlying price (rows) and date (columns)</caption>
               <thead>
@@ -161,9 +164,12 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
             </table>
           </div>
         )}
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Model values (Black-76, current IV{ivShift !== 0 ? " with your shift" : ""}). Columns are trading-day closes at 15:30 IST. {rowMode === "sigma" ? "σ = ATM IV × √time to expiry." : ""}
-        </p>
+        <div className="mt-2 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
+          <p>
+            Model values (Black-76, current IV{ivShift !== 0 ? " with your shift" : ""}). {footnote.columns} {rowMode === "sigma" ? "σ = ATM IV × √time to expiry." : ""}
+          </p>
+          {footnote.gapNote && <p>{footnote.gapNote}</p>}
+        </div>
       </CardContent>
     </Card>
   );

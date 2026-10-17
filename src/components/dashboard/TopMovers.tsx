@@ -1,21 +1,23 @@
 /**
- * Top five F&O gainers and losers with a three-month sparkline. Symbols link to the option chain.
+ * Top five F&O gainers and losers with a three-month sparkline (hidden for sample rows, which have no
+ * history). Symbols link to the option chain.
  */
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { MiniChart } from "@/components/MiniChart";
-import { useFnOStocks } from "@/hooks/useMarketData";
+import { ScrollRegion } from "@/components/ScrollRegion";
 import type { FnOStockData } from "@/lib/marketApi";
 import { formatCompactIN, formatNumberIN, formatPct } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { sourceName, statusFrom } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { useDashFno } from "./useDashboardData";
 
 export function TopMovers() {
-  const q = useFnOStocks();
+  const q = useDashFno();
   const d = useDensityClasses();
   const gainers = q.data?.gainers ?? [];
   const losers = q.data?.losers ?? [];
@@ -31,6 +33,9 @@ export function TopMovers() {
 }
 
 function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string; up: boolean; rows: FnOStockData[]; status: ReturnType<typeof statusFrom>; chip: ReactNode; onRetry: () => void }) {
+  const sample = status === "sample";
+  // Sample rows have no price history, so the sparkline column would be "—" on every row: hide it.
+  const showSpark = !sample;
   const d = useDensityClasses();
   const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
@@ -41,7 +46,7 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
         <div className="ml-auto">{chip}</div>
       </div>
       <DataState status={status !== "loading" && status !== "error" && rows.length === 0 ? "empty" : status} onRetry={onRetry} className={d.padX} emptyText={up ? "No gainers right now" : "No losers right now"} emptyHint="F&O stock prices load from NSE during market hours">
-        <div className="overflow-x-auto">
+        <ScrollRegion label={`${title} table`}>
           <table className="w-full text-body">
             <caption className="sr-only">{title} among F&O stocks</caption>
             <thead>
@@ -49,7 +54,7 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
                 <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Symbol</th>
                 <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>LTP</th>
                 <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Change</th>
-                <th scope="col" className={cn("hidden px-2 text-center font-[650] sm:table-cell", d.cell)}>3M</th>
+                {showSpark ? <th scope="col" className={cn("hidden px-2 text-center font-[650] sm:table-cell", d.cell)}>3M</th> : null}
                 <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Volume</th>
               </tr>
             </thead>
@@ -68,17 +73,19 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
                       {formatPct(s.changePercent, { signed: true })}
                     </span>
                   </td>
-                  <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
-                    <div className="flex justify-center">
-                      <MiniChart symbol={s.symbol} width={72} height={24} />
-                    </div>
-                  </td>
+                  {showSpark ? (
+                    <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
+                      <div className="flex justify-center">
+                        <MiniChart symbol={s.symbol} width={72} height={24} />
+                      </div>
+                    </td>
+                  ) : null}
                   <td className={cn("px-4 text-right font-num tabular-nums text-muted-foreground", d.cell)}>{s.volume > 0 ? formatCompactIN(s.volume) : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollRegion>
       </DataState>
     </Card>
   );

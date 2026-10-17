@@ -13,7 +13,7 @@ import {
   istDateString,
   tradingDaysBetween,
 } from "@/lib/options";
-import { buildSmile, type Smile } from "./smile";
+import { buildSmile, smileIvAt, type Smile } from "./smile";
 
 const finitePos = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x) && x > 0;
 const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -154,6 +154,108 @@ export function surfaceRange(rows: SurfaceRow[]): { min: number; max: number } {
   let max = -Infinity;
   for (const r of rows) for (const v of Object.values(r.cells)) if (v !== null && Number.isFinite(v)) { min = Math.min(min, v); max = Math.max(max, v); }
   return Number.isFinite(min) ? { min, max } : { min: NaN, max: NaN };
+}
+
+// ── Moneyness surface, day-on-day change and skew overlay ──
+
+export type SurfaceAxis = "delta" | "moneyness";
+
+/** Strike as a share of the forward (K/F). 1 marks ATM. */
+export interface MoneynessBucket {
+  key: string;
+  label: string;
+  m: number;
+}
+
+export const MONEYNESS_BUCKETS: MoneynessBucket[] = [
+  { key: "90", label: "90%", m: 0.9 },
+  { key: "95", label: "95%", m: 0.95 },
+  { key: "97.5", label: "97.5%", m: 0.975 },
+  { key: "ATM", label: "ATM", m: 1 },
+  { key: "102.5", label: "102.5%", m: 1.025 },
+  { key: "105", label: "105%", m: 1.05 },
+  { key: "110", label: "110%", m: 1.1 },
+];
+
+/** IV (percent) at K = m·F from the OTM-composite smile; ATM uses the smile's ATM IV. Null outside the quoted strikes. */
+export function moneynessSurface(smiles: Smile[], buckets: MoneynessBucket[] = MONEYNESS_BUCKETS): SurfaceRow[] {
+  return smiles.map((s) => {
+    const cells: Record<string, number | null> = {};
+    for (const b of buckets) {
+      if (b.m === 1) {
+        cells[b.key] = finitePos(s.atmIv) ? r2(s.atmIv) : null;
+        continue;
+      }
+      const v = finitePos(s.F) ? smileIvAt(s, s.F * b.m) : NaN;
+      cells[b.key] = Number.isFinite(v) ? r2(v) : null;
+    }
+    return { expiry: s.expiry, T: s.T, cells };
+  });
+}
+
+/** Cell-by-cell change (vol points) between two surfaces, matched on expiry. Null where either side is missing. */
+export function surfaceChange(today: SurfaceRow[], prior: SurfaceRow[]): SurfaceRow[] {
+  const byExp = new Map((prior ?? []).map((r) => [r.expiry, r]));
+  return (today ?? []).map((r) => {
+    const p = byExp.get(r.expiry);
+    const cells: Record<string, number | null> = {};
+    for (const [k, v] of Object.entries(r.cells)) {
+      const pv = p?.cells[k];
+      cells[k] = v !== null && Number.isFinite(v) && pv !== null && pv !== undefined && Number.isFinite(pv) ? r2(v - pv) : null;
+    }
+    return { expiry: r.expiry, T: r.T, cells };
+  });
+}
+
+/** Largest absolute finite cell value (for symmetric colour scales). 0 when there is none. */
+export function surfaceAbsMax(rows: SurfaceRow[]): number {
+  let m = 0;
+  for (const r of rows ?? []) for (const v of Object.values(r.cells)) if (v !== null && Number.isFinite(v)) m = Math.max(m, Math.abs(v));
+  return m;
+}
+
+export interface SkewOverlayLine {
+  expiry: string;
+  /** x: moneyness in % from the forward, or delta position 0–100 (10 = 10Δ put, 50 = ATM, 90 = 10Δ call). */
+  points: Array<{ x: number; skew: number }>;
+}
+
+/**
+ * Smile shape per expiry relative to its own ATM IV (vol points), so expiries with different IV
+ * levels can be overlaid. On the delta axis puts map to |Δ|·100 and calls to 100 − Δ·100, so the
+ * axis runs from deep OTM puts (left) through ATM (50) to deep OTM calls (right).
+ */
+export function skewOverlay(smiles: Smile[], axis: SurfaceAxis = "moneyness", o?: { maxPct?: number }): SkewOverlayLine[] {
+  const maxPct = finitePos(o?.maxPct) ? (o?.maxPct as number) : 12;
+  return (smiles ?? [])
+    .filter((s) => finitePos(s.atmIv) && finitePos(s.F))
+    .map((s) => {
+      const points: Array<{ x: number; skew: number }> = [];
+      for (const p of s.points) {
+        if (p.iv === null) continue;
+        let x: number;
+        if (axis === "moneyness") {
+          x = (p.moneyness - 1) * 100;
+          if (Math.abs(x) > maxPct) continue;
+        } else {
+          if (p.delta === null) continue;
+          x = p.delta < 0 ? Math.abs(p.delta) * 100 : 100 - p.delta * 100;
+          if (x < 5 || x > 95) continue;
+        }
+        points.push({ x: r2(x), skew: r2(p.iv - s.atmIv) });
+      }
+      points.sort((a, b) => a.x - b.x);
+      return { expiry: s.expiry, points };
+    })
+    .filter((l) => l.points.length >= 2);
+}
+
+/** Tick label for the delta-position axis used by skewOverlay. */
+export function deltaAxisLabel(x: number): string {
+  if (!Number.isFinite(x)) return "";
+  const v = Math.round(x);
+  if (v === 50) return "ATM";
+  return v < 50 ? `${v}Δ P` : `${100 - v}Δ C`;
 }
 
 // ── Expected move per expiry ──

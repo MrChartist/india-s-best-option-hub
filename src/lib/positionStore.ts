@@ -41,7 +41,14 @@ export interface TrackedPosition extends Position {
   tag?: string;
   /** True when the CMP was typed by the user and must not be overwritten by the live feed. */
   cmpManual?: boolean;
+  /**
+   * Where the entry price came from. "sample" means it was priced off generated sample data (for
+   * example the Strategy Builder without a live chain); the UI shows a SAMPLE chip on that row.
+   */
+  source?: PositionSource;
 }
+
+export type PositionSource = "live" | "sample";
 
 export type CloseReason = "manual" | "expiry";
 
@@ -89,36 +96,49 @@ export function getLotSize(symbol: string, expiryIso?: string): number | undefin
   return getContractLotSize(symbol, expiryIso);
 }
 
-/** Approximate reference spot prices, used only as a last-resort default when no quote is available. */
-export const SPOT_PRICE_MAP: Record<string, number> = {
-  NIFTY: 24250,
-  BANKNIFTY: 51850,
-  FINNIFTY: 23180,
-  MIDCPNIFTY: 12850,
-  SENSEX: 80000,
-  BANKEX: 58000,
-  RELIANCE: 2945,
-  TCS: 3850,
-  HDFCBANK: 1685,
-  INFY: 1520,
-  ICICIBANK: 1245,
-  SBIN: 825,
-  TATAMOTORS: 985,
-  BAJFINANCE: 7280,
-  ITC: 468,
-  MARUTI: 12450,
-  HINDUNILVR: 2650,
-  BHARTIARTL: 1580,
-  KOTAKBANK: 1820,
-  LT: 3450,
-  AXISBANK: 1125,
-  SUNPHARMA: 1680,
-  TITAN: 3250,
-  WIPRO: 485,
-  TATASTEEL: 168,
-  HINDALCO: 625,
-  DLF: 885,
-};
+/**
+ * Reference spot prices, used only as a last-resort default when no quote is available (sample chains,
+ * simulators, the add-position form). Dated so stale values are easy to spot and refresh.
+ *
+ * Corporate actions reflected: RELIANCE 1:1 bonus (Oct 2024), HDFCBANK 1:1 bonus (Aug 2025),
+ * BAJFINANCE 1:2 split plus 4:1 bonus (Jun 2025), Tata Motors demerger into TMPV (passenger vehicles)
+ * and TMCV (commercial vehicles) in Oct 2025, so TATAMOTORS is gone. verify: true.
+ */
+export const REFERENCE_SPOTS_AS_OF = "2026-10-01";
+
+export const REFERENCE_SPOT_TABLE: ReadonlyArray<{ symbol: string; spot: number; note?: string }> = [
+  { symbol: "NIFTY", spot: 24250 },
+  { symbol: "BANKNIFTY", spot: 51850 },
+  { symbol: "FINNIFTY", spot: 23180 },
+  { symbol: "MIDCPNIFTY", spot: 12850 },
+  { symbol: "SENSEX", spot: 80000 },
+  { symbol: "BANKEX", spot: 58000 },
+  { symbol: "RELIANCE", spot: 1450, note: "post 1:1 bonus" },
+  { symbol: "TCS", spot: 3150 },
+  { symbol: "HDFCBANK", spot: 985, note: "post 1:1 bonus" },
+  { symbol: "INFY", spot: 1520 },
+  { symbol: "ICICIBANK", spot: 1380 },
+  { symbol: "SBIN", spot: 860 },
+  { symbol: "TMPV", spot: 410, note: "Tata Motors passenger vehicles, post demerger" },
+  { symbol: "TMCV", spot: 330, note: "Tata Motors commercial vehicles, post demerger" },
+  { symbol: "BAJFINANCE", spot: 980, note: "post 1:2 split and 4:1 bonus" },
+  { symbol: "ITC", spot: 410 },
+  { symbol: "MARUTI", spot: 15800 },
+  { symbol: "HINDUNILVR", spot: 2500 },
+  { symbol: "BHARTIARTL", spot: 1950 },
+  { symbol: "KOTAKBANK", spot: 2100 },
+  { symbol: "LT", spot: 3750 },
+  { symbol: "AXISBANK", spot: 1150 },
+  { symbol: "SUNPHARMA", spot: 1650 },
+  { symbol: "TITAN", spot: 3550 },
+  { symbol: "WIPRO", spot: 250, note: "post 1:1 bonus" },
+  { symbol: "TATASTEEL", spot: 165 },
+  { symbol: "HINDALCO", spot: 720 },
+  { symbol: "DLF", spot: 780 },
+];
+
+/** Symbol → reference spot, built from REFERENCE_SPOT_TABLE. */
+export const SPOT_PRICE_MAP: Record<string, number> = Object.fromEntries(REFERENCE_SPOT_TABLE.map((r) => [r.symbol, r.spot]));
 
 /** Strike steps per symbol (delegates to the contract table; 50 when unknown). */
 export const STEP_SIZE_MAP: Record<string, number> = new Proxy({} as Record<string, number>, {
@@ -441,6 +461,7 @@ export function createPosition(
     strategyId: overrides.strategyId,
     tag: overrides.tag,
     cmpManual: overrides.cmpManual,
+    source: overrides.source,
   };
 }
 
@@ -490,6 +511,7 @@ export function validatePosition(x: unknown): TrackedPosition | null {
     strategyId: str(o.strategyId) || undefined,
     tag: str(o.tag) || undefined,
     cmpManual: o.cmpManual === true ? true : undefined,
+    source: o.source === "sample" ? "sample" : o.source === "live" ? "live" : undefined,
   };
 }
 

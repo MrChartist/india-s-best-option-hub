@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { formatStrike } from "@/lib/options";
-import { lognormalDensity, roundTo } from "@/lib/optimizer";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { EM_METHOD_LABEL, expectedMoveSigma, formatStrike } from "@/lib/options";
+import { lognormalDensity, roundTo, stepTarget } from "@/lib/optimizer";
 
 export interface TargetPriceChartProps {
   spot: number;
@@ -12,7 +12,7 @@ export interface TargetPriceChartProps {
   T: number;
   target: number;
   onChange: (price: number) => void;
-  /** Keyboard step (points); drag snaps to step / 5. */
+  /** Strike step (points): arrow keys move one strike; drag snaps to step / 5. */
   step: number;
   lower: number;
   upper: number;
@@ -24,11 +24,14 @@ const PAD_TOP = 22;
 const PAD_BOTTOM = 22;
 
 /**
- * Distribution of the underlying at the target date (lognormal from ATM IV) with the 1σ band.
- * Drag anywhere (or use the arrow keys on the handle) to set the target price.
+ * Distribution of the underlying at the target date (lognormal from ATM IV) with the IV 1σ band.
+ * The whole chart is one slider: drag or tap anywhere, or focus it and use the keyboard
+ * (arrows: one strike, Page Up/Down: 1σ, Home/End: the ends of the ±3σ range). The SVG is
+ * decorative (aria-hidden); the slider carries the value and a text description.
  */
 export function TargetPriceChart({ spot, forward, sigma, T, target, onChange, step, lower, upper }: TargetPriceChartProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const descId = useId();
   const [width, setWidth] = useState(320);
   const dragging = useRef(false);
 
@@ -43,8 +46,16 @@ export function TargetPriceChart({ spot, forward, sigma, T, target, onChange, st
     return () => ro.disconnect();
   }, []);
 
-  const sd = Math.max(sigma * Math.sqrt(Math.max(T, 1 / 365)), 0.006);
+  const sd = expectedMoveSigma(sigma, T, { minSd: 0.006 });
   const centre = forward > 0 ? forward : spot;
+  const strikeStep = step > 0 ? step : 1;
+  // Keyboard range: ±3σ around the forward on the strike grid (independent of the current target).
+  const range = useMemo(() => {
+    const min = Math.max(strikeStep, Math.ceil((centre * Math.exp(-3 * sd)) / strikeStep) * strikeStep);
+    const max = Math.max(min, Math.floor((centre * Math.exp(3 * sd)) / strikeStep) * strikeStep);
+    return { min, max };
+  }, [centre, sd, strikeStep]);
+  const sigmaPts = upper > lower ? (upper - lower) / 2 : centre * sd;
   const domain = useMemo(() => {
     let lo = centre * Math.exp(-3 * sd);
     let hi = centre * Math.exp(3 * sd);
@@ -78,37 +89,31 @@ export function TargetPriceChart({ spot, forward, sigma, T, target, onChange, st
   }, [domain, centre, sigma, T, innerH, x]);
 
   const snap = Math.max(step / 5, 0.05);
-  const setFromClientX = (clientX: number, el: SVGSVGElement) => {
+  const setFromClientX = (clientX: number, el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
     const px = ((clientX - rect.left) / rect.width) * width;
     const p = priceAt(Math.min(Math.max(px, PAD_X), width - PAD_X));
     if (p > 0) onChange(roundTo(p, snap));
   };
 
-  const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     dragging.current = true;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     setFromClientX(e.clientX, e.currentTarget);
   };
-  const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (dragging.current) setFromClientX(e.clientX, e.currentTarget);
   };
-  const endDrag = (e: PointerEvent<SVGSVGElement>) => {
+  const endDrag = (e: PointerEvent<HTMLDivElement>) => {
     dragging.current = false;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
 
-  const onKeyDown = (e: KeyboardEvent<SVGGElement>) => {
-    const base = target > 0 ? target : spot;
-    let next: number | null = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowUp") next = base + step;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = base - step;
-    else if (e.key === "PageUp") next = base + step * 5;
-    else if (e.key === "PageDown") next = base - step * 5;
-    else if (e.key === "Home") next = spot;
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const next = stepTarget(target > 0 ? target : spot, e.key, { step: strikeStep, sigmaPts, min: range.min, max: range.max });
     if (next !== null && next > 0) {
       e.preventDefault();
-      onChange(roundTo(next, snap));
+      onChange(next);
     }
   };
 
@@ -119,51 +124,52 @@ export function TargetPriceChart({ spot, forward, sigma, T, target, onChange, st
   const pct = spot > 0 && target > 0 ? ((target - spot) / spot) * 100 : 0;
   const labelLeft = Math.min(Math.max(tx, PAD_X + 36), width - PAD_X - 36);
 
+  const lowerText = formatStrike(Math.round(lower));
+  const upperText = formatStrike(Math.round(upper));
+  const valueText = `${formatStrike(target)}, ${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}% from spot`;
+
   return (
-    <div ref={wrapRef} className="w-full select-none">
-      <svg
-        width={width}
-        height={HEIGHT}
-        viewBox={`0 0 ${width} ${HEIGHT}`}
-        className="block cursor-ew-resize touch-none"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        role="img"
-        aria-label={`Expected price distribution at the target date. 1 sigma range ${formatStrike(Math.round(lower))} to ${formatStrike(Math.round(upper))}.`}
-      >
+    <div
+      ref={wrapRef}
+      role="slider"
+      tabIndex={0}
+      aria-label="Target price"
+      aria-orientation="horizontal"
+      aria-valuemin={range.min}
+      aria-valuemax={range.max}
+      aria-valuenow={Math.round(target * 100) / 100}
+      aria-valuetext={valueText}
+      aria-describedby={descId}
+      onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      className="w-full cursor-ew-resize touch-none select-none rounded-tile focus-visible:shadow-ember focus-visible:outline-none"
+    >
+      <p id={descId} className="sr-only">
+        Expected price distribution at the target date. {EM_METHOD_LABEL.iv} range {lowerText} to {upperText}, spot {formatStrike(Math.round(spot * 100) / 100)}. Arrow keys move one
+        strike, Page Up and Page Down move one sigma, Home and End jump to the ends of the range.
+      </p>
+      <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} className="block" aria-hidden="true" focusable="false">
         <rect x={bandLo} y={PAD_TOP} width={Math.max(0, bandHi - bandLo)} height={innerH} className="fill-info/10" />
         <path d={area} className="fill-primary/10" />
         <path d={path} className="fill-none stroke-primary" strokeWidth={1.5} />
         <line x1={PAD_X} x2={width - PAD_X} y1={PAD_TOP + innerH} y2={PAD_TOP + innerH} className="stroke-border" />
-        {/* 1σ edges */}
+        {/* IV 1σ edges */}
         <line x1={bandLo} x2={bandLo} y1={PAD_TOP} y2={PAD_TOP + innerH} className="stroke-info/60" strokeDasharray="3 3" />
         <line x1={bandHi} x2={bandHi} y1={PAD_TOP} y2={PAD_TOP + innerH} className="stroke-info/60" strokeDasharray="3 3" />
         <text x={bandLo} y={HEIGHT - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
-          −1σ {formatStrike(Math.round(lower))}
+          −1σ {lowerText}
         </text>
         <text x={bandHi} y={HEIGHT - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
-          +1σ {formatStrike(Math.round(upper))}
+          +1σ {upperText}
         </text>
         {/* spot */}
         <line x1={sx} x2={sx} y1={PAD_TOP - 4} y2={PAD_TOP + innerH} className="stroke-muted-foreground" strokeDasharray="2 3" />
         {/* target handle */}
-        <g
-          role="slider"
-          tabIndex={0}
-          aria-label="Target price"
-          aria-valuemin={Math.round(domain.lo)}
-          aria-valuemax={Math.round(domain.hi)}
-          aria-valuenow={Math.round(target)}
-          aria-valuetext={`${formatStrike(target)}, ${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}% from spot`}
-          onKeyDown={onKeyDown}
-          className="cursor-ew-resize outline-none [&:focus-visible_circle]:stroke-[3px]"
-        >
-          <line x1={tx} x2={tx} y1={PAD_TOP - 2} y2={PAD_TOP + innerH} className="stroke-foreground" strokeWidth={1.5} />
-          <rect x={tx - 10} y={PAD_TOP - 2} width={20} height={innerH + 2} className="fill-transparent" />
-          <circle cx={tx} cy={PAD_TOP + innerH} r={6} className="fill-primary stroke-card" strokeWidth={2} />
-        </g>
+        <line x1={tx} x2={tx} y1={PAD_TOP - 2} y2={PAD_TOP + innerH} className="stroke-foreground" strokeWidth={1.5} />
+        <circle cx={tx} cy={PAD_TOP + innerH} r={6} className="fill-primary stroke-card" strokeWidth={2} />
         <text x={labelLeft} y={13} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
           {formatStrike(target)} ({pct >= 0 ? "+" : "−"}
           {Math.abs(pct).toFixed(2)}%)

@@ -3,9 +3,9 @@
  * contract shared with the option chain / optimizer / calculators, ?s= share links, saved strategies
  * in localStorage, the target-date timeline and CSV export. No React here, so it is unit-tested.
  */
-import { z } from "zod";
 import {
   addTradingDays,
+  calendarDaysBetween,
   isTradingDay,
   istDateString,
   normalizeExpiry,
@@ -87,35 +87,78 @@ export function decodeBase64Url(input: string): string | null {
 
 // ───────────────────────────── ?legs= basket contract ─────────────────────────────
 
-const upper = (v: unknown) => (typeof v === "string" ? v.trim().toUpperCase() : v);
+/** One leg as it arrives in ?legs= (lenient on case, aliases and numeric strings). */
+export interface BasketLeg {
+  symbol: string;
+  expiry: string;
+  strike: number;
+  type: "CE" | "PE" | "FUT";
+  side: "BUY" | "SELL";
+  lots: number;
+  premium: number;
+  iv?: number;
+}
 
-const sideSchema = z.preprocess((v) => {
+const upper = (v: unknown): unknown => (typeof v === "string" ? v.trim().toUpperCase() : v);
+
+export function isRecord(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+export function isFiniteNumber(x: unknown): x is number {
+  return typeof x === "number" && Number.isFinite(x);
+}
+
+/** "B", "long", "buy" → BUY; "S", "short", "sell" → SELL. */
+export function readSide(v: unknown): "BUY" | "SELL" | null {
   const s = upper(v);
-  if (s === "B" || s === "LONG") return "BUY";
-  if (s === "S" || s === "SHORT") return "SELL";
-  return s;
-}, z.enum(["BUY", "SELL"]));
+  if (s === "BUY" || s === "B" || s === "LONG") return "BUY";
+  if (s === "SELL" || s === "S" || s === "SHORT") return "SELL";
+  return null;
+}
 
-const typeSchema = z.preprocess((v) => {
+/** "call", "C", "ce" → CE; "put", "P" → PE; "future(s)", "fut" → FUT. */
+export function readType(v: unknown): "CE" | "PE" | "FUT" | null {
   const s = upper(v);
-  if (s === "CALL" || s === "C") return "CE";
-  if (s === "PUT" || s === "P") return "PE";
-  if (s === "FUTURE" || s === "FUTURES") return "FUT";
-  return s;
-}, z.enum(["CE", "PE", "FUT"]));
+  if (s === "CE" || s === "CALL" || s === "C") return "CE";
+  if (s === "PE" || s === "PUT" || s === "P") return "PE";
+  if (s === "FUT" || s === "FUTURE" || s === "FUTURES") return "FUT";
+  return null;
+}
 
-export const basketLegSchema = z.object({
-  symbol: z.preprocess(upper, z.string().min(1).max(30)),
-  expiry: z.string().min(1).max(40),
-  strike: z.coerce.number().nonnegative().finite(),
-  type: typeSchema,
-  side: sideSchema,
-  lots: z.coerce.number().positive().finite().optional().default(1),
-  premium: z.coerce.number().nonnegative().finite().optional().default(0),
-  iv: z.coerce.number().nonnegative().finite().optional(),
-});
+/** Number or numeric string → finite number, else NaN. Booleans, objects and blanks are rejected. */
+function toNumber(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() !== "") return Number(v);
+  return NaN;
+}
 
-export type BasketLeg = z.infer<typeof basketLegSchema>;
+/** Optional numeric field: missing → fallback; present but invalid → NaN (the leg is rejected). */
+function optionalNumber(v: unknown, fallback: number | undefined): number | undefined {
+  if (v === undefined || v === null) return fallback;
+  return toNumber(v);
+}
+
+/** Validate one unknown ?legs= entry. Returns null for anything malformed (never throws). */
+export function readBasketLeg(item: unknown): BasketLeg | null {
+  if (!isRecord(item)) return null;
+  const symbol = upper(item.symbol);
+  if (typeof symbol !== "string" || symbol.length < 1 || symbol.length > 30) return null;
+  const expiry = item.expiry;
+  if (typeof expiry !== "string" || expiry.length < 1 || expiry.length > 40) return null;
+  const strike = toNumber(item.strike ?? 0);
+  if (!Number.isFinite(strike) || strike < 0) return null;
+  const type = readType(item.type);
+  const side = readSide(item.side);
+  if (!type || !side) return null;
+  const lots = optionalNumber(item.lots, 1) as number;
+  if (!Number.isFinite(lots) || lots <= 0) return null;
+  const premium = optionalNumber(item.premium, 0) as number;
+  if (!Number.isFinite(premium) || premium < 0) return null;
+  const iv = optionalNumber(item.iv, undefined);
+  if (iv !== undefined && (!Number.isFinite(iv) || iv < 0)) return null;
+  return { symbol, expiry, strike, type, side, lots, premium, iv };
+}
 
 /**
  * IV in the basket may be percent (NSE convention, 14.2) or decimal (0.142).
@@ -140,9 +183,8 @@ export function parseLegsParam(param: string | null | undefined, lotSizeFor: (sy
   const list = Array.isArray(raw) ? raw : raw && typeof raw === "object" && Array.isArray((raw as { legs?: unknown }).legs) ? (raw as { legs: unknown[] }).legs : [];
   const out: BuilderLeg[] = [];
   for (const item of list.slice(0, 40)) {
-    const parsed = basketLegSchema.safeParse(item);
-    if (!parsed.success) continue;
-    const b = parsed.data;
+    const b = readBasketLeg(item);
+    if (!b) continue;
     const expiry = normalizeExpiry(b.expiry);
     if (!expiry) continue;
     if (b.type !== "FUT" && !(b.strike > 0)) continue;
@@ -182,36 +224,31 @@ export function encodeLegsParam(legs: Leg[]): string {
 
 // ───────────────────────────── ?s= share links ─────────────────────────────
 
-const shareLegSchema = z.tuple([
-  typeSchema,
-  sideSchema,
-  z.number().nonnegative().finite(),
-  z.string().min(1),
-  z.number().positive().finite(),
-  z.number().nonnegative().finite(),
-  z.number().nonnegative().finite().nullable(),
-  z.union([z.literal(0), z.literal(1)]),
-]);
-
-const sharePayloadSchema = z.object({
-  v: z.literal(1),
-  sym: z.string().min(1).max(30),
-  n: z.string().max(80).optional(),
-  legs: z.array(shareLegSchema).max(40),
-});
+/** Where the prices in a share link came from when it was created. */
+export type ShareSource = "live" | "sample" | "delayed";
 
 export interface ShareState {
   symbol: string;
   name?: string;
   legs: BuilderLeg[];
+  /** Epoch ms when the entry prices were captured (v2 links). */
+  pricedAt?: number;
+  /** Data source of those prices (v2 links). */
+  source?: ShareSource;
+  /** Underlying price at capture (v2 links). */
+  spot?: number;
 }
 
+/**
+ * Share payload. v1: { v, sym, n?, legs }. v2 adds ts (epoch ms), src and spot so a shared link opens
+ * as a frozen, labelled snapshot. Each leg is [type, side, strike, expiry, lots, premium, iv|null, enabled].
+ */
 export function encodeShare(state: ShareState): string {
-  const payload = {
-    v: 1 as const,
+  const payload: Record<string, unknown> = {
+    v: 2,
     sym: state.symbol,
     n: state.name || undefined,
-    legs: state.legs.map((l) => [
+    legs: state.legs.slice(0, 40).map((l) => [
       l.type,
       l.side,
       l.strike,
@@ -222,38 +259,71 @@ export function encodeShare(state: ShareState): string {
       l.enabled ? 1 : 0,
     ]),
   };
+  if (isFiniteNumber(state.pricedAt) && state.pricedAt > 0) payload.ts = Math.round(state.pricedAt);
+  if (state.source) payload.src = state.source;
+  if (isFiniteNumber(state.spot) && state.spot > 0) payload.spot = Math.round(state.spot * 100) / 100;
   return encodeBase64Url(JSON.stringify(payload));
 }
 
+const SHARE_SOURCES: readonly ShareSource[] = ["live", "sample", "delayed"];
+
+function readShareLeg(raw: unknown, symbol: string, lotSizeFor: (symbol: string, expiry: string) => number): BuilderLeg | null {
+  if (!Array.isArray(raw) || raw.length !== 8) return null;
+  const [t, sd, strike, exp, lots, premium, iv, en] = raw as unknown[];
+  const type = readType(t);
+  const side = readSide(sd);
+  if (!type || !side) return null;
+  if (!isFiniteNumber(strike) || strike < 0) return null;
+  if (typeof exp !== "string" || exp.length < 1 || exp.length > 40) return null;
+  if (!isFiniteNumber(lots) || lots <= 0) return null;
+  if (!isFiniteNumber(premium) || premium < 0) return null;
+  if (!(iv === null || (isFiniteNumber(iv) && iv >= 0))) return null;
+  if (en !== 0 && en !== 1) return null;
+  if (type !== "FUT" && !(strike > 0)) return null;
+  const expiry = normalizeExpiry(exp);
+  if (!expiry) return null;
+  const lotSize = lotSizeFor(symbol, expiry);
+  return {
+    id: makeLegId(),
+    symbol,
+    type,
+    side,
+    strike: type === "FUT" ? 0 : strike,
+    expiry,
+    lots: clampLots(lots),
+    lotSize: isFiniteNumber(lotSize) && lotSize > 0 ? lotSize : 1,
+    premium,
+    iv: iv ?? undefined,
+    enabled: en === 1,
+    manual: true,
+  };
+}
+
+/** Decode a ?s= share link (v1 or v2). Malformed input returns null; it never throws. */
 export function decodeShare(param: string | null | undefined, lotSizeFor: (symbol: string, expiry: string) => number): ShareState | null {
-  if (!param) return null;
-  const text = decodeBase64Url(param);
-  if (!text) return null;
+  if (typeof param !== "string" || !param || param.length > 20000) return null;
   try {
-    const parsed = sharePayloadSchema.safeParse(JSON.parse(text));
-    if (!parsed.success) return null;
-    const { sym, n, legs } = parsed.data;
-    const symbol = sym.toUpperCase();
+    const text = decodeBase64Url(param);
+    if (!text) return null;
+    const raw: unknown = JSON.parse(text);
+    if (!isRecord(raw) || (raw.v !== 1 && raw.v !== 2)) return null;
+    const { sym, n, legs } = raw;
+    if (typeof sym !== "string" || sym.trim().length < 1 || sym.length > 30) return null;
+    if (n !== undefined && (typeof n !== "string" || n.length > 80)) return null;
+    if (!Array.isArray(legs) || legs.length > 40) return null;
+    const symbol = sym.trim().toUpperCase();
     const out: BuilderLeg[] = [];
-    for (const [type, side, strike, exp, lots, premium, iv, en] of legs) {
-      const expiry = normalizeExpiry(exp);
-      if (!expiry) continue;
-      out.push({
-        id: makeLegId(),
-        symbol,
-        type,
-        side,
-        strike: type === "FUT" ? 0 : strike,
-        expiry,
-        lots: clampLots(lots),
-        lotSize: lotSizeFor(symbol, expiry),
-        premium,
-        iv: iv ?? undefined,
-        enabled: en === 1,
-        manual: true,
-      });
+    for (const item of legs) {
+      const leg = readShareLeg(item, symbol, lotSizeFor);
+      if (leg) out.push(leg);
     }
-    return { symbol, name: n, legs: out };
+    const state: ShareState = { symbol, name: n, legs: out };
+    if (raw.v === 2) {
+      if (isFiniteNumber(raw.ts) && raw.ts > 0) state.pricedAt = raw.ts;
+      if (typeof raw.src === "string" && (SHARE_SOURCES as readonly string[]).includes(raw.src)) state.source = raw.src as ShareSource;
+      if (isFiniteNumber(raw.spot) && raw.spot > 0) state.spot = raw.spot;
+    }
+    return state;
   } catch {
     return null;
   }
@@ -263,15 +333,24 @@ export function decodeShare(param: string | null | undefined, lotSizeFor: (symbo
 
 export const SAVED_KEY = "mc_strategies_v1";
 
-const savedSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  symbol: z.string(),
-  savedAt: z.number(),
-  share: z.string(),
-});
+export interface SavedStrategy {
+  id: string;
+  name: string;
+  symbol: string;
+  savedAt: number;
+  share: string;
+}
 
-export type SavedStrategy = z.infer<typeof savedSchema>;
+export function isSavedStrategy(x: unknown): x is SavedStrategy {
+  return (
+    isRecord(x) &&
+    typeof x.id === "string" &&
+    typeof x.name === "string" &&
+    typeof x.symbol === "string" &&
+    isFiniteNumber(x.savedAt) &&
+    typeof x.share === "string"
+  );
+}
 
 function storage(): Storage | null {
   try {
@@ -285,8 +364,8 @@ export function loadSavedStrategies(): SavedStrategy[] {
   try {
     const raw = storage()?.getItem(SAVED_KEY);
     if (!raw) return [];
-    const parsed = z.array(savedSchema).safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data.sort((a, b) => b.savedAt - a.savedAt) : [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isSavedStrategy).sort((a, b) => b.savedAt - a.savedAt) : [];
   } catch {
     return [];
   }
@@ -406,4 +485,136 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   if (node.isContentEditable) return true;
   const role = node.getAttribute?.("role") ?? "";
   return ["combobox", "slider", "switch", "tab", "menuitem", "option", "listbox", "textbox", "spinbutton", "checkbox", "radio"].includes(role);
+}
+
+// ───────────────────────────── Initial state (URL + draft) ─────────────────────────────
+
+export type BasketMode = "replace" | "append";
+
+export interface SharedSnapshot {
+  pricedAt?: number;
+  source?: ShareSource;
+  spot?: number;
+}
+
+export interface InitialState {
+  symbol: string;
+  legs: BuilderLeg[];
+  name: string;
+  /** One-line toast about what came from the URL, or null. */
+  message: string | null;
+  /** True when the URL decided the symbol or legs (no default template). */
+  fromParams: boolean;
+  /** Set when the page opened from a ?s= share link: a frozen, read-only snapshot. */
+  shared: SharedSnapshot | null;
+  /** The draft that ?legs= replaced or extended, for "Undo (restore previous draft)". */
+  previous: ShareState | null;
+  /** Basket legs on other underlyings that were not loaded. */
+  skipped: BuilderLeg[];
+  /** Write the draft back to storage on change. False for the default template and shared snapshots. */
+  persist: boolean;
+}
+
+export interface InitialInput {
+  params: URLSearchParams;
+  /** Decoded per-browser draft, if any. */
+  draft: ShareState | null;
+  /** Today's IST date (yyyy-mm-dd); expired draft legs are dropped. */
+  today: string;
+  lotSizeFor: (symbol: string, expiry: string) => number;
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/**
+ * Decide the builder's first state from the URL and the stored draft.
+ *  - ?s=   opens a shared snapshot (read-only, prices frozen) and leaves the stored draft alone.
+ *  - ?legs= replaces the draft by default (the old draft is kept in `previous` for undo);
+ *           &mode=append adds to it when the underlying matches.
+ *  - ?symbol= picks the underlying; a draft on another symbol is not loaded.
+ * Basket legs on a second underlying are returned in `skipped`, never silently dropped.
+ */
+export function resolveInitialState({ params, draft, today, lotSizeFor }: InitialInput): InitialState {
+  const symParam = (params.get("symbol") || "").trim().toUpperCase();
+  const shared = decodeShare(params.get("s"), lotSizeFor);
+  if (shared && shared.legs.length) {
+    return {
+      symbol: shared.symbol,
+      legs: shared.legs,
+      name: shared.name || "Shared strategy",
+      message: null,
+      fromParams: true,
+      shared: { pricedAt: shared.pricedAt, source: shared.source, spot: shared.spot },
+      previous: null,
+      skipped: [],
+      persist: false,
+    };
+  }
+  const draftLegs = (draft?.legs ?? []).filter((l) => l.expiry >= today);
+  let symbol = symParam || draft?.symbol || "NIFTY";
+  let legs = symParam && draft && draft.symbol !== symParam ? [] : draftLegs;
+  let name = legs.length ? draft?.name || "" : "";
+  let message: string | null = null;
+  let previous: ShareState | null = null;
+  let skipped: BuilderLeg[] = [];
+  const basket = parseLegsParam(params.get("legs"), lotSizeFor);
+  if (basket.length) {
+    const mode: BasketMode = params.get("mode") === "append" ? "append" : "replace";
+    const bSym = basket[0].symbol;
+    const same = basket.filter((l) => l.symbol === bSym);
+    skipped = basket.filter((l) => l.symbol !== bSym);
+    if (legs.length) previous = { symbol, name, legs };
+    if (mode === "append" && bSym === symbol && legs.length) {
+      legs = [...legs, ...same];
+      message = `Added ${plural(same.length, "leg")} from your basket to your ${symbol} draft.`;
+    } else {
+      const crossSymbol = mode === "append" && legs.length > 0 && bSym !== symbol;
+      message = crossSymbol
+        ? `Loaded ${plural(same.length, "leg")} on ${bSym}. Your ${symbol} draft was replaced because a strategy uses one underlying.`
+        : `Loaded ${plural(same.length, "leg")} from your basket${legs.length ? ", replacing your draft" : ""}.`;
+      legs = same;
+      name = "";
+    }
+    symbol = bSym;
+  }
+  return { symbol, legs, name, message, fromParams: basket.length > 0 || !!symParam, shared: null, previous, skipped, persist: legs.length > 0 };
+}
+
+/** Group skipped legs by underlying, in first-seen order. */
+export function groupBySymbol(legs: BuilderLeg[]): Array<{ symbol: string; legs: BuilderLeg[] }> {
+  const map = new Map<string, BuilderLeg[]>();
+  for (const l of legs) map.set(l.symbol, [...(map.get(l.symbol) ?? []), l]);
+  return Array.from(map, ([symbol, list]) => ({ symbol, legs: list }));
+}
+
+// ───────────────────────────── Heat-table footnote ─────────────────────────────
+
+export type HeatColumnMode = "closes" | "hourly" | "mixed";
+
+/** Largest calendar-day gap (IST dates) between consecutive columns. */
+export function maxCalendarGap(columns: TimePoint[]): number {
+  let gap = 0;
+  for (let i = 1; i < columns.length; i++) {
+    const d = calendarDaysBetween(istDateString(columns[i - 1].at), istDateString(columns[i].at));
+    if (Number.isFinite(d)) gap = Math.max(gap, d);
+  }
+  return gap;
+}
+
+/** Footnote for the P&L table: what the columns are, plus a theta note across weekends and holidays. */
+export function heatFootnote(columns: TimePoint[]): { mode: HeatColumnMode; columns: string; gapNote: string | null } {
+  const hourly = columns.filter((c) => c.label.startsWith("Expiry day ")).length;
+  const closes = columns.filter((c) => c.label.endsWith(" close")).length;
+  const mode: HeatColumnMode = hourly > 0 && closes === 0 ? "hourly" : hourly > 0 ? "mixed" : "closes";
+  const text =
+    mode === "hourly"
+      ? "Expiry day: columns are hourly points through the session (IST), ending at the 15:30 IST expiry."
+      : mode === "mixed"
+        ? "Columns are trading-day closes at 15:30 IST, then hourly points on expiry day."
+        : "Columns are trading-day closes at 15:30 IST, then the expiry.";
+  const gapNote =
+    maxCalendarGap(columns) > 1
+      ? "Some columns are more than one calendar day apart (a weekend or exchange holiday). Option value decays on calendar time, so those steps include the theta of the days the market is shut."
+      : null;
+  return { mode, columns: text, gapNote };
 }

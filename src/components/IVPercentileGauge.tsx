@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLiveOptionChain } from "@/hooks/useMarketData";
 import { axisProps, chartColors, gridProps, tooltipCursor, tooltipLabelStyle, tooltipStyle } from "@/lib/chartTheme";
-import { calculatePCR } from "@/lib/oiUtils";
+import { PCR_BANDS, calculatePCR, pcrSignal } from "@/lib/oiUtils";
+import { cn } from "@/lib/utils";
 import type { OptionData } from "@/lib/mockData";
 import { formatNumberIN, formatStrike } from "@/lib/options";
 import { REGIME_LABEL, ivRegime } from "@/lib/volatility/history";
@@ -32,6 +33,15 @@ interface Props {
   isSample?: boolean;
 }
 
+const PCR_GAUGE_MAX = 2;
+const pcrPct = (v: number) => `${(Math.min(Math.max(v, 0), PCR_GAUGE_MAX) / PCR_GAUGE_MAX) * 100}%`;
+const PCR_GAUGE_BANDS = [
+  { from: 0, to: PCR_BANDS.low, cls: "bg-bearish/25", label: "Call heavy" },
+  { from: PCR_BANDS.low, to: PCR_BANDS.high, cls: "bg-muted-foreground/15", label: "Balanced" },
+  { from: PCR_BANDS.high, to: PCR_BANDS.extreme, cls: "bg-bullish/25", label: "Put heavy" },
+  { from: PCR_BANDS.extreme, to: PCR_GAUGE_MAX, cls: "bg-warning/30", label: "Extreme" },
+];
+
 export function IVPercentileGauge({ chain, spotPrice, symbol, expiry, isSample }: Props) {
   const nearest = useLiveOptionChain(symbol);
   const exp = expiry || nearest.data?.expiry || "";
@@ -42,8 +52,8 @@ export function IVPercentileGauge({ chain, spotPrice, symbol, expiry, isSample }
   const rank = useIvRank(symbol);
   const { pcrOI: currentPCR } = useMemo(() => calculatePCR(chain), [chain]);
 
-  const pcrSignal = currentPCR > 1.2 ? "Bullish" : currentPCR < 0.7 ? "Bearish" : "Neutral";
-  const pcrVariant = currentPCR > 1.2 ? "bullish" : currentPCR < 0.7 ? "bearish" : "warning";
+  // Same reading, bands and wording as the Max Pain page's PCR suite.
+  const pcrSig = pcrSignal(currentPCR);
   const ivp = rank.stats.ivPercentile;
   const regime = ivRegime(rank.stats.ivRank);
 
@@ -51,7 +61,7 @@ export function IVPercentileGauge({ chain, spotPrice, symbol, expiry, isSample }
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <Gauge className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
+          <Gauge className="mx-auto mb-2 h-8 w-8 text-muted-foreground" aria-hidden="true" />
           <p className="text-body text-muted-foreground">IV and PCR need an option chain.</p>
         </CardContent>
       </Card>
@@ -80,7 +90,22 @@ export function IVPercentileGauge({ chain, spotPrice, symbol, expiry, isSample }
                 <span>50</span>
                 <span>100</span>
               </div>
-              <div className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-bullish/30 via-warning/30 to-bearish/30" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={ivp === null ? undefined : Math.round(ivp)} aria-label="IV percentile">
+              <div
+                className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-bullish/30 via-warning/30 to-bearish/30"
+                {...(ivp !== null
+                  ? {
+                      role: "meter",
+                      "aria-valuemin": 0,
+                      "aria-valuemax": 100,
+                      "aria-valuenow": Math.round(ivp),
+                      "aria-valuetext": `${formatNumberIN(ivp, 0)} of 100`,
+                      "aria-label": "IV percentile",
+                    }
+                  : {
+                      role: "img",
+                      "aria-label": `IV percentile unavailable: ${rank.stats.n} days of history`,
+                    })}
+              >
                 {ivp !== null ? <div className="absolute top-0 h-full w-1 -translate-x-1/2 rounded-full bg-foreground" style={{ left: `${ivp}%` }} /> : null}
               </div>
               <div className="mt-2 text-center">
@@ -156,28 +181,31 @@ export function IVPercentileGauge({ chain, spotPrice, symbol, expiry, isSample }
               <TrendingUp className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Put-call ratio
               <HelpTip text="PCR = total put OI ÷ total call OI for this expiry. Heavy put writing (high PCR) is often read as support; heavy call writing (low PCR) as resistance." />
             </CardTitle>
-            <Badge variant={pcrVariant} className="tabular-nums">
-              {currentPCR.toFixed(2)} · {pcrSignal}
+            <Badge variant={pcrSig.tone === "neutral" ? "neutral" : pcrSig.tone} className="tabular-nums" title={pcrSig.label}>
+              {currentPCR > 0 ? `${currentPCR.toFixed(2)} · ` : ""}
+              {pcrSig.label.split(" · ")[0]}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="p-4 pt-0">
-          <div className="relative h-3 overflow-hidden rounded-full bg-gradient-to-r from-bearish/30 via-warning/30 to-bullish/30" role="meter" aria-valuemin={0} aria-valuemax={2} aria-valuenow={currentPCR} aria-label="Put-call ratio">
-            <div className="absolute top-0 h-full w-1.5 -translate-x-1/2 rounded-full bg-foreground transition-all" style={{ left: `${Math.min(Math.max((currentPCR / 2) * 100, 2), 98)}%` }} />
+          {/* Linear 0–2 scale; ticks and bands share the marker's scale so they line up. */}
+          <div className="relative h-3 overflow-hidden rounded-full" role="meter" aria-valuemin={0} aria-valuemax={PCR_GAUGE_MAX} aria-valuenow={currentPCR} aria-valuetext={`${currentPCR.toFixed(2)}, ${pcrSig.label}`} aria-label="Put-call ratio">
+            {PCR_GAUGE_BANDS.map((b) => (
+              <div key={b.label} className={cn("absolute inset-y-0", b.cls)} style={{ left: pcrPct(b.from), width: `calc(${pcrPct(b.to)} - ${pcrPct(b.from)})` }} />
+            ))}
+            {currentPCR > 0 ? <div className="absolute top-0 h-full w-1.5 -translate-x-1/2 rounded-full bg-foreground transition-all" style={{ left: pcrPct(currentPCR) }} /> : null}
           </div>
-          <div className="mt-1 flex justify-between text-body-sm tabular-nums text-muted-foreground">
-            <span>0.0</span>
-            <span>0.7</span>
-            <span>1.0</span>
-            <span>1.3</span>
-            <span>2.0</span>
+          <div className="relative mt-1 h-4 text-body-sm tabular-nums text-muted-foreground" aria-hidden="true">
+            <span className="absolute left-0">0</span>
+            {[PCR_BANDS.low, PCR_BANDS.high, PCR_BANDS.extreme].map((v) => (
+              <span key={v} className="absolute -translate-x-1/2" style={{ left: pcrPct(v) }}>
+                {v}
+              </span>
+            ))}
+            <span className="absolute right-0">{PCR_GAUGE_MAX}+</span>
           </div>
           <p className="mt-3 text-center text-body-sm text-muted-foreground">
-            {currentPCR > 1.2
-              ? "Put OI dominates: writers expect limited downside."
-              : currentPCR < 0.7
-                ? "Call OI dominates: writers expect capped upside."
-                : "PCR is in the neutral zone."}{" "}
+            {pcrSig.description}{" "}
             Context only, not a signal.
           </p>
         </CardContent>

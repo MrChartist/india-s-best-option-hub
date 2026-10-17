@@ -160,3 +160,18 @@ export function topPremiumContracts(prints: FlowPrint[], limit = 10): ContractHe
     .slice(0, Math.max(0, limit))
     .map(({ lastTs: _lastTs, ...rest }) => rest);
 }
+
+/**
+ * One-line reading of the Premium Tide's net line (calls − puts, ₹). "Balanced" when |net| is
+ * under 5% of the gross |call| + |put| tide.
+ */
+export function tideReading(last: Pick<TidePoint, "ce" | "pe" | "net"> | undefined, fmt: (v: number) => string): string {
+  if (!last || ![last.ce, last.pe, last.net].every(Number.isFinite)) return "Not enough flow to read the tide yet.";
+  const gross = Math.abs(last.ce) + Math.abs(last.pe);
+  if (!(gross > 0) || Math.abs(last.net) < gross * 0.05) {
+    return `Net ${fmt(last.net)}: call and put premium are roughly balanced, so no clear lean.`;
+  }
+  return last.net > 0
+    ? `Net ${fmt(last.net)} and positive: more premium is buying calls (or selling puts) than the reverse, a bullish lean.`
+    : `Net ${fmt(last.net)} and negative: more premium is buying puts (or selling calls) than the reverse, a bearish lean.`;
+}

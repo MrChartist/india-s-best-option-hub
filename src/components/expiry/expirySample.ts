@@ -1,84 +1,109 @@
 /**
  * Sample expiry session: a deterministic, clearly labelled simulation of one trading session for
- * the expiry-day page when no live or recorded snapshots exist. Unlike the flow stream's sample
- * session, prices here are re-priced with Black-76 at every step, so the straddle genuinely decays
- * towards 15:30. The UI must badge anything built from this as "Sample data".
+ * the expiry-day and straddle pages when no live or recorded snapshots exist.
+ *
+ * The session is anchored to generateSampleChain for the same symbol, expiry and `now`: the last
+ * snapshot carries that chain's LTP, bid/ask, IV, OI and volume for every strike, so the straddle
+ * at "now" equals the sample option chain's ATM straddle. Earlier snapshots replay a plausible day:
+ * a spot path into the anchor spot, an ATM IV that opens a little richer than the chain's ATM IV and
+ * eases into it, Black-76 prices on the sample smile (calendar time, as the sample chain uses), OI
+ * building from the open and U-shaped cumulative volume. The UI must badge anything built from this
+ * as "Sample data".
  */
-import type { OptionData } from "@/lib/mockData";
 import type { ChainSnapshot, StrikeSnap } from "@/lib/snapshotStore";
 import { sampleSessionWindow } from "@/lib/flow";
-import { atmIV, black76Price, forwardFromSpot, timeToExpiryYears } from "@/lib/options";
+import {
+  atmIV,
+  black76Price,
+  defaultSampleIv,
+  forwardFromSpot,
+  gaussianSource,
+  generateSampleChain,
+  getDividendYield,
+  mulberry32,
+  sampleSeed,
+  sampleSmile,
+  timeToExpiryYears,
+} from "@/lib/options";
 
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/**
+ * Risk-free rate the sample chain is priced with (generateSampleChain hard-codes the same 6.5%).
+ * Deliberately not getMarketParams().r: the sample must not shift when the user edits r in settings.
+ * useExpirySession returns this rate as the session `r` in sample mode, so analyseStraddle back-solves
+ * with the rate the sample was built with.
+ *
+ * Time convention: the sample is generated in calendar time (like the sample chain), while
+ * analyseStraddle measures time in trading time (tradingT). The "IV now/open" it reports for the
+ * sample is therefore a trading-time IV, not the calendar-time smile IV the sample was built from,
+ * and the theory-decay curve is a trading-time Black-76 curve. Both are self-consistent within the
+ * analysis; they are just not expected to reproduce the generator's IV inputs exactly.
+ */
+export const SAMPLE_SESSION_R = 0.065;
+/** Strikes in the anchor chain: the sample chain's default, so its quotes match the Option Chain page. */
+const ANCHOR_STRIKES = 41;
 
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
-
-/** Standard normal draw (Box-Muller). */
-function gauss(rand: () => number): number {
-  const u = Math.max(rand(), 1e-12);
-  const v = rand();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-const tick = (v: number) => Math.max(0.05, Math.round(v * 20) / 20);
+const TICK = 0.05;
+const tick = (v: number) => Math.max(TICK, Math.round(v / TICK) * TICK);
+const r2 = (v: number) => Math.round(v * 100) / 100;
 
 export interface ExpirySampleInput {
   symbol: string;
   expiry: string;
   spot: number;
-  /** Base chain: strikes, IVs (percent) and closing volume/OI. */
-  chain: OptionData[];
+  /** Instant the sample chain is anchored to (default: now). */
   now?: Date;
-  r?: number;
-  q?: number;
   /** Minutes between simulated snapshots (default 3). */
   stepMin?: number;
-  /** Strikes kept on each side of ATM (default 24). */
-  wings?: number;
+}
+
+/** The sample chain the session ends on: generateSampleChain at `now` (or at the session end once the contract has expired). */
+export function sampleSessionAnchor(o: Pick<ExpirySampleInput, "symbol" | "expiry" | "spot" | "now">) {
+  const now = o.now ?? new Date();
+  const { end } = sampleSessionWindow(now);
+  const at = timeToExpiryYears(o.expiry, now) > 0 ? now : new Date(end);
+  return generateSampleChain({ symbol: o.symbol, spot: o.spot, expiry: o.expiry, now: at, strikes: ANCHOR_STRIKES });
 }
 
 /** Simulated snapshots over the session window (today after 09:20 IST on a trading day, else the previous session). */
 export function simulateExpirySession(o: ExpirySampleInput): ChainSnapshot[] {
-  const rowsAll = (Array.isArray(o.chain) ? o.chain : []).filter((r) => r && r.strikePrice > 0).sort((a, b) => a.strikePrice - b.strikePrice);
-  if (rowsAll.length === 0 || !(o.spot > 0) || !o.expiry) return [];
-  const r = o.r ?? 0.065;
-  const q = o.q ?? 0;
-  const { start, end } = sampleSessionWindow(o.now ?? new Date());
+  const symbol = String(o?.symbol || "").toUpperCase();
+  if (!symbol || !(o.spot > 0) || !o.expiry) return [];
+  const now = o.now ?? new Date();
+  const { start, end } = sampleSessionWindow(now);
   if (!(end > start)) return [];
+  if (!(timeToExpiryYears(o.expiry, new Date(start)) > 0)) return [];
+  const anchor = sampleSessionAnchor({ symbol, expiry: o.expiry, spot: o.spot, now });
+  const rows = anchor.chain.slice().sort((a, b) => a.strikePrice - b.strikePrice);
+  if (rows.length === 0) return [];
+
+  const r = SAMPLE_SESSION_R;
+  const q = getDividendYield(symbol);
   const stepMs = Math.max(1, o.stepMin ?? 3) * 60_000;
-  const n = Math.max(2, Math.floor((end - start) / stepMs) + 1);
-  const rand = mulberry32(hash(`${o.symbol}|${o.expiry}|${Math.round(o.spot)}|${start}`));
+  const times: number[] = [];
+  for (let t = start; t < end; t += stepMs) times.push(t);
+  times.push(end);
+  const n = times.length;
+  const rand = mulberry32(sampleSeed(symbol, o.expiry, start / 60_000));
+  const gauss = gaussianSource(rand);
 
-  // Keep strikes around ATM.
-  let atmIdx = 0;
-  for (let i = 0; i < rowsAll.length; i++) if (Math.abs(rowsAll[i].strikePrice - o.spot) < Math.abs(rowsAll[atmIdx].strikePrice - o.spot)) atmIdx = i;
-  const wings = Math.max(4, o.wings ?? 24);
-  const rows = rowsAll.slice(Math.max(0, atmIdx - wings), atmIdx + wings + 1);
+  // ATM IV of the anchor chain; the session opens a little richer and eases into it.
+  const anchorT = Math.max(timeToExpiryYears(o.expiry, now), 1 / (365 * 24));
+  const chainAtm = atmIV(rows, forwardFromSpot(o.spot, anchorT, r, q));
+  const ivEnd = Number.isFinite(chainAtm) && chainAtm > 0 ? chainAtm / 100 : defaultSampleIv(symbol);
+  const openDrift = 0.02 + 0.04 * rand();
+  const atmIvs = times.map((_, i) => {
+    const w = n > 1 ? i / (n - 1) : 1;
+    return ivEnd * (1 + openDrift * (1 - w) + 0.006 * gauss() * (1 - w));
+  });
+  atmIvs[n - 1] = ivEnd;
 
-  const ivAtmPct = atmIV(rows, o.spot);
-  const baseIv = Number.isFinite(ivAtmPct) && ivAtmPct > 0 ? ivAtmPct / 100 : 0.13;
-
-  // Spot path: random walk in trading time ending at the given spot, with mild mean reversion.
-  const sdStep = baseIv * Math.sqrt(stepMs / 60_000 / (252 * 375));
+  // Spot: a mean-reverting walk in session time that ends exactly on the anchor spot.
+  const sdStep = ivEnd * Math.sqrt(stepMs / 60_000 / (252 * 375));
   const walk: number[] = [0];
-  for (let i = 1; i < n; i++) walk.push(walk[i - 1] * 0.985 + gauss(rand) * sdStep);
+  for (let i = 1; i < n; i++) walk.push(walk[i - 1] * 0.985 + gauss() * sdStep);
   const shift = walk[n - 1];
   const spots = walk.map((x) => o.spot * Math.exp(x - shift));
-  // IV drifts a little through the day (crush into the close on expiry day).
-  const ivDrift = walk.map((_, i) => 1 + 0.06 * (0.5 - i / Math.max(1, n - 1)) + gauss(rand) * 0.01);
+  spots[n - 1] = o.spot;
 
   // U-shaped cumulative volume weights.
   const w: number[] = [];
@@ -90,33 +115,51 @@ export function simulateExpirySession(o: ExpirySampleInput): ChainSnapshot[] {
   let acc = 0;
   const cumW = w.map((x) => (acc += x) / totW);
 
+  // Model price on the sample smile at snapshot i (calendar time, like generateSampleChain).
+  const model = (i: number, K: number, side: "CE" | "PE") => {
+    const T = Math.max(timeToExpiryYears(o.expiry, new Date(times[i])), 1 / (365 * 24 * 60));
+    const F = forwardFromSpot(spots[i], T, r, q);
+    const z = Math.log(K / F) / Math.max(atmIvs[i] * Math.sqrt(T), 1e-6);
+    const sigma = sampleSmile(atmIvs[i], z);
+    return { price: black76Price({ F, K, T, r, sigma, type: side }), sigma };
+  };
+
+  // Per-leg offsets so the model path lands exactly on the anchor quote.
+  const legs = rows.flatMap((row) =>
+    (["CE", "PE"] as const).map((side) => {
+      const leg = side === "CE" ? row.ce : row.pe;
+      const endModel = model(n - 1, row.strikePrice, side);
+      return {
+        K: row.strikePrice,
+        side,
+        leg,
+        priceOffset: leg.ltp - endModel.price,
+        ivOffset: leg.iv - endModel.sigma * 100,
+        spreadPct: leg.ltp > 0 && leg.askPrice > leg.bidPrice ? (leg.askPrice - leg.bidPrice) / leg.ltp : 0.01,
+        openOi: Math.max(0, leg.oi - leg.oiChange),
+      };
+    }),
+  );
+
   const snaps: ChainSnapshot[] = [];
   for (let i = 0; i < n; i++) {
-    const ts = i === n - 1 ? end : start + i * stepMs;
-    const T = timeToExpiryYears(o.expiry, new Date(ts), { mode: "trading" });
-    const S = spots[i];
-    const F = forwardFromSpot(S, T, r, q);
-    const out: StrikeSnap[] = [];
-    for (const row of rows) {
-      const K = row.strikePrice;
-      for (const side of ["CE", "PE"] as const) {
-        const leg = side === "CE" ? row.ce : row.pe;
-        const legIv = leg && leg.iv > 0 ? leg.iv / 100 : baseIv * (1 + 0.6 * Math.abs(Math.log(K / o.spot)) * 10);
-        const sigma = Math.max(0.03, legIv * ivDrift[i]);
-        const price = black76Price({ F, K, T, r, sigma, type: side });
-        const ltp = tick(price * (1 + gauss(rand) * 0.004));
-        const dist = Math.abs(K - o.spot) / o.spot;
-        const finalVol = leg && leg.volume > 0 ? leg.volume : Math.round(400_000 * Math.exp(-dist * 120) + 2_000);
-        const vol = Math.round(finalVol * cumW[i]);
-        const finalOi = leg && leg.oi > 0 ? leg.oi : Math.round(120_000 * Math.exp(-dist * 60) + 5_000);
-        const oiChange = leg && Number.isFinite(leg.oiChange) ? leg.oiChange : 0;
-        const oi = Math.max(0, Math.round(finalOi - oiChange * (1 - cumW[i])));
-        const spread = Math.max(0.05, tick(ltp * 0.008));
-        const bid = tick(ltp - spread / 2);
-        out.push({ strike: K, side, ltp, oi, vol, iv: Math.round(sigma * 10000) / 100, bid, ask: Math.round((bid + spread) * 100) / 100 });
+    const ts = times[i];
+    const last = i === n - 1;
+    const wt = n > 1 ? i / (n - 1) : 1;
+    const out: StrikeSnap[] = legs.map((l) => {
+      if (last) {
+        return { strike: l.K, side: l.side, ltp: l.leg.ltp, oi: l.leg.oi, vol: l.leg.volume, iv: l.leg.iv, bid: l.leg.bidPrice, ask: l.leg.askPrice };
       }
-    }
-    snaps.push({ id: `${o.symbol}|${o.expiry}|${ts}|sample`, symbol: o.symbol.toUpperCase(), expiry: o.expiry, ts, spot: Math.round(S * 100) / 100, rows: out });
+      const m = model(i, l.K, l.side);
+      const ltp = r2(tick(m.price + l.priceOffset * wt));
+      const spread = tick(Math.max(TICK, ltp * l.spreadPct));
+      const bid = r2(Math.max(TICK, tick(ltp - spread / 2)));
+      const ask = r2(tick(bid + spread));
+      const oi = Math.max(0, Math.round(l.openOi + (l.leg.oi - l.openOi) * cumW[i]));
+      const vol = Math.round(l.leg.volume * cumW[i]);
+      return { strike: l.K, side: l.side, ltp, oi, vol, iv: r2(m.sigma * 100 + l.ivOffset * wt), bid, ask };
+    });
+    snaps.push({ id: `${symbol}|${o.expiry}|${ts}|sample`, symbol, expiry: o.expiry, ts, spot: last ? o.spot : r2(spots[i]), rows: out });
   }
   return snaps;
 }

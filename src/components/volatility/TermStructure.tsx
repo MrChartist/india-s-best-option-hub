@@ -78,7 +78,7 @@ export function TermStructure({ symbol, term, shape, iv30, isSample, prev }: Ter
         </p>
         <div className="h-[300px]" role="img" aria-label="ATM implied volatility by days to expiry">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart margin={{ top: 10, right: 12, bottom: 0, left: -10 }}>
+            <LineChart margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid {...gridProps} />
               <XAxis type="number" dataKey="dte" {...axisProps} domain={[0, "dataMax"]} tickFormatter={(v: number) => `${v}d`} allowDuplicatedCategory={false} />
               <YAxis type="number" dataKey="iv" {...axisProps} width={44} domain={["auto", "auto"]} tickFormatter={(v: number) => `${v}%`} />
@@ -102,7 +102,7 @@ export function TermStructure({ symbol, term, shape, iv30, isSample, prev }: Ter
         <div className="flex flex-wrap gap-4">
           <LegendChip color={chartColors.iv} label="ATM IV now" />
           {ydaySeries.length > 1 ? <LegendChip color={chartColors.muted} label={`Yesterday (${formatDateIST(prev?.date ?? "")})`} dashed /> : null}
-          <LegendChip color={chartColors.spot} label="Forward vol" dashed />
+          {fwdSeries.length > 0 ? <LegendChip color={chartColors.spot} label="Forward vol" dashed /> : null}
         </div>
 
         <div className="overflow-x-auto rounded-tile border border-border">

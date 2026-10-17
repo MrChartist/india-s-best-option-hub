@@ -1,16 +1,22 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Area, CartesianGrid, ComposedChart, Legend, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Magnet } from "lucide-react";
+import { ArrowUpRight, Magnet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import MetricHelp from "@/components/learn/MetricHelp";
 import { Card, CardContent } from "@/components/ui/card";
-import { axisProps, chartColors, gridProps, legendStyle, tokenColor, tooltipCursor, tooltipStyle } from "@/lib/chartTheme";
+import { axisProps, chartColors, compactAxisTick, gridProps, legendStyle, tokenColor, tooltipCursor, tooltipStyle } from "@/lib/chartTheme";
 import { inferOiUnit } from "@/lib/gexData";
 import { formatCompactIN, formatDateIST, maxPainCurve } from "@/lib/options";
 import type { OptionData } from "@/lib/mockData";
-import { EmptyState, ModuleHeader, StatTile } from "./shared";
+import { optimizerTargetUrl, spotMaxPainLabel, strikeGap } from "@/lib/oiUtils";
+import { ChartCaption, EmptyState, ModuleHeader, StatTile } from "./shared";
 import { fmtStrike } from "./format";
 
 interface Props {
+  /** Underlying, for the optimizer hand-off. */
+  symbol?: string;
   chain: OptionData[];
   spot: number;
   expiry: string;
@@ -24,7 +30,7 @@ const rupees = (v: number) => formatCompactIN(v, { symbol: true });
  * Writer payout curve: what call and put writers together would pay at expiry if the index settled
  * at each strike. Max pain is the minimum. Payout is converted to rupees (contracts × lot size).
  */
-export function MaxPainCurve({ chain, spot, expiry, lotSize, sample }: Props) {
+export function MaxPainCurve({ symbol, chain, spot, expiry, lotSize, sample }: Props) {
   const view = useMemo(() => {
     const curve = maxPainCurve(chain);
     if (curve.length === 0) return null;
@@ -49,7 +55,8 @@ export function MaxPainCurve({ chain, spot, expiry, lotSize, sample }: Props) {
         }
       }
     }
-    return { rows, min: { strike: min.strike, total: min.total * mult }, atSpot, unit };
+    const label = spotMaxPainLabel(spot, min.strike, strikeGap(curve.map((p) => p.strike)));
+    return { rows, min: { strike: min.strike, total: min.total * mult }, atSpot, unit, label };
   }, [chain, spot, lotSize]);
 
   return (
@@ -58,7 +65,18 @@ export function MaxPainCurve({ chain, spot, expiry, lotSize, sample }: Props) {
         icon={<Magnet className="h-4 w-4 text-primary-ink" />}
         title="Max pain payout curve"
         hint={`Total writer payout if ${expiry ? formatDateIST(expiry) : "this"} expiry settles at each strike. The lowest point is max pain.`}
-        right={sample ? <Badge variant="warning">Sample data</Badge> : <Badge variant="info">Derived</Badge>}
+        right={
+          <>
+            <Badge variant="info">{sample ? "Derived from sample" : "Derived"}</Badge>
+            {symbol && view && (
+              <Button asChild variant="outline" size="pill" className="h-7 gap-1 text-xs">
+                <Link to={optimizerTargetUrl(symbol, view.min.strike)} title={`Find strategies that profit if ${symbol} settles near ${fmtStrike(view.min.strike)}`}>
+                  Open optimizer with target = max pain <ArrowUpRight />
+                </Link>
+              </Button>
+            )}
+          </>
+        }
       />
       <CardContent className="space-y-3 p-4">
         {!view ? (
@@ -66,7 +84,7 @@ export function MaxPainCurve({ chain, spot, expiry, lotSize, sample }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <StatTile label="Max pain" value={fmtStrike(view.min.strike)} valueClass="text-warning" />
+              <StatTile label={<MetricHelp metric="maxPain" value={view.min.strike}>Max pain</MetricHelp>} value={fmtStrike(view.min.strike)} valueClass="text-warning" />
               <StatTile
                 label="Distance from spot"
                 value={spot > 0 ? `${view.min.strike - spot >= 0 ? "+" : "−"}${Math.abs(view.min.strike - spot).toLocaleString("en-IN", { maximumFractionDigits: 0 })} pts` : "—"}
@@ -77,24 +95,24 @@ export function MaxPainCurve({ chain, spot, expiry, lotSize, sample }: Props) {
             </div>
             <div className="h-[320px] sm:h-[360px]" role="img" aria-label={`Max pain payout curve; minimum at ${fmtStrike(view.min.strike)}`}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={view.rows} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
+                <ComposedChart data={view.rows} margin={{ top: 20, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid {...gridProps} />
                   <XAxis {...axisProps} dataKey="strike" type="number" domain={["dataMin", "dataMax"]} tickFormatter={(v: number) => fmtStrike(v)} minTickGap={18} />
-                  <YAxis {...axisProps} tickFormatter={(v: number) => formatCompactIN(v)} width={56} />
+                  <YAxis {...axisProps} tickFormatter={compactAxisTick} width={60} />
                   <Tooltip contentStyle={tooltipStyle} cursor={tooltipCursor} labelFormatter={(v: number) => `Settle at ${fmtStrike(v)}`} formatter={(v: number, n: string) => [rupees(v), n]} />
                   <Legend wrapperStyle={legendStyle} />
                   <Area type="monotone" dataKey="ce" name="Call writers pay" stackId="p" stroke={chartColors.call} fill={tokenColor("chart-call", 0.18)} isAnimationActive={false} />
                   <Area type="monotone" dataKey="pe" name="Put writers pay" stackId="p" stroke={chartColors.put} fill={tokenColor("chart-put", 0.18)} isAnimationActive={false} />
                   <Line type="monotone" dataKey="total" name="Total payout" stroke={chartColors.foreground} strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <ReferenceLine x={view.min.strike} stroke={chartColors.warning} strokeDasharray="5 4" label={{ value: `Max pain ${fmtStrike(view.min.strike)}`, position: "top", fill: chartColors.warning, fontSize: 11 }} />
+                  <ReferenceLine x={view.min.strike} stroke={chartColors.warning} strokeDasharray="5 4" label={{ value: view.label.text ?? "", position: "top", fill: chartColors.warning, fontSize: 11 }} />
                   <ReferenceDot x={view.min.strike} y={view.min.total} r={5} fill={chartColors.warning} stroke={chartColors.card} />
-                  {spot > 0 && <ReferenceLine x={spot} stroke={chartColors.spot} strokeDasharray="3 3" label={{ value: "Spot", position: "insideTopRight", fill: chartColors.spot, fontSize: 11 }} />}
+                  {spot > 0 && !view.label.combined && <ReferenceLine x={spot} stroke={chartColors.spot} strokeDasharray="3 3" label={{ value: "Spot", position: "insideTopRight", fill: chartColors.spot, fontSize: 11 }} />}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {view.unit === "contracts" ? `OI read as contracts and multiplied by the lot size (${lotSize}).` : "OI read as quantity."} Max pain is a reference level, not a forecast; it tends to matter most in the last session before expiry.
-            </p>
+            <ChartCaption>
+              Y axis: total writer payout in ₹ (rupees). {view.unit === "contracts" ? `OI read as contracts and multiplied by the lot size (${lotSize}).` : "OI read as quantity."} Max pain is a reference level, not a forecast; it tends to matter most in the last session before expiry.
+            </ChartCaption>
           </>
         )}
       </CardContent>

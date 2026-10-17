@@ -1,24 +1,43 @@
 import { SearchX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RankedCandidate } from "@/lib/optimizer";
-import { ResultCard, type PayoffView } from "./ResultCard";
+import { ResultCard } from "./ResultCard";
+import { ResultsTable } from "./ResultsTable";
+import type { PayoffView, ResultActions } from "./resultHelpers";
 
-export interface ResultsGridProps {
+const ROW_SKELETONS = ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8"];
+const CARD_SKELETONS = ["c1", "c2", "c3", "c4", "c5", "c6"];
+
+export type ResultsLayout = "cards" | "table";
+
+export interface ResultsGridProps extends ResultActions {
   results: RankedCandidate[];
   view: PayoffView | null;
   loading: boolean;
-  onOpen: (c: RankedCandidate) => void;
-  onAddToBasket: (c: RankedCandidate) => void;
   emptyHint?: string;
+  /** Cards (default) or the compact table. */
+  layout?: ResultsLayout;
+  /** The reader's view is Neutral (explains the "matches your view" chip). */
+  neutralView?: boolean;
 }
 
-/** Responsive grid of ranked strategy cards with loading and empty states. */
-export function ResultsGrid({ results, view, loading, onOpen, onAddToBasket, emptyHint }: ResultsGridProps) {
+/** Ranked strategies as cards or a compact table, with loading and empty states. */
+export function ResultsGrid({ results, view, loading, onOpen, onAddToBasket, onPaperTrade, emptyHint, layout = "cards", neutralView = false }: ResultsGridProps) {
+  if (loading && results.length === 0 && layout === "table") {
+    return (
+      <div className="space-y-1.5 rounded-card border border-border bg-card p-3" role="status" aria-busy="true" aria-label="Loading strategies">
+        <Skeleton className="h-6 w-full" />
+        {ROW_SKELETONS.map((k) => (
+          <Skeleton key={k} className="h-11 w-full" />
+        ))}
+      </div>
+    );
+  }
   if (loading && results.length === 0) {
     return (
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3" aria-busy="true" aria-label="Loading strategies">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="space-y-2 rounded-card border border-border bg-card p-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3" role="status" aria-busy="true" aria-label="Loading strategies">
+        {CARD_SKELETONS.map((k) => (
+          <div key={k} className="space-y-2 rounded-card border border-border bg-card p-3">
             <Skeleton className="h-4 w-2/3" />
             <div className="grid grid-cols-2 gap-2">
               <Skeleton className="h-12" />
@@ -42,13 +61,21 @@ export function ResultsGrid({ results, view, loading, onOpen, onAddToBasket, emp
       </div>
     );
   }
+  const wrap = loading ? "pointer-events-none opacity-60 transition-opacity" : "transition-opacity";
+  if (layout === "table") {
+    return (
+      <div className={wrap} aria-busy={loading}>
+        <ResultsTable results={results} view={view} onOpen={onOpen} onAddToBasket={onAddToBasket} onPaperTrade={onPaperTrade} neutralView={neutralView} />
+      </div>
+    );
+  }
   return (
-    <div className={loading ? "pointer-events-none opacity-60 transition-opacity" : "transition-opacity"} aria-busy={loading}>
+    <div className={wrap} aria-busy={loading}>
       <ol className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3" aria-label="Ranked strategies">
-        {results.map((c) => (
+        {results.map((c, i) => (
           <li key={c.id} className="flex min-w-0">
             <div className="h-full w-full">
-              <ResultCard candidate={c} view={view} onOpen={onOpen} onAddToBasket={onAddToBasket} />
+              <ResultCard candidate={c} view={view} primary={i === 0} neutralView={neutralView} onOpen={onOpen} onAddToBasket={onAddToBasket} onPaperTrade={onPaperTrade} />
             </div>
           </li>
         ))}

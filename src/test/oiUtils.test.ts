@@ -24,7 +24,22 @@ import {
   snapshotSeries,
   wallShift,
   windowAround,
+  buildupCode,
+  cumulativeOIChangeSeries,
+  defaultSeriesStrikes,
+  dominantBuildup,
+  latestSessionSnapshots,
+  optimizerTargetUrl,
+  rangeOIChangeSeries,
+  snapshotStrikes,
+  spotMaxPainLabel,
+  strikeGap,
+  strikeOISeries,
+  strikeSeriesKey,
+  wallCreditSpread,
 } from "@/lib/oiUtils";
+import { buildSampleOiSession } from "@/components/oi/sampleOiSession";
+import { generateSampleChain, toISTDate } from "@/lib/options";
 import type { OptionData, OptionLegData } from "@/lib/mockData";
 import type { ChainSnapshot } from "@/lib/snapshotStore";
 
@@ -399,5 +414,150 @@ describe("expirySummary", () => {
     const s = expirySummary([], 24000, "2026-10-20", { now });
     expect(s.maxPain).toBeNull();
     expect(s.emMultiple).toBeNull();
+  });
+});
+
+describe("intraday OI series", () => {
+  const snap = (ts: number, spot: number, rows: Array<[number, "CE" | "PE", number]>): ChainSnapshot => ({
+    id: String(ts),
+    symbol: "NIFTY",
+    expiry: "2026-10-20",
+    ts,
+    spot,
+    rows: rows.map(([strike, side, oi]) => ({ strike, side, oi, vol: 0, ltp: 10, iv: 15, bid: 9, ask: 11 })),
+  });
+  const day = (hhmm: string) => toISTDate("2026-10-16", hhmm).getTime();
+  const a = snap(day("09:15"), 24000, [[23900, "PE", 500], [24000, "CE", 100], [24000, "PE", 300], [24100, "CE", 800], [24200, "CE", 50]]);
+  const b = snap(day("10:15"), 24040, [[23900, "PE", 700], [24000, "CE", 160], [24000, "PE", 360], [24100, "CE", 900], [24200, "CE", 70]]);
+  const c = snap(day("11:15"), 24080, [[23900, "PE", 650], [24000, "CE", 220], [24000, "PE", 420], [24100, "CE", 1000], [24200, "CE", 90], [24300, "CE", 40]]);
+
+  it("keeps only the latest IST session", () => {
+    const older = snap(toISTDate("2026-10-15", "15:25").getTime(), 23900, [[24000, "CE", 1]]);
+    expect(latestSessionSnapshots([c, older, a, b]).map((s) => s.ts)).toEqual([a.ts, b.ts, c.ts]);
+    expect(latestSessionSnapshots([])).toEqual([]);
+  });
+
+  it("lists strikes and builds strike lines with gaps for missing legs", () => {
+    expect(snapshotStrikes([a, b, c])).toEqual([23900, 24000, 24100, 24200, 24300]);
+    const oi = strikeOISeries([c, a, b], [24000, 24300], ["CE"], "oi");
+    expect(oi.map((r) => r[strikeSeriesKey(24000, "CE")])).toEqual([100, 160, 220]);
+    expect(oi.map((r) => r.CE_24300)).toEqual([null, null, 40]);
+    const chg = strikeOISeries([a, b, c], [24000], ["CE", "PE"], "chg");
+    expect(chg.map((r) => r.CE_24000)).toEqual([0, 60, 120]);
+    expect(chg.map((r) => r.PE_24000)).toEqual([0, 60, 120]);
+    // A strike listed mid-session starts at zero change, not at its full OI.
+    expect(strikeOISeries([a, b, c], [24300], ["CE"], "chg").map((r) => r.CE_24300)).toEqual([null, null, 0]);
+  });
+
+  it("accumulates call and put OI change with spot", () => {
+    const pts = cumulativeOIChangeSeries([a, b, c]);
+    expect(pts.map((p) => p.spot)).toEqual([24000, 24040, 24080]);
+    expect(pts[0]).toMatchObject({ ceChg: 0, peChg: 0, netChg: 0 });
+    expect(pts[1]).toMatchObject({ ceChg: 180, peChg: 260, netChg: 80 });
+    expect(pts[2]).toMatchObject({ ceChg: 360, peChg: 270, netChg: -90, ceOI: 1350, peOI: 1070 });
+  });
+
+  it("limits the range series to ATM ± N strikes at the latest spot", () => {
+    const r = rangeOIChangeSeries([a, b, c], 1);
+    expect(r.atm).toBe(24100);
+    expect(r.strikes).toEqual([24000, 24100, 24200]);
+    expect(r.points[2]).toMatchObject({ ceChg: 360, peChg: 120 });
+    expect(rangeOIChangeSeries([], 5)).toEqual({ atm: NaN, strikes: [], points: [] });
+    expect(rangeOIChangeSeries([a, b, c], 1, 23900).strikes).toEqual([23900, 24000]);
+  });
+
+  it("picks ATM, the call wall above and the put wall below by default", () => {
+    expect(defaultSeriesStrikes([a, b, c])).toEqual([23900, 24100]);
+    expect(defaultSeriesStrikes([])).toEqual([]);
+  });
+});
+
+describe("labels and trade hand-offs", () => {
+  it("combines spot and max pain within half a strike", () => {
+    expect(spotMaxPainLabel(24262, 24250, 50)).toEqual({ combined: true, text: "Spot ≈ Max pain 24,250" });
+    expect(spotMaxPainLabel(24300, 24250, 50)).toEqual({ combined: false, text: "Max pain 24,250" });
+    expect(spotMaxPainLabel(0, 24250, 50).combined).toBe(false);
+    expect(spotMaxPainLabel(24250, 0, 50).text).toBeNull();
+  });
+
+  it("measures the strike gap", () => {
+    expect(strikeGap([24100, 24000, 24050, 24050])).toBe(50);
+    expect(Number.isNaN(strikeGap([24000]))).toBe(true);
+  });
+
+  it("maps build-ups to badge codes", () => {
+    expect(buildupCode("LONG_BUILDUP")).toBe("LB");
+    expect(buildupCode("SHORT_BUILDUP")).toBe("SB");
+    expect(buildupCode("SHORT_COVERING")).toBe("SC");
+    expect(buildupCode("LONG_UNWINDING")).toBe("LU");
+    expect(buildupCode("NEUTRAL")).toBeNull();
+  });
+
+  it("finds the build-up carrying the most OI change per side", () => {
+    const chain = [
+      makeRow(24000, 100000, 100000, { ceChange: -5, ceOIChg: 30000, peChange: 4, peOIChg: 20000 }),
+      makeRow(24100, 100000, 100000, { ceChange: 3, ceOIChg: 5000, peChange: -2, peOIChg: -40000 }),
+    ];
+    expect(dominantBuildup(chain, "CE")).toEqual({ buildup: "SHORT_BUILDUP", share: 0.86 });
+    expect(dominantBuildup(chain, "PE")).toEqual({ buildup: "LONG_UNWINDING", share: 0.67 });
+    expect(dominantBuildup([makeRow(24000, 100, 100)], "CE")).toEqual({ buildup: "NEUTRAL", share: 0 });
+  });
+
+  it("writes a bear call spread at resistance and a bull put spread at support", () => {
+    const strikes = Array.from({ length: 21 }, (_, i) => 24000 + i * 50);
+    const chain = strikes.map((k) => makeRow(k, 1000, 1000, { ceLTP: Math.max(1, 25000 - k) / 5, peLTP: Math.max(1, k - 24000) / 5 }));
+    const call = wallCreditSpread(chain, 24500, "CE", 24250);
+    expect(call).not.toBeNull();
+    expect(call?.sell.strike).toBe(24500);
+    expect(call?.buy.strike).toBe(24700); // max(2 × 50, 0.8% of 24,250 → 200)
+    expect(call?.width).toBe(200);
+    expect(call?.sell.premium).toBe(100); // mid of 99 / 101
+    expect(call?.sell.iv).toBe(0.15);
+    const put = wallCreditSpread(chain, 24300, "PE", 24250);
+    expect(put?.buy.strike).toBe(24100);
+    expect(wallCreditSpread(chain, 24900, "CE", 24250)).toBeNull(); // no strike 200 above
+    expect(wallCreditSpread(chain, 12345, "CE", 24250)).toBeNull();
+  });
+
+  it("links the optimizer with a target", () => {
+    expect(optimizerTargetUrl("nifty", 24250)).toBe("/optimizer?symbol=NIFTY&target=24250");
+    expect(optimizerTargetUrl("BANKNIFTY", NaN)).toBe("/optimizer?symbol=BANKNIFTY");
+  });
+});
+
+describe("sample OI session", () => {
+  const now = toISTDate("2026-10-16", "13:02");
+  const expiry = "2026-10-20";
+  const input = { symbol: "NIFTY", expiry, spot: 25012.4, now };
+
+  it("is deterministic and ends exactly at the sample chain", () => {
+    const s1 = buildSampleOiSession(input);
+    const s2 = buildSampleOiSession(input);
+    expect(s1).toEqual(s2);
+    expect(s1.length).toBeGreaterThan(40);
+    expect(s1[0].ts).toBe(toISTDate("2026-10-16", "09:15").getTime());
+    expect(s1[s1.length - 1].ts).toBe(now.getTime());
+    const last = s1[s1.length - 1];
+    expect(last.spot).toBe(25012.4);
+    const { chain } = generateSampleChain({ symbol: "NIFTY", spot: 25012.4, expiry, now, strikes: 41 });
+    for (const r of chain) {
+      expect(last.rows.find((x) => x.strike === r.strikePrice && x.side === "CE")?.oi).toBe(Math.round(r.ce.oi));
+      expect(last.rows.find((x) => x.strike === r.strikePrice && x.side === "PE")?.oi).toBe(Math.round(r.pe.oi));
+    }
+  });
+
+  it("opens each leg at the previous close (OI minus the day's change)", () => {
+    const s = buildSampleOiSession(input);
+    const { chain } = generateSampleChain({ symbol: "NIFTY", spot: 25012.4, expiry, now, strikes: 41 });
+    const r = chain[20];
+    const open = s[0].rows.find((x) => x.strike === r.strikePrice && x.side === "CE")?.oi ?? NaN;
+    expect(Math.abs(open - Math.max(0, Math.round(r.ce.oi) - Math.round(r.ce.oiChange)))).toBeLessThanOrEqual(Math.abs(r.ce.oiChange) * 0.05 + 1);
+    expect(s.every((snap) => snap.rows.every((x) => x.oi >= 0 && x.ltp > 0))).toBe(true);
+  });
+
+  it("returns nothing for unusable inputs", () => {
+    expect(buildSampleOiSession({ ...input, spot: 0 })).toEqual([]);
+    expect(buildSampleOiSession({ ...input, expiry: "" })).toEqual([]);
+    expect(buildSampleOiSession({ ...input, expiry: "2026-10-01" })).toEqual([]);
   });
 });

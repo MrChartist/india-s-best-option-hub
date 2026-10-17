@@ -92,20 +92,59 @@ export function PanelHeader({ icon: Icon, title, subtitle, right }: { icon: Luci
   );
 }
 
-export function EmptyState({ icon: Icon, title, body, action }: { icon: LucideIcon; title: string; body?: ReactNode; action?: ReactNode }) {
+/**
+ * Empty state for a volatility panel, styled to match the shared dashboard DataState (same icon
+ * size, type scale and spacing) but with room for guidance and an action. Use DataState itself for
+ * plain loading, error and "no data" bodies.
+ */
+export function EmptyState({ icon: Icon, title, body, action, className }: { icon: LucideIcon; title: string; body?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center" role="status">
-      <Icon className="h-7 w-7 text-muted-foreground/50" aria-hidden="true" />
-      <p className="text-lead text-foreground">{title}</p>
+    <div className={cn("flex min-h-[160px] flex-col items-center justify-center gap-1.5 px-4 py-8 text-center", className)} role="status">
+      <Icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      <p className="text-body font-medium text-foreground">{title}</p>
       {body ? <div className="max-w-md text-body-sm text-muted-foreground">{body}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
   );
 }
 
+export { DataState, RetryButton } from "@/components/dashboard/DataState";
+
+/**
+ * Diagonal "Sample data" watermark laid over a chart or table so a screenshot can never pass as
+ * market data. The parent must be `relative`. Decorative: pair it with a visible SampleBadge.
+ */
+export function SampleWatermark({ label = "Sample data" }: { label?: string }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 flex select-none items-center justify-center overflow-hidden">
+      <span className="-rotate-12 whitespace-nowrap rounded-chip border-2 border-dashed border-warning/40 px-4 py-1 font-display text-title font-bold uppercase tracking-[0.2em] text-warning/40">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/** Small tooltip-backed chip, wraps on narrow screens. */
+export function HintChip({ children, hint, variant = "neutral" }: { children: ReactNode; hint: ReactNode; variant?: "neutral" | "warning" | "info" }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="inline-flex max-w-full rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+          <Badge variant={variant} className="h-auto cursor-help whitespace-normal py-0.5 text-left leading-snug">
+            {children}
+          </Badge>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+        {hint}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function PanelSkeleton({ height = 280 }: { height?: number }) {
   return (
-    <Card aria-busy="true" aria-label="Loading">
+    <Card role="status" aria-busy="true" aria-label="Loading">
       <CardContent className="space-y-3 p-4">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="w-full" style={{ height }} />

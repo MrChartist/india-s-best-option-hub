@@ -37,7 +37,9 @@ export function buildHeatmapModel(
   metric: HeatMetric,
   o: { convention: GexConvention; oiUnit: "contracts" | "qty"; window: number | "all" },
 ): HeatmapModel {
-  const list = (Array.isArray(chains) ? chains : []).filter((c) => c.expiry && Array.isArray(c.chain) && c.chain.length > 0);
+  const list = (Array.isArray(chains) ? chains : []).filter(
+    (c) => c.expiry && Array.isArray(c.chain) && c.chain.length > 0,
+  );
   const merged = new Map<number, Map<string, number>>();
   const expiries: string[] = [];
   const markers: HeatColumnMarkers[] = [];
@@ -45,14 +47,20 @@ export function buildHeatmapModel(
   for (const c of list) {
     if (expiries.includes(c.expiry)) continue;
     expiries.push(c.expiry);
-    const rows = multiExpiryExposure([{ expiry: c.expiry, chain: c.chain }], spot, c.lotSize, metric, { convention: o.convention, oiUnit: o.oiUnit });
+    const rows = multiExpiryExposure([{ expiry: c.expiry, chain: c.chain }], spot, c.lotSize, metric, {
+      convention: o.convention,
+      oiUnit: o.oiUnit,
+    });
     for (const row of rows) {
       const m = merged.get(row.strike) ?? new Map<string, number>();
       m.set(c.expiry, row[c.expiry]);
       merged.set(row.strike, m);
     }
     // Walls are convention-free; the flip uses the dealer model so a marker exists in both views.
-    const lv = computeGammaLevels(c.chain, spot, c.expiry, c.lotSize, { convention: "dealerLongCallShortPut", oiUnit: o.oiUnit });
+    const lv = computeGammaLevels(c.chain, spot, c.expiry, c.lotSize, {
+      convention: "dealerLongCallShortPut",
+      oiUnit: o.oiUnit,
+    });
     const colStrikes = c.chain.map((r) => r.strikePrice);
     markers.push({
       expiry: c.expiry,

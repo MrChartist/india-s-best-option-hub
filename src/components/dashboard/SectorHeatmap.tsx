@@ -5,13 +5,13 @@
 import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { useAllIndices, useFnOStocks } from "@/hooks/useMarketData";
 import type { FnOStockData } from "@/lib/marketApi";
 import { formatNumberIN, formatPct } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { ARROW, sourceName, statusFrom } from "./dashboardModel";
 import { DataState, DataStatus } from "./DataState";
 import { useDensityClasses } from "./density";
+import { useDashAllIndices, useDashFno } from "./useDashboardData";
 
 interface SectorCell {
   name: string;
@@ -38,8 +38,8 @@ function aggregateStocksBySector(stocks: readonly FnOStockData[]): SectorCell[] 
 export function SectorHeatmap() {
   const qc = useQueryClient();
   const d = useDensityClasses();
-  const idx = useAllIndices();
-  const fno = useFnOStocks();
+  const idx = useDashAllIndices();
+  const fno = useDashFno();
 
   const nse = useMemo<SectorCell[]>(() => (idx.data.sectors ?? []).map((s) => ({ name: s.name, change: s.change })).sort((a, b) => b.change - a.change), [idx.data.sectors]);
   const derived = useMemo(() => (nse.length > 0 ? [] : aggregateStocksBySector(fno.data?.allStocks ?? [])), [nse.length, fno.data]);
@@ -49,7 +49,9 @@ export function SectorHeatmap() {
   const status = useNse
     ? statusFrom({ isLoading: idx.isLoading, hasData: true, source: idx.source, stale: idx.stale, isLive: idx.data.isLive })
     : derived.length > 0
-      ? "derived"
+      ? fno.isSample
+        ? "sample"
+        : "derived"
       : idx.isLoading || fno.isLoading
         ? "loading"
         : "empty";
@@ -71,7 +73,13 @@ export function SectorHeatmap() {
             status={status}
             lastUpdated={useNse ? idx.asOf : fno.data?.asOf}
             source={useNse ? sourceName(idx.source) : sourceName(fno.data?.source)}
-            reason={useNse ? undefined : "Average change of F&O stocks in each sector, not the official sectoral index."}
+            reason={
+              status === "sample"
+                ? "Average change of the sample F&O stocks in each sector. Illustrative, not the official sectoral indices."
+                : useNse
+                  ? undefined
+                  : "Average change of F&O stocks in each sector, not the official sectoral index."
+            }
           />
         </div>
       </div>

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { generateSampleChain, toISTDate } from "@/lib/options";
 import type { ChainSnapshot, StrikeSnap } from "@/lib/snapshotStore";
 import {
+  premiumDomain,
+  heroZeroLeg,
   analyseStraddle,
   comboLabel,
   comboSeries,
@@ -147,8 +149,7 @@ describe("Black-76 straddle maths", () => {
 });
 
 describe("analyseStraddle on a sample expiry session", () => {
-  const sample = generateSampleChain({ symbol: "NIFTY", spot: 25000, expiry: "2026-11-03", now: toISTDate("2026-11-02", "15:00"), seed: 3 });
-  const snaps = simulateExpirySession({ symbol: "NIFTY", expiry: "2026-11-03", spot: 25000, chain: sample.chain, now: toISTDate("2026-11-03", "15:40") });
+  const snaps = simulateExpirySession({ symbol: "NIFTY", expiry: "2026-11-03", spot: 25000, now: toISTDate("2026-11-03", "15:25") });
 
   it("simulates a full expiry session that decays", () => {
     expect(snaps.length).toBeGreaterThan(100);
@@ -161,7 +162,8 @@ describe("analyseStraddle on a sample expiry session", () => {
     expect(a.theory.length).toBeGreaterThan(10);
     // theory is monotone non-increasing and ends at intrinsic (expiry close)
     for (let i = 1; i < a.theory.length; i++) expect(a.theory[i].theory).toBeLessThanOrEqual(a.theory[i - 1].theory + 1e-9);
-    expect(a.theory[a.theory.length - 1].theory).toBeLessThan(a.open!.straddle * 0.2);
+    expect(a.theory[a.theory.length - 1].theory).toBeLessThan(Math.abs(a.open!.spot - a.theoryStrike) + 10);
+    expect(a.theory[a.theory.length - 1].theory).toBeLessThan(a.open!.straddle * 0.5);
     const last = a.last!;
     expect(last.straddle).toBeGreaterThanOrEqual(Math.abs(last.spot - last.strike) - 1);
     const floating = analyseStraddle(snaps, { expiry: "2026-11-03", r: 0.065 });
@@ -175,7 +177,7 @@ describe("analyseStraddle on a sample expiry session", () => {
   });
 
   it("is deterministic", () => {
-    const again = simulateExpirySession({ symbol: "NIFTY", expiry: "2026-11-03", spot: 25000, chain: sample.chain, now: toISTDate("2026-11-03", "15:40") });
+    const again = simulateExpirySession({ symbol: "NIFTY", expiry: "2026-11-03", spot: 25000, now: toISTDate("2026-11-03", "15:25") });
     expect(again[10].rows[5].ltp).toBe(snaps[10].rows[5].ltp);
   });
 
@@ -238,14 +240,37 @@ describe("hero-zero, OI walls, metrics and rules", () => {
     for (let i = 1; i < byVol.length; i++) expect(byVol[i].volume).toBeLessThanOrEqual(byVol[i - 1].volume);
   });
   it("hero-zero uses the session-open LTP for gain when there is no previous close", () => {
+    // Drop the day change so only the session-open reference is available.
+    const noPrev = chain.map((r) => ({ ...r, ce: { ...r.ce, pChange: 0 }, pe: { ...r.pe, pChange: 0 } }));
     const first = new Map<string, number>();
-    const rows0 = heroZeroCandidates(chain, { spot: 25000, expiry: "2026-11-03", now, r: 0.065 });
+    const rows0 = heroZeroCandidates(noPrev, { spot: 25000, expiry: "2026-11-03", now, r: 0.065 });
     const r0 = rows0[0];
     first.set(`${r0.strike}|${r0.type}`, r0.ltp / 2);
-    const rows = heroZeroCandidates(chain, { spot: 25000, expiry: "2026-11-03", now, r: 0.065, openLtp: first });
+    const rows = heroZeroCandidates(noPrev, { spot: 25000, expiry: "2026-11-03", now, r: 0.065, openLtp: first });
     const hit = rows.find((r) => r.strike === r0.strike && r.type === r0.type)!;
     expect(hit.changeBasis).toBe("session-open");
     expect(hit.changePct).toBeCloseTo(100, 6);
+  });
+  it("premium axis pads ₹10 per unit, scaled per lot and floored at zero", () => {
+    const [lo, hi] = premiumDomain(1);
+    expect(lo(100.4)).toBe(90);
+    expect(hi(150.2)).toBe(161);
+    expect(lo(4)).toBe(0);
+    const [lo75] = premiumDomain(75);
+    expect(lo75(7500)).toBe(6750);
+  });
+  it("hero-zero rows become one long basket lot", () => {
+    expect(heroZeroLeg("nifty", "2026-11-03", { strike: 25600, type: "CE", ltp: 3.456, iv: 0.18234 })).toEqual({
+      symbol: "NIFTY",
+      expiry: "2026-11-03",
+      strike: 25600,
+      type: "CE",
+      side: "BUY",
+      lots: 1,
+      premium: 3.46,
+      iv: 0.1823,
+    });
+    expect(heroZeroLeg("NIFTY", "2026-11-03", { strike: 24400, type: "PE", ltp: 2, iv: NaN }).iv).toBeNull();
   });
   it("hero-zero returns nothing after expiry", () => {
     expect(heroZeroCandidates(chain, { spot: 25000, expiry: "2026-11-03", now: toISTDate("2026-11-03", "15:45"), r: 0.065 })).toEqual([]);

@@ -36,10 +36,18 @@ function inlineSvg(svg: SVGSVGElement): string {
   return new XMLSerializer().serializeToString(clone);
 }
 
-export async function exportChartPng(container: HTMLElement | null, opts: { title: string; subtitle: string; fileName: string }): Promise<boolean> {
-  if (!container || typeof document === "undefined") return false;
+export interface ChartImageOptions {
+  title: string;
+  subtitle: string;
+  /** Optional tag drawn top-right, e.g. "SAMPLE DATA" (never omitted when the data is sample). */
+  tag?: string;
+}
+
+/** Render the chart in `container` with a title band and footer to a PNG blob. Null when the browser blocks it. */
+export async function renderChartPng(container: HTMLElement | null, opts: ChartImageOptions): Promise<Blob | null> {
+  if (!container || typeof document === "undefined") return null;
   const svg = container.querySelector("svg.recharts-surface") as SVGSVGElement | null;
-  if (!svg) return false;
+  if (!svg) return null;
   const markup = inlineSvg(svg);
   const { width, height } = svg.getBoundingClientRect();
   const scale = Math.min(3, Math.max(2, window.devicePixelRatio || 2));
@@ -52,7 +60,7 @@ export async function exportChartPng(container: HTMLElement | null, opts: { titl
   canvas.width = W * scale;
   canvas.height = H * scale;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return false;
+  if (!ctx) return null;
   ctx.scale(scale, scale);
   const hsl = (name: string, alpha?: number) => {
     const raw = rootVar(name) || "0 0% 50%";
@@ -60,9 +68,21 @@ export async function exportChartPng(container: HTMLElement | null, opts: { titl
   };
   ctx.fillStyle = hsl("card");
   ctx.fillRect(0, 0, W, H);
+  let tagW = 0;
+  if (opts.tag) {
+    ctx.font = "700 11px Inter, system-ui, sans-serif";
+    tagW = ctx.measureText(opts.tag).width + 16;
+    ctx.fillStyle = hsl("warning", 0.15);
+    ctx.fillRect(W - pad - tagW, 14, tagW, 20);
+    ctx.fillStyle = hsl("warning");
+    ctx.fillText(opts.tag, W - pad - tagW + 8, 28);
+  }
   ctx.fillStyle = hsl("foreground");
   ctx.font = "700 16px 'Plus Jakarta Sans', Inter, system-ui, sans-serif";
-  ctx.fillText(opts.title, pad, 28);
+  let title = opts.title;
+  const titleMax = W - pad * 2 - (tagW ? tagW + 12 : 0);
+  while (title.length > 1 && ctx.measureText(title).width > titleMax) title = title.slice(0, -2) + "…";
+  ctx.fillText(title, pad, 28);
   ctx.fillStyle = hsl("muted-foreground");
   ctx.font = "500 12px Inter, system-ui, sans-serif";
   let sub = opts.subtitle;
@@ -84,20 +104,65 @@ export async function exportChartPng(container: HTMLElement | null, opts: { titl
     });
     ctx.drawImage(img, pad, header, width, height);
   } catch {
-    return false;
+    return null;
   } finally {
     URL.revokeObjectURL(url);
   }
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!blob) return false;
+  return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = opts.fileName;
+  a.download = fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/** Render and download the chart as a PNG. */
+export async function exportChartPng(container: HTMLElement | null, opts: ChartImageOptions & { fileName: string }): Promise<boolean> {
+  const blob = await renderChartPng(container, opts);
+  if (!blob) return false;
+  downloadBlob(blob, opts.fileName);
   return true;
+}
+
+export type CopyImageResult = "copied" | "shared" | "downloaded" | "failed";
+
+/**
+ * Copy the chart image to the clipboard (paste straight into X or WhatsApp Web). Where image
+ * clipboard is unsupported (older Safari, Firefox), fall back to the share sheet, then a download.
+ */
+export async function copyChartPng(container: HTMLElement | null, opts: ChartImageOptions & { fileName: string }): Promise<CopyImageResult> {
+  // Safari only allows clipboard writes started inside the click, so hand ClipboardItem a promise.
+  const pending = renderChartPng(container, opts).then((b) => {
+    if (!b) throw new Error("render failed");
+    return b;
+  });
+  try {
+    const Item = (window as unknown as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+    if (Item && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new Item({ "image/png": pending })]);
+      return "copied";
+    }
+  } catch {
+    /* permission denied or unsupported: try the share sheet */
+  }
+  const blob = await pending.catch(() => null);
+  if (!blob) return "failed";
+  try {
+    const file = new File([blob], opts.fileName, { type: "image/png" });
+    if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: opts.title });
+      return "shared";
+    }
+  } catch {
+    /* share cancelled or blocked: download instead */
+  }
+  downloadBlob(blob, opts.fileName);
+  return "downloaded";
 }
 
 /** Download a text file (CSV) in the browser. */

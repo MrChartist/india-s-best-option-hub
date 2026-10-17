@@ -53,7 +53,7 @@ export default function ExerciseSTTCalculator() {
         description="For a long in-the-money option on expiry day: compare selling it before the close with letting the exchange settle it at intrinsic value."
         actions={<Badge variant="info">Rates from {formatDateIST(rates.effectiveFrom)}</Badge>}
       >
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
           <SymbolField value={symbol} onChange={changeSymbol} />
           <Segmented label="Option" value={type} onChange={setType} options={[{ value: "CE", label: "Call" }, { value: "PE", label: "Put" }]} />
           <NumField label="Strike" prefix="₹" value={strike} onChange={setStrike} invalid={!isPos(toNum(strike))} />

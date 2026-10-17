@@ -4,14 +4,16 @@
  * drift, NIFTY vs SENSEX, and the expiry-day rules.
  */
 import { useCallback, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, CircleDot, FlaskConical, Info, Zap } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { AlertTriangle, ChartSpline, CircleDot, FlaskConical, Info, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/PageHeader";
 import { ExpiryCountdown } from "@/components/expiry/ExpiryCountdown";
 import { ExpiryOIWalls } from "@/components/expiry/ExpiryOIWalls";
 import { ExpiryRulesCard } from "@/components/expiry/ExpiryRulesCard";
@@ -21,12 +23,13 @@ import { StraddleChart } from "@/components/expiry/StraddleChart";
 import { StraddleDecayVsTheory } from "@/components/expiry/StraddleDecayVsTheory";
 import { WeeklyCompare } from "@/components/expiry/WeeklyCompare";
 import { ModeBadge, Stat } from "@/components/expiry/ExpiryUi";
-import { EXPIRY_SYMBOLS, analyseStraddle, expiryMetrics, isExpirySymbol, oiWalls, pickExpirySymbol, type ExpirySymbol } from "@/components/expiry/expiryMath";
+import { EXPIRY_SYMBOLS, analyseStraddle, expiryMetrics, hhmmIST, isExpirySymbol, oiWalls, openingATM, pickExpirySymbol, signTone, type ExpirySymbol } from "@/components/expiry/expiryMath";
 import { useExpirySession, useNow } from "@/components/expiry/useExpirySession";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useSnapshotRecorder } from "@/hooks/useSnapshotRecorder";
 import {
-  expectedMoveFromStraddle,
+  EM_METHOD_LABEL,
+  expectedMoves,
   formatDateIST,
   formatINR,
   formatNumberIN,
@@ -37,6 +40,7 @@ import {
   getMarketSession,
   istDateString,
   isWeeklyExpiry,
+  timeToExpiryYears,
 } from "@/lib/options";
 
 const TABS = [
@@ -87,7 +91,16 @@ export default function ExpiryDay() {
   const recordTargets = useMemo(() => [{ symbol, expiry }, ...(nextExpiry ? [{ symbol, expiry: nextExpiry }] : [])].filter((t) => !!t.expiry), [symbol, expiry, nextExpiry]);
   const recorder = useSnapshotRecorder(recordTargets);
 
+  const [strikeMode, setStrikeMode] = useState<"floating" | "fixed">("floating");
+  const [perLot, setPerLot] = useState(false);
+
   const floating = useMemo(() => analyseStraddle(s.snaps, { expiry: s.expiry, r: s.r, q: s.q }), [s.snaps, s.expiry, s.r, s.q]);
+  const fixedStrike = useMemo(() => openingATM(s.snaps), [s.snaps]);
+  const fixed = useMemo(
+    () => (strikeMode === "fixed" && Number.isFinite(fixedStrike) ? analyseStraddle(s.snaps, { expiry: s.expiry, r: s.r, q: s.q, mode: { kind: "fixed", strike: fixedStrike } }) : null),
+    [strikeMode, fixedStrike, s.snaps, s.expiry, s.r, s.q],
+  );
+  const a = strikeMode === "fixed" && fixed ? fixed : floating;
   const priceAt = useMemo(() => (s.mode === "sample" && s.asOf ? new Date(s.asOf) : new Date(minuteKey * 60_000)), [s.mode, s.asOf, minuteKey]);
   const metrics = useMemo(() => expiryMetrics(s.chain, { spot: s.spot, expiry: s.expiry, now: priceAt, r: s.r }), [s.chain, s.spot, s.expiry, priceAt, s.r]);
   const walls = useMemo(() => oiWalls(s.chain, s.spot, 1), [s.chain, s.spot]);
@@ -95,39 +108,52 @@ export default function ExpiryDay() {
   const exchange = getContractSpec(symbol)?.exchange ?? "NSE";
   const session = getMarketSession(minute, exchange);
   const lot = s.lotSize > 0 ? s.lotSize : NaN;
-  const straddleNow = floating.last?.straddle ?? metrics.straddle;
-  const em = expectedMoveFromStraddle(straddleNow, s.spot);
+  const mult = perLot && lot > 0 ? lot : 1;
+  const unit = perLot && lot > 0 ? `per lot (${lot})` : "per unit";
+  const dec = perLot && lot > 0 ? 0 : 2;
+  const last = a.last;
+  const straddleNow = last?.straddle ?? metrics.straddle;
+  // The expected move always uses the floating ATM straddle, whichever strike the chart follows.
+  const atmStraddleNow = floating.last?.straddle ?? metrics.straddle;
+  const em = useMemo(
+    () => expectedMoves({ spot: s.spot, atmIv: metrics.atmIv / 100, tYears: s.expiry ? timeToExpiryYears(s.expiry, priceAt) : NaN, straddle: atmStraddleNow }),
+    [s.spot, metrics.atmIv, s.expiry, priceAt, atmStraddleNow],
+  );
+  const emBand = em.straddle ?? (Number.isFinite(em.iv.move) ? em.iv : null);
+  const emMethod = em.straddle ? "straddle" : "iv";
+  const vwapNow = a.vwap[a.vwap.length - 1];
+  const vsVwap = last && Number.isFinite(vwapNow) ? last.straddle - vwapNow : NaN;
   const loading = s.isLoading;
   const isSample = s.mode === "sample";
   const weekly = expiry ? isWeeklyExpiry(symbol, expiry) : false;
+  const fixedLabel = Number.isFinite(fixedStrike) ? `${formatStrike(fixedStrike)} straddle (fixed at open)` : "Fixed-strike straddle";
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 font-display text-display">
-            <Zap className="h-6 w-6 text-primary-ink" aria-hidden="true" />
-            Expiry Day
-          </h1>
-          <p className="mt-1 max-w-2xl text-body text-muted-foreground">
-            A 0DTE command centre for the NIFTY Tuesday and SENSEX Thursday weeklies: straddle decay against theory, theta per minute, hero-zero strikes, OI walls and the rules that change on expiry day.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ModeBadge mode={s.mode} asOf={s.asOf} reason={s.reason} source={s.chainSource} />
-          {recorder.recording ? (
-            <span className="inline-flex items-center gap-1.5 rounded-capsule border border-border bg-card px-2.5 py-1 text-body-sm" title="Snapshots are saved in this browser every minute while the market is open">
-              <CircleDot className="h-3.5 w-3.5 text-bearish motion-safe:animate-pulse" aria-hidden="true" /> Recording
-            </span>
-          ) : null}
+      <PageHeader
+        icon={Zap}
+        eyebrow="Chain & OI"
+        title="Expiry Day"
+        description="A 0DTE command centre for the NIFTY Tuesday and SENSEX Thursday weeklies: straddle decay against theory, theta per minute, hero-zero strikes, OI walls and the rules that change on expiry day."
+        source={
+          <>
+            <ModeBadge mode={s.mode} asOf={s.asOf} reason={s.reason} source={s.chainSource} />
+            {recorder.recording ? (
+              <span className="inline-flex items-center gap-1.5 rounded-capsule border border-border bg-card px-2.5 py-0.5 text-body-sm" title="Snapshots are saved in this browser every minute while the market is open">
+                <CircleDot className="h-3.5 w-3.5 text-bearish motion-safe:animate-pulse" aria-hidden="true" /> Recording
+              </span>
+            ) : null}
+          </>
+        }
+        actions={
           <div className="flex items-center gap-2 rounded-capsule border border-border bg-card px-3 py-1">
             <Switch id="expiry-sample" checked={forceSample || s.chainSource === "sample"} disabled={s.chainSource === "sample" && !forceSample} onCheckedChange={setForceSample} />
             <Label htmlFor="expiry-sample" className="inline-flex items-center gap-1 text-body-sm">
               <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Sample session
             </Label>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <section aria-label="Contract" className="flex flex-col gap-3 rounded-card border border-border bg-card p-3 shadow-card md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
@@ -198,53 +224,87 @@ export default function ExpiryDay() {
         </div>
       ) : null}
 
-      <section aria-label="Key numbers" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Spot" value={Number.isFinite(s.spot) ? formatNumberIN(s.spot, isSample ? 0 : 2) : "—"} hint={isSample ? "Sample" : s.chainSource !== "none" ? s.chainSource.toUpperCase() : undefined} />
-        <Stat
-          label="ATM straddle"
-          value={Number.isFinite(straddleNow) ? formatINR(straddleNow) : "—"}
-          hint={Number.isFinite(straddleNow) && lot > 0 ? `${formatINR(straddleNow * lot, { decimals: 0 })} per lot` : undefined}
-        />
-        <Stat
-          label="Decayed today"
-          value={Number.isFinite(floating.decayPct) ? formatPct(floating.decayPct * 100, { decimals: 1 }) : "—"}
-          tone={floating.decayPct > 0 ? "text-bullish" : floating.decayPct < 0 ? "text-bearish" : ""}
-          hint={floating.open ? `From ${formatINR(floating.open.straddle)} at open` : "Needs session history"}
-        />
-        <Stat
-          label="Theta / min"
-          value={Number.isFinite(floating.thetaPerMin) && lot > 0 ? formatINR(floating.thetaPerMin * lot, { decimals: 1 }) : "—"}
-          tone="text-bearish"
-          hint="ATM straddle, per lot"
-          help="Black-76 theta of the ATM straddle per trading day ÷ 375 session minutes, times the lot size. A straddle buyer loses this each minute if nothing else changes; a seller earns it."
-        />
-        <Stat
-          label="Expected move"
-          value={Number.isFinite(em.move) ? `±${formatNumberIN(em.move)}` : "—"}
-          hint={Number.isFinite(em.pct) ? `${formatPct(em.pct, { decimals: 2 })} · ${formatNumberIN(em.lower)}–${formatNumberIN(em.upper)}` : undefined}
-          help="0.85 × the ATM straddle: the typical move the straddle prices in by expiry."
-        />
-        <Stat
-          label="Max pain"
-          value={Number.isFinite(walls.maxPain) ? formatStrike(walls.maxPain) : "—"}
-          hint={Number.isFinite(metrics.atmIv) ? `ATM IV ${formatPct(metrics.atmIv, { decimals: 1 })}` : undefined}
-        />
+      <section aria-label="Key numbers" className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <ToggleGroup type="single" size="sm" value={strikeMode} onValueChange={(v) => v && setStrikeMode(v as "floating" | "fixed")} aria-label="Straddle strike" className="justify-start">
+            <ToggleGroupItem value="floating" aria-label="Floating ATM strike">Floating ATM</ToggleGroupItem>
+            <ToggleGroupItem value="fixed" aria-label="Fixed at the opening ATM strike" disabled={!Number.isFinite(fixedStrike)}>Fixed K₀</ToggleGroupItem>
+          </ToggleGroup>
+          <ToggleGroup type="single" size="sm" value={perLot ? "lot" : "unit"} onValueChange={(v) => v && setPerLot(v === "lot")} aria-label="Premium units">
+            <ToggleGroupItem value="unit">₹/unit</ToggleGroupItem>
+            <ToggleGroupItem value="lot" disabled={!(lot > 0)}>₹/lot</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+          <Stat label="Spot" value={Number.isFinite(s.spot) ? formatNumberIN(s.spot, 2) : "—"} hint={isSample ? "Sample" : s.chainSource !== "none" ? s.chainSource.toUpperCase() : undefined} />
+          <Stat
+            label="Straddle now"
+            value={Number.isFinite(straddleNow) ? formatINR(straddleNow * mult, { decimals: dec }) : "—"}
+            hint={last ? `${formatStrike(last.strike)} · ${hhmmIST(last.ts)} IST` : Number.isFinite(metrics.strike) ? `${formatStrike(metrics.strike)} · from the chain` : unit}
+          />
+          <Stat
+            label="Decayed today"
+            value={Number.isFinite(a.decayPct) ? formatPct(a.decayPct * 100, { decimals: 1 }) : "—"}
+            tone={a.decayPct > 0 ? "text-bullish" : a.decayPct < 0 ? "text-bearish" : ""}
+            hint={a.open ? `From ${formatINR(a.open.straddle * mult, { decimals: dec })} at ${hhmmIST(a.open.ts)}` : "Needs session history"}
+            help="Share of the opening straddle premium lost so far. Positive is good for straddle sellers. Compare it with the constant-IV model in the Decay vs theory tab."
+          />
+          <Stat
+            label="Theta / min"
+            value={Number.isFinite(a.thetaPerMin) ? formatINR(a.thetaPerMin * mult, { decimals: perLot ? 1 : 3 }) : "—"}
+            tone="text-bearish"
+            hint={unit}
+            help="Black-76 theta of the straddle (CE + PE) per trading day ÷ the 375-minute session, at the current straddle IV. A straddle buyer loses this each minute if nothing else changes; a seller earns it."
+          />
+          <Stat
+            label={a.vwapBasis === "volume" ? "VWAP" : "TWAP"}
+            value={Number.isFinite(vwapNow) ? formatINR(vwapNow * mult, { decimals: dec }) : "—"}
+            tone={signTone(-vsVwap)}
+            hint={Number.isFinite(vsVwap) ? `Straddle ${vsVwap < 0 ? "below" : "above"} by ${formatINR(Math.abs(vsVwap) * mult, { decimals: dec })}` : "Needs session history"}
+            help={a.vwapBasis === "volume" ? "Volume-weighted average straddle price, weighted by the increase in CE + PE volume at the strike between snapshots. Straddle below VWAP is the usual short-straddle signal." : "No volume increments were available, so this is a time-weighted average."}
+          />
+          <Stat
+            label="Next 15 min"
+            value={Number.isFinite(a.decayNext15) ? formatINR(-a.decayNext15 * mult, { decimals: dec }) : "—"}
+            tone="text-bearish"
+            hint="Model decay, spot and IV unchanged"
+          />
+          <Stat
+            label="Expected move"
+            value={emBand ? `±${formatNumberIN(emBand.move)}` : "—"}
+            tag={emBand ? <Badge variant="neutral" title={emMethod === "straddle" ? "0.85 × the ATM straddle: roughly a 50% band to expiry" : "One standard deviation from ATM IV to expiry"}>{EM_METHOD_LABEL[emMethod]}</Badge> : undefined}
+            hint={emBand ? `${formatNumberIN(emBand.lower)}–${formatNumberIN(emBand.upper)}${em.straddle && Number.isFinite(em.iv.move) ? ` · ${EM_METHOD_LABEL.iv} ±${formatNumberIN(em.iv.move)}` : ""}` : undefined}
+            help="Straddle ×0.85 is the typical move the ATM straddle prices in by expiry (about half of outcomes land inside). IV 1σ is the one-standard-deviation band from ATM IV, about two-thirds of outcomes."
+          />
+          <Stat
+            label="Max pain"
+            value={Number.isFinite(walls.maxPain) ? formatStrike(walls.maxPain) : "—"}
+            hint={Number.isFinite(metrics.atmIv) ? `ATM IV ${formatPct(metrics.atmIv, { decimals: 1 })}` : undefined}
+          />
+        </div>
       </section>
 
       <StraddleChart
-        snaps={s.snaps}
-        expiry={s.expiry}
-        r={s.r}
-        q={s.q}
-        lotSize={s.lotSize}
+        a={a}
+        mult={mult}
+        unit={unit}
+        title={strikeMode === "fixed" ? fixedLabel : "ATM straddle"}
+        subtitle={<>{strikeMode === "floating" ? "Nearest strike to spot at each snapshot" : "Strike fixed at the opening ATM, a tradeable position"} · mid prices where quotes are tight · {unit}</>}
+        symbol={symbol}
         mode={s.mode}
         asOf={s.asOf}
         reason={s.reason}
         source={s.chainSource}
         loading={loading}
-        floating={floating}
         window={s.window}
-        onShowSample={() => setForceSample(true)}
+        onShowSample={isSample ? undefined : () => setForceSample(true)}
+        actions={
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/straddles?symbol=${encodeURIComponent(symbol)}${expiry ? `&expiry=${expiry}` : ""}${strikeMode === "fixed" && Number.isFinite(fixedStrike) ? `&mode=fixed&strike=${fixedStrike}` : ""}`}>
+              <ChartSpline aria-hidden="true" /> Straddle charts
+            </Link>
+          </Button>
+        }
       />
 
       <Tabs value={tab} onValueChange={(t) => setParam("tab", t === "decay" ? null : t)}>
@@ -264,7 +324,7 @@ export default function ExpiryDay() {
           <MultiStraddleChart symbol={symbol} nearExpiry={s.expiry} nextExpiry={nextExpiry} nearSnaps={s.snaps} nearMode={s.mode} step={s.strikeStep} lotSize={s.lotSize} />
         </TabsContent>
         <TabsContent value="hero" className="mt-3">
-          <HeroZeroTable chain={s.chain} spot={s.spot} expiry={s.expiry} r={s.r} q={s.q} lotSize={s.lotSize} snaps={s.snaps} mode={s.mode} at={priceAt} loading={loading} />
+          <HeroZeroTable symbol={symbol} chain={s.chain} spot={s.spot} expiry={s.expiry} r={s.r} q={s.q} lotSize={s.lotSize} snaps={s.snaps} mode={s.mode} at={priceAt} loading={loading} />
         </TabsContent>
         <TabsContent value="oi" className="mt-3">
           <ExpiryOIWalls chain={s.chain} spot={s.spot} snaps={s.snaps} mode={s.mode} lotSize={s.lotSize} expiry={s.expiry} loading={loading} />

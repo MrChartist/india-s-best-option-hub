@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { Layers, Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ import {
 } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { useSimSpot } from "../simSpot";
-import { makeLeg, PRESETS, presetTemplate, pnlTone, strikeLadder, type PresetId } from "./simLogic";
+import { atmIndex, makeLeg, PRESETS, presetTemplate, pnlTone, strikeLadder, type PresetId } from "./simLogic";
 import { SimCard, SimSegmented, SimSlider, SimStat } from "./SimUi";
 
 const SYMBOL = "NIFTY";
@@ -51,7 +51,14 @@ export default function PayoffSim() {
   const [type, setType] = useState<OptionType>("CE");
   const [side, setSide] = useState<Side>("BUY");
   const [ivPct, setIvPct] = useState(13);
-  const [legs, setLegs] = useState<Leg[]>([]);
+  const [legs, setLegsRaw] = useState<Leg[]>([]);
+  // Until the learner edits anything, keep one long ATM call loaded (re-centred if the spot changes).
+  const touched = useRef(false);
+  const setLegs = useCallback((next: SetStateAction<Leg[]>) => {
+    touched.current = true;
+    setLegsRaw(next);
+  }, []);
+  const ladderRef = useRef<HTMLDivElement>(null);
   const uid = useId();
   const strikesLabelId = `${uid}-strikes`;
   const legLimitId = `${uid}-leg-limit`;
@@ -67,6 +74,22 @@ export default function PayoffSim() {
 
   const build = (t: OptionType, sd: Side, strike: number, lots = 1) =>
     makeLeg({ symbol: SYMBOL, type: t, side: sd, strike, expiry, lotSize, spot, sigma, now, lots });
+
+  useEffect(() => {
+    if (touched.current || !(atm > 0) || !expiry) return;
+    setLegsRaw([makeLeg({ symbol: SYMBOL, type: "CE", side: "BUY", strike: atm, expiry, lotSize, spot, sigma, now, lots: 1 })]);
+    // Only re-seed when the ATM strike or expiry moves; IV edits mark the sim as touched via Reprice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atm, expiry]);
+
+  // Centre the strike scroller on ATM without scrolling the page.
+  useLayoutEffect(() => {
+    const el = ladderRef.current;
+    const i = atmIndex(ladder, spot);
+    const btn = i >= 0 ? (el?.children[i] as HTMLElement | undefined) : undefined;
+    if (!el || !btn) return;
+    el.scrollLeft = Math.max(0, btn.offsetLeft - el.offsetLeft - (el.clientWidth - btn.offsetWidth) / 2);
+  }, [ladder, spot]);
 
   const addLeg = (strike: number) => {
     setLegs((cur) => {
@@ -135,7 +158,13 @@ export default function PayoffSim() {
             Max {MAX_LEGS} legs. Remove one or Clear to add more.
           </p>
         ) : null}
-        <div role="group" aria-labelledby={strikesLabelId} aria-describedby={atLegLimit ? legLimitId : undefined} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
+        <div
+          ref={ladderRef}
+          role="group"
+          aria-labelledby={strikesLabelId}
+          aria-describedby={atLegLimit ? legLimitId : undefined}
+          className="relative -mx-1 flex snap-x snap-mandatory scroll-px-1 gap-1 overflow-x-auto overscroll-x-contain px-1 pb-2"
+        >
           {ladder.map((k) => {
             const inUse = legs.some((l) => l.strike === k);
             return (
@@ -146,7 +175,7 @@ export default function PayoffSim() {
                 disabled={atLegLimit && !legs.some((l) => l.type === type && l.side === side && l.strike === k)}
                 aria-label={`${side === "BUY" ? "Buy" : "Sell"} ${formatStrike(k)} ${type}`}
                 className={cn(
-                  "shrink-0 rounded-pill border px-2 py-1.5 font-num text-body-sm tabular-nums transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none disabled:opacity-40",
+                  "shrink-0 snap-center rounded-pill border px-2 py-1.5 font-num text-body-sm tabular-nums transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none disabled:opacity-40",
                   k === atm ? "border-primary/60 bg-wash-brand text-primary-ink" : "border-border bg-surface text-foreground hover:bg-accent",
                   inUse && "ring-1 ring-product/60",
                 )}

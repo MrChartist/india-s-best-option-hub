@@ -4,15 +4,20 @@
  * CMP follows the live option-chain LTP (unless overridden), IV is solved from the CMP with Black-76,
  * Greeks are shown in rupees, delta is beta-weighted into NIFTY lots, P&L is net of round-trip charges,
  * and a scenario grid / payoff chart / management hints sit on top of the same repricing.
+ * The Paper account switch runs the same analytics on the paper-trading account's open positions
+ * (read-only here; trade them in Paper Trading).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Briefcase, CalendarClock, FlaskConical, Plus, Trash2 } from "lucide-react";
+import { BookOpenCheck, Briefcase, CalendarClock, FlaskConical, Plus, Trash2, Wallet } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PageHeader } from "@/components/PageHeader";
+import { paperPositionsAsTracked } from "@/components/positions/paperAccount";
 import { AddPositionForm } from "@/components/positions/AddPositionForm";
 import { ChainFeed } from "@/components/positions/ChainFeed";
 import { ImportExport } from "@/components/positions/ImportExport";
@@ -27,7 +32,9 @@ import { feedKey, feedSourceToQuote, isRealFeed, spotsFromFeeds, useChainFeeds, 
 import { livePosition, managementHints, quoteFromChain, summarisePortfolio, type PositionLive } from "@/components/positions/analytics";
 import { useBetas } from "@/components/positions/useBetas";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useNow } from "@/hooks/useNow";
 import { formatINR, formatTimeIST, getExpiries, getLotSize, getMarketParams } from "@/lib/options";
+import { PAPER_KEY, loadPaper } from "@/lib/paperTrading";
 import {
   applyPositionUpdate,
   clearClosedPositions,
@@ -42,19 +49,74 @@ import {
   type TrackedPosition,
 } from "@/lib/positionStore";
 
-function useNow(ms: number): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), ms);
-    return () => window.clearInterval(id);
-  }, [ms]);
-  return now;
+/** localStorage keys positionStore writes (kept in sync with src/lib/positionStore.ts). */
+const POSITIONS_STORAGE_KEYS = new Set(["optionsdesk_positions", "optionsdesk_closed_positions"]);
+
+type Account = "manual" | "paper";
+const TILE_SKELETONS = ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"];
+const ACCOUNT_KEY = "mc_positions_account";
+
+function readAccount(param: string | null): Account {
+  if (param === "paper" || param === "manual") return param;
+  try {
+    return localStorage.getItem(ACCOUNT_KEY) === "paper" ? "paper" : "manual";
+  } catch {
+    return "manual";
+  }
 }
 
 export default function PositionTracker() {
   useDocumentTitle("Positions");
-  const [positions, setPositions] = useState<TrackedPosition[]>(() => getPositions());
+  const [params] = useSearchParams();
+  const [account, setAccountRaw] = useState<Account>(() => readAccount(params.get("account")));
+  const isPaper = account === "paper";
+  const setAccount = (a: Account) => {
+    setAccountRaw(a);
+    try {
+      localStorage.setItem(ACCOUNT_KEY, a);
+    } catch {
+      /* per-viewer convenience only */
+    }
+  };
+  const [manualPositions, setPositions] = useState<TrackedPosition[]>(() => getPositions());
+  const [paperPositions, setPaperPositions] = useState<TrackedPosition[]>(() => paperPositionsAsTracked(loadPaper()?.positions));
+  const [paperRealised, setPaperRealised] = useState(0);
+  const positions = isPaper ? paperPositions : manualPositions;
   const [closed, setClosed] = useState<ClosedPosition[]>(() => getClosedPositions());
+
+  // Re-read the paper account when switching to it and whenever another tab saves it.
+  useEffect(() => {
+    if (!isPaper) return;
+    const reload = () => {
+      const paper = loadPaper();
+      setPaperPositions(paperPositionsAsTracked(paper?.positions));
+      setPaperRealised((paper?.trades ?? []).reduce((a, t) => a + t.realisedNet, 0));
+    };
+    reload();
+    const onStorage = (e: StorageEvent) => e.key === PAPER_KEY && reload();
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [isPaper]);
+  // Re-read manual positions whenever another tab (or a flow outside this page) saves the store, so
+  // the next persist() does not overwrite those changes with this tab's stale copy.
+  useEffect(() => {
+    const reload = () => {
+      setPositions(getPositions());
+      setClosed(getClosedPositions());
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === null || POSITIONS_STORAGE_KEYS.has(e.key)) reload();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
   const [showAdd, setShowAdd] = useState(false);
   const [settleOpen, setSettleOpen] = useState(false);
   const [tab, setTab] = useState("positions");
@@ -68,7 +130,9 @@ export default function PositionTracker() {
   }, []);
 
   // ── Feeds: one live chain per (symbol, expiry), plus NIFTY for beta weighting ──
-  const niftyExpiry = useMemo(() => getExpiries("NIFTY", new Date(), 1)[0]?.date ?? "", []);
+  // Rolls to the next weekly once the current one passes 15:30 IST (`now` ticks on the shared,
+  // boundary-aligned clock); the memo returns a string, so dependents only change on a rollover.
+  const niftyExpiry = useMemo(() => getExpiries("NIFTY", now, 1)[0]?.date ?? "", [now]);
   const pairs = useMemo(() => {
     const set = new Map<string, { symbol: string; expiry: string }>();
     for (const p of positions) {
@@ -91,9 +155,12 @@ export default function PositionTracker() {
       changed = true;
       return applyPositionUpdate(p, { currentPrice: q.ltp });
     });
-    if (changed) persist(next);
+    if (changed) {
+      if (isPaper) setPaperPositions(next);
+      else persist(next);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- react to new feed data only
-  }, [feeds]);
+  }, [feeds, isPaper]);
 
   const spotInfo = useMemo(() => spotsFromFeeds(feeds), [feeds]);
   const spots = useMemo(() => Object.fromEntries(Object.entries(spotInfo).map(([s, v]) => [s, v.spot])), [spotInfo]);
@@ -130,7 +197,11 @@ export default function PositionTracker() {
   const summary = useMemo(() => summarisePortfolio(positions, live, { spots, betas, niftySpot: spots.NIFTY ?? NaN, niftyLot, now }), [positions, live, spots, betas, niftyLot, now]);
   const chains = useMemo(() => Object.fromEntries(Object.values(feeds).map((f) => [f.key, f.chain])), [feeds]);
   const hints = useMemo(() => managementHints({ positions, live, summary, chains, now, r, formatINR: (v) => formatINR(v, { decimals: 0 }) }), [positions, live, summary, chains, now, r]);
-  const closedNet = useMemo(() => closed.reduce((a, c) => a + (c.netPnl ?? c.realizedPnl), 0), [closed]);
+  const manualClosedNet = useMemo(() => closed.reduce((a, c) => a + (c.netPnl ?? c.realizedPnl), 0), [closed]);
+  const closedNet = isPaper ? paperRealised : manualClosedNet;
+  useEffect(() => {
+    if (isPaper && tab === "closed") setTab("positions");
+  }, [isPaper, tab]);
   const expired = useMemo(() => positions.filter((p) => isExpired(p, now)), [positions, now]);
   const loadingFeeds = pairs.some((x) => !feeds[feedKey(x.symbol, x.expiry)] || feeds[feedKey(x.symbol, x.expiry)].loading);
   const latestAsOf = Math.max(0, ...Object.values(feeds).map((f) => f.asOf || 0));
@@ -182,32 +253,66 @@ export default function PositionTracker() {
         <ChainFeed key={feedKey(x.symbol, x.expiry)} symbol={x.symbol} expiry={x.expiry} onUpdate={report} />
       ))}
 
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 font-display text-display">
-            <Briefcase className="h-6 w-6 text-primary-ink" aria-hidden="true" />
-            Positions
-          </h1>
-          <p className="mt-1 max-w-2xl text-body text-muted-foreground">
-            Track your option positions with live repricing: Greeks in rupees, NIFTY-equivalent delta, P&L after charges, what-if scenarios and plain management hints.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {latestAsOf > 0 ? <span className="text-body-sm text-muted-foreground">Quotes {formatTimeIST(latestAsOf)}</span> : null}
-          <ImportExport
-            disabled={!hasPositions && closed.length === 0}
-            onImported={(res) => {
-              setPositions(res.active);
-              setClosed(res.closed);
-            }}
-          />
-          <Button size="sm" onClick={() => setShowAdd((s) => !s)} aria-expanded={showAdd}>
-            <Plus aria-hidden="true" /> Add position
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        icon={Briefcase}
+        eyebrow="Portfolio"
+        title="Positions"
+        description="Track your option positions with live repricing: Greeks in rupees, NIFTY-equivalent delta, P&L after charges, what-if scenarios and plain management hints."
+        source={
+          <>
+            <ToggleGroup type="single" value={account} onValueChange={(v) => v && setAccount(v as Account)} aria-label="Account" size="sm" variant="outline" className="[&_svg]:size-3.5 [&>button]:gap-1.5">
+              <ToggleGroupItem value="manual" aria-label="My tracked positions">
+                <Briefcase aria-hidden="true" /> Tracked
+              </ToggleGroupItem>
+              <ToggleGroupItem value="paper" aria-label="Paper trading account">
+                <Wallet aria-hidden="true" /> Paper
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {latestAsOf > 0 ? <span className="text-muted-foreground">Quotes {formatTimeIST(latestAsOf)}</span> : null}
+          </>
+        }
+        actions={
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link to={isPaper ? "/journal?source=paper" : "/journal"}>
+                <BookOpenCheck aria-hidden="true" /> Journal
+              </Link>
+            </Button>
+            {isPaper ? (
+              <Button asChild size="sm">
+                <Link to="/paper-trading">
+                  <Wallet aria-hidden="true" /> Trade in Paper Trading
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <ImportExport
+                  disabled={!hasPositions && closed.length === 0}
+                  onImported={(res) => {
+                    setPositions(res.active);
+                    setClosed(res.closed);
+                  }}
+                />
+                <Button size="sm" onClick={() => setShowAdd((s) => !s)} aria-expanded={showAdd}>
+                  <Plus aria-hidden="true" /> Add position
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
-      {showAdd ? (
+      {isPaper ? (
+        <div role="status" className="flex items-start gap-2 rounded-tile border border-info/30 bg-wash-info px-3 py-2 text-body-sm text-foreground">
+          <Wallet className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+          <span>
+            Showing your paper-trading account ({positions.length} open position{positions.length === 1 ? "" : "s"}). These are simulated trades, read-only here; exits, stops and targets live in{" "}
+            <Link to="/paper-trading" className="font-semibold text-primary-ink underline-offset-4 hover:underline">Paper Trading</Link>.
+          </span>
+        </div>
+      ) : null}
+
+      {showAdd && !isPaper ? (
         <Panel title="New position" subtitle="Lot size and expiries follow the NSE/BSE contract calendar. Prices are per unit.">
           <AddPositionForm onAdd={addPosition} onCancel={() => setShowAdd(false)} />
         </Panel>
@@ -222,7 +327,7 @@ export default function PositionTracker() {
         </div>
       ) : null}
 
-      {expired.length ? (
+      {expired.length && !isPaper ? (
         <div role="status" className="flex flex-col gap-2 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2 text-body-sm">
             <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
@@ -234,7 +339,14 @@ export default function PositionTracker() {
         </div>
       ) : null}
 
-      {!hasPositions ? (
+      {!hasPositions && isPaper ? (
+        <EmptyState icon={<Wallet className="h-8 w-8" aria-hidden="true" />} title="No open paper positions">
+          <p>Place a trade in Paper Trading and its Greeks, scenarios, payoff and hints appear here.</p>
+          <Button asChild size="sm" className="mt-3">
+            <Link to="/paper-trading">Open Paper Trading</Link>
+          </Button>
+        </EmptyState>
+      ) : !hasPositions ? (
         <EmptyState icon={<Briefcase className="h-8 w-8" aria-hidden="true" />} title="No open positions">
           <p>
             Add a position, import a JSON file, or send legs here from the <Link to="/strategy-builder" className="text-primary-ink underline-offset-4 hover:underline">Strategy Builder</Link>. Want to practise first? Try{" "}
@@ -248,8 +360,8 @@ export default function PositionTracker() {
         <>
           {loadingFeeds && Object.keys(feeds).length === 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
-              {Array.from({ length: 8 }, (_, i) => (
-                <Skeleton key={i} className="h-[76px] rounded-tile" />
+              {TILE_SKELETONS.map((k) => (
+                <Skeleton key={k} className="h-[76px] rounded-tile" />
               ))}
             </div>
           ) : (
@@ -267,16 +379,17 @@ export default function PositionTracker() {
                 <TabsTrigger value="greeks">Greeks by underlying</TabsTrigger>
                 <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
                 <TabsTrigger value="payoff">Payoff</TabsTrigger>
-                <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger>
+                {!isPaper ? <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger> : null}
               </TabsList>
             </div>
 
             <TabsContent value="positions" className="mt-0">
               <Panel
                 title="Open positions"
-                subtitle="Click a CMP to override it, or lots to resize. Net P&L deducts entry and exit charges."
+                subtitle={isPaper ? "Paper account, marked to the live chain. Net P&L deducts entry and exit charges." : "Click a CMP to override it, or lots to resize. Net P&L deducts entry and exit charges."}
                 bodyClassName="p-0"
                 actions={
+                  isPaper ? null : (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-bearish">
@@ -294,9 +407,10 @@ export default function PositionTracker() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  )
                 }
               >
-                <PositionsTable rows={rows} onSetCmp={setCmp} onResetCmp={resetCmp} onClose={closeOne} onRemove={removeOne} onEditLots={editLots} />
+                <PositionsTable rows={rows} readOnly={isPaper} onSetCmp={setCmp} onResetCmp={resetCmp} onClose={closeOne} onRemove={removeOne} onEditLots={editLots} />
               </Panel>
             </TabsContent>
 
@@ -359,7 +473,7 @@ export default function PositionTracker() {
         </>
       )}
 
-      {closed.length && !hasPositions ? (
+      {closed.length && !hasPositions && !isPaper ? (
         <Panel title="Closed positions" bodyClassName="p-0">
           <ClosedPositionsTable closed={closed} />
         </Panel>

@@ -14,7 +14,17 @@ interface FlowFiltersProps {
   expiries: string[];
 }
 
-function Seg<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void }) {
+function Seg<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (v: T) => void;
+}) {
   return (
     <div className="min-w-0 space-y-1">
       <p className="text-label uppercase text-muted-foreground" id={`seg-${label}`}>
@@ -28,7 +38,12 @@ function Seg<T extends string>({ label, value, options, onChange }: { label: str
         className="flex flex-wrap justify-start gap-1"
       >
         {options.map((o) => (
-          <ToggleGroupItem key={o.value} value={o.value} size="sm" className="h-7 rounded-pill px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card">
+          <ToggleGroupItem
+            key={o.value}
+            value={o.value}
+            size="sm"
+            className="h-7 rounded-pill px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
+          >
             {o.label}
           </ToggleGroupItem>
         ))}
@@ -153,7 +168,12 @@ export function FlowFilters({ value, onChange, symbols, expiries }: FlowFiltersP
           <p className="text-body-sm text-muted-foreground">
             {active} filter{active === 1 ? "" : "s"} on
           </p>
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-body-sm" onClick={() => onChange(DEFAULT_TAPE_FILTERS)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-body-sm"
+            onClick={() => onChange(DEFAULT_TAPE_FILTERS)}
+          >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reset
           </Button>
         </div>

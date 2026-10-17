@@ -12,6 +12,7 @@ import {
   expectedValue,
   forwardFromSpot,
   greeks76,
+  marginFundsRequired,
   maxProfitLoss,
   netPremium,
   positionGreeks,
@@ -163,7 +164,10 @@ export function analyseStrategy(input: AnalysisInput): StrategyAnalysis {
   const riskReward = Number.isFinite(maxProfit) && Number.isFinite(maxLoss) && maxLoss < 0 && maxProfit > 0 ? maxProfit / Math.abs(maxLoss) : null;
 
   const margin = estimateMargin(active, { spot, now, sigma: input.atmIv });
-  const returnOnMargin = Number.isFinite(maxProfit) && margin.total > 0 ? maxProfit / margin.total : null;
+  // Same capital base as the Optimizer: funds required (SPAN + exposure + ELM + net debit),
+  // not margin.total, which adds the gross premium paid on every long leg.
+  const funds = marginFundsRequired(margin);
+  const returnOnMargin = Number.isFinite(maxProfit) && funds > 0 ? maxProfit / funds : null;
 
   const ctx = { spot, now, r, q };
   const legGreeks: LegGreeksRow[] = active.map((l, i) => {
