@@ -29,6 +29,7 @@ import {
   ChartCandlestick,
   ChartSpline,
   History,
+  ListOrdered,
   type LucideIcon,
 } from "lucide-react";
 
@@ -58,6 +59,7 @@ export const ROUTE_ICONS: Record<string, LucideIcon> = {
   ChartCandlestick,
   ChartSpline,
   History,
+  ListOrdered,
 };
 
 /** Icon component for a registry icon name; falls back to an arrow for unknown names. */

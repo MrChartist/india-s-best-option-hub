@@ -15,7 +15,7 @@ Built by [**Mr. Chartist**](https://github.com/MrChartist) | Part of the [Mr. Ch
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-8b5cf6.svg)](https://github.com/MrChartist/india-s-best-option-hub/pulls)
 
-[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
+[Preview](#preview) · [Simple Setup](#start-here-no-coding-experience-needed) · [Features](#-what-you-get) · [1Cliq Trade](#-1cliq-trade-terminal) · [Quick Start](#-quick-start-5-minutes) · [Data Sources](#-data-sources) · [Contributing](#-contributing)
 
 </div>
 
@@ -141,8 +141,10 @@ You can use the basic dashboard without broker credentials. Add a free Dhan API 
 | **📈 OI Analysis** | ATM zone, OI heatmap, support/resistance, IV/PCR modules, and 10 analysis tabs | ✅ Working |
 | **🧮 Strategy Builder** | Build Bull Call Spread, Iron Condor, Straddle — see payoff chart before you trade | ✅ Working |
 | **💼 Position Tracker** | Track your open positions with real-time P&L | ✅ Working |
+| **⚡ 1Cliq Trade** | Keyboard-driven one-click execution terminal: arming model, server-side SL/target engine, F6 close all, F7 cancel all, trading lock | 🧪 Beta (paper-first) |
+| **📋 Orders** | Today's real Dhan order book with cancel for resting orders | 🧪 Beta |
 | **⭐ Watchlist** | Save your favorite stocks for quick access | ✅ Working |
-| **🔑 Broker API Keys** | Connect your Dhan/Zerodha/Angel One account for live data (BYOK) | ✅ Working (Dhan fully connected) |
+| **🔑 Broker API Keys** | Connect Dhan, or another broker's API key, for live data (BYOK) | ✅ Working (Dhan fully connected) |
 | **📡 WebSocket Live Feed** | Real-time price ticks via Dhan WebSocket binary protocol | ✅ Working |
 | **🗄️ Local Database** | IndexedDB-based persistence for price snapshots and candle history | ✅ Working |
 | **📥 Chart Downloader** | Batch download OHLCV candles via Yahoo Finance (free, no API key) | ✅ Working |
@@ -161,6 +163,25 @@ The dashboard is packed with live data widgets:
 - **Sector Performance** — Color-coded sector heatmap showing money flow
 - **Most Active F&O** — Stocks with highest trading activity + OI interpretation
 - **Market Breadth** — Overall market health score, Advance/Decline ratio, VIX regime
+
+---
+
+## ⚡ 1Cliq Trade Terminal
+
+A keyboard-first execution terminal at `/one-cliq` (`g` `t`). The full build spec and roadmap are in [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md).
+
+**Live trading is off by default.** Fills are simulated paper trades until you turn on **Live trading** in Broker Settings, acknowledge the real-money warning, and arm the terminal (`O`). Arming never persists across a reload and auto-disarms when idle.
+
+The risk engine lives on the proxy, not in the browser tab: every Dhan tick goes to the in-process `tickBus` and the server risk engine **before** it is sent to browsers, so a closed or throttled tab cannot delay an exit.
+
+- **Keyboard layer:** arrow keys for market orders, `+`/`-` lots, `1`-`5` lot presets, `F6` close all (press twice), `F7` cancel all, `O` arm, `Esc` disarm, `?` cheat sheet.
+- **Server risk engine** (`server/lib/riskEngine.mjs`): spot-referenced SL/target, trailing ratchet, position state machine and a 1 s dead-man's switch. The armed badge renders only from the server heartbeat. **Real exit orders are not wired yet**: the engine calls an injectable stub.
+- **Panic layer** (`server/lib/panicLayer.mjs`), wired to real Dhan calls: close all runs cancel-all first, then closes shorts, hedges and futures in three waves with a barrier between them. Both always re-fetch the authoritative book from Dhan (never a client-supplied list) and report success only after re-verifying it.
+- **Trading lock** with a server-computed cooling-off and a typed-figure ritual to clear a loss-triggered lock.
+- **Save as basket** in Strategy Builder resolves legs against the live chain and saves them. It **never places orders**.
+- **Orders page** (`/orders`) and portfolio read endpoints (`positions`, `holdings`, `funds`, `trades`, `modify-order`).
+
+Trading endpoints live on `/api/dhan-proxy?endpoint=…`, behind the same Host and Origin allowlists as the rest of the proxy. Anything that changes state is POST-only with a JSON body, and callers without an Origin header are accepted only from this machine.
 
 ---
 
@@ -270,17 +291,9 @@ The proxy server will automatically detect your Dhan credentials and connect to 
 
 ### Step 5 (Optional): Add Other Broker Keys
 
-The Broker Settings page supports entering API keys for 7 Indian brokers:
+Dhan is the reference integration (option chain, Greeks, the live feed and 1Cliq orders). Under **Other brokers** in Broker Settings you can also add an API key for the brokers in `server/brokers/registry.mjs` (Zerodha, Upstox, Fyers, Flattrade, Shoonya, Zebu and more). The active broker then supplies option chains and expiries through `/api/broker-proxy`; the live feed and 1Cliq orders stay on Dhan.
 
-| Broker | Status |
-|--------|--------|
-| **Dhan** | ✅ Fully integrated (Option Chain, Greeks, WebSocket) |
-| **Zerodha (Kite)** | 🔧 UI ready, backend integration coming soon |
-| **Angel One (SmartAPI)** | 🔧 UI ready, backend integration coming soon |
-| **Upstox** | 🔧 UI ready, backend integration coming soon |
-| **Fyers** | 🔧 UI ready, backend integration coming soon |
-| **5paisa** | 🔧 UI ready, backend integration coming soon |
-| **Alice Blue** | 🔧 UI ready, backend integration coming soon |
+Brokers whose APIs cannot log in without your password, MPIN or TOTP secret (for example Angel One, 5paisa, Kotak Neo) are listed but not available, because the terminal never stores those.
 
 ---
 
@@ -424,7 +437,7 @@ Save your favorite F&O symbols for quick access.
 
 ### 7. Broker Settings (`/broker-settings`)
 
-Configure your broker API credentials. See real-time connection status for all data sources. Supports 7 Indian brokers with BYOK (Bring Your Own Key) architecture.
+Configure your broker API credentials, see real-time connection status for all data sources, and turn Live trading (1Cliq Trade) on or off. BYOK (Bring Your Own Key) architecture.
 
 ---
 
@@ -441,6 +454,7 @@ Press `g`, then a letter, to jump between pages (like Gmail or GitHub). Shortcut
 | `g` `v` | Volatility |
 | `g` `x` | Gamma Exposure |
 | `g` `f` | Options Flow |
+| `g` `t` | 1Cliq Trade |
 | `g` `p` | Position Tracker |
 | `g` `l` | Learn |
 | `/` or `Ctrl+K` | Search / command palette |

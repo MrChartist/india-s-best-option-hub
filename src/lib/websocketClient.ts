@@ -14,6 +14,7 @@
  */
 import { getDhanCredentials, onBrokerCredentialsChange } from "./brokerConfig";
 import { markProxyOnline, proxyWsUrl, subscribeProxyStatus, type ProxyGateSnapshot } from "./api/proxyClient";
+import { SECURITY_ID_TO_SYMBOL, SYMBOL_TO_SECURITY_ID, tickKey, toWireInstrument, type InstrumentRef } from "./instrumentKeys";
 
 /** Consecutive failed connects before the client gives up until the proxy gate flips back online. */
 export const MAX_RECONNECT_FAILURES = 5;
@@ -98,26 +99,9 @@ export type TickListener = (data: TickData) => void;
 export type StatusListener = (dhanConnected: boolean) => void;
 export type FeedStatusListener = (status: FeedStatus) => void;
 
-// ── Instrument ids (Dhan IDX_I segment; verify against the Dhan scrip master) ──
+// ── Instrument ids (Dhan IDX_I segment) and tick keys live in instrumentKeys.ts ──
 
-const SYMBOL_TO_SECURITY_ID: Record<string, number> = {
-  NIFTY: 13,
-  BANKNIFTY: 25,
-  FINNIFTY: 27,
-  MIDCPNIFTY: 442,
-  INDIAVIX: 21,
-  SENSEX: 51,
-  BANKEX: 69,
-};
-
-const SECURITY_ID_TO_SYMBOL: Record<number, string> = {};
-for (const [sym, id] of Object.entries(SYMBOL_TO_SECURITY_ID)) SECURITY_ID_TO_SYMBOL[id] = sym;
-
-export { SYMBOL_TO_SECURITY_ID, SECURITY_ID_TO_SYMBOL };
-
-export function tickKey(exchangeSegment: string, securityId: number | string): string {
-  return `${exchangeSegment}:${securityId}`;
-}
+export { SYMBOL_TO_SECURITY_ID, SECURITY_ID_TO_SYMBOL, tickKey };
 
 /** Tick key for an index symbol (all indices are in IDX_I), or undefined. */
 export function indexTickKey(symbol: string): string | undefined {
@@ -172,6 +156,10 @@ class MarketWebSocket {
   private intentionalClose = false;
   private lastCredentialFingerprint: string | null = null;
   private status: FeedStatus = { proxyConnected: false, dhanConnected: false, disconnectCode: null, message: null };
+  /** Instruments wanted through subscribeInstrument(), replayed on every (re)connect. key → ref */
+  private desired = new Map<string, InstrumentRef>();
+  /** Local refcount per key, so two components can watch the same strike. */
+  private refs = new Map<string, number>();
 
   constructor(url?: string) {
     this.url = url || proxyWsUrl();
@@ -226,6 +214,7 @@ class MarketWebSocket {
       this.lastCredentialFingerprint = null;
       this.setStatus({ proxyConnected: true });
       this.sendCredentials();
+      this.replaySubscriptions();
     };
 
     ws.onmessage = (event: MessageEvent) => {
@@ -286,6 +275,42 @@ class MarketWebSocket {
   subscribeInstruments(instruments: Array<{ exchangeSegment: string; securityId: number | string }>): boolean {
     const list = instruments.slice(0, 100).map((i) => ({ ExchangeSegment: i.exchangeSegment, SecurityId: String(i.securityId) }));
     return list.length > 0 && this.send({ type: "subscribe", instruments: list });
+  }
+
+  /** Re-request every instrument held through subscribeInstrument(). Called on each (re)connect. */
+  private replaySubscriptions(): void {
+    const all = [...this.desired.values()].map(toWireInstrument);
+    for (let i = 0; i < all.length; i += 100) this.send({ type: "subscribe", instruments: all.slice(i, i + 100) });
+  }
+
+  /**
+   * Watch any instrument (an option strike, a future, an index) and stream its ticks. Refcounted:
+   * the proxy is told to unsubscribe only when the last local listener goes away, and the set is
+   * replayed after a reconnect (the proxy forgets a closed socket's subscriptions).
+   */
+  subscribeInstrument(ref: InstrumentRef, callback: TickListener): () => void {
+    const key = tickKey(ref.exchangeSegment, ref.securityId);
+    const unsubscribeListener = this.subscribe(key, callback);
+    const count = (this.refs.get(key) ?? 0) + 1;
+    this.refs.set(key, count);
+    if (count === 1) {
+      this.desired.set(key, ref);
+      this.send({ type: "subscribe", instruments: [toWireInstrument(ref)] });
+    }
+    let released = false;
+    return () => {
+      if (released) return; // a double unsubscribe must not corrupt the refcount
+      released = true;
+      unsubscribeListener();
+      const remaining = (this.refs.get(key) ?? 1) - 1;
+      if (remaining > 0) {
+        this.refs.set(key, remaining);
+        return;
+      }
+      this.refs.delete(key);
+      this.desired.delete(key);
+      this.send({ type: "unsubscribe", instruments: [toWireInstrument(ref)] });
+    };
   }
 
   subscribe(key: string, callback: TickListener): () => void {

@@ -2,8 +2,12 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, us
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, BookOpen, Eye, FlaskConical, Keyboard, Layers, Radio, RefreshCw, Wand2, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Eye, FlaskConical, Keyboard, Layers, Loader2, PackagePlus, Radio, RefreshCw, Wand2, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { SaveBasketDialog } from "@/components/SaveBasketDialog";
+import { previewBasket, type BasketPreview } from "@/lib/basketApi";
+import { saveBasket } from "@/lib/basketStore";
+import { mapLegsToBasketLegs } from "@/lib/strategyLegMapper";
 import { encodeLegs, type BasketLeg } from "@/components/option-chain/basket";
 import {
   AlertDialog,
@@ -587,6 +591,44 @@ export default function StrategyBuilder() {
     if (paperHref) navigate(paperHref);
   };
 
+  // ── Save as basket (1CLIQ-TRADE-SPEC.md §9) ──
+  // basket-deploy resolves the legs against the live chain for a preview, then the basket is saved
+  // locally. Neither step places an order.
+  const basketSymbols = useMemo(() => [...new Set(optionLegs.map((l) => l.symbol))], [optionLegs]);
+  const basketLegs = useMemo(() => mapLegsToBasketLegs(optionLegs), [optionLegs]);
+  const canSaveBasket = basketLegs.length > 0 && basketSymbols.length === 1;
+  const [basketPreview, setBasketPreview] = useState<BasketPreview | null>(null);
+  const [resolvingBasket, setResolvingBasket] = useState(false);
+  const [savingBasket, setSavingBasket] = useState(false);
+  const handleSaveAsBasket = async () => {
+    if (!canSaveBasket) return;
+    setResolvingBasket(true);
+    try {
+      setBasketPreview(await previewBasket(basketSymbols[0], basketLegs));
+    } catch (e) {
+      toast.error(`Could not resolve basket: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setResolvingBasket(false);
+    }
+  };
+  const handleConfirmSaveBasket = (basketName: string) => {
+    if (!basketPreview) return;
+    setSavingBasket(true);
+    try {
+      saveBasket({ name: basketName, symbol: basketSymbols[0], legs: basketLegs });
+      toast.success(`Basket "${basketName}" saved`, {
+        description: basketPreview.blockedForLive
+          ? `${basketPreview.blockedLegIds.length} leg(s) are paper-only until a broker contract resolves.`
+          : "All legs resolved to live contracts.",
+      });
+      setBasketPreview(null);
+    } catch (e) {
+      toast.error(`Could not save basket: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setSavingBasket(false);
+    }
+  };
+
   const commitToPositions = () => {
     const futs = legs.filter((l) => l.enabled && l.type === "FUT").length;
     const greeksById = new Map(analysis.legGreeks.map((g) => [g.id, g.unit]));
@@ -742,6 +784,20 @@ export default function StrategyBuilder() {
               title={paperHref ? "Stage these option legs in Paper Trading" : "Add at least one enabled option leg (futures are not paper traded)"}
             >
               <FlaskConical /> Paper trade
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleSaveAsBasket}
+              disabled={!canSaveBasket || resolvingBasket}
+              title={
+                canSaveBasket
+                  ? "Resolve these legs against the live Dhan chain and save them as a basket (no order is placed)"
+                  : "Add enabled option legs on a single symbol to save a basket"
+              }
+            >
+              {resolvingBasket ? <Loader2 className="animate-spin" aria-hidden /> : <PackagePlus aria-hidden />} Save as basket
             </Button>
             <Popover>
               <PopoverTrigger asChild>
@@ -1044,6 +1100,13 @@ export default function StrategyBuilder() {
         {wide ? null : <p>{methodNote}</p>}
         <p className="font-medium">Data for education and research. Not investment advice.</p>
       </footer>
+      <SaveBasketDialog
+        preview={basketPreview}
+        defaultName={name || "Untitled basket"}
+        busy={savingBasket}
+        onConfirm={handleConfirmSaveBasket}
+        onCancel={() => setBasketPreview(null)}
+      />
     </div>
   );
 }

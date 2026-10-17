@@ -12,6 +12,8 @@
  * them to move to one of the two modes above.
  */
 
+import { BROKERS as BROKER_CATALOG, type BrokerInfo as CatalogBroker } from "./brokerCatalog";
+
 export interface BrokerInfo {
   id: string;
   name: string;
@@ -23,6 +25,8 @@ export interface BrokerInfo {
   features: string[];
   /** True when the terminal can actually use this broker's API today. */
   integrated: boolean;
+  /** The broker's API cannot log in without a password/MPIN/TOTP secret, which this terminal never stores. */
+  needsLoginSecrets?: boolean;
 }
 
 export interface BrokerField {
@@ -54,81 +58,49 @@ export const BROKER_CHANGE_EVENT = "mc:broker-credentials-changed";
 /** Field names that must never be stored (passwords, MPIN, TOTP seeds). */
 const FORBIDDEN_FIELD = /(pass(word)?|mpin|\bpin\b|totp|otp)/i;
 
-export const BROKERS: BrokerInfo[] = [
-  {
-    id: "dhan",
-    name: "Dhan",
-    logo: "DH",
-    integrated: true,
-    description: "Live option chain, Greeks, OI and the real-time index feed via Dhan API v2.",
-    docsUrl: "https://dhanhq.co/docs/v2/",
-    features: ["Option chain", "Live LTP", "Greeks", "OI", "Expiry list", "Live feed"],
-    fields: [
-      { key: "clientId", label: "Client ID", placeholder: "Your Dhan client ID", type: "text", required: true, helpText: "Dhan web → My Profile → Access DhanHQ APIs" },
-      { key: "accessToken", label: "Access token", placeholder: "Paste a Dhan access token", type: "password", required: true, helpText: "Generate a token in the same screen. Tokens expire; paste a fresh one when it does." },
-    ],
-  },
-  {
-    id: "zerodha",
-    name: "Zerodha (Kite)",
-    logo: "ZK",
-    integrated: false,
-    description: "Kite Connect market data and WebSocket streaming.",
-    docsUrl: "https://kite.trade/docs/connect/v3/",
-    features: ["Option chain", "Live quotes", "Streaming", "Historical data"],
-    fields: [],
-  },
-  {
-    id: "angelone",
-    name: "Angel One (SmartAPI)",
-    logo: "AO",
-    integrated: false,
-    description: "SmartAPI market data, option chain and portfolio.",
-    docsUrl: "https://smartapi.angelone.in/docs",
-    features: ["Option chain", "Live quotes", "Portfolio"],
-    fields: [],
-  },
-  {
-    id: "upstox",
-    name: "Upstox",
-    logo: "UP",
-    integrated: false,
-    description: "Upstox API v2 market data and option chain.",
-    docsUrl: "https://upstox.com/developer/api-documentation/",
-    features: ["Option chain", "Market data", "Portfolio"],
-    fields: [],
-  },
-  {
-    id: "fivepaisa",
-    name: "5paisa",
-    logo: "5P",
-    integrated: false,
-    description: "5paisa Connect market data and option chain.",
-    docsUrl: "https://www.5paisa.com/developerapi/overview",
-    features: ["Option chain", "Market data"],
-    fields: [],
-  },
-  {
-    id: "fyers",
-    name: "Fyers",
-    logo: "FY",
-    integrated: false,
-    description: "Fyers API v3 market data and historical candles.",
-    docsUrl: "https://myapi.fyers.in/docs/",
-    features: ["Option chain", "Historical data"],
-    fields: [],
-  },
-  {
-    id: "aliceblue",
-    name: "Alice Blue",
-    logo: "AB",
-    integrated: false,
-    description: "Alice Blue ANT API market feed.",
-    docsUrl: "https://v2api.aliceblueonline.com/",
-    features: ["Market data", "Portfolio"],
-    fields: [],
-  },
-];
+/** Dhan, as shown in the settings page (the reference integration: data, live feed and 1Cliq orders). */
+const DHAN: BrokerInfo = {
+  id: "dhan",
+  name: "Dhan",
+  logo: "DH",
+  integrated: true,
+  description: "Live option chain, Greeks, OI and the real-time index feed via Dhan API v2. Also the broker 1Cliq Trade places orders with.",
+  docsUrl: "https://dhanhq.co/docs/v2/",
+  features: ["Option chain", "Live LTP", "Greeks", "OI", "Expiry list", "Live feed", "Orders"],
+  fields: [
+    { key: "clientId", label: "Client ID", placeholder: "Your Dhan client ID", type: "text", required: true, helpText: "Dhan web → My Profile → Access DhanHQ APIs" },
+    { key: "accessToken", label: "Access token", placeholder: "Paste a Dhan access token", type: "password", required: true, helpText: "Generate a token in the same screen. Tokens expire; paste a fresh one when it does." },
+  ],
+};
+
+function monogram(name: string): string {
+  const words = name.replace(/\(.*?\)/g, "").split(/[^A-Za-z0-9]+/).filter(Boolean);
+  const letters = words.length >= 2 ? words[0][0] + words[1][0] : (words[0] ?? "?").slice(0, 2);
+  return letters.toUpperCase();
+}
+
+/**
+ * The broker catalogue (brokerCatalog.ts, one server module per broker in server/brokers/) mapped
+ * onto this page's key policy: fields that would hold a login password, MPIN, PIN or TOTP secret are
+ * never offered, so a broker that cannot log in without one is listed but not `integrated`.
+ */
+function fromCatalog(b: CatalogBroker): BrokerInfo {
+  const allowed = b.fields.filter((f) => !FORBIDDEN_FIELD.test(f.key));
+  const needsLoginSecrets = b.fields.some((f) => f.required && FORBIDDEN_FIELD.test(f.key));
+  return {
+    id: b.id,
+    name: b.name,
+    logo: monogram(b.name),
+    integrated: !needsLoginSecrets,
+    needsLoginSecrets,
+    description: b.description,
+    docsUrl: b.docsUrl,
+    features: b.features,
+    fields: needsLoginSecrets ? [] : allowed.map((f) => ({ ...f })),
+  };
+}
+
+export const BROKERS: BrokerInfo[] = [DHAN, ...BROKER_CATALOG.filter((b) => b.id !== "dhan").map(fromCatalog)];
 
 // ── Safe storage access (private windows can throw) ──
 
@@ -426,4 +398,19 @@ export function wipeAllCredentials(): void {
 
 export function getBrokerInfo(brokerId: string): BrokerInfo | undefined {
   return BROKERS.find((b) => b.id === brokerId);
+}
+
+// ── Live Trading gate ──
+// Off by default. Placing a REAL order (real money, needs a static IP whitelisted with Dhan) must be
+// an explicit, remembered opt-in, never a side effect of anything else the user does in the app.
+// This is the persistent, account-level switch; session-scoped one-click arming is separate and
+// deliberately never persisted (see liveArm.ts).
+const LIVE_TRADING_KEY = "optionsdesk_live_trading_enabled";
+
+export function isLiveTradingEnabled(): boolean {
+  return readStorage("local", LIVE_TRADING_KEY) === "true";
+}
+
+export function setLiveTradingEnabled(enabled: boolean): void {
+  writeStorage("local", LIVE_TRADING_KEY, enabled ? "true" : "false");
 }

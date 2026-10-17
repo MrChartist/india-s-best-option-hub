@@ -33,6 +33,7 @@ describe("ROUTES registry", () => {
       "/optimizer", "/volatility", "/gex", "/max-pain-pcr", "/flow", "/screener", "/participants", "/expiry-day",
       "/calculators", "/paper-trading", "/learn", "/learn/:slug",
       "/straddles", "/contract/:symbol/:expiry/:strike/:type", "/futures", "/backtest", "/journal", "/alerts", "/events",
+      "/one-cliq", "/orders",
     ];
     expect(ROUTES.map((r) => r.path).sort()).toEqual([...expected].sort());
   });
@@ -57,6 +58,7 @@ describe("ROUTES registry", () => {
       "g v": "/volatility",
       "g x": "/gex",
       "g f": "/flow",
+      "g t": "/one-cliq",
       "g p": "/position-tracker",
       "g l": "/learn",
     });

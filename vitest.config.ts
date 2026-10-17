@@ -6,6 +6,7 @@ import path from "path";
  * Two test projects:
  *  - "lib":  pure logic under src/lib/** runs in plain Node (fast, no DOM).
  *  - "dom":  everything else (hooks, components, src/test/**) runs in jsdom.
+ *  - "server": proxy-side modules under server/** (plain Node, .mjs tests).
  *
  * A src/lib test that genuinely needs the DOM (localStorage, CSS variables)
  * goes in DOM_LIB_TESTS below, or starts with a `// @vitest-environment jsdom`
@@ -40,6 +41,15 @@ export default defineConfig({
           // exceed the 5 s default under coverage instrumentation on shared CI runners.
           testTimeout: 20_000,
           include: ["src/*.{test,spec}.{ts,tsx}", "src/!(lib)/**/*.{test,spec}.{ts,tsx}", ...DOM_LIB_TESTS],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // Proxy-side modules (risk engine, panic layer, basket engine, broker adapters).
+          name: "server",
+          environment: "node",
+          include: ["server/**/*.{test,spec}.mjs"],
         },
       },
     ],

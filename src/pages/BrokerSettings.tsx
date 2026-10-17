@@ -23,7 +23,8 @@ import {
   type BrokerInfo,
   type StorageState,
 } from "@/lib/brokerConfig";
-import { testDhanConnection } from "@/lib/marketApi";
+import { testBrokerConnection, testDhanConnection } from "@/lib/marketApi";
+import { LiveTradingToggle } from "@/components/LiveTradingToggle";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useFeedStatus } from "@/hooks/useWebSocket";
 import { formatDateIST, formatTimeIST } from "@/lib/options";
@@ -271,9 +272,15 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
   );
 }
 
-// ── Dhan credential card ──
+// ── Broker credential card (Dhan and every integrated broker in the catalogue) ──
 
-function DhanCard({
+function maskedId(broker: BrokerInfo, saved?: BrokerCredentials): string {
+  const field = broker.fields.find((f) => f.type === "text") ?? broker.fields[0];
+  const v = field ? saved?.values[field.key] : undefined;
+  return `${field?.label ?? "Key"} ${v ? `••••${v.slice(-4)}` : "—"}`;
+}
+
+function BrokerKeysCard({
   broker,
   saved,
   isActive,
@@ -288,6 +295,7 @@ function DhanCard({
   const [show, setShow] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState(!saved);
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     setValues(saved?.values ?? {});
@@ -418,7 +426,7 @@ function DhanCard({
           <div className="space-y-2">
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-bullish" aria-hidden />
-              Client ID {saved?.values.clientId ? `••••${saved.values.clientId.slice(-4)}` : "—"}
+              {maskedId(broker, saved)}
               <span className="text-xs">· added {saved ? formatDateIST(saved.addedAt) : "—"}</span>
             </p>
             <div className="flex flex-wrap gap-2">
@@ -437,6 +445,25 @@ function DhanCard({
               <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                 Edit
               </Button>
+              {broker.id !== "dhan" && saved && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={testing}
+                  onClick={async () => {
+                    setTesting(true);
+                    try {
+                      const r = await testBrokerConnection(broker.id, saved.values);
+                      if (r.status === "success") toast.success(`${broker.name}: ${r.message || "connected"}`);
+                      else toast.error(`${broker.name} test failed: ${r.message || "unknown error"}`);
+                    } finally {
+                      setTesting(false);
+                    }
+                  }}
+                >
+                  {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Test
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -614,6 +641,47 @@ function ConnectionStatusPanel() {
   );
 }
 
+// ── Other brokers (server/brokers/*, data through /api/broker-proxy) ──
+
+function OtherBrokers({ saved, activeId, locked }: { saved: BrokerCredentials[]; activeId?: string; locked: boolean }) {
+  const [open, setOpen] = useState(() => saved.some((s) => s.brokerId !== "dhan"));
+  const usable = BROKERS.filter((b) => b.id !== "dhan" && b.integrated);
+  const blocked = BROKERS.filter((b) => b.id !== "dhan" && !b.integrated);
+  return (
+    <section aria-labelledby="other-brokers-title" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 id="other-brokers-title" className="text-lead text-foreground">
+            Other brokers
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Option chain and expiries from your own broker, through the local proxy. Set one active to use it for chains; the live
+            feed and 1Cliq orders stay on Dhan.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? "Hide" : `Show ${usable.length} brokers`}
+        </Button>
+      </div>
+      {open && (
+        <>
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {usable.map((b) => (
+              <BrokerKeysCard key={b.id} broker={b} saved={saved.find((s) => s.brokerId === b.id)} isActive={activeId === b.id} disabled={locked} />
+            ))}
+          </div>
+          {blocked.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Not available here because their APIs need your login password, MPIN or TOTP secret, which this terminal never stores:{" "}
+              {blocked.map((b) => b.name).join(", ")}.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 // ── Page ──
 
 export default function BrokerSettings() {
@@ -660,12 +728,18 @@ export default function BrokerSettings() {
       {/* The Dhan card sits beside Data sources, so neither leaves an empty half-row. */}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section aria-label="Broker" className="min-w-0">
-          <DhanCard broker={dhan} saved={dhanSaved} isActive={activeId === "dhan"} disabled={locked} />
+          <BrokerKeysCard broker={dhan} saved={dhanSaved} isActive={activeId === "dhan"} disabled={locked} />
         </section>
         <section aria-label="Data sources" className="min-w-0">
           <ConnectionStatusPanel />
         </section>
       </div>
+
+      <section aria-label="Live trading">
+        <LiveTradingToggle />
+      </section>
+
+      <OtherBrokers saved={saved} activeId={activeId} locked={locked} />
 
       <DatabaseManager />
       <ChartDataDownloader />
