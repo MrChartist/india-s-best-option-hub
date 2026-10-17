@@ -674,7 +674,7 @@ export default function StrategyBuilder() {
       `Margin (estimate): ${formatINR(a.margin.total, { decimals: 0 })}`,
       `Greeks: Δ ${a.netGreeks.delta.toFixed(1)} · Γ ${a.netGreeks.gamma.toFixed(3)} · Θ ₹${a.netGreeks.theta.toFixed(0)}/day · Vega ₹${a.netGreeks.vega.toFixed(0)}/pt`,
       "",
-      "Mr. Chartist Options Terminal · Data for education and research. Not investment advice.",
+      "Option Hub by Mr. Chartist · Data for education and research. Not investment advice.",
     ];
     return lines.join("\n");
   };

@@ -12,6 +12,7 @@ import { TONE_TEXT } from "./dashboardModel";
 import { DataStatus } from "./DataState";
 import { useMarketBrief } from "./useMarketBrief";
 import { useDensityClasses } from "./density";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 
 export function DailyBrief() {
   const d = useDensityClasses();
@@ -56,6 +57,12 @@ export function DailyBrief() {
           ))}
         </ul>
       )}
+      <ProductCrossLink
+        id="chartBook"
+        campaign="dashboard-brief"
+        blurb="280+ editions of premium visual chart analysis."
+        className={cn("border-t border-border/70 py-2", d.padX)}
+      />
     </Card>
   );
 }

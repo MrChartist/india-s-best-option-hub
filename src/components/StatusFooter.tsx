@@ -3,10 +3,11 @@ import { ArrowUpRight, Circle, Clock, Github } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
 import { useProxyStatus } from "@/lib/api/proxyClient";
 import { formatTimeIST } from "@/lib/options";
+import { BRAND, withUtm } from "@/lib/brand/links";
 import { cn } from "@/lib/utils";
 
-const GITHUB_URL = "https://github.com/MrChartist/india-s-best-option-hub";
-const SITE_URL = "https://mrchartist.com";
+const GITHUB_URL = withUtm(BRAND.repo, "status-footer");
+const SITE_URL = withUtm(BRAND.site, "status-footer");
 
 interface SnapshotStats {
   count: number;

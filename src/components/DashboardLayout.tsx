@@ -2,7 +2,9 @@ import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } fro
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { MrChartistMark } from "@/components/brand/MrChartistLogo";
+import { BRAND } from "@/lib/brand/links";
 import { Button } from "@/components/ui/button";
 import { StatusFooter } from "@/components/StatusFooter";
 import { SampleBanner } from "@/components/SampleBanner";
@@ -297,6 +299,14 @@ export default function DashboardLayout() {
           {/* Top bar */}
           <header className="glass-nav sticky top-0 z-30 flex min-h-12 shrink-0 items-center gap-2 px-2.5 sm:px-3">
             <SidebarTrigger className="h-8 w-8 shrink-0" aria-label="Toggle sidebar" />
+            {/* Phones: the sidebar (and its logo) is a drawer, so show the mark in the top bar. */}
+            <Link
+              to="/"
+              aria-label={`${BRAND.productFull}: dashboard`}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground focus-visible:shadow-ember focus-visible:outline-none md:hidden"
+            >
+              <MrChartistMark size={22} decorative />
+            </Link>
 
             {/* Ticker capsule: live indices */}
             <div className="hidden min-w-0 flex-1 lg:flex">

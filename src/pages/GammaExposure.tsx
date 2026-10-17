@@ -19,6 +19,7 @@ import { LevelsHistoryCard } from "@/components/gex/LevelsHistoryCard";
 import { EDU_NOTE, fmtLevel } from "@/components/gex/format";
 import { GexSourceTag, type SourceInfo } from "@/components/gex/SourceTag";
 import { useGexConvention } from "@/components/gex/useGexConvention";
+import { formatDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAllIndices, useChainMulti, useLiveOptionChain } from "@/hooks/useMarketData";
 import { buildGexView, GEX_CONVENTION_LABEL, inferOiUnit, type GexChainInput } from "@/lib/gexData";
 import { dteLabel, formatDateIST, getContractSpec, getLotSize, isIndexSymbol, maxPain as maxPainOf, normalizeSymbol } from "@/lib/options";
@@ -42,7 +43,7 @@ export default function GammaExposure() {
   const flowFeed = feeds[symbol] ?? null;
 
   useEffect(() => {
-    document.title = `Gamma Exposure · ${symbol} · Mr. Chartist`;
+    document.title = formatDocumentTitle(`Gamma Exposure · ${symbol}`);
   }, [symbol]);
 
   const setSymbol = useCallback(

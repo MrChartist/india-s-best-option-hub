@@ -24,6 +24,8 @@ import Glossary from "@/components/learn/Glossary";
 import LessonCard from "@/components/learn/LessonCard";
 import MetricHelp from "@/components/learn/MetricHelp";
 import NismBanner from "@/components/learn/NismBanner";
+import { BrandCrossLink } from "@/components/brand/ProductCrossLink";
+import { ECOSYSTEM_PAGES } from "@/lib/brand/links";
 import ProgressTracker from "@/components/learn/ProgressTracker";
 import { useLearnProgress } from "@/components/learn/useLearnProgress";
 import { GLOSSARY } from "@/content/learn/glossary";
@@ -187,6 +189,14 @@ export default function Learn() {
       </div>
 
       <NismBanner />
+      <BrandCrossLink
+        name="Learn options on mrchartist.com"
+        url={ECOSYSTEM_PAGES.learnOptions}
+        campaign="learn-hub"
+        tag="learn-options"
+        lead="More lessons from Mr. Chartist:"
+        className="-mt-3"
+      />
 
       {/* Simulators */}
       <section aria-labelledby="sims-h">
