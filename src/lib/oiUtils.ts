@@ -1,63 +1,221 @@
 /**
- * OI Analysis Utility Functions
- * 
- * Pure computation functions for Option Chain analysis.
- * These operate on live chain data — no mock data involved.
+ * OI analysis utilities.
+ *
+ * Pure functions over an option chain (OptionData[]) and over recorded chain snapshots. Pricing,
+ * ATM, max pain and buildup maths come from the shared core in "@/lib/options"; this module adds the
+ * OI-specific aggregates (PCR family, ATM zone, OI walls, writer delta exposure, buildup quadrant,
+ * intraday series) on top of it. Nothing here touches the DOM, the network or IndexedDB.
+ *
+ * Conventions
+ * - OI and OI change are in whatever unit the source sends (contracts for NSE, quantity for Dhan);
+ *   ratios are unit-free. Writer delta exposure converts to lots when told the unit.
+ * - CE OI = call writers = resistance (bearish colour). PE OI = put writers = support (bullish colour).
+ * - Ratios that cannot be computed (division by zero) are 0 in the legacy fields and null in the new
+ *   optional fields, so the UI can show "—" instead of a fabricated number.
  */
+import {
+  BUILDUP_LABEL,
+  atmIV,
+  atmStraddle,
+  chainForward,
+  classifyBuildup,
+  expectedMoveFromIV,
+  expectedMoveFromStraddle,
+  findATMStrike,
+  legIV,
+  maxPain,
+  maxPainCurve,
+  timeToExpiryYears,
+  type Buildup,
+} from "@/lib/options";
+import type { OptionData, OptionLegData } from "./mockData";
+import type { ChainSnapshot } from "./snapshotStore";
 
-// Re-export the OptionData type for convenience
 export type { OptionData, OptionLegData } from "./mockData";
-import type { OptionData } from "./mockData";
+export type { Buildup } from "@/lib/options";
+export { BUILDUP_LABEL };
 
-// ── Max Pain Calculator ──
+const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+const pos = (x: unknown): x is number => finite(x) && x > 0;
+const r2 = (x: number) => Math.round(x * 100) / 100;
+const num = (x: unknown): number => (finite(x) ? x : 0);
 
-export function getMaxPain(chain: OptionData[]): number {
-  if (chain.length === 0) return 0;
-
-  let minPain = Infinity;
-  let maxPainStrike = chain[0]?.strikePrice || 0;
-
-  for (const option of chain) {
-    let totalPain = 0;
-    for (const other of chain) {
-      if (other.strikePrice < option.strikePrice) {
-        totalPain += other.ce.oi * (option.strikePrice - other.strikePrice);
-      } else if (other.strikePrice > option.strikePrice) {
-        totalPain += other.pe.oi * (other.strikePrice - option.strikePrice);
-      }
-    }
-    if (totalPain < minPain) {
-      minPain = totalPain;
-      maxPainStrike = option.strikePrice;
-    }
-  }
-
-  return maxPainStrike;
+function sortedChain(chain: OptionData[]): OptionData[] {
+  return (Array.isArray(chain) ? chain : [])
+    .filter((r) => r && pos(r.strikePrice))
+    .slice()
+    .sort((a, b) => a.strikePrice - b.strikePrice);
 }
 
-// ── Delta OI (OI × Delta directional exposure) ──
+// ── Relative thresholds ──
+
+/** Largest single-leg OI in the chain (0 for an empty chain). */
+export function maxLegOI(chain: OptionData[]): number {
+  let m = 0;
+  for (const r of chain ?? []) m = Math.max(m, num(r?.ce?.oi), num(r?.pe?.oi));
+  return m;
+}
+
+/** Default share of the largest leg OI a strike needs to be charted (5%). */
+export const SIGNIFICANT_OI_FRACTION = 0.05;
+
+/**
+ * Strikes where either leg holds at least `fraction` of the largest leg OI. Relative, so it works
+ * the same for NIFTY (crores of units) and a thin stock chain (a few thousand contracts).
+ */
+export function significantStrikes(chain: OptionData[], fraction: number = SIGNIFICANT_OI_FRACTION): OptionData[] {
+  const rows = sortedChain(chain);
+  const maxOI = maxLegOI(rows);
+  if (maxOI <= 0) return [];
+  const cut = Math.max(0, fraction) * maxOI;
+  return rows.filter((r) => Math.max(num(r.ce.oi), num(r.pe.oi)) >= cut && Math.max(num(r.ce.oi), num(r.pe.oi)) > 0);
+}
+
+// ── Max pain ──
+
+/** Max pain strike (delegates to the shared core). 0 for an empty chain. */
+export function getMaxPain(chain: OptionData[]): number {
+  const mp = maxPain(Array.isArray(chain) ? chain : []);
+  return finite(mp) ? mp : 0;
+}
+
+export { maxPainCurve };
+
+// ── Buildup ──
+
+/** Day price change of a leg: `change`, else from `pChange`/`prevClose`. NaN when unknown. */
+export function legPriceChange(leg: OptionLegData | undefined): number {
+  if (!leg) return NaN;
+  if (finite(leg.change)) return leg.change;
+  if (pos(leg.prevClose) && finite(leg.ltp)) return leg.ltp - leg.prevClose;
+  if (finite(leg.pChange) && pos(leg.ltp) && leg.pChange > -100) return leg.ltp - leg.ltp / (1 + leg.pChange / 100);
+  return NaN;
+}
+
+/** Day price change of a leg in percent. NaN when unknown. */
+export function legPriceChangePct(leg: OptionLegData | undefined): number {
+  if (!leg) return NaN;
+  if (finite(leg.pChange)) return leg.pChange;
+  const chg = legPriceChange(leg);
+  const prev = pos(leg.prevClose) ? leg.prevClose : finite(chg) && pos(leg.ltp) ? leg.ltp - chg : NaN;
+  return finite(chg) && pos(prev) ? (chg / prev) * 100 : NaN;
+}
+
+/** OI change in percent of the previous OI (oi − oiChange). NaN when the previous OI is not positive. */
+export function legOIChangePct(leg: OptionLegData | undefined): number {
+  if (!leg || !finite(leg.oi) || !finite(leg.oiChange)) return NaN;
+  const prev = leg.oi - leg.oiChange;
+  return prev > 0 ? (leg.oiChange / prev) * 100 : NaN;
+}
+
+/**
+ * Buildup of one leg from its price change and OI change. The same rule applies to CE and PE:
+ * price ↑ OI ↑ long build-up, price ↓ OI ↑ short build-up, price ↑ OI ↓ short covering,
+ * price ↓ OI ↓ long unwinding. NEUTRAL when the price change is unknown or either change is zero.
+ */
+export function getBuildup(leg: OptionLegData | undefined): Buildup {
+  if (!leg) return "NEUTRAL";
+  return classifyBuildup(legPriceChange(leg), num(leg.oiChange));
+}
+
+/** Badge variant for a buildup (theme spec: LB bullish, SB bearish, SC info, LU warning). */
+export function buildupTone(b: Buildup): "bullish" | "bearish" | "info" | "warning" | "neutral" {
+  switch (b) {
+    case "LONG_BUILDUP":
+      return "bullish";
+    case "SHORT_BUILDUP":
+      return "bearish";
+    case "SHORT_COVERING":
+      return "info";
+    case "LONG_UNWINDING":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
+export const BUILDUP_SHORT: Record<Buildup, string> = {
+  LONG_BUILDUP: "LB",
+  SHORT_BUILDUP: "SB",
+  SHORT_COVERING: "SC",
+  LONG_UNWINDING: "LU",
+  NEUTRAL: "—",
+};
+
+export interface BuildupPoint {
+  strike: number;
+  side: "CE" | "PE";
+  /** % premium change (x axis). */
+  pricePct: number;
+  /** % OI change vs previous OI (y axis). */
+  oiPct: number;
+  oi: number;
+  oiChange: number;
+  buildup: Buildup;
+}
+
+/**
+ * Points for the buildup quadrant scatter (x = % premium change, y = % OI change), one per leg with
+ * a known price change and a positive previous OI. Legs below `minOIFraction` of the largest OI are
+ * dropped so illiquid far strikes do not dominate the axes.
+ */
+export function buildupQuadrantPoints(chain: OptionData[], minOIFraction = 0.02): BuildupPoint[] {
+  const rows = sortedChain(chain);
+  const cut = maxLegOI(rows) * Math.max(0, minOIFraction);
+  const out: BuildupPoint[] = [];
+  for (const r of rows) {
+    for (const side of ["CE", "PE"] as const) {
+      const leg = side === "CE" ? r.ce : r.pe;
+      if (!leg || num(leg.oi) <= 0 || num(leg.oi) < cut) continue;
+      const pricePct = legPriceChangePct(leg);
+      const oiPct = legOIChangePct(leg);
+      if (!finite(pricePct) || !finite(oiPct)) continue;
+      out.push({ strike: r.strikePrice, side, pricePct: r2(pricePct), oiPct: r2(oiPct), oi: leg.oi, oiChange: num(leg.oiChange), buildup: classifyBuildup(pricePct, oiPct) });
+    }
+  }
+  return out;
+}
+
+/** Count of points per buildup quadrant. */
+export function buildupCounts(points: BuildupPoint[]): Record<Buildup, number> {
+  const c: Record<Buildup, number> = { LONG_BUILDUP: 0, SHORT_BUILDUP: 0, SHORT_COVERING: 0, LONG_UNWINDING: 0, NEUTRAL: 0 };
+  for (const p of points) c[p.buildup]++;
+  return c;
+}
+
+// ── Writer delta exposure (formerly "Delta OI") ──
 
 export interface DeltaOIData {
   strike: number;
+  /** Call writers' delta, in lots (negative: short calls are short delta). */
   ceDeltaOI: number;
+  /** Put writers' delta, in lots (positive: short puts are long delta). */
   peDeltaOI: number;
+  /** Net writer delta in lots. Positive = writers net long (they defend downside), negative = short. */
   netDeltaOI: number;
 }
 
-export function getDeltaOI(chain: OptionData[], spotPrice: number, stepSize: number): DeltaOIData[] {
-  return chain
-    .filter(o => o.ce.oi > 30000 || o.pe.oi > 30000)
-    .map(o => {
-      const ceDeltaOI = Math.round(o.ce.oi * o.ce.delta);
-      const peDeltaOI = Math.round(o.pe.oi * o.pe.delta); // delta is negative for puts
-      return {
-        strike: o.strikePrice,
-        ceDeltaOI: Math.round(ceDeltaOI / 1000),
-        peDeltaOI: Math.round(peDeltaOI / 1000),
-        netDeltaOI: Math.round((ceDeltaOI + peDeltaOI) / 1000),
-      };
-    });
+/**
+ * Writer delta exposure per strike, in lots: −OI × delta for each leg (option writers hold the
+ * opposite side of the buyers). OI in quantity is divided by `lotSize`; OI in contracts is already
+ * lots. Strikes below 5% of the largest leg OI are skipped. Legs with no delta contribute 0.
+ */
+export function getDeltaOI(
+  chain: OptionData[],
+  _spotPrice?: number,
+  _stepSize?: number,
+  opts: { oiUnit?: "contracts" | "qty"; lotSize?: number; fraction?: number } = {},
+): DeltaOIData[] {
+  const div = opts.oiUnit === "qty" && pos(opts.lotSize) ? opts.lotSize : 1;
+  return significantStrikes(chain, opts.fraction ?? SIGNIFICANT_OI_FRACTION).map((o) => {
+    const ce = -(num(o.ce.oi) * num(o.ce.delta)) / div;
+    const pe = -(num(o.pe.oi) * num(o.pe.delta)) / div;
+    return { strike: o.strikePrice, ceDeltaOI: Math.round(ce), peDeltaOI: Math.round(pe), netDeltaOI: Math.round(ce + pe) };
+  });
 }
+
+/** Alias with the descriptive name. */
+export const getWriterDeltaExposure = getDeltaOI;
 
 // ── Strike-wise PCR ──
 
@@ -66,99 +224,228 @@ export interface StrikePCRData {
   pcr: number;
   ceOI: number;
   peOI: number;
+  /** Distance from spot in percent. */
   distance: number;
 }
 
-export function getStrikePCR(chain: OptionData[], spotPrice: number): StrikePCRData[] {
-  return chain
-    .filter(o => o.ce.oi > 10000 && o.pe.oi > 10000)
-    .map(o => ({
+/** PCR per strike for strikes where both legs hold at least `fraction` of the largest leg OI. */
+export function getStrikePCR(chain: OptionData[], spotPrice: number, fraction: number = SIGNIFICANT_OI_FRACTION): StrikePCRData[] {
+  const rows = sortedChain(chain);
+  const cut = maxLegOI(rows) * Math.max(0, fraction);
+  return rows
+    .filter((o) => num(o.ce.oi) > 0 && num(o.pe.oi) > 0 && o.ce.oi >= cut && o.pe.oi >= cut)
+    .map((o) => ({
       strike: o.strikePrice,
-      pcr: Math.round((o.pe.oi / o.ce.oi) * 100) / 100,
+      pcr: r2(o.pe.oi / o.ce.oi),
       ceOI: o.ce.oi,
       peOI: o.pe.oi,
-      distance: Math.round(((o.strikePrice - spotPrice) / spotPrice) * 10000) / 100,
+      distance: pos(spotPrice) ? r2(((o.strikePrice - spotPrice) / spotPrice) * 100) : 0,
     }));
 }
 
-// ── ATM Zone Analysis (nearest N strikes) ──
+// ── PCR signal ──
+
+export type PCRTone = "bullish" | "bearish" | "neutral" | "warning";
+export type PCRBand = "call-heavy" | "balanced" | "put-heavy" | "extreme-put";
+
+export interface PCRSignal {
+  band: PCRBand;
+  label: string;
+  tone: PCRTone;
+  /** Tailwind text colour class for the tone. */
+  className: string;
+  description: string;
+}
+
+/** Band edges used by pcrSignal (exported for charts). */
+export const PCR_BANDS = { low: 0.7, high: 1.2, extreme: 1.6 } as const;
+
+const TONE_CLASS: Record<PCRTone, string> = {
+  bullish: "text-bullish",
+  bearish: "text-bearish",
+  neutral: "text-muted-foreground",
+  warning: "text-warning",
+};
+
+/**
+ * The single OI-PCR reading used across the app.
+ *
+ * - below 0.7: call-heavy. Call writers dominate, resistance overhead, bearish tilt.
+ * - 0.7 to 1.2: balanced. No strong tilt from OI alone.
+ * - above 1.2 up to 1.6: put-heavy. Put writers defending lower strikes, supportive.
+ * - above 1.6: extreme put-heavy. Crowded and often contrarian; supports can give way sharply.
+ *
+ * Non-finite or non-positive input returns the balanced band with a "No data" label.
+ */
+export function pcrSignal(pcr: number): PCRSignal {
+  const mk = (band: PCRBand, label: string, tone: PCRTone, description: string): PCRSignal => ({ band, label, tone, className: TONE_CLASS[tone], description });
+  if (!pos(pcr)) return mk("balanced", "No data", "neutral", "PCR needs open interest on both calls and puts.");
+  if (pcr < PCR_BANDS.low) return mk("call-heavy", "Call heavy · bearish tilt", "bearish", "Call writers dominate. Resistance is building overhead.");
+  if (pcr <= PCR_BANDS.high) return mk("balanced", "Balanced", "neutral", "No strong directional tilt from open interest alone.");
+  if (pcr <= PCR_BANDS.extreme) return mk("put-heavy", "Put heavy · supportive", "bullish", "Put writers are defending lower strikes. Supportive for now.");
+  return mk("extreme-put", "Extreme · contrarian watch", "warning", "Put writing looks crowded. Extremes often precede reversals; treat as a contrarian warning.");
+}
+
+// ── Chain-wide PCR family ──
+
+export interface PCRResult {
+  pcrOI: number;
+  pcrVolume: number;
+  /** ΣPE ΔOI ÷ ΣCE ΔOI, only when both sides added OI; null otherwise. */
+  pcrChgOI: number | null;
+  /** Traded premium PCR: Σ(PE LTP × volume) ÷ Σ(CE LTP × volume); null when no traded premium. */
+  pcrPremium: number | null;
+  totalCEOI: number;
+  totalPEOI: number;
+  totalCEVol: number;
+  totalPEVol: number;
+  totalCEOIChg: number;
+  totalPEOIChg: number;
+  /** Legacy label and colour (from pcrSignal). */
+  signal: string;
+  signalColor: string;
+  signalTone: PCRTone;
+}
+
+export function calculatePCR(chain: OptionData[]): PCRResult {
+  let ceOI = 0, peOI = 0, ceVol = 0, peVol = 0, ceChg = 0, peChg = 0, cePrem = 0, pePrem = 0;
+  for (const o of Array.isArray(chain) ? chain : []) {
+    ceOI += num(o?.ce?.oi);
+    peOI += num(o?.pe?.oi);
+    ceVol += num(o?.ce?.volume);
+    peVol += num(o?.pe?.volume);
+    ceChg += num(o?.ce?.oiChange);
+    peChg += num(o?.pe?.oiChange);
+    cePrem += num(o?.ce?.ltp) * num(o?.ce?.volume);
+    pePrem += num(o?.pe?.ltp) * num(o?.pe?.volume);
+  }
+  const pcrOI = ceOI > 0 ? r2(peOI / ceOI) : 0;
+  const sig = pcrSignal(pcrOI);
+  return {
+    pcrOI,
+    pcrVolume: ceVol > 0 ? r2(peVol / ceVol) : 0,
+    pcrChgOI: ceChg > 0 && peChg > 0 ? r2(peChg / ceChg) : null,
+    pcrPremium: cePrem > 0 && pePrem > 0 ? r2(pePrem / cePrem) : null,
+    totalCEOI: ceOI,
+    totalPEOI: peOI,
+    totalCEVol: ceVol,
+    totalPEVol: peVol,
+    totalCEOIChg: ceChg,
+    totalPEOIChg: peChg,
+    signal: sig.label,
+    signalColor: sig.className,
+    signalTone: sig.tone,
+  };
+}
+
+// ── ATM zone ──
+
+export interface ATMZoneStrike {
+  strike: number;
+  ceOI: number;
+  peOI: number;
+  pcr: number;
+  ceOIChg: number;
+  peOIChg: number;
+  ceOIChgPct: number;
+  peOIChgPct: number;
+  isATM: boolean;
+}
 
 export interface ATMZoneData {
+  /** Number of strikes actually in the zone (ATM ± N, fewer at the chain edges). */
   strikes: number;
+  /** Strikes requested on each side of ATM. */
+  perSide: number;
+  atmStrike: number;
   totalCEOI: number;
   totalPEOI: number;
   pcr: number;
+  /** Zone PCR at the previous close (OI − OI change); 0 when not computable. */
+  prevPcr: number;
   totalCEOIChg: number;
   totalPEOIChg: number;
   ceOIChgPercent: number;
   peOIChgPercent: number;
+  /** PCR now − PCR at the previous close. */
   pcrChange: number;
-  strikeData: {
-    strike: number;
-    ceOI: number;
-    peOI: number;
-    pcr: number;
-    ceOIChg: number;
-    peOIChg: number;
-    ceOIChgPct: number;
-    peOIChgPct: number;
-  }[];
+  strikeData: ATMZoneStrike[];
 }
 
-export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, stepSize: number, numStrikes: number = 5): ATMZoneData {
-  const atmStrike = Math.round(spotPrice / stepSize) * stepSize;
-  const halfRange = Math.floor(numStrikes / 2);
-  const zoneStrikes = chain.filter(o => {
-    const strikeDist = Math.abs(o.strikePrice - atmStrike) / stepSize;
-    return strikeDist <= halfRange;
-  });
+/**
+ * ATM zone: the ATM strike plus `perSide` listed strikes on each side (by position in the chain,
+ * so irregular strike steps are handled). PCR change compares the zone PCR now with the zone PCR
+ * implied by the previous-day OI (OI − OI change).
+ *
+ * `stepSize` is accepted for backwards compatibility and ignored.
+ */
+export function getATMZoneAnalysis(chain: OptionData[], spotPrice: number, _stepSize?: number, perSide: number = 2): ATMZoneData {
+  const rows = sortedChain(chain);
+  const n = Math.max(0, Math.floor(perSide));
+  const atmStrike = rows.length > 0 ? findATMStrike(rows, spotPrice) : NaN;
+  const idx = rows.findIndex((r) => r.strikePrice === atmStrike);
+  const zone = idx < 0 ? [] : rows.slice(Math.max(0, idx - n), idx + n + 1);
 
-  const totalCEOI = zoneStrikes.reduce((s, o) => s + o.ce.oi, 0);
-  const totalPEOI = zoneStrikes.reduce((s, o) => s + o.pe.oi, 0);
-  const totalCEOIChg = zoneStrikes.reduce((s, o) => s + o.ce.oiChange, 0);
-  const totalPEOIChg = zoneStrikes.reduce((s, o) => s + o.pe.oiChange, 0);
-
+  let ceOI = 0, peOI = 0, ceChg = 0, peChg = 0;
+  for (const o of zone) {
+    ceOI += num(o.ce.oi);
+    peOI += num(o.pe.oi);
+    ceChg += num(o.ce.oiChange);
+    peChg += num(o.pe.oiChange);
+  }
+  const pcr = ceOI > 0 ? peOI / ceOI : 0;
+  const prevCE = ceOI - ceChg;
+  const prevPE = peOI - peChg;
+  const prevPcr = prevCE > 0 && prevPE >= 0 ? prevPE / prevCE : 0;
   return {
-    strikes: numStrikes,
-    totalCEOI,
-    totalPEOI,
-    pcr: totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0,
-    totalCEOIChg,
-    totalPEOIChg,
-    ceOIChgPercent: totalCEOI > 0 ? Math.round((totalCEOIChg / totalCEOI) * 10000) / 100 : 0,
-    peOIChgPercent: totalPEOI > 0 ? Math.round((totalPEOIChg / totalPEOI) * 10000) / 100 : 0,
-    pcrChange: totalCEOIChg !== 0 ? Math.round((totalPEOIChg / Math.abs(totalCEOIChg)) * 100) / 100 : 0,
-    strikeData: zoneStrikes.map(o => ({
-      strike: o.strikePrice,
-      ceOI: o.ce.oi,
-      peOI: o.pe.oi,
-      pcr: o.ce.oi > 0 ? Math.round((o.pe.oi / o.ce.oi) * 100) / 100 : 0,
-      ceOIChg: o.ce.oiChange,
-      peOIChg: o.pe.oiChange,
-      ceOIChgPct: o.ce.oi > 0 ? Math.round((o.ce.oiChange / o.ce.oi) * 10000) / 100 : 0,
-      peOIChgPct: o.pe.oi > 0 ? Math.round((o.pe.oiChange / o.pe.oi) * 10000) / 100 : 0,
-    })),
+    strikes: zone.length,
+    perSide: n,
+    atmStrike: finite(atmStrike) ? atmStrike : 0,
+    totalCEOI: ceOI,
+    totalPEOI: peOI,
+    pcr: r2(pcr),
+    prevPcr: r2(prevPcr),
+    totalCEOIChg: ceChg,
+    totalPEOIChg: peChg,
+    ceOIChgPercent: prevCE > 0 ? r2((ceChg / prevCE) * 100) : 0,
+    peOIChgPercent: prevPE > 0 ? r2((peChg / prevPE) * 100) : 0,
+    pcrChange: ceOI > 0 && prevPcr > 0 ? r2(pcr - prevPcr) : 0,
+    strikeData: zone.map((o) => {
+      const cePrev = num(o.ce.oi) - num(o.ce.oiChange);
+      const pePrev = num(o.pe.oi) - num(o.pe.oiChange);
+      return {
+        strike: o.strikePrice,
+        ceOI: num(o.ce.oi),
+        peOI: num(o.pe.oi),
+        pcr: num(o.ce.oi) > 0 ? r2(num(o.pe.oi) / o.ce.oi) : 0,
+        ceOIChg: num(o.ce.oiChange),
+        peOIChg: num(o.pe.oiChange),
+        ceOIChgPct: cePrev > 0 ? r2((num(o.ce.oiChange) / cePrev) * 100) : 0,
+        peOIChgPct: pePrev > 0 ? r2((num(o.pe.oiChange) / pePrev) * 100) : 0,
+        isATM: o.strikePrice === atmStrike,
+      };
+    }),
   };
 }
 
-// ── IV Analysis Utilities ──
+// ── IV ──
 
 /**
- * Calculate current ATM IV from chain
+ * ATM IV (percent) from the strike nearest spot using the OTM-preferred leg IV (legIV). A zero IV
+ * on one leg falls back to the other leg instead of being averaged in.
  */
 export function getATMIV(chain: OptionData[], spotPrice: number): { atmIV: number; atmStrike: number } {
-  if (chain.length === 0) return { atmIV: 0, atmStrike: 0 };
-  const sorted = [...chain].sort((a, b) =>
-    Math.abs(a.strikePrice - spotPrice) - Math.abs(b.strikePrice - spotPrice)
-  );
-  const atm = sorted[0];
-  const atmIV = (atm.ce.iv + atm.pe.iv) / 2;
-  return { atmIV, atmStrike: atm.strikePrice };
+  const rows = sortedChain(chain);
+  if (rows.length === 0) return { atmIV: 0, atmStrike: 0 };
+  const atmStrike = findATMStrike(rows, spotPrice);
+  const row = rows.find((r) => r.strikePrice === atmStrike);
+  const iv = row ? legIV(row, spotPrice) : NaN;
+  return { atmIV: finite(iv) ? iv : 0, atmStrike: finite(atmStrike) ? atmStrike : 0 };
 }
 
 /**
- * Calculate IV percentile from current chain's IV distribution across strikes
- * (uses cross-strike IV distribution as a proxy for historical percentile)
+ * Where ATM IV sits in the cross-strike IV distribution of the current chain. This is a snapshot of
+ * the smile, not a historical IV percentile.
  */
 export function getIVPercentileFromChain(chain: OptionData[], spotPrice: number): {
   percentile: number;
@@ -168,77 +455,312 @@ export function getIVPercentileFromChain(chain: OptionData[], spotPrice: number)
   mean: number;
   atmIV: number;
 } {
-  if (chain.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV: 0 };
-
+  if (!Array.isArray(chain) || chain.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV: 0 };
   const { atmIV } = getATMIV(chain, spotPrice);
-  
-  // Use all strike IVs for distribution
-  const allIVs = chain
-    .flatMap(o => [o.ce.iv, o.pe.iv])
-    .filter(iv => iv > 0);
-  
+  const allIVs = chain.flatMap((o) => [num(o.ce.iv), num(o.pe.iv)]).filter((iv) => iv > 0);
   if (allIVs.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV };
-
-  const sorted = [...allIVs].sort((a, b) => a - b);
-  const below = sorted.filter(v => v < atmIV).length;
-  const percentile = Math.round((below / sorted.length) * 100);
+  const below = allIVs.filter((v) => v < atmIV).length;
   const min = Math.min(...allIVs);
   const max = Math.max(...allIVs);
   const mean = allIVs.reduce((s, v) => s + v, 0) / allIVs.length;
-  const rank = max > min ? Math.round(((atmIV - min) / (max - min)) * 100) : 50;
-
   return {
-    percentile,
-    rank,
-    min: Math.round(min * 100) / 100,
-    max: Math.round(max * 100) / 100,
-    mean: Math.round(mean * 100) / 100,
-    atmIV: Math.round(atmIV * 100) / 100,
+    percentile: Math.round((below / allIVs.length) * 100),
+    rank: max > min ? Math.round(((atmIV - min) / (max - min)) * 100) : 50,
+    min: r2(min),
+    max: r2(max),
+    mean: r2(mean),
+    atmIV: r2(atmIV),
   };
 }
 
-/**
- * IV Skew data for IV smile chart
- */
-export function getIVSkew(chain: OptionData[]): {
+/** IV smile points; the average ignores a zero IV on either leg. */
+export function getIVSkew(chain: OptionData[]): { strike: number; callIV: number; putIV: number; avgIV: number }[] {
+  return sortedChain(chain)
+    .filter((o) => num(o.ce.iv) > 0 || num(o.pe.iv) > 0)
+    .map((o) => {
+      const c = num(o.ce.iv);
+      const p = num(o.pe.iv);
+      const avg = c > 0 && p > 0 ? (c + p) / 2 : c > 0 ? c : p;
+      return { strike: o.strikePrice, callIV: c, putIV: p, avgIV: avg };
+    });
+}
+
+// ── OI walls: support and resistance ──
+
+export interface OILevel {
   strike: number;
-  callIV: number;
-  putIV: number;
-  avgIV: number;
-}[] {
-  return chain
-    .filter(o => o.ce.iv > 0 || o.pe.iv > 0)
-    .map(o => ({
-      strike: o.strikePrice,
-      callIV: o.ce.iv,
-      putIV: o.pe.iv,
-      avgIV: (o.ce.iv + o.pe.iv) / 2,
-    }));
+  type: "support" | "resistance";
+  /** 0–100, relative to the strongest level on the same side. */
+  strength: number;
+  oi: number;
+  oiChange: number;
+  /** OI plus the weighted fresh (positive) OI change. */
+  score: number;
+  distance: number;
+  distancePercent: number;
 }
 
 /**
- * Calculate PCR from chain data
+ * Resistance from CE OI at strikes ≥ spot and support from PE OI at strikes ≤ spot (the ATM strike
+ * can be both). Each strike is scored as OI + freshWeight × max(OI change, 0), so today's fresh
+ * writing counts extra. Returns the `top` strongest per side, resistance ascending and support
+ * descending by strike (nearest first).
  */
-export function calculatePCR(chain: OptionData[]): {
-  pcrOI: number;
-  pcrVolume: number;
+export function getOILevels(
+  chain: OptionData[],
+  spotPrice: number,
+  opts: { top?: number; freshWeight?: number; minFraction?: number } = {},
+): { resistance: OILevel[]; support: OILevel[] } {
+  const rows = sortedChain(chain);
+  if (rows.length === 0 || !pos(spotPrice)) return { resistance: [], support: [] };
+  const top = opts.top ?? 5;
+  const w = opts.freshWeight ?? 0.5;
+  const minFraction = opts.minFraction ?? 0.3;
+  const build = (type: "support" | "resistance"): OILevel[] => {
+    const side = rows
+      .filter((o) => (type === "resistance" ? o.strikePrice >= spotPrice : o.strikePrice <= spotPrice))
+      .map((o) => {
+        const leg = type === "resistance" ? o.ce : o.pe;
+        const oi = num(leg.oi);
+        const chg = num(leg.oiChange);
+        return { o, oi, chg, score: oi + w * Math.max(chg, 0) };
+      })
+      .filter((x) => x.oi > 0);
+    const best = Math.max(0, ...side.map((x) => x.score));
+    if (best <= 0) return [];
+    return side
+      .filter((x) => x.score >= best * minFraction)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, top)
+      .map((x) => ({
+        strike: x.o.strikePrice,
+        type,
+        strength: Math.round((x.score / best) * 100),
+        oi: x.oi,
+        oiChange: x.chg,
+        score: x.score,
+        distance: Math.abs(x.o.strikePrice - spotPrice),
+        distancePercent: (Math.abs(x.o.strikePrice - spotPrice) / spotPrice) * 100,
+      }));
+  };
+  return {
+    resistance: build("resistance").sort((a, b) => a.strike - b.strike),
+    support: build("support").sort((a, b) => b.strike - a.strike),
+  };
+}
+
+/** Strike with the highest CE (side "CE") or PE OI. NaN for an empty chain. */
+export function maxOIStrike(chain: OptionData[], side: "CE" | "PE"): number {
+  let best = NaN;
+  let bestOI = -1;
+  for (const r of sortedChain(chain)) {
+    const oi = num(side === "CE" ? r.ce.oi : r.pe.oi);
+    if (oi > bestOI) {
+      bestOI = oi;
+      best = r.strikePrice;
+    }
+  }
+  return bestOI > 0 ? best : NaN;
+}
+
+/** Direction a wall moved between two readings: "up", "down", "same" or "unknown". */
+export function wallShift(prev: number, now: number): "up" | "down" | "same" | "unknown" {
+  if (!finite(prev) || !finite(now)) return "unknown";
+  return now > prev ? "up" : now < prev ? "down" : "same";
+}
+
+// ── Snapshot series (intraday replay, PCR vs spot, max-pain drift) ──
+
+export interface SnapshotPoint {
+  ts: number;
+  spot: number;
+  pcrOI: number | null;
+  pcrVol: number | null;
+  maxPain: number | null;
+  maxCEStrike: number | null;
+  maxPEStrike: number | null;
   totalCEOI: number;
   totalPEOI: number;
-  totalCEVol: number;
-  totalPEVol: number;
-  signal: string;
-  signalColor: string;
-} {
-  const totalCEOI = chain.reduce((s, o) => s + o.ce.oi, 0);
-  const totalPEOI = chain.reduce((s, o) => s + o.pe.oi, 0);
-  const totalCEVol = chain.reduce((s, o) => s + o.ce.volume, 0);
-  const totalPEVol = chain.reduce((s, o) => s + o.pe.volume, 0);
-  
-  const pcrOI = totalCEOI > 0 ? Math.round((totalPEOI / totalCEOI) * 100) / 100 : 0;
-  const pcrVolume = totalCEVol > 0 ? Math.round((totalPEVol / totalCEVol) * 100) / 100 : 0;
-  
-  const signal = pcrOI > 1.3 ? "Strong Bullish" : pcrOI > 1.0 ? "Bullish" : pcrOI > 0.7 ? "Neutral" : pcrOI > 0.5 ? "Bearish" : "Strong Bearish";
-  const signalColor = pcrOI > 1.0 ? "text-bullish" : pcrOI > 0.7 ? "text-warning" : "text-bearish";
+}
 
-  return { pcrOI, pcrVolume, totalCEOI, totalPEOI, totalCEVol, totalPEVol, signal, signalColor };
+/** Per-snapshot aggregates for intraday charts. Snapshots are sorted by time; empty ones skipped. */
+export function snapshotSeries(snaps: ChainSnapshot[]): SnapshotPoint[] {
+  const out: SnapshotPoint[] = [];
+  for (const s of [...(snaps ?? [])].sort((a, b) => a.ts - b.ts)) {
+    if (!s?.rows?.length) continue;
+    let ce = 0, pe = 0, cv = 0, pv = 0;
+    const ceByStrike = new Map<number, number>();
+    const peByStrike = new Map<number, number>();
+    for (const r of s.rows) {
+      if (r.side === "CE") {
+        ce += num(r.oi);
+        cv += num(r.vol);
+        ceByStrike.set(r.strike, num(r.oi));
+      } else {
+        pe += num(r.oi);
+        pv += num(r.vol);
+        peByStrike.set(r.strike, num(r.oi));
+      }
+    }
+    const argmax = (m: Map<number, number>) => {
+      let k: number | null = null;
+      let v = 0;
+      for (const [strike, oi] of m) if (oi > v) { v = oi; k = strike; }
+      return k;
+    };
+    const chain = snapshotRowsToChain(s);
+    const mp = maxPain(chain);
+    out.push({
+      ts: s.ts,
+      spot: num(s.spot),
+      pcrOI: ce > 0 ? r2(pe / ce) : null,
+      pcrVol: cv > 0 ? r2(pv / cv) : null,
+      maxPain: finite(mp) ? mp : null,
+      maxCEStrike: argmax(ceByStrike),
+      maxPEStrike: argmax(peByStrike),
+      totalCEOI: ce,
+      totalPEOI: pe,
+    });
+  }
+  return out;
+}
+
+/** Minimal OI-only chain from a snapshot (enough for max pain and OI aggregates). */
+export function snapshotRowsToChain(s: Pick<ChainSnapshot, "rows">): OptionData[] {
+  const blank = (): OptionLegData => ({ ltp: 0, oi: 0, oiChange: 0, volume: 0, iv: 0, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: 0, askPrice: 0 });
+  const m = new Map<number, OptionData>();
+  for (const r of s?.rows ?? []) {
+    let row = m.get(r.strike);
+    if (!row) {
+      row = { strikePrice: r.strike, ce: blank(), pe: blank() };
+      m.set(r.strike, row);
+    }
+    const leg: OptionLegData = { ...blank(), ltp: num(r.ltp), oi: num(r.oi), volume: num(r.vol), iv: num(r.iv), bidPrice: num(r.bid), askPrice: num(r.ask) };
+    if (r.side === "CE") row.ce = leg;
+    else row.pe = leg;
+  }
+  return [...m.values()].sort((a, b) => a.strikePrice - b.strikePrice);
+}
+
+export interface StrikeOIDiff {
+  strike: number;
+  ceOI: number;
+  peOI: number;
+  /** CE OI at `at` minus CE OI at `base` (0 when the strike is missing from base). */
+  ceChg: number;
+  peChg: number;
+}
+
+/** OI by strike at snapshot `at`, with the change since snapshot `base` (null base = no change). */
+export function diffSnapshots(at: ChainSnapshot | undefined, base: ChainSnapshot | undefined | null): StrikeOIDiff[] {
+  if (!at) return [];
+  const baseMap = new Map<string, number>();
+  for (const r of base?.rows ?? []) baseMap.set(`${r.side}|${r.strike}`, num(r.oi));
+  const m = new Map<number, StrikeOIDiff>();
+  for (const r of at.rows ?? []) {
+    let d = m.get(r.strike);
+    if (!d) {
+      d = { strike: r.strike, ceOI: 0, peOI: 0, ceChg: 0, peChg: 0 };
+      m.set(r.strike, d);
+    }
+    const prev = base ? baseMap.get(`${r.side}|${r.strike}`) ?? num(r.oi) : num(r.oi);
+    if (r.side === "CE") {
+      d.ceOI = num(r.oi);
+      d.ceChg = num(r.oi) - prev;
+    } else {
+      d.peOI = num(r.oi);
+      d.peChg = num(r.oi) - prev;
+    }
+  }
+  return [...m.values()].sort((a, b) => a.strike - b.strike);
+}
+
+/** Keep strikes within `n` listed strikes of `center` (by position). */
+export function windowAround<T extends { strike: number }>(rows: T[], center: number, n: number): T[] {
+  if (rows.length === 0 || !finite(center)) return rows;
+  let idx = 0;
+  for (let i = 0; i < rows.length; i++) if (Math.abs(rows[i].strike - center) < Math.abs(rows[idx].strike - center)) idx = i;
+  return rows.slice(Math.max(0, idx - n), idx + n + 1);
+}
+
+// ── Per-expiry summary (max pain table, PCR suite) ──
+
+export interface ExpirySummary {
+  expiry: string;
+  maxPain: number | null;
+  /** Max pain − spot, in points. */
+  distance: number | null;
+  distancePct: number | null;
+  /** 1σ expected move to expiry in points (IV-based, straddle fallback). */
+  expectedMove: number | null;
+  emSource: "iv" | "straddle" | null;
+  /** |distance| ÷ expected move. */
+  emMultiple: number | null;
+  atmIv: number | null;
+  pcr: PCRResult;
+}
+
+/**
+ * Max pain, distance from spot, expected move and the PCR family for one expiry. The expected move
+ * is the 1σ log-space move from ATM IV at the chain forward; when IV is missing it falls back to
+ * 0.85 × ATM straddle.
+ */
+export function expirySummary(chain: OptionData[], spot: number, expiry: string, opts: { now?: Date; r?: number } = {}): ExpirySummary {
+  const rows = sortedChain(chain);
+  const mp = rows.length > 0 ? maxPain(rows) : NaN;
+  const hasMp = finite(mp);
+  const distance = hasMp && pos(spot) ? mp - spot : NaN;
+  const T = timeToExpiryYears(expiry, opts.now ?? new Date());
+  const r = finite(opts.r) ? opts.r : 0.065;
+  let em = NaN;
+  let emSource: ExpirySummary["emSource"] = null;
+  let ivPct = NaN;
+  if (rows.length > 0 && pos(spot) && pos(T)) {
+    const F = chainForward(rows, spot, T, r);
+    ivPct = atmIV(rows, F);
+    if (pos(ivPct) && pos(F)) {
+      em = expectedMoveFromIV(F, ivPct / 100, T).move;
+      emSource = "iv";
+    }
+  }
+  if (!pos(em) && rows.length > 0 && pos(spot)) {
+    const st = atmStraddle(rows, spot);
+    const m = expectedMoveFromStraddle(st.straddle, spot).move;
+    if (pos(m)) {
+      em = m;
+      emSource = "straddle";
+    }
+  }
+  return {
+    expiry,
+    maxPain: hasMp ? mp : null,
+    distance: finite(distance) ? distance : null,
+    distancePct: finite(distance) && pos(spot) ? r2((distance / spot) * 100) : null,
+    expectedMove: pos(em) ? em : null,
+    emSource: pos(em) ? emSource : null,
+    emMultiple: pos(em) && finite(distance) ? r2(Math.abs(distance) / em) : null,
+    atmIv: pos(ivPct) ? r2(ivPct) : null,
+    pcr: calculatePCR(rows),
+  };
+}
+
+// ── Distribution helpers (PCR history) ──
+
+/** Linear-interpolated quantile (q in 0..1) of the finite values; NaN when empty. */
+export function quantile(values: number[], q: number): number {
+  const xs = (values ?? []).filter(finite).sort((a, b) => a - b);
+  if (xs.length === 0) return NaN;
+  const p = Math.min(1, Math.max(0, q)) * (xs.length - 1);
+  const lo = Math.floor(p);
+  const hi = Math.ceil(p);
+  return xs[lo] + (xs[hi] - xs[lo]) * (p - lo);
+}
+
+/** Percent of history values strictly below `value` (0–100); null when history is empty. */
+export function percentileRank(value: number, history: number[]): number | null {
+  const xs = (history ?? []).filter(finite);
+  if (xs.length === 0 || !finite(value)) return null;
+  const below = xs.filter((x) => x < value).length;
+  const equal = xs.filter((x) => x === value).length;
+  return Math.round(((below + equal / 2) / xs.length) * 100);
 }
