@@ -72,8 +72,8 @@ describe("estimateMargin edge cases", () => {
 
 describe("generateSampleChain edge cases", () => {
   it("returns an empty chain for a missing or bad spot", () => {
-    expect(generateSampleChain({ spot: 0, expiry: EXP }).chain).toEqual([]);
-    expect(generateSampleChain({ spot: Number.NaN, expiry: EXP }).chain).toEqual([]);
+    expect(generateSampleChain({ symbol: "NIFTY", spot: 0, expiry: EXP }).chain).toEqual([]);
+    expect(generateSampleChain({ symbol: "NIFTY", spot: Number.NaN, expiry: EXP }).chain).toEqual([]);
   });
 
   it("builds a stock chain and an expired chain without NaNs", () => {
