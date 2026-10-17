@@ -231,7 +231,9 @@ export function AppSidebar() {
       <SidebarHeader className={cn("shrink-0 border-b border-sidebar-border/80 px-4 py-3.5", collapsed && "items-center px-0 py-3")}>
         <Link
           to="/"
-          aria-label={`${BRAND.productFull}: dashboard`}
+          // Must start with the visible lockup text ("Mr. Chartist" / "Option Hub") so the
+          // accessible name matches what sighted voice-control users read (WCAG 2.5.3).
+          aria-label={`${BRAND.name} ${BRAND.product}, go to dashboard`}
           title={collapsed ? BRAND.productFull : undefined}
           className={cn(
             "flex min-w-0 items-center rounded-md text-foreground focus-visible:shadow-ember focus-visible:outline-none",
