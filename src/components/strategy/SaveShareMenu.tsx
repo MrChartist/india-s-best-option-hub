@@ -1,0 +1,196 @@
+import { useState, type RefObject } from "react";
+import { toast } from "sonner";
+import { BookmarkPlus, Briefcase, ClipboardCopy, FolderOpen, ImageDown, Link2, Share2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { formatDateIST, formatTimeIST } from "@/lib/options";
+import { exportChartPng } from "./exportPng";
+import { deleteSavedStrategy, encodeShare, loadSavedStrategies, saveStrategy, type BuilderLeg, type SavedStrategy, type ShareState } from "./strategyState";
+
+export interface SaveShareMenuProps {
+  legs: BuilderLeg[];
+  symbol: string;
+  name: string;
+  summary: () => string;
+  chartRef: RefObject<HTMLDivElement>;
+  onLoad: (share: string) => void;
+  onAddToPositions: () => void;
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, onAddToPositions }: SaveShareMenuProps) {
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saved, setSaved] = useState<SavedStrategy[]>([]);
+  const empty = legs.length === 0;
+  const state: ShareState = { symbol, name, legs };
+
+  const shareUrl = () => {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("s", encodeShare(state));
+    return url.toString();
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" size="sm" className="h-8 text-xs">
+            <Share2 /> Save & share
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="text-label uppercase text-muted-foreground">Strategy</DropdownMenuLabel>
+          <DropdownMenuItem
+            disabled={empty}
+            onSelect={() => {
+              setSaveName(name || `${symbol} strategy`);
+              setSaveOpen(true);
+            }}
+          >
+            <BookmarkPlus className="mr-2 h-4 w-4" /> Save…
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setSaved(loadSavedStrategies());
+              setListOpen(true);
+            }}
+          >
+            <FolderOpen className="mr-2 h-4 w-4" /> Saved strategies
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={empty}
+            onSelect={async () => {
+              const ok = await copyText(shareUrl());
+              if (ok) toast.success("Share link copied", { description: "Anyone with the link sees these legs and entry prices." });
+              else toast.error("Could not copy the link");
+            }}
+          >
+            <Link2 className="mr-2 h-4 w-4" /> Copy share link
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={empty}
+            onSelect={async () => {
+              const ok = await copyText(summary());
+              if (ok) toast.success("Trade summary copied");
+              else toast.error("Could not copy the summary");
+            }}
+          >
+            <ClipboardCopy className="mr-2 h-4 w-4" /> Copy trade summary
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={empty}
+            onSelect={async () => {
+              const ok = await exportChartPng(chartRef.current, {
+                title: `${name || "Custom strategy"} · ${symbol}`,
+                subtitle: `${legs.filter((l) => l.enabled).map((l) => `${l.side === "BUY" ? "B" : "S"} ${l.lots}× ${l.type === "FUT" ? "FUT" : `${l.strike} ${l.type}`} ${formatDateIST(l.expiry)}`).join("  ·  ")}  |  ${formatDateIST(new Date())} ${formatTimeIST(new Date())}`,
+                fileName: `${symbol}-${(name || "strategy").replace(/\s+/g, "-").toLowerCase()}-payoff.png`,
+              });
+              if (!ok) toast.error("PNG export failed", { description: "Your browser blocked the image. Try again or take a screenshot." });
+            }}
+          >
+            <ImageDown className="mr-2 h-4 w-4" /> Download payoff PNG
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={empty} onSelect={onAddToPositions}>
+            <Briefcase className="mr-2 h-4 w-4" /> Add to Positions
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save strategy</DialogTitle>
+            <DialogDescription>Saved in this browser only. Saving with the same name replaces the old copy.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const next = saveStrategy(saveName, state);
+              if (next) {
+                toast.success("Strategy saved", { description: saveName.trim() || "Untitled strategy" });
+                setSaveOpen(false);
+              } else {
+                toast.error("Could not save", { description: "Browser storage is blocked or full." });
+              }
+            }}
+            className="space-y-3"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="sb-save-name">Name</Label>
+              <Input id="sb-save-name" value={saveName} onChange={(e) => setSaveName(e.target.value)} maxLength={80} autoFocus />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setSaveOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={listOpen} onOpenChange={setListOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Saved strategies</DialogTitle>
+            <DialogDescription>Loading a strategy replaces the current legs. Entry prices are the ones you saved.</DialogDescription>
+          </DialogHeader>
+          {saved.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Nothing saved yet.</p>
+          ) : (
+            <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto">
+              {saved.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 rounded-tile border border-border p-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{s.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {s.symbol} · {formatDateIST(s.savedAt)} {formatTimeIST(s.savedAt)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => {
+                      onLoad(s.share);
+                      setListOpen(false);
+                    }}
+                  >
+                    Load
+                  </Button>
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-bearish" aria-label={`Delete ${s.name}`} onClick={() => setSaved(deleteSavedStrategy(s.id))}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
