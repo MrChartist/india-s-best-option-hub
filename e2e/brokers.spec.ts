@@ -1,32 +1,35 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { BROKERS } from "../src/lib/brokerConfig";
 
 /**
- * Broker Settings directory: all 33 brokers, search/filter, capability matrix and the Connect cards,
+ * Broker Settings directory: every catalogued broker, search/filter, capability matrix and the Connect cards,
  * with no horizontal page scroll (the matrix scrolls inside its own frame) at desktop and 375 px.
  */
+/** Total in the catalogue, so the test follows new brokers instead of a hard-coded count. */
+const TOTAL = BROKERS.length;
 const PROXY_URL_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1):(4002|4999)\//;
 
 test.beforeEach(async ({ page }) => {
   await page.route(PROXY_URL_PATTERN, (route) => route.abort("connectionrefused"));
   await page.goto("/broker-settings", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /all brokers \(33\)/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`all brokers \\(${TOTAL}\\)`, "i") })).toBeVisible();
 });
 
 test("search and filters narrow the capability matrix", async ({ page }) => {
-  const status = page.getByRole("status").filter({ hasText: /Showing \d+ of 33 brokers/ });
-  await expect(status).toHaveText("Showing 33 of 33 brokers");
+  const status = page.getByRole("status").filter({ hasText: new RegExp(`Showing \\d+ of ${TOTAL} brokers`) });
+  await expect(status).toHaveText(`Showing ${TOTAL} of ${TOTAL} brokers`);
   const matrix = page.getByRole("table").filter({ has: page.getByRole("columnheader", { name: "Live feed" }) });
-  await expect(matrix.getByRole("row")).toHaveCount(34);
+  await expect(matrix.getByRole("row")).toHaveCount(TOTAL + 1); // header row + one row per broker
 
   await page.locator("#broker-search").fill("zerodha");
-  await expect(status).toHaveText("Showing 1 of 33 brokers");
+  await expect(status).toHaveText(`Showing 1 of ${TOTAL} brokers`);
   await expect(matrix.getByRole("row").nth(1)).toContainText("Zerodha (Kite)");
   await expect(matrix.getByRole("row").nth(1)).toContainText("Blocked");
 
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await page.locator("#broker-auth").selectOption("sessionLogin");
-  await expect(status).not.toHaveText("Showing 33 of 33 brokers");
+  await expect(status).not.toHaveText(`Showing ${TOTAL} of ${TOTAL} brokers`);
 
   const hasHorizontalScroll = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
   expect(hasHorizontalScroll, "page must not scroll sideways").toBe(false);
