@@ -89,7 +89,7 @@ function NavItem({ route, collapsed, seen }: { route: RouteDef; collapsed: boole
                 <span
                   className={cn(
                     "rounded-chip px-1.5 py-px text-micro font-semibold leading-[13px]",
-                    badge === "Beta" ? "bg-wash-warning text-warning" : "bg-wash-brand text-[hsl(var(--orange-900))] dark:bg-primary/15 dark:text-primary-ink",
+                    badge === "Beta" ? "bg-wash-warning text-warning" : "bg-wash-brand text-foreground",
                     "group-focus-within/source:group-aria-[current=page]:bg-selection-foreground/15 group-focus-within/source:group-aria-[current=page]:text-selection-foreground",
                   )}
                 >

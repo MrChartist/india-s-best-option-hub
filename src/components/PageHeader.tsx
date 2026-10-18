@@ -40,7 +40,7 @@ export function PageHeader({ icon: Icon, eyebrow, title, description, actions, s
     >
       <div className="min-w-0 flex-1">
         {context ? <p className="mb-0.5 text-body-sm font-medium text-muted-foreground">{context}</p> : null}
-        <h1 className="flex min-w-0 items-center gap-2 font-display text-display text-foreground">
+        <h1 className="flex min-w-0 items-center gap-2 font-serif text-[28px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground">
           {Icon ? <Icon className="h-5 w-5 shrink-0 text-primary-ink" strokeWidth={2} aria-hidden="true" /> : null}
           <span className="min-w-0 break-words">{title}</span>
         </h1>

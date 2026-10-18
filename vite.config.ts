@@ -162,8 +162,8 @@ function pwaOptions(): Record<string, unknown> {
       display: "standalone",
       orientation: "any",
       // Matches the app's light background; index.html sets light and dark theme-color separately.
-      theme_color: "#F3F4EE",
-      background_color: "#F3F4EE",
+      theme_color: "#F4F1EA",
+      background_color: "#F4F1EA",
       categories: ["finance", "education", "productivity"],
       icons: [
         { src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },

@@ -7,7 +7,7 @@ export type Palette = "default" | "cvd";
 
 export const THEME_STORAGE_KEY = "theme";
 export const PALETTE_STORAGE_KEY = "palette";
-export const THEME_COLORS: Record<Theme, string> = { light: "#F3F4EE", dark: "#060809" };
+export const THEME_COLORS: Record<Theme, string> = { light: "#F4F1EA", dark: "#0D0D0E" };
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 /** Pure: which concrete theme a mode resolves to. */

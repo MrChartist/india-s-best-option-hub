@@ -10,8 +10,8 @@ const touchHitArea =
 
 /**
  * macOS push buttons: compact (28px), 6px radius, medium weight, a bezel shadow instead of a
- * border, and they darken rather than shrink when pressed. The orange default variant is the
- * "return key" button; use it for one primary action per view. Coarse pointers get 36px.
+ * border, and they darken rather than shrink when pressed. The ink (white in dark mode) default
+ * variant is the "return key" button; use it for one primary action per view. Coarse pointers get 36px.
  */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill text-body font-medium transition-[background-color,color,box-shadow,filter] duration-fast ease-out active:brightness-95 focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",

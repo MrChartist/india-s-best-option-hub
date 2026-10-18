@@ -12,7 +12,9 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         num: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        display: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
+        display: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        serif: ["Newsreader", "Georgia", '"Times New Roman"', "serif"],
+        brand: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
       // macOS text styles mapped to Inter (Body 13, Headline 13 semibold, Title 1 22).

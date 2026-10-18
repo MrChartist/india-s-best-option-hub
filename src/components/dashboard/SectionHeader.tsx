@@ -19,7 +19,7 @@ export function SectionHeader({ title, subtitle, icon, tooltip, actions, id }: P
     <div className={cn("flex items-center gap-2 px-0.5", d.section)}>
       {icon && <span className="text-primary-ink [&_svg]:h-4 [&_svg]:w-4" aria-hidden="true">{icon}</span>}
       <div className="flex min-w-0 items-center gap-0.5">
-        <h2 id={id} className="font-display text-title text-foreground">{title}</h2>
+        <h2 id={id} className="font-serif text-[22px] font-medium leading-tight tracking-[-0.015em] text-foreground">{title}</h2>
         {tooltip && <InfoTooltip text={tooltip} label={`About ${title}`} />}
       </div>
       {subtitle && <p className="hidden min-w-0 flex-1 truncate text-body-sm text-muted-foreground sm:block">{subtitle}</p>}

@@ -13,11 +13,8 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        // Light mode: primary-ink on wash-brand is only ~3.75:1, which fails WCAG AA
-        // for 11px text (this is the "SAMPLE DATA" disclosure chip). orange-900 on
-        // orange-100 is ~8:1 and still reads as brand orange. Dark mode keeps
-        // primary-ink (orange-300 on orange-900), which already passes.
-        default: "border-transparent bg-wash-brand text-[hsl(var(--orange-900))] dark:text-primary-ink",
+        // Neutral iOS-style chip: ink on a darker cream (white on graphite in dark mode).
+        default: "border-transparent bg-wash-brand text-foreground",
         secondary: "border-transparent bg-secondary text-secondary-foreground",
         destructive: "border-transparent bg-destructive text-destructive-foreground",
         outline: "border-separator-strong text-foreground",

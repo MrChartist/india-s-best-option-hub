@@ -1,5 +1,6 @@
 /*
- * Mr. Chartist design language, macOS-inspired: "paper + ink-wine" (light) and graphite + orange (dark).
+ * Mr. Chartist design language, iOS / macOS-inspired: warm cream paper + ink (light) and near-black
+ * graphite + white (dark). Monochrome controls, one green and one red for the market, serif page titles.
  * Translucent sidebar/toolbar materials, an inset content window, hairline separators, 13px UI text.
  * Every colour token is a raw HSL channel triple consumed as hsl(var(--x) / <alpha>); material,
  * separator and selection tokens carry their own alpha and are consumed as hsl(var(--x)).
@@ -13,19 +14,23 @@
   /* ───────────────────────── PRIMITIVES + LIGHT MODE ───────────────────────── */
   :root {
     /* Primitives */
-    --paper-0: 0 0% 99.6%;
-    --paper-1: 72 20% 95.1%;
-    --paper-2: 53 23.5% 93.3%;
-    --paper-3: 54 20% 90.2%;
-    --paper-4: 51 16.5% 84.5%;
-    /* Graphite (macOS dark is neutral grey, not near-black) */
-    --void-0: 220 6% 9%;
-    --void-1: 220 5% 11.5%;
-    --void-2: 220 5% 14%;
-    --void-3: 220 4% 17.5%;
-    --void-4: 220 4% 20%;
-    --void-5: 220 4% 25%;
-    --ink-wine: 336.7 41% 8.6%;
+    /* Warm cream paper (#F4F1EA window, white cards) */
+    --paper-0: 0 0% 100%;
+    --paper-1: 42 31% 93.7%;
+    --paper-2: 43 26% 90.4%;
+    --paper-3: 43 21% 86.5%;
+    --paper-4: 43 15% 80%;
+    /* Near-black graphite (#0D0D0E backdrop, #17181C cards, #29292C hairlines) */
+    --void-0: 240 4% 4.5%;
+    --void-1: 240 4% 5.5%;
+    --void-2: 228 7% 7.5%;
+    --void-3: 228 10% 10%;
+    --void-4: 230 8% 13.5%;
+    --void-5: 240 3% 17%;
+    /* Ink (#111312). The token keeps its old name so every call site still works. */
+    --ink-wine: 150 6% 7%;
+    /* iOS system grey for quiet chips */
+    --ios-gray: 240 3% 46%;
     --orange-100: 23.5 86.4% 88.4%;
     --orange-300: 23 89% 69%;
     --orange-400: 18 87.6% 62%;
@@ -39,30 +44,30 @@
     --grouped-row: var(--paper-0);
 
     /* Materials (alpha included) */
-    --material-sidebar: 54 18% 91% / 0.78;
-    --material-toolbar: 72 20% 96% / 0.8;
-    --material-menu: 0 0% 99.6% / 0.9;
-    --material-sheet-scrim: 337 41% 8.6% / 0.2;
+    --material-sidebar: 43 26% 91% / 0.8;
+    --material-toolbar: 42 31% 95% / 0.8;
+    --material-menu: 0 0% 100% / 0.92;
+    --material-sheet-scrim: 150 6% 7% / 0.22;
 
     /* Separators (alpha included) */
-    --separator: 337 20% 12% / 0.11;
-    --separator-strong: 337 20% 12% / 0.18;
+    --separator: 150 6% 7% / 0.1;
+    --separator-strong: 150 6% 7% / 0.17;
     --hairline: 1px;
 
     /* Selection */
-    --selection-focused: var(--orange-500);
-    --selection-focused-foreground: var(--ink-wine);
-    --selection-unfocused: 337 10% 12% / 0.08;
-    --zebra: 54 20% 40% / 0.05;
+    --selection-focused: var(--ink-wine);
+    --selection-focused-foreground: 0 0% 100%;
+    --selection-unfocused: 150 6% 7% / 0.07;
+    --zebra: 43 20% 40% / 0.05;
 
     /* Controls */
     --control: 0 0% 100%;
-    --control-track: 337 10% 12% / 0.07;
-    --switch-off: 337 8% 12% / 0.16;
+    --control-track: 150 6% 7% / 0.06;
+    --switch-off: 150 6% 7% / 0.16;
     --knob: 0 0% 100%;
 
     /* Focus ring (macOS: ~3.5px accent at 50%, outside the control) */
-    --focus-ring: 0 0 0 3px hsl(var(--orange-500) / 0.5);
+    --focus-ring: 0 0 0 3px hsl(var(--ink-wine) / 0.28);
 
     /* Semantic surfaces: background is the window surface pages draw on */
     --background: var(--window);
@@ -74,66 +79,67 @@
     --surface: var(--paper-2);
 
     /* Brand */
-    --primary: var(--orange-500);
-    --primary-foreground: var(--ink-wine);
-    --primary-hover: var(--orange-400);
-    /* ≈ #A93B0C: 5.6:1 on the active-nav wash, 5.8:1 on paper */
-    --primary-ink: 18 87% 35.5%;
+    /* Monochrome primary: ink buttons with white text, like Pivot and iOS */
+    --primary: var(--ink-wine);
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 150 4% 22%;
+    --primary-ink: var(--ink-wine);
 
     --secondary: var(--paper-2);
     --secondary-foreground: var(--ink-wine);
     --muted: var(--paper-2);
-    --muted-foreground: 337 10% 40%;
+    --muted-foreground: 200 6% 34%;
     /* Quieter than muted-foreground but still ≥ 4.5:1 on paper-0/1/2 */
-    --muted-foreground-subtle: 337 6% 42%;
+    --muted-foreground-subtle: 200 5% 38%;
     --accent: var(--paper-3);
     --accent-foreground: var(--ink-wine);
 
-    --destructive: 0.5 46.4% 49%;
+    --destructive: 355 72% 45.5%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 54 12% 85%;
+    --border: 43 15% 84%;
     --input: var(--paper-4);
-    --ring: var(--orange-500);
+    --ring: var(--ink-wine);
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     /* Sidebar (source list): labels near-primary, selection is a filled pill */
     --sidebar-background: var(--paper-2);
-    --sidebar-foreground: 337 14% 22%;
+    --sidebar-foreground: 150 5% 20%;
     --sidebar-accent: var(--paper-3);
     --sidebar-accent-foreground: var(--ink-wine);
-    --sidebar-border: 54 12% 85%;
-    --sidebar-ring: var(--orange-500);
+    --sidebar-border: 43 15% 84%;
+    --sidebar-ring: var(--ink-wine);
 
     /* Trading */
-    --bullish: 152 48% 29%;
+    /* Market colours: deep teal up, #C8202F down (≥ 4.5:1 on cream, darker cream and white) */
+    --bullish: 170 92% 22%;
     --bullish-foreground: 0 0% 100%;
-    --bearish: 1 55% 42%;
+    --bearish: 355 72% 45.5%;
     --bearish-foreground: 0 0% 100%;
     --warning: 37 57.5% 31.4%;
     --info: 212.6 80% 33.3%;
     --product: 212.6 80% 33.3%;
 
     /* Washes (tinted backgrounds) */
-    --wash-profit: 144.5 35.5% 87.8%;
-    --wash-loss: 4.4 62.8% 91.6%;
+    --wash-profit: 168 42% 93.5%;
+    --wash-loss: 355 72% 95%;
     --wash-warning: 39 63.6% 89.2%;
-    --wash-brand: var(--orange-100);
+    --wash-brand: var(--paper-3);
     --wash-info: 215 89.5% 96.3%;
     /* In-the-money strike shading on option chains */
-    --wash-itm: 40 30% 95%;
+    --wash-itm: 43 30% 96%;
 
 
     /* Charts */
-    --chart-grid: 54 14% 89%;
-    --chart-axis: 337 10% 40%;
+    --chart-grid: 43 15% 87%;
+    --chart-axis: 200 6% 34%;
     --chart-1: var(--orange-500);
     --chart-2: 212.6 80% 33.3%;
     --chart-3: 38 46.9% 47.3%;
     --chart-4: 253 60% 56%;
     --chart-5: 178.6 70% 30%;
-    --chart-6: 340 48% 40%;
+    --chart-6: 330 48% 42%;
     /* Text ink for chart-4/chart-5 on their 10% wash: same hue, darker so it keeps 4.5:1. */
     --chart-4-ink: 253 55% 45%;
     --chart-5-ink: 178.6 70% 23%;
@@ -142,14 +148,14 @@
     --chart-put: var(--bullish);
 
     /* Elevation: macOS is subtle; group boxes are a hairline plus a whisper of shadow */
-    --shadow-1: 0 0.5px 1px rgb(28 22 16 / 0.08);
-    --shadow-2: 0 1px 2px rgb(28 22 16 / 0.06), 0 4px 12px rgb(28 22 16 / 0.07);
-    --shadow-3: 0 0 0 0.5px rgb(28 22 16 / 0.1), 0 10px 30px rgb(28 22 16 / 0.16), 0 2px 6px rgb(28 22 16 / 0.06);
+    --shadow-1: 0 0.5px 1px rgb(17 19 18 / 0.06);
+    --shadow-2: 0 1px 2px rgb(17 19 18 / 0.05), 0 8px 24px rgb(17 19 18 / 0.06);
+    --shadow-3: 0 0 0 0.5px rgb(17 19 18 / 0.1), 0 10px 30px rgb(17 19 18 / 0.16), 0 2px 6px rgb(17 19 18 / 0.06);
     --shadow-card: var(--shadow-1);
     --shadow-card-hover: var(--shadow-2);
     --shadow-float: var(--shadow-3);
-    --shadow-control: 0 0 0 0.5px rgb(28 22 16 / 0.14), 0 0.5px 1.5px rgb(28 22 16 / 0.16);
-    --shadow-window: 0 0 0 0.5px hsl(var(--separator-strong)), 0 1px 3px rgb(28 22 16 / 0.05);
+    --shadow-control: 0 0 0 0.5px rgb(17 19 18 / 0.14), 0 0.5px 1.5px rgb(17 19 18 / 0.16);
+    --shadow-window: 0 0 0 0.5px hsl(var(--separator-strong)), 0 1px 3px rgb(17 19 18 / 0.05);
     /* Legacy name kept for the many focus-visible:shadow-ember call sites */
     --shadow-ember: var(--focus-ring);
 
@@ -163,16 +169,16 @@
     color-scheme: light;
   }
 
-  /* ───────────────────────── DARK MODE (void + orange) ───────────────────────── */
+  /* ───────────────────────── DARK MODE (near-black + white) ───────────────────────── */
   .dark {
     --window: var(--void-2);
     --window-backdrop: var(--void-0);
     --grouped: var(--void-1);
     --grouped-row: var(--void-3);
 
-    --material-sidebar: 220 5% 12% / 0.72;
-    --material-toolbar: 220 5% 15% / 0.82;
-    --material-menu: 220 4% 19% / 0.9;
+    --material-sidebar: 240 4% 6% / 0.78;
+    --material-toolbar: 228 7% 8% / 0.82;
+    --material-menu: 228 9% 12% / 0.92;
     --material-sheet-scrim: 0 0% 0% / 0.45;
 
     --separator: 0 0% 100% / 0.09;
@@ -186,60 +192,65 @@
     --switch-off: 0 0% 100% / 0.16;
 
     --background: var(--window);
-    --foreground: var(--paper-1);
+    --foreground: 240 6% 96%;
     --card: var(--void-3);
-    --card-foreground: var(--paper-1);
+    --card-foreground: 240 6% 96%;
     --popover: var(--void-3);
-    --popover-foreground: var(--paper-1);
+    --popover-foreground: 240 6% 96%;
     --surface: var(--void-2);
 
-    --primary: var(--orange-500);
+    /* Monochrome primary: white buttons with ink text */
+    --primary: 0 0% 98%;
     --primary-foreground: var(--ink-wine);
-    --primary-hover: var(--orange-400);
-    --primary-ink: var(--orange-300);
+    --primary-hover: 0 0% 86%;
+    --primary-ink: 0 0% 98%;
+    --selection-focused: 0 0% 98%;
+    --selection-focused-foreground: var(--ink-wine);
+    --focus-ring: 0 0 0 3px hsl(0 0% 100% / 0.32);
 
     --secondary: var(--void-4);
-    --secondary-foreground: var(--paper-1);
+    --secondary-foreground: 240 6% 96%;
     --muted: var(--void-4);
     /* Graphite surfaces are lighter than the old void, so text tokens are lifted to keep
        ≥ 4.5:1 on window (void-2), card (void-3), muted (void-4), zebra rows and control faces. */
-    --muted-foreground: 220 6% 71%;
-    --muted-foreground-subtle: 220 5% 67%;
+    --muted-foreground: 240 4% 70%;
+    --muted-foreground-subtle: 240 4% 66%;
     --accent: var(--void-4);
-    --accent-foreground: var(--paper-1);
+    --accent-foreground: 240 6% 96%;
 
-    --destructive: 3 80% 73%;
+    --destructive: 355 92% 69%;
     --destructive-foreground: var(--ink-wine);
 
-    --border: 220 4% 25%;
+    --border: 240 3% 17%;
     --input: var(--void-4);
-    --ring: var(--orange-500);
+    --ring: 0 0% 98%;
 
     --sidebar-background: var(--void-1);
-    --sidebar-foreground: 220 6% 84%;
-    --sidebar-accent: var(--void-3);
-    --sidebar-accent-foreground: var(--paper-1);
-    --sidebar-border: 220 4% 20%;
-    --sidebar-ring: var(--orange-500);
+    --sidebar-foreground: 240 5% 84%;
+    --sidebar-accent: var(--void-4);
+    --sidebar-accent-foreground: 240 6% 96%;
+    --sidebar-border: 240 3% 15%;
+    --sidebar-ring: 0 0% 98%;
 
-    --bullish: 148.9 45.5% 63.3%;
+    /* Market colours: #22AB94 up, a lifted #F23645 down (4.5:1 on selected rows) */
+    --bullish: 170 67% 40%;
     --bullish-foreground: var(--void-0);
-    --bearish: 3 80% 73%;
+    --bearish: 355 92% 69%;
     --bearish-foreground: var(--ink-wine);
     --warning: 40 56.5% 71.2%;
     --info: 211 78% 68%;
     --product: 211 78% 68%;
 
-    --wash-profit: 147.5 30% 15.7%;
-    --wash-loss: 1.3 43.7% 20.2%;
+    --wash-profit: 170 40% 12%;
+    --wash-loss: 355 40% 15%;
     --wash-warning: 38 40% 12%;
-    --wash-brand: var(--orange-900);
+    --wash-brand: var(--void-4);
     --wash-info: 214 34% 10%;
-    --wash-itm: 220 6% 18%;
+    --wash-itm: 228 8% 12.5%;
 
 
-    --chart-grid: 220 4% 20%;
-    --chart-axis: 220 6% 71%;
+    --chart-grid: 240 3% 16%;
+    --chart-axis: 240 4% 70%;
     --chart-1: var(--orange-500);
     --chart-2: 211 78% 68%;
     --chart-3: 40 56.5% 71.2%;
@@ -353,13 +364,17 @@
   h2,
   h3,
   h4 {
-    font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
     line-height: 1.2;
-    font-weight: 700;
+    font-weight: 600;
   }
+  /* Page titles use the editorial serif; everything else stays in Inter, like iOS */
   h1 {
-    font-size: 1.375rem;
-    letter-spacing: -0.01em;
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-size: 1.75rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
   }
   h2 {
     font-size: 1.0625rem;
@@ -376,14 +391,8 @@
   [data-card-title] {
     letter-spacing: -0.005em;
   }
-  /* Plus Jakarta Sans has a narrow word space that nearly vanishes at bold weights ("Openpositions",
-     "ATMstraddle"). Open it up wherever the display face is used. */
-  h1,
-  h2,
-  h3,
-  h4,
-  [data-card-title],
-  .font-display {
+  /* Plus Jakarta Sans (the Mr. Chartist wordmark) has a narrow word space at bold weights. */
+  .font-brand {
     word-spacing: 0.14em;
   }
 

@@ -8,8 +8,8 @@
     <meta name="author" content="Mr. Chartist" />
     <meta name="robots" content="index, follow" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F3F4EE" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060809" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F1EA" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0D0D0E" />
 
     <!-- canonical, og:url, og:image and the SoftwareApplication JSON-LD are filled in at build time
          by the site-meta plugin in vite.config.ts: from VITE_SITE_URL when it is set, otherwise
@@ -29,7 +29,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Plus+Jakarta+Sans:ital,wght@0,500..800;1,500..800&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&family=Plus+Jakarta+Sans:wght@700&family=JetBrains+Mono:wght@400;500&display=swap"
     />
 
     <script>
@@ -58,7 +58,7 @@
         root.style.colorScheme = dark ? "dark" : "light";
         if (mode !== "system") {
           var metas = document.querySelectorAll('meta[name="theme-color"]');
-          for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", dark ? "#060809" : "#F3F4EE");
+          for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", dark ? "#0D0D0E" : "#F4F1EA");
         }
       })();
     </script>
