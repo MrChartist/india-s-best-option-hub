@@ -14,7 +14,7 @@ const touchHitArea =
  * "return key" button; use it for one primary action per view. Coarse pointers get 36px.
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill text-body font-medium transition-[background-color,color,box-shadow,opacity,filter] duration-fast ease-out active:brightness-95 focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill text-body font-medium transition-[background-color,color,box-shadow,filter] duration-fast ease-out active:brightness-95 focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
