@@ -44,7 +44,6 @@ import {
   Server,
   Zap,
   Globe,
-  BarChart3,
   Loader2,
   XCircle,
   Wifi,
@@ -398,12 +397,6 @@ function ConnectionStatusPanel() {
       icon: <Globe className="h-4 w-4" aria-hidden />,
       status: upstreamStatus(up.nse),
       detail: lastSeen(up.nse),
-    },
-    {
-      name: "TradingView scanner",
-      icon: <BarChart3 className="h-4 w-4" aria-hidden />,
-      status: upstreamStatus(up.tv),
-      detail: lastSeen(up.tv),
     },
     {
       name: "Yahoo Finance",

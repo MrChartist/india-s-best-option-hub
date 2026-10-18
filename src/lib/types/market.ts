@@ -1,7 +1,7 @@
 /**
  * Market data transfer types shared by the data layer (proxy client, parsers, hooks).
  *
- * Upstream DTOs describe what Dhan / NSE / Yahoo / TradingView actually send (every field optional,
+ * Upstream DTOs describe what Dhan / NSE / Yahoo actually send (every field optional,
  * because upstreams drop fields without notice). App-facing types describe what the parsers return.
  */
 import type { ExpiryDate, OptionData, OptionLegData } from "@/lib/mockData";
@@ -9,7 +9,7 @@ import type { ExpiryDate, OptionData, OptionLegData } from "@/lib/mockData";
 // ── Provenance ──
 
 /** Where a value came from. "cache" = proxy last-good copy, "sample" = generated, never live. */
-export type DataSource = "dhan" | "nse" | "bse" | "yahoo" | "tv" | "cache" | "sample";
+export type DataSource = "dhan" | "nse" | "bse" | "yahoo" | "cache" | "sample";
 
 /** Provenance attached to every hook result. */
 export interface SourceMeta {
@@ -248,32 +248,7 @@ export interface NSEFiiDiiRowDTO {
   netValue?: string | number;
 }
 
-// ── TradingView / Yahoo / instruments ──
-
-export interface TVStockDTO {
-  symbol?: string;
-  name?: string;
-  exchange?: string;
-  ltp?: number;
-  change?: number;
-  changeAbs?: number;
-  changePercent?: number;
-  volume?: number;
-  open?: number;
-  high?: number;
-  low?: number;
-  weekChange?: number;
-  monthChange?: number;
-  marketCap?: number;
-  avgVolume10d?: number;
-  sector?: string;
-}
-
-export interface TVScanDTO {
-  stocks?: TVStockDTO[];
-  totalCount?: number;
-  timestamp?: number;
-}
+// ── Yahoo / instruments ──
 
 export interface InstrumentDTO {
   securityId: string;

@@ -11,8 +11,8 @@ How the Mr. Chartist Options Terminal is put together, and the conventions that 
  ─────────                ──────────────────              ─────────────────────────
  Dhan API v2  ─┐                                          src/lib/api/proxyClient.ts   one door to the proxy
  NSE India    ─┼──►  proxy-server.mjs  :4002   ──HTTP──►  src/lib/marketApi.ts         typed fetchers + fallbacks
- TradingView  ─┤     cache · coalesce · rate   ──WS────►  src/hooks/useMarketData.ts   React Query hooks
- Yahoo        ─┘     queues · last-good copies            src/lib/options/**           pure maths (no I/O)
+ Yahoo        ─┘     cache · coalesce · rate   ──WS────►  src/hooks/useMarketData.ts   React Query hooks
+                     queues · last-good copies            src/lib/options/**           pure maths (no I/O)
                                                           src/pages/*                  one file per route
                                                           src/lib/routes.ts            route registry
 ```
@@ -22,7 +22,7 @@ How the Mr. Chartist Options Terminal is put together, and the conventions that 
 A dependency-free Node server (only `ws`). It exists because NSE and Dhan cannot be called from a browser (CORS, cookies, secrets).
 
 - Binds `127.0.0.1:4002` by default (`PROXY_HOST`, `PROXY_PORT`), with a CORS and WebSocket Origin allowlist.
-- Legacy pass-through routes (`/api/dhan-proxy`, `/api/nse-proxy`, `/api/tv-scan`, `/api/yahoo-chart`) and envelope routes under `/api/x/*`.
+- Legacy pass-through routes (`/api/dhan-proxy`, `/api/nse-proxy`, `/api/yahoo-chart`) and envelope routes under `/api/x/*`.
 - Envelope: `{ data, meta: { source, asOf, stale, reason? } }`. `stale: true` means a last-good copy or no data.
 - Coalesces identical requests, rate-limits per upstream, honours `Retry-After`, keeps last-good copies in `.cache/`.
 - Relays the Dhan binary market feed as JSON ticks on `ws://127.0.0.1:4002/ws`.
@@ -33,7 +33,7 @@ Endpoint details: [DATA_ENDPOINTS.md](DATA_ENDPOINTS.md).
 ### 2. Client data layer: `src/lib/api/proxyClient.ts` → `src/lib/marketApi.ts`
 
 - `proxyClient.ts` is the **only** module that knows the proxy URL (`VITE_PROXY_URL`). `proxyGet()` never throws; network errors come back as `{ data: null, meta: { reason: "offline" } }`.
-- `marketApi.ts` turns envelopes into typed domain objects (`src/lib/types/market.ts`) and falls back Dhan → NSE → TradingView.
+- `marketApi.ts` turns envelopes into typed domain objects (`src/lib/types/market.ts`) and falls back Dhan → NSE for option chains. F&O stock quotes come from NSE, then the proxy's last saved NSE copy, then the local database, then labelled sample data.
 - `snapshotStore.ts` records chain snapshots to IndexedDB. It feeds flow, OI replay, IV history and PCR history.
 
 ### 3. Hooks: `src/hooks/useMarketData.ts`

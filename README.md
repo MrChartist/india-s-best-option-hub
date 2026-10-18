@@ -349,8 +349,7 @@ Ports are bound to `127.0.0.1` only, because the proxy can hold your broker toke
 flowchart LR
   B["Your browser<br/>Option Hub app :4001"] <--> P["Local proxy :4002<br/>cache · retry · rate limit<br/>WebSocket relay"]
   P <--> D["Dhan API<br/>chain, Greeks, live ticks"]
-  P <--> N["NSE<br/>indices, chain, participant data"]
-  P <--> T["TradingView<br/>F&O stock quotes"]
+  P <--> N["NSE<br/>indices, chain, F&O stock quotes,<br/>participant data"]
   P <--> Y["Yahoo Finance<br/>historical candles"]
 ```
 
@@ -358,8 +357,7 @@ flowchart LR
 |---|---|---|
 | **Dhan API** | Option chain, Greeks, expiry list, live WebSocket ticks, 1Cliq orders | Yes (free) |
 | **40 other brokers** | Option chain, quotes and more, per the [capability matrix](docs/BROKERS.md) | Yes (your own keys) |
-| **NSE** | Indices, sectors, advance/decline, option chain fallback, participant-wise OI, bhavcopy | No |
-| **TradingView** | F&O stock prices and volumes | No |
+| **NSE** | Indices, sectors, advance/decline, F&O stock prices, volumes and OI, option chain fallback, participant-wise OI, bhavcopy | No |
 | **Yahoo Finance** | Historical OHLCV candles for charts | No |
 
 **How the labels work.** The badge on each card tells you where its number came from:
@@ -420,7 +418,7 @@ flowchart LR
 <summary><strong>Project structure</strong></summary>
 
 ```
-├── proxy-server.mjs        Local data proxy (Dhan, NSE, TradingView, Yahoo) on :4002
+├── proxy-server.mjs        Local data proxy (Dhan, NSE, Yahoo) on :4002
 ├── src/
 │   ├── pages/              One file per route
 │   ├── components/         UI by feature (option-chain, strategy, gex, flow, volatility, …)

@@ -1,7 +1,7 @@
 /**
  * Local proxy server for the Mr. Chartist Options Terminal.
  *
- *   1. HTTP proxy to Dhan API v2, NSE India (www + archives), TradingView scanner and Yahoo Finance,
+ *   1. HTTP proxy to Dhan API v2, NSE India (www + archives) and Yahoo Finance,
  *      with CORS handled, caching, request coalescing, rate queues and last-good fallbacks.
  *   2. Envelope routes under /api/x/* that always answer { data, meta: { source, asOf, stale, reason? } }.
  *      Row shapes are documented in docs/DATA_ENDPOINTS.md.
@@ -211,7 +211,6 @@ const queues = {
   nse: new RateQueue(350),
   nseArchive: new RateQueue(300),
   yahoo: new RateQueue(150),
-  tv: new RateQueue(200),
 };
 
 // ── Upstream health ──
@@ -220,7 +219,6 @@ const upstreamHealth = {
   nse: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
   bse: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
   yahoo: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
-  tv: { lastSuccess: null, lastFailure: null, lastError: null, blockedUntil: null },
 };
 
 function markSuccess(source) {
@@ -1666,64 +1664,6 @@ async function handleNSEProxy(params) {
       return { status: 200, body };
     }
     return { status: 502, body: { error: `NSE ${endpoint} unavailable`, reason: truncate(e.message, 200) } };
-  }
-}
-
-// ══════════════════════════════════════════════
-// ── SECTION 3b: TradingView scanner ──
-// ══════════════════════════════════════════════
-
-const FNO_TICKERS = [
-  "RELIANCE","TCS","HDFCBANK","INFY","ICICIBANK","HINDUNILVR","SBIN","BHARTIARTL","ITC","KOTAKBANK","LT","AXISBANK",
-  "ASIANPAINT","MARUTI","TATAMOTORS","SUNPHARMA","TITAN","WIPRO","ULTRACEMCO","BAJFINANCE","HCLTECH","NTPC","POWERGRID",
-  "ONGC","ADANIENT","ADANIPORTS","COALINDIA","DRREDDY","NESTLEIND","CIPLA","BAJAJFINSV","GRASIM","JSWSTEEL","BRITANNIA",
-  "TECHM","INDUSINDBK","HINDALCO","M_M","APOLLOHOSP","EICHERMOT","DIVISLAB","BPCL","HEROMOTOCO","TATASTEEL","SBILIFE",
-  "HDFCLIFE","SHRIRAMFIN","TRENT","BAJAJ_AUTO","BANKBARODA","PNB","CANBK","IDFCFIRSTB","FEDERALBNK","BANDHANBNK",
-  "RBLBANK","AUBANK","MANAPPURAM","MUTHOOTFIN","CHOLAFIN","LICHSGFIN","CANFINHOME","RECLTD","PFC","HAL","BEL","BHEL",
-  "IRCTC","ETERNAL","PAYTM","DLF","GODREJPROP","OBEROIRLTY","VEDL","JINDALSTEL","SAIL","NMDC","IOC","GAIL","TATAPOWER",
-  "SIEMENS","ABB","VOLTAS","HAVELLS","POLYCAB","LTIM","MPHASIS","COFORGE","PERSISTENT","TORNTPHARM","LUPIN","AUROPHARMA",
-  "BIOCON","GODREJCP","DABUR","MARICO","COLPAL","MCX","INDIGO","TVSMOTOR","MRF","ASHOKLEY","DIXON","CROMPTON","JUBLFOOD",
-].map((s) => `NSE:${s}`);
-const INDEX_TICKERS = ["NSE:NIFTY", "NSE:BANKNIFTY", "NSE:CNXFINANCE", "BSE:SENSEX"];
-
-async function handleTradingViewScan(params) {
-  const scanType = vEnum(params.get("type"), new Set(["stocks", "indices"]), "stocks", "type");
-  const key = `tv:scan:${scanType}`;
-  const hit = cache.get(key);
-  if (hit) return { status: 200, body: hit };
-  const isIndices = scanType === "indices";
-  const columns = ["name", "description", "close", "change", "change_abs", "volume", "open", "high", "low", "Perf.W", "Perf.1M", "market_cap_basic", "average_volume_10d_calc", ...(isIndices ? [] : ["sector"])];
-  try {
-    const out = await coalesce(key, () => queues.tv.schedule(async () => {
-      const res = await upstreamFetch("tv", "https://scanner.tradingview.com/india/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "User-Agent": UA, Referer: "https://www.tradingview.com/" },
-        body: JSON.stringify({ symbols: { tickers: isIndices ? INDEX_TICKERS : FNO_TICKERS }, columns }),
-      });
-      const raw = await res.json();
-      markSuccess("tv");
-      const stocks = (raw.data || []).map((item) => {
-        const d = item.d || [];
-        const o = {};
-        columns.forEach((c, i) => { o[c] = d[i]; });
-        const [exchange, sym] = String(item.s || "").split(":");
-        const symbol = (sym || o.name || "").replace(/_/g, (m, i, s) => (s === "M_M" ? "&" : "-"));
-        return {
-          symbol, name: o.description || symbol, exchange: exchange || "NSE", ltp: o.close || 0, change: o.change || 0,
-          changeAbs: o.change_abs || 0, changePercent: o.change || 0, volume: o.volume || 0, open: o.open || 0, high: o.high || 0,
-          low: o.low || 0, weekChange: o["Perf.W"] || 0, monthChange: o["Perf.1M"] || 0, marketCap: o.market_cap_basic || 0,
-          avgVolume10d: o.average_volume_10d_calc || 0, sector: o.sector || "",
-        };
-      });
-      return { stocks, totalCount: raw.totalCount, timestamp: Date.now() };
-    }));
-    cache.set(key, out, 15000);
-    setLastGood(`lastgood:tv:${scanType}`, out, "tv");
-    return { status: 200, body: out };
-  } catch (e) {
-    const lg = getLastGood(`lastgood:tv:${scanType}`);
-    if (lg) return { status: 200, body: { ...lg.data, stale: true, cachedAt: lg.timestamp } };
-    return { status: 502, body: { error: "TradingView scanner unavailable", reason: truncate(e.message, 200) } };
   }
 }
 
@@ -3337,7 +3277,7 @@ function healthPayload() {
     },
     upstreams: upstreamHealth,
     // Back-compat flags: sources.dhan = credentials present in .env.
-    sources: { dhan: !!(process.env.DHAN_CLIENT_ID && process.env.DHAN_ACCESS_TOKEN), nse: true, tradingview: true, yahoo: true },
+    sources: { dhan: !!(process.env.DHAN_CLIENT_ID && process.env.DHAN_ACCESS_TOKEN), nse: true, yahoo: true },
     cache: { entries: cache.size, lastGood: lastGood.size, inflight: inflight.size },
     recorder: recorderStatus(),
     security: { host: HOST, allowedOrigins: [...ALLOWED_ORIGINS] },
@@ -3442,10 +3382,6 @@ export const server = http.createServer(async (req, res) => {
       const { status, body } = await handleNSEProxy(params);
       return send(res, status, body);
     }
-    if (path === "/api/tv-scan") {
-      const { status, body } = await handleTradingViewScan(params);
-      return send(res, status, body);
-    }
     if (path === "/api/yahoo-chart") {
       const { status, body } = await handleYahooChart(params);
       return send(res, status, body);
@@ -3478,7 +3414,7 @@ export const server = http.createServer(async (req, res) => {
       }
     }
     if (path === "/health") return send(res, 200, healthPayload());
-    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/broker-proxy", "/api/broker-test-connection", "/api/broker-capabilities", "/api/broker-session-login", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
+    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/broker-proxy", "/api/broker-test-connection", "/api/broker-capabilities", "/api/broker-session-login", "/api/nse-proxy", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
   } catch (err) {
     if (err instanceof TradeError) {
       // A guard rejection (422) or a credential/body problem: machine-readable code, never a 500, so

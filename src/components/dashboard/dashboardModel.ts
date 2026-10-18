@@ -475,7 +475,7 @@ export function statusFrom(o: {
   return o.isLive ? "live" : "delayed";
 }
 
-const SOURCE_NAME: Record<string, string> = { dhan: "Dhan", nse: "NSE", bse: "BSE", tradingview: "TradingView", tv: "TradingView", cache: "Cache", database: "Local DB", sample: "Sample", none: "Offline" };
+const SOURCE_NAME: Record<string, string> = { dhan: "Dhan", nse: "NSE", bse: "BSE", cache: "Cache", database: "Local DB", sample: "Sample", none: "Offline" };
 
 export function sourceName(source: string | undefined): string | undefined {
   if (!source) return undefined;
