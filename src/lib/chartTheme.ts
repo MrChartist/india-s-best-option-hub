@@ -50,8 +50,6 @@ export const chartColors = {
   c6: tokenColor("chart-6"),
 } as const;
 
-export type ChartColorKey = keyof typeof chartColors;
-
 /** Ordered categorical palette for multi-series charts (cycle with seriesColor). */
 export const chartSeries: readonly string[] = [
   chartColors.c1,
@@ -132,13 +130,6 @@ export const legendStyle: CSSProperties = {
   color: "hsl(var(--muted-foreground))",
   paddingTop: 6,
 };
-
-/** <ReferenceLine {...referenceLineProps} /> e.g. spot or zero line */
-export const referenceLineProps = {
-  stroke: chartColors.primary,
-  strokeDasharray: "4 4",
-  strokeWidth: 1,
-} as const;
 
 /** Payoff chart fills: profit zone green wash, loss zone red wash, expiry/T+0 lines. */
 export const payoffFills = {

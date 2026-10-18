@@ -12,7 +12,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { BookOpenCheck, Briefcase, CalendarClock, FlaskConical, Plus, Trash2, Wallet } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -255,12 +255,11 @@ export default function PositionTracker() {
 
       <PageHeader
         icon={Briefcase}
-        eyebrow="Portfolio"
         title="Positions"
         description="Track your option positions with live repricing: Greeks in rupees, NIFTY-equivalent delta, P&L after charges, what-if scenarios and plain management hints."
         source={
           <>
-            <ToggleGroup type="single" value={account} onValueChange={(v) => v && setAccount(v as Account)} aria-label="Account" size="sm" variant="outline" className="[&_svg]:size-3.5 [&>button]:gap-1.5">
+            <ToggleGroup type="single" value={account} onValueChange={(v) => v && setAccount(v as Account)} aria-label="Account" size="sm">
               <ToggleGroupItem value="manual" aria-label="My tracked positions">
                 <Briefcase aria-hidden="true" /> Tracked
               </ToggleGroupItem>
@@ -328,7 +327,7 @@ export default function PositionTracker() {
       ) : null}
 
       {expired.length && !isPaper ? (
-        <div role="status" className="flex flex-col gap-2 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="flex flex-col gap-2 rounded-tile border border-separator bg-card px-3 py-2.5 shadow-card sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2 text-body-sm">
             <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
             {expired.length} position{expired.length === 1 ? " has" : "s have"} passed expiry (15:30 IST).
@@ -349,8 +348,8 @@ export default function PositionTracker() {
       ) : !hasPositions ? (
         <EmptyState icon={<Briefcase className="h-8 w-8" aria-hidden="true" />} title="No open positions">
           <p>
-            Add a position, import a JSON file, or send legs here from the <Link to="/strategy-builder" className="text-primary-ink underline-offset-4 hover:underline">Strategy Builder</Link>. Want to practise first? Try{" "}
-            <Link to="/paper-trading" className="text-primary-ink underline-offset-4 hover:underline">Paper Trading</Link>.
+            Add a position, import a JSON file, or send legs here from the <Link to="/strategy-builder" className="text-primary-ink underline underline-offset-2">Strategy Builder</Link>. Want to practise first? Try{" "}
+            <Link to="/paper-trading" className="text-primary-ink underline underline-offset-2">Paper Trading</Link>.
           </p>
           <Button size="sm" className="mt-3" onClick={() => setShowAdd(true)}>
             <Plus aria-hidden="true" /> Add your first position
@@ -403,7 +402,7 @@ export default function PositionTracker() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={clearAll}>Clear all</AlertDialogAction>
+                        <AlertDialogAction className={buttonVariants({ variant: "destructive" })} onClick={clearAll}>Clear all</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -453,6 +452,7 @@ export default function PositionTracker() {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
+                            className={buttonVariants({ variant: "destructive" })}
                             onClick={() => {
                               clearClosedPositions();
                               setClosed([]);

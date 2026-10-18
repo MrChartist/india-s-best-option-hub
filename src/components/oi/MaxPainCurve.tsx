@@ -69,7 +69,7 @@ export function MaxPainCurve({ symbol, chain, spot, expiry, lotSize, sample }: P
           <>
             <Badge variant="info">{sample ? "Derived from sample" : "Derived"}</Badge>
             {symbol && view && (
-              <Button asChild variant="outline" size="pill" className="h-7 gap-1 text-xs">
+              <Button asChild variant="outline" size="sm" className="gap-1">
                 <Link to={optimizerTargetUrl(symbol, view.min.strike)} title={`Find strategies that profit if ${symbol} settles near ${fmtStrike(view.min.strike)}`}>
                   Open optimizer with target = max pain <ArrowUpRight />
                 </Link>

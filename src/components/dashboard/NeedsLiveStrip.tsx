@@ -25,8 +25,8 @@ export function StartProxyButton({ onRecovered }: { onRecovered?: () => void }) 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 gap-1.5 px-2.5 text-body-sm">
-          <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+        <Button type="button" variant="outline" className="shrink-0">
+          <Terminal className="!size-3.5" aria-hidden="true" />
           Start proxy
         </Button>
       </PopoverTrigger>
@@ -37,17 +37,17 @@ export function StartProxyButton({ onRecovered }: { onRecovered?: () => void }) 
             The local proxy at <code className="break-all rounded-chip bg-muted px-1">{PROXY_BASE}</code> is not answering. Start it in a terminal from the project folder:
           </p>
         </div>
-        <pre className="overflow-x-auto rounded-chip border border-border bg-muted px-2.5 py-2 font-mono text-body-sm text-foreground">npm run proxy</pre>
+        <pre className="overflow-x-auto rounded-sm bg-control-track px-2.5 py-2 font-mono text-body-sm text-foreground">npm run proxy</pre>
         <p className="leading-relaxed text-muted-foreground">
           Or run <code className="rounded-chip bg-muted px-1">npm run dev</code> to start the app and the proxy together. Add Dhan API keys in{" "}
-          <Link to="/broker-settings" className="font-medium text-primary-ink underline-offset-2 hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+          <Link to="/broker-settings" className="font-medium text-primary-ink underline-offset-2 hover:underline focus-visible:shadow-focus focus-visible:outline-none">
             Broker settings
           </Link>{" "}
           for real-time ticks.
         </p>
         <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => void check()} disabled={checking}>
-            <RefreshCw className={cn("h-3.5 w-3.5", checking && "motion-safe:animate-spin")} aria-hidden="true" />
+          <Button type="button" variant="outline" onClick={() => void check()} disabled={checking}>
+            <RefreshCw className={cn("!size-3.5", checking && "motion-safe:animate-spin")} aria-hidden="true" />
             {checking ? "Checking…" : "Check again now"}
           </Button>
           <span role="status" aria-live="polite" className={result === "ok" ? "text-bullish" : "text-muted-foreground"}>
@@ -64,7 +64,7 @@ export function NeedsLiveStrip({ gaps, onRecovered }: { gaps: readonly LiveGap[]
   return (
     <aside
       aria-label="Needs live data"
-      className="flex flex-col gap-2 rounded-tile border border-dashed border-border bg-card px-3 py-2 text-body-sm sm:flex-row sm:items-center"
+      className="flex flex-col gap-2 rounded-tile border border-dashed border-separator-strong bg-card px-3 py-2 text-body-sm sm:flex-row sm:items-center"
     >
       <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground">
         <CloudOff className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
@@ -72,7 +72,7 @@ export function NeedsLiveStrip({ gaps, onRecovered }: { gaps: readonly LiveGap[]
         {gaps.map((g, i) => (
           <span key={g.key} className="inline-flex items-center gap-1.5">
             {g.to ? (
-              <Link to={g.to} className="rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+              <Link to={g.to} className="rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:shadow-focus focus-visible:outline-none">
                 {g.label}
               </Link>
             ) : (
@@ -86,5 +86,3 @@ export function NeedsLiveStrip({ gaps, onRecovered }: { gaps: readonly LiveGap[]
     </aside>
   );
 }
-
-export default NeedsLiveStrip;

@@ -3,9 +3,12 @@
  * contract shared with the option chain / optimizer / calculators, ?s= share links, saved strategies
  * in localStorage, the target-date timeline and CSV export. No React here, so it is unit-tested.
  */
+import { fnoStocks } from "@/lib/mockData";
 import {
   addTradingDays,
   calendarDaysBetween,
+  getContractSpec,
+  isFiniteNumber,
   isTradingDay,
   istDateString,
   normalizeExpiry,
@@ -97,16 +100,14 @@ export interface BasketLeg {
   lots: number;
   premium: number;
   iv?: number;
+  /** True when `iv` came from an explicit `ivPct` field and is already a decimal (no unit guessing). */
+  ivExact?: boolean;
 }
 
 const upper = (v: unknown): unknown => (typeof v === "string" ? v.trim().toUpperCase() : v);
 
 export function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null && !Array.isArray(x);
-}
-
-export function isFiniteNumber(x: unknown): x is number {
-  return typeof x === "number" && Number.isFinite(x);
 }
 
 /** "B", "long", "buy" → BUY; "S", "short", "sell" → SELL. */
@@ -155,14 +156,21 @@ export function readBasketLeg(item: unknown): BasketLeg | null {
   if (!Number.isFinite(lots) || lots <= 0) return null;
   const premium = optionalNumber(item.premium, 0) as number;
   if (!Number.isFinite(premium) || premium < 0) return null;
+  // `ivPct` (written by encodeLegsParam) states its unit, so it wins over the ambiguous `iv`.
+  const ivPct = optionalNumber(item.ivPct, undefined);
+  if (ivPct !== undefined) {
+    if (!Number.isFinite(ivPct) || ivPct < 0) return null;
+    return { symbol, expiry, strike, type, side, lots, premium, iv: ivPct / 100, ivExact: true };
+  }
   const iv = optionalNumber(item.iv, undefined);
   if (iv !== undefined && (!Number.isFinite(iv) || iv < 0)) return null;
   return { symbol, expiry, strike, type, side, lots, premium, iv };
 }
 
 /**
- * IV in the basket may be percent (NSE convention, 14.2) or decimal (0.142).
- * Anything above 3 is read as percent. Returns a decimal or undefined.
+ * Legacy `iv` in the basket may be percent (NSE convention, 14.2) or decimal (0.142).
+ * Anything above 3 is read as percent. Returns a decimal or undefined. Not used for `ivPct`,
+ * whose unit is explicit.
  */
 export function normaliseIv(iv: number | undefined): number | undefined {
   if (iv === undefined || !Number.isFinite(iv) || iv <= 0) return undefined;
@@ -199,7 +207,7 @@ export function parseLegsParam(param: string | null | undefined, lotSizeFor: (sy
       lots: clampLots(b.lots),
       lotSize: lotSizeFor(b.symbol, expiry),
       premium: Math.round(b.premium * 100) / 100,
-      iv: normaliseIv(b.iv),
+      iv: b.ivExact ? (b.iv !== undefined && b.iv > 0 ? b.iv : undefined) : normaliseIv(b.iv),
       manual: b.premium > 0,
       requote: !(b.premium > 0),
     });
@@ -207,7 +215,10 @@ export function parseLegsParam(param: string | null | undefined, lotSizeFor: (sy
   return out;
 }
 
-/** Encode legs in the shared basket shape (iv in percent, as the option chain sends it). */
+/**
+ * Encode legs in the shared basket shape. IV goes out as `ivPct` (percent, unit explicit) so a
+ * leg IV of 3% or less is not mistaken for a decimal and inflated 100x on the way back in.
+ */
 export function encodeLegsParam(legs: Leg[]): string {
   const basket = legs.map((l) => ({
     symbol: l.symbol,
@@ -217,7 +228,7 @@ export function encodeLegsParam(legs: Leg[]): string {
     side: l.side,
     lots: l.lots,
     premium: l.premium,
-    iv: l.iv !== undefined ? Math.round(l.iv * 10000) / 100 : undefined,
+    ivPct: l.iv !== undefined ? Math.round(l.iv * 1_000_000) / 10_000 : undefined,
   }));
   return encodeBase64Url(JSON.stringify(basket));
 }
@@ -534,8 +545,20 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
  *  - ?symbol= picks the underlying; a draft on another symbol is not loaded.
  * Basket legs on a second underlying are returned in `skipped`, never silently dropped.
  */
+/**
+ * An underlying the builder can price: one with a contract spec, or on the wider F&O stock list
+ * (the symbol picker offers those too, flagged "lot size unverified"). Anything else, such as a
+ * typo in a link, would load with an invented spot, lot size 1 and a generated sample chain.
+ */
+export function isKnownUnderlying(symbol: string): boolean {
+  return !!getContractSpec(symbol) || fnoStocks.includes(symbol);
+}
+
 export function resolveInitialState({ params, draft, today, lotSizeFor }: InitialInput): InitialState {
-  const symParam = (params.get("symbol") || "").trim().toUpperCase();
+  const rawSym = (params.get("symbol") || "").trim().toUpperCase();
+  const symParam = rawSym && isKnownUnderlying(rawSym) ? rawSym : "";
+  const notices: string[] = [];
+  if (rawSym && !symParam) notices.push(`${rawSym.slice(0, 30)} is not an F&O underlying, so it was not opened.`);
   const shared = decodeShare(params.get("s"), lotSizeFor);
   if (shared && shared.legs.length) {
     return {
@@ -557,7 +580,13 @@ export function resolveInitialState({ params, draft, today, lotSizeFor }: Initia
   let message: string | null = null;
   let previous: ShareState | null = null;
   let skipped: BuilderLeg[] = [];
-  const basket = parseLegsParam(params.get("legs"), lotSizeFor);
+  const parsed = parseLegsParam(params.get("legs"), lotSizeFor);
+  const basket = parsed.filter((l) => isKnownUnderlying(l.symbol));
+  const unknown = Array.from(new Set(parsed.filter((l) => !isKnownUnderlying(l.symbol)).map((l) => l.symbol)));
+  if (unknown.length) {
+    const n = parsed.length - basket.length;
+    notices.push(`${plural(n, "leg")} on ${unknown.slice(0, 3).join(", ")} ${n === 1 ? "was" : "were"} dropped: not an F&O underlying.`);
+  }
   if (basket.length) {
     const mode: BasketMode = params.get("mode") === "append" ? "append" : "replace";
     const bSym = basket[0].symbol;
@@ -577,6 +606,7 @@ export function resolveInitialState({ params, draft, today, lotSizeFor }: Initia
     }
     symbol = bSym;
   }
+  if (notices.length) message = [message, ...notices].filter(Boolean).join(" ");
   return { symbol, legs, name, message, fromParams: basket.length > 0 || !!symParam, shared: null, previous, skipped, persist: legs.length > 0 };
 }
 

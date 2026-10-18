@@ -24,15 +24,15 @@ function Row({ symbol }: { symbol: string }) {
   return (
     <li className="py-2 first:pt-0 last:pb-0">
       <div className="flex items-center gap-2">
-        <Link to={`/volatility?symbol=${encodeURIComponent(symbol)}`} className="min-w-0 flex-1 truncate rounded-sm text-body font-semibold hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+        <Link to={`/volatility?symbol=${encodeURIComponent(symbol)}`} className="min-w-0 flex-1 truncate rounded-sm text-body font-semibold hover:underline focus-visible:shadow-focus focus-visible:outline-none">
           {symbol}
         </Link>
-        {tag ? <span className={cn("shrink-0 rounded-chip px-1 text-micro font-semibold uppercase", tag.cls)}>{tag.text}</span> : null}
+        {tag ? <span className={cn("shrink-0 rounded-chip px-1 text-micro font-semibold", tag.cls)}>{tag.text}</span> : null}
         {r.isLoading ? (
           <Skeleton className="h-5 w-16" />
         ) : (
           <span className="flex shrink-0 items-baseline gap-1.5">
-            <span className={cn("font-num text-title font-bold tabular-nums", rankTone(rank))} aria-label={`IV rank ${rank === null ? "unavailable" : Math.round(rank)}`}>
+            <span className={cn("font-num text-title tabular-nums", rankTone(rank))} aria-label={`IV rank ${rank === null ? "unavailable" : Math.round(rank)}`}>
               {rank === null ? "—" : formatNumberIN(rank, 0)}
             </span>
             <span className="font-num text-body-sm tabular-nums text-muted-foreground">IV {fmtVol(r.current)}</span>
@@ -53,7 +53,7 @@ function Row({ symbol }: { symbol: string }) {
             <span className="whitespace-nowrap">high {fmtVol(r.stats.high)}</span>
           </div>
           {r.basisLabel ? (
-            <p className="mt-0.5 truncate text-micro uppercase text-muted-foreground" title={r.basisLabel}>
+            <p className="mt-0.5 truncate text-micro text-muted-foreground" title={r.basisLabel}>
               Basis: {r.basisLabel}
             </p>
           ) : null}
@@ -68,24 +68,22 @@ export function IVRankPairCard({ symbols = ["NIFTY", "BANKNIFTY"], className }: 
     <Card className={cn("flex h-full min-w-0 flex-col p-4", className)}>
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-1.5 font-display text-lead font-bold">
+          <h3 className="flex items-center gap-1.5 font-display text-headline">
             <Gauge className="h-4 w-4 text-primary-ink" aria-hidden="true" />
             <MetricHelp metric="ivr">IV rank</MetricHelp>
           </h3>
           <p className="text-body-sm text-muted-foreground">Where today's IV sits in its one-year range</p>
         </div>
-        <Link to="/volatility" className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none" aria-label="Open Volatility">
+        <Link to="/volatility" className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none" aria-label="Open Volatility">
           <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
-      <ul className="flex-1 divide-y divide-border">
+      <ul className="flex-1 divide-y divide-separator">
         {symbols.map((s) => (
           <Row key={s} symbol={s} />
         ))}
       </ul>
-      <p className="mt-2 text-micro uppercase text-muted-foreground">Above 50 rich · below 20 cheap · educational labels</p>
+      <p className="mt-2 text-micro text-muted-foreground">Above 50 rich · below 20 cheap · educational labels</p>
     </Card>
   );
 }
-
-export default IVRankPairCard;

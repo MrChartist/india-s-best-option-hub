@@ -51,5 +51,3 @@ export function ProductCrossLink({ id, ...rest }: ProductCrossLinkProps) {
   const p = product(id);
   return <BrandCrossLink name={p.name} url={p.url} tag={id} {...rest} />;
 }
-
-export default ProductCrossLink;

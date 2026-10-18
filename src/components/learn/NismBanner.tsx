@@ -1,5 +1,6 @@
 import { ArrowUpRight, Award, CheckCircle2 } from "lucide-react";
 import { product, withUtm } from "@/lib/brand/links";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,16 +18,16 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
   if (variant === "compact") {
     return (
       <aside aria-label="NISM certification prep" className={cn("rounded-card border border-product/25 bg-product-wash p-4", className)}>
-        <p className="flex items-center gap-1.5 text-label uppercase text-product">
+        <p className="flex items-center gap-1.5 text-label text-product">
           <Award className="h-3.5 w-3.5" aria-hidden="true" /> NISMExams.com
         </p>
-        <p className="mt-1.5 font-display text-lead font-bold text-foreground">Preparing for NISM Series VIII?</p>
+        <p className="mt-1.5 font-display text-lead font-semibold text-foreground">Preparing for NISM Series VIII?</p>
         <p className="mt-1 text-body-sm text-muted-foreground">Mock tests, notes and explanations for the Equity Derivatives certification.</p>
         <a
           href={withUtm(NISM_COURSES, "learn-lesson-sidebar")}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-1 rounded-pill text-body-sm font-semibold text-product underline-offset-4 hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+          className="mt-3 inline-flex items-center gap-1 rounded-pill text-body-sm font-semibold text-product underline-offset-4 hover:underline focus-visible:shadow-focus focus-visible:outline-none"
         >
           Explore Series VIII prep <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="sr-only">(opens in a new tab)</span>
@@ -38,12 +39,11 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
   return (
     <aside
       aria-label="NISMExams.com, from Mr. Chartist"
-      className={cn("relative overflow-hidden rounded-card border border-product/25 bg-product-wash p-5 shadow-card sm:p-6", className)}
+      className={cn("rounded-card border border-product/25 bg-product-wash p-4 shadow-card sm:p-5", className)}
     >
-      <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-capsule bg-product/10" aria-hidden="true" />
-      <div className="relative grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-label uppercase text-product">
+          <p className="flex items-center gap-1.5 text-label text-product">
             <Award className="h-3.5 w-3.5" aria-hidden="true" /> Also from Mr. Chartist
           </p>
           <h2 className="mt-1.5 font-display text-title text-foreground">Get certified with NISMExams.com</h2>
@@ -63,16 +63,16 @@ export default function NismBanner({ variant = "full", className }: { variant?: 
             href={withUtm(NISM_COURSES, "learn-hub-banner")}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-pill bg-primary px-4 text-body font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
+            className={buttonVariants({ size: "lg" })}
           >
-            Series VIII prep <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            Series VIII prep <ArrowUpRight aria-hidden="true" />
             <span className="sr-only">(opens NISMExams.com in a new tab)</span>
           </a>
           <a
             href={withUtm(NISM_HOME, "learn-hub-banner-home")}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-pill border border-border bg-card px-4 text-body font-semibold text-foreground transition-colors duration-fast hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+            className={buttonVariants({ variant: "secondary", size: "lg" })}
           >
             Visit NISMExams.com
             <span className="sr-only">(opens in a new tab)</span>

@@ -35,17 +35,17 @@ export function OnboardingTour({ state, dispatch }: Props) {
   };
 
   return (
-    <section aria-labelledby="tour-title" aria-roledescription="tour" className="relative overflow-hidden rounded-card border border-primary/30 bg-wash-brand/40 p-3 shadow-card sm:p-4">
+    <section aria-labelledby="tour-title" aria-roledescription="tour" className="relative overflow-hidden rounded-card border border-separator bg-card p-3 shadow-card sm:p-4">
       <div className="flex items-start gap-3">
-        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-tile bg-card text-primary-ink shadow-card sm:inline-flex" aria-hidden="true">
+        <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md bg-wash-brand text-primary-ink sm:inline-flex" aria-hidden="true">
           {step.id === "welcome" ? <MrChartistMark size={20} decorative className="text-foreground" /> : <Icon className="h-4 w-4" />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-label text-muted-foreground">
             <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
             Getting started · Step {state.step + 1} of {TOUR_STEPS.length}
           </p>
-          <h2 id="tour-title" ref={titleRef} tabIndex={-1} className="mt-0.5 font-display text-lead font-bold focus-visible:outline-none">
+          <h2 id="tour-title" ref={titleRef} tabIndex={-1} className="mt-0.5 font-display text-lead font-semibold focus-visible:outline-none">
             {step.title}
           </h2>
           <p className="mt-1 max-w-3xl text-body text-muted-foreground">{step.body}</p>
@@ -59,7 +59,7 @@ export function OnboardingTour({ state, dispatch }: Props) {
                     onClick={() => go({ type: "goto", step: i })}
                     aria-label={`Step ${i + 1}: ${s.title}`}
                     aria-current={i === state.step ? "step" : undefined}
-                    className="flex h-6 w-6 items-center justify-center rounded-capsule focus-visible:shadow-ember focus-visible:outline-none"
+                    className="flex h-6 w-6 items-center justify-center rounded-capsule focus-visible:shadow-focus focus-visible:outline-none"
                   >
                     <span className={cn("block h-2 rounded-capsule transition-all duration-200", i === state.step ? "w-5 bg-primary" : i < state.step ? "w-2 bg-primary/50" : "w-2 bg-muted-foreground/30")} />
                   </button>
@@ -67,27 +67,27 @@ export function OnboardingTour({ state, dispatch }: Props) {
               ))}
             </ol>
             {state.step > 0 ? (
-              <Button type="button" variant="ghost" size="sm" className="h-8 gap-1" onClick={() => go({ type: "back" })}>
-                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Back
+              <Button type="button" variant="ghost" onClick={() => go({ type: "back" })}>
+                <ArrowLeft className="!size-3.5" aria-hidden="true" /> Back
               </Button>
             ) : null}
             {step.to && step.cta ? (
-              <Button asChild variant="outline" size="sm" className="h-8">
+              <Button asChild variant="outline">
                 <Link to={step.to} onClick={() => dispatch(last ? { type: "dismiss" } : { type: "next" })}>
                   {step.cta}
                 </Link>
               </Button>
             ) : null}
-            <Button type="button" size="sm" className="h-8 gap-1" onClick={() => go(last ? { type: "dismiss" } : { type: "next" })}>
+            <Button type="button" onClick={() => go(last ? { type: "dismiss" } : { type: "next" })}>
               {last ? "Finish" : state.step === 0 ? "Show me around" : "Next"}
-              {!last ? <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+              {!last ? <ArrowRight className="!size-3.5" aria-hidden="true" /> : null}
             </Button>
           </div>
         </div>
         <button
           type="button"
           onClick={() => dispatch({ type: "dismiss" })}
-          className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+          className="-m-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
           aria-label="Skip the tour"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -96,5 +96,3 @@ export function OnboardingTour({ state, dispatch }: Props) {
     </section>
   );
 }
-
-export default OnboardingTour;

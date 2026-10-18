@@ -16,18 +16,24 @@ export interface PresetBarProps {
   onSelect: (id: PresetId | null) => void;
 }
 
+const SCOPE =
+  "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 text-body-sm font-medium transition-[background-color,color,box-shadow] duration-fast focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-9";
+const SCOPE_ON = "bg-control text-foreground shadow-control";
+const SCOPE_OFF = "text-foreground/80 hover:bg-control-track hover:text-foreground";
+
 /** One-click presets. Selecting the active preset again clears it. */
 export function PresetBar({ active, counts, onSelect }: PresetBarProps) {
   return (
-    <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Screener presets">
-      <div className="flex w-max gap-1.5 sm:w-auto sm:flex-wrap">
+    <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0" role="group" aria-label="Screener presets">
+      {/* Finder-style scope bar: the selected scope is a raised segment. */}
+      <div className="flex w-max gap-1 sm:w-auto sm:flex-wrap">
         <button
           type="button"
           aria-pressed={active === null}
           onClick={() => onSelect(null)}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-body-sm font-medium transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-            active === null ? "border-primary/50 bg-wash-brand text-primary-ink" : "border-border bg-card text-foreground hover:bg-accent",
+            SCOPE,
+            active === null ? SCOPE_ON : SCOPE_OFF,
           )}
         >
           All
@@ -43,16 +49,16 @@ export function PresetBar({ active, counts, onSelect }: PresetBarProps) {
                   aria-pressed={on}
                   onClick={() => onSelect(on ? null : p.id)}
                   className={cn(
-                    "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3 text-body-sm font-medium transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                    on ? "border-primary/50 bg-wash-brand text-primary-ink shadow-card" : "border-border bg-card text-foreground hover:bg-accent",
+                    SCOPE,
+                    on ? SCOPE_ON : SCOPE_OFF,
                   )}
                 >
-                  <span className={cn("h-2 w-2 rounded-full", DOT[p.tone])} aria-hidden="true" />
+                  <span className={cn("h-1.5 w-1.5 rounded-capsule", DOT[p.tone])} aria-hidden="true" />
                   {p.label}
-                  <span className={cn("rounded-chip px-1 font-num text-label tabular-nums", n > 0 ? "bg-muted text-foreground" : "text-muted-foreground")}>{n}</span>
+                  <span className="font-num text-body-sm font-normal tabular-nums text-muted-foreground">{n}</span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-xs">{p.description}</TooltipContent>
+              <TooltipContent className="max-w-[260px] text-body-sm">{p.description}</TooltipContent>
             </Tooltip>
           );
         })}

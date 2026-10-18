@@ -57,16 +57,16 @@ export function ScenarioGrid({
           ))}
         </ToggleGroup>
       </div>
-      <div className="overflow-x-auto rounded-tile border border-border">
+      <div className="overflow-x-auto rounded-tile border border-separator">
         <table className="w-full min-w-[640px] border-collapse font-num text-body-sm tabular-nums">
           <caption className="sr-only">Scenario P&L by spot move (columns) and IV shift (rows)</caption>
           <thead>
             <tr className="bg-surface">
-              <th scope="col" className="px-2 py-2 text-left text-label uppercase text-muted-foreground">
+              <th scope="col" className="px-2 py-2 text-left text-label text-muted-foreground">
                 IV \ Spot
               </th>
               {SCENARIO_SPOT_PCTS.map((pct) => (
-                <th key={pct} scope="col" className={cn("px-2 py-2 text-right text-label uppercase", pct === 0 ? "text-foreground" : "text-muted-foreground")}>
+                <th key={pct} scope="col" className={cn("px-2 py-2 text-right text-label", pct === 0 ? "text-foreground" : "text-muted-foreground")}>
                   {pct === 0 ? "Spot" : formatPct(pct * 100, { decimals: 0, signed: true })}
                 </th>
               ))}
@@ -74,8 +74,8 @@ export function ScenarioGrid({
           </thead>
           <tbody>
             {SCENARIO_IV_SHIFTS.map((shift, i) => (
-              <tr key={shift} className="border-t border-border">
-                <th scope="row" className="whitespace-nowrap bg-surface px-2 py-2 text-left text-label uppercase text-muted-foreground">
+              <tr key={shift} className="border-t border-separator">
+                <th scope="row" className="whitespace-nowrap bg-surface px-2 py-2 text-left text-label text-muted-foreground">
                   {shift === 0 ? "IV now" : `IV ${shift > 0 ? "+" : "−"}${Math.abs(shift * 100)} pts`}
                 </th>
                 {SCENARIO_SPOT_PCTS.map((pct, j) => {
@@ -84,7 +84,7 @@ export function ScenarioGrid({
                   return (
                     <td
                       key={pct}
-                      className={cn("px-2 py-2 text-right", signedClass(v), isNow && "font-bold outline outline-2 -outline-offset-2 outline-primary")}
+                      className={cn("px-2 py-2 text-right", signedClass(v), isNow && "font-semibold outline outline-2 -outline-offset-2 outline-primary")}
                       style={cellStyle(v, maxAbs)}
                       title={`Change vs now: ${signedINR(v - base)}`}
                     >

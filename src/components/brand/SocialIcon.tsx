@@ -27,5 +27,3 @@ export function SocialIcon({ id, className }: { id: SocialId; className?: string
   const Icon = ICONS[id];
   return <Icon className={cn("h-4 w-4", className)} strokeWidth={1.75} aria-hidden="true" />;
 }
-
-export default SocialIcon;

@@ -30,13 +30,13 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
 
   return (
     <SimSpotProvider>
-      <div className="mx-auto w-full max-w-[1200px] px-1.5 py-1 sm:px-0">
+      <div className="mx-auto w-full max-w-[1040px] px-1.5 py-1 sm:px-0">
         <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1 text-body-sm text-muted-foreground">
-          <Link to="/learn" className="inline-flex items-center gap-1 rounded-chip hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none">
+          <Link to="/learn" className="inline-flex items-center gap-1 rounded-chip hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none">
             <GraduationCap className="h-3.5 w-3.5" aria-hidden="true" /> Learn
           </Link>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          <Link to={`/learn#path-${lesson.path}`} className="rounded-chip hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none">
+          <Link to={`/learn#path-${lesson.path}`} className="rounded-chip hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none">
             {path?.title}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -50,7 +50,7 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
             <PageHeader
               eyebrow={path ? `${path.title} · Lesson ${position + 1}` : undefined}
               title={lesson.title}
-              description={<p className="text-lead font-normal">{lesson.summary}</p>}
+              description={<p>{lesson.summary}</p>}
               source={
                 <>
                   <Badge variant={LEVEL_VARIANT[lesson.level]}>{lesson.level}</Badge>
@@ -69,7 +69,7 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
                   ) : null}
                 </>
               }
-              className="border-b border-border pb-5"
+              className="hairline-b pb-4"
             />
 
             <div className="mt-2 px-1 sm:px-2">
@@ -80,7 +80,7 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <Button type="button" variant={done ? "outline" : "secondary"} size="sm" onClick={() => (done ? uncomplete(lesson.slug) : complete(lesson.slug))} aria-pressed={done}>
-                <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                <CheckCircle2 aria-hidden="true" />
                 {done ? "Completed · undo" : "Mark as complete"}
               </Button>
             </div>
@@ -89,12 +89,12 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
               {prev ? (
                 <Link
                   to={`/learn/${prev.slug}`}
-                  className="group rounded-card border border-border bg-card p-4 shadow-card transition-colors duration-fast hover:border-primary/40 focus-visible:shadow-ember focus-visible:outline-none"
+                  className="group rounded-card border border-separator bg-card px-4 py-3 shadow-card transition-colors duration-fast hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
                 >
-                  <span className="flex items-center gap-1 text-label uppercase text-muted-foreground">
+                  <span className="flex items-center gap-1 text-label text-muted-foreground">
                     <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Previous
                   </span>
-                  <span className="mt-1 block font-semibold text-foreground group-hover:text-primary-ink">{prev.title}</span>
+                  <span className="mt-1 block text-headline text-foreground">{prev.title}</span>
                 </Link>
               ) : (
                 <span className="hidden sm:block" />
@@ -102,20 +102,20 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
               {next ? (
                 <Link
                   to={`/learn/${next.slug}`}
-                  className="group rounded-card border border-border bg-card p-4 text-right shadow-card transition-colors duration-fast hover:border-primary/40 focus-visible:shadow-ember focus-visible:outline-none"
+                  className="group rounded-card border border-separator bg-card px-4 py-3 text-right shadow-card transition-colors duration-fast hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
                 >
-                  <span className="flex items-center justify-end gap-1 text-label uppercase text-muted-foreground">
+                  <span className="flex items-center justify-end gap-1 text-label text-muted-foreground">
                     Next <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </span>
-                  <span className="mt-1 block font-semibold text-foreground group-hover:text-primary-ink">{next.title}</span>
+                  <span className="mt-1 block text-headline text-foreground">{next.title}</span>
                 </Link>
               ) : (
                 <Link
                   to="/learn"
-                  className="group rounded-card border border-border bg-card p-4 text-right shadow-card transition-colors duration-fast hover:border-primary/40 focus-visible:shadow-ember focus-visible:outline-none"
+                  className="group rounded-card border border-separator bg-card px-4 py-3 text-right shadow-card transition-colors duration-fast hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
                 >
-                  <span className="text-label uppercase text-muted-foreground">All done</span>
-                  <span className="mt-1 block font-semibold text-foreground group-hover:text-primary-ink">Back to the Learn hub</span>
+                  <span className="text-label text-muted-foreground">All done</span>
+                  <span className="mt-1 block text-headline text-foreground">Back to the Learn hub</span>
                 </Link>
               )}
             </nav>
@@ -127,7 +127,7 @@ export default function LessonLayout({ lesson }: { lesson: Lesson }) {
           </aside>
         </div>
 
-        <footer className="mt-8 space-y-1 border-t border-border pt-3 text-body-sm text-muted-foreground">
+        <footer className="hairline-t mt-8 space-y-1 pt-3 text-body-sm text-muted-foreground">
           <p>Data for education and research. Not investment advice. Simulator prices come from a model; lot sizes, charge rates and expiry rules come from dated tables marked for verification.</p>
           <p>Educational content in partnership with NISMExams.com.</p>
         </footer>

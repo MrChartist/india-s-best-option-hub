@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Trophy, Zap } from "lucide-react";
+import { Segmented } from "@/components/strategy/Segmented";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateIST, formatNumberIN, formatPct, formatStrike } from "@/lib/options";
 import { hottestChains, topPremiumContracts, type FlowPrint } from "@/lib/flow";
@@ -51,7 +52,7 @@ export function HotChains({ prints, isSample }: { prints: FlowPrint[]; isSample:
                 <span className="h-full bg-bullish" style={{ width: `${(c.callShare || 0) * 100}%` }} />
                 <span className="h-full flex-1 bg-bearish" />
               </div>
-              <p className="mt-0.5 text-micro uppercase text-muted-foreground">
+              <p className="mt-0.5 text-micro text-muted-foreground">
                 Calls {fmtRs(c.cePremium)} · Puts {fmtRs(c.pePremium)} · {formatNumberIN(c.prints)} prints
               </p>
             </li>
@@ -74,54 +75,52 @@ export function TopContracts({ prints, isSample }: { prints: FlowPrint[]; isSamp
       {rows.length === 0 ? (
         <EmptyState title="No contracts yet">Contracts appear here once the tape has prints.</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] text-body-sm">
+        <div className="hairline overflow-hidden rounded-tile">
+          <Table className="min-w-[520px]">
             <caption className="sr-only">Top contracts by premium</caption>
-            <thead className="text-left text-label uppercase text-muted-foreground">
-              <tr>
-                <th scope="col" className="py-1.5 pr-2">
-                  #
-                </th>
-                <th scope="col" className="py-1.5 pr-2">
-                  Contract
-                </th>
-                <th scope="col" className="py-1.5 pr-2 text-right">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">#</TableHead>
+                <TableHead scope="col">Contract</TableHead>
+                <TableHead scope="col" className="text-right">
                   Premium
-                </th>
-                <th scope="col" className="py-1.5 pr-2 text-right">
+                </TableHead>
+                <TableHead scope="col" className="text-right">
                   Net
-                </th>
-                <th scope="col" className="py-1.5 pr-2 text-right">
+                </TableHead>
+                <TableHead scope="col" className="text-right">
                   Contracts
-                </th>
-                <th scope="col" className="py-1.5 text-right">
+                </TableHead>
+                <TableHead scope="col" className="text-right">
                   OI chg
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r, i) => (
-                <tr key={r.key}>
-                  <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{i + 1}</td>
-                  <td className="whitespace-nowrap py-1.5 pr-2">
+                <TableRow key={r.key}>
+                  <TableCell className="tabular-nums text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <span className="font-semibold">{r.symbol}</span>{" "}
                     <span className="tabular-nums">{formatStrike(r.strike)}</span>{" "}
                     <span className={r.type === "CE" ? "text-bullish" : "text-bearish"}>{r.type}</span>
                     <span className="ml-1.5 text-muted-foreground">
                       {formatDateIST(r.expiry).replace(/ \d{4}$/, "")}
                     </span>
-                  </td>
-                  <td className="py-1.5 pr-2 text-right font-semibold tabular-nums">{fmtRs(r.premium)}</td>
-                  <td className={cn("py-1.5 pr-2 text-right tabular-nums", signClass(r.net))}>{fmtRs(r.net, true)}</td>
-                  <td className="py-1.5 pr-2 text-right tabular-nums">{formatNumberIN(r.dVol)}</td>
-                  <td className={cn("py-1.5 text-right tabular-nums", signClass(r.dOI))}>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">{fmtRs(r.premium)}</TableCell>
+                  <TableCell className={cn("text-right tabular-nums", signClass(r.net))}>
+                    {fmtRs(r.net, true)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{formatNumberIN(r.dVol)}</TableCell>
+                  <TableCell className={cn("text-right tabular-nums", signClass(r.dOI))}>
                     {r.dOI > 0 ? "+" : ""}
                     {formatNumberIN(r.dOI)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </Panel>
@@ -153,20 +152,15 @@ export function OiSpurts() {
       }
       subtitle="Largest OI changes published by NSE"
       actions={
-        <div className="flex gap-1" role="tablist" aria-label="OI spurts view">
-          {(["contracts", "underlyings"] as const).map((t) => (
-            <Button
-              key={t}
-              role="tab"
-              aria-selected={t === type}
-              size="pill"
-              variant={t === type ? "default" : "outline"}
-              onClick={() => setType(t)}
-            >
-              {t === "contracts" ? "Contracts" : "Underlyings"}
-            </Button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="OI spurts view"
+          value={type}
+          onChange={setType}
+          options={[
+            { value: "contracts", label: "Contracts" },
+            { value: "underlyings", label: "Underlyings" },
+          ]}
+        />
       }
     >
       {q.isLoading ? (
@@ -185,60 +179,58 @@ export function OiSpurts() {
           <p className="text-body-sm text-muted-foreground">
             Source: NSE{meta?.stale ? " (cached copy)" : ""} via your local proxy.
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-body-sm">
+          <div className="hairline overflow-hidden rounded-tile">
+            <Table className="min-w-[520px]">
               <caption className="sr-only">NSE OI spurts by {type}</caption>
-              <thead className="text-left text-label uppercase text-muted-foreground">
-                <tr>
-                  <th scope="col" className="py-1.5 pr-2">
-                    {type === "contracts" ? "Contract" : "Underlying"}
-                  </th>
-                  <th scope="col" className="py-1.5 pr-2 text-right">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">{type === "contracts" ? "Contract" : "Underlying"}</TableHead>
+                  <TableHead scope="col" className="text-right">
                     OI
-                  </th>
-                  <th scope="col" className="py-1.5 pr-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     OI chg
-                  </th>
-                  <th scope="col" className="py-1.5 pr-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     LTP
-                  </th>
-                  <th scope="col" className="py-1.5 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     Build-up
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((r, i) => (
-                  <tr key={`${r.symbol}-${r.strike ?? ""}-${r.optionType ?? ""}-${r.expiry ?? ""}-${i}`}>
-                    <td className="whitespace-nowrap py-1.5 pr-2">
+                  <TableRow key={`${r.symbol}-${r.strike ?? ""}-${r.optionType ?? ""}-${r.expiry ?? ""}-${i}`}>
+                    <TableCell className="whitespace-nowrap">
                       <span className="font-semibold">{r.symbol}</span>
                       {r.strike ? <span className="ml-1 tabular-nums">{formatStrike(r.strike)}</span> : null}
                       {r.optionType ? <span className="ml-1">{r.optionType}</span> : null}
                       {r.expiry ? <span className="ml-1.5 text-muted-foreground">{r.expiry}</span> : null}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums">{formatNumberIN(r.latestOi)}</td>
-                    <td className={cn("py-1.5 pr-2 text-right tabular-nums", signClass(r.chgOi))}>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{formatNumberIN(r.latestOi)}</TableCell>
+                    <TableCell className={cn("text-right tabular-nums", signClass(r.chgOi))}>
                       {formatPct(r.chgOiPct, { decimals: 1, signed: true })}
-                    </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {r.ltp !== undefined ? formatNumberIN(r.ltp, 2) : "—"}
                       {r.pChange !== undefined ? (
                         <span className={cn("ml-1", signClass(r.pChange))}>
                           {formatPct(r.pChange, { decimals: 1, signed: true })}
                         </span>
                       ) : null}
-                    </td>
-                    <td className="py-1.5 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       {r.category ? (
                         <Badge variant={CATEGORY_VARIANT[r.category] ?? "neutral"}>{r.category}</Badge>
                       ) : (
                         "—"
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

@@ -12,7 +12,7 @@ interface Props {
 /** Plain-English guide to the GEX page: what the numbers mean and what is assumed. */
 export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Props) {
   return (
-    <Card className="rounded-card">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-lead">
           <BookOpen className="h-4 w-4 text-primary-ink" aria-hidden />
@@ -56,7 +56,7 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
                 Switch to the dealer model to see the classic gamma flip. The flip from the dealer model is also shown
                 in the levels card when the seller view is on, labelled as such.
               </p>
-              <p className="text-label uppercase text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 Current: {convention === "sellerShortBoth" ? "Seller view (India)" : "Dealer model (US)"}
               </p>
             </AccordionContent>
@@ -135,5 +135,3 @@ export function GexExplainer({ convention, lotSize, oiUnit = "contracts" }: Prop
     </Card>
   );
 }
-
-export default GexExplainer;

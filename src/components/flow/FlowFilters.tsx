@@ -27,7 +27,7 @@ function Seg<T extends string>({
 }) {
   return (
     <div className="min-w-0 space-y-1">
-      <p className="text-label uppercase text-muted-foreground" id={`seg-${label}`}>
+      <p className="text-label text-muted-foreground" id={`seg-${label}`}>
         {label}
       </p>
       <ToggleGroup
@@ -35,15 +35,10 @@ function Seg<T extends string>({
         value={value}
         onValueChange={(v) => v && onChange(v as T)}
         aria-labelledby={`seg-${label}`}
-        className="flex flex-wrap justify-start gap-1"
+        className="justify-start"
       >
         {options.map((o) => (
-          <ToggleGroupItem
-            key={o.value}
-            value={o.value}
-            size="sm"
-            className="h-7 rounded-pill px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
-          >
+          <ToggleGroupItem key={o.value} value={o.value} size="sm">
             {o.label}
           </ToggleGroupItem>
         ))}
@@ -57,14 +52,14 @@ export function FlowFilters({ value, onChange, symbols, expiries }: FlowFiltersP
   const set = <K extends keyof TapeFilters>(k: K, v: TapeFilters[K]) => onChange({ ...value, [k]: v });
   const active = activeFilterCount(value);
   return (
-    <div className="rounded-tile border border-border bg-surface p-3">
+    <div className="rounded-tile bg-muted/50 p-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1">
-          <Label htmlFor="flow-f-symbol" className="text-label uppercase text-muted-foreground">
+          <Label htmlFor="flow-f-symbol" className="text-label text-muted-foreground">
             Underlying
           </Label>
           <Select value={value.symbol} onValueChange={(v) => set("symbol", v)}>
-            <SelectTrigger id="flow-f-symbol" className="h-8 text-body-sm">
+            <SelectTrigger id="flow-f-symbol">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -78,11 +73,11 @@ export function FlowFilters({ value, onChange, symbols, expiries }: FlowFiltersP
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="flow-f-premium" className="text-label uppercase text-muted-foreground">
+          <Label htmlFor="flow-f-premium" className="text-label text-muted-foreground">
             Min premium
           </Label>
           <Select value={String(value.minPremium)} onValueChange={(v) => set("minPremium", Number(v))}>
-            <SelectTrigger id="flow-f-premium" className="h-8 text-body-sm">
+            <SelectTrigger id="flow-f-premium">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -95,11 +90,11 @@ export function FlowFilters({ value, onChange, symbols, expiries }: FlowFiltersP
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="flow-f-expiry" className="text-label uppercase text-muted-foreground">
+          <Label htmlFor="flow-f-expiry" className="text-label text-muted-foreground">
             Expiry
           </Label>
           <Select value={value.expiry} onValueChange={(v) => set("expiry", v)}>
-            <SelectTrigger id="flow-f-expiry" className="h-8 text-body-sm">
+            <SelectTrigger id="flow-f-expiry">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -164,16 +159,11 @@ export function FlowFilters({ value, onChange, symbols, expiries }: FlowFiltersP
         />
       </div>
       {active > 0 ? (
-        <div className="mt-3 flex items-center justify-between border-t border-border pt-2">
+        <div className="hairline-t mt-3 flex items-center justify-between pt-2">
           <p className="text-body-sm text-muted-foreground">
             {active} filter{active === 1 ? "" : "s"} on
           </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1 text-body-sm"
-            onClick={() => onChange(DEFAULT_TAPE_FILTERS)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onChange(DEFAULT_TAPE_FILTERS)}>
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reset
           </Button>
         </div>

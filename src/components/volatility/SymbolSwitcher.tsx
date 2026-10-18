@@ -9,24 +9,22 @@ export function SymbolSwitcher({ value, onChange, className }: { value: string; 
   const known = VOL_INDICES.includes(value) || VOL_STOCKS.includes(value);
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <div className="flex flex-wrap gap-1" role="group" aria-label="Index">
+      {/* macOS segmented control. Buttons with aria-pressed (not radios): a stock can be picked instead. */}
+      <div className="inline-flex flex-wrap items-center gap-px rounded-pill bg-control-track p-0.5" role="group" aria-label="Index">
         {VOL_INDICES.map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => onChange(s)}
             aria-pressed={value === s}
-            className={cn(
-              "h-7 rounded-capsule border px-3 text-xs font-semibold transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-              value === s ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-accent",
-            )}
+            className="h-6 rounded-[5px] px-2.5 text-body font-medium text-foreground/80 transition-[background-color,color,box-shadow] duration-base ease-spring hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none aria-pressed:bg-control aria-pressed:text-foreground aria-pressed:shadow-control [@media(pointer:coarse)]:h-8"
           >
             {s}
           </button>
         ))}
       </div>
       <Select value={VOL_INDICES.includes(value) ? "" : value} onValueChange={onChange}>
-        <SelectTrigger className="h-8 w-[150px]" aria-label="Stock">
+        <SelectTrigger className="w-[150px]" aria-label="Stock">
           <SelectValue placeholder="Stocks" />
         </SelectTrigger>
         <SelectContent>

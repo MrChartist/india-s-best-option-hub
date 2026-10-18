@@ -271,6 +271,48 @@ function notifyChange(): void {
   }
 }
 
+/**
+ * Whether the vault on disk was written with this tab's key. Another tab can re-key it (session
+ * mode, then encrypt with a new passphrase); this tab must then stop using its old in-memory key
+ * and credentials, or its next save would overwrite the new vault with the old key.
+ */
+function vaultMatchesKey(): boolean {
+  if (!vaultKey) return false;
+  const blob = readVault();
+  return !!blob && blob.salt === toB64(vaultKey.salt);
+}
+
+function forgetUnlocked(): void {
+  unlocked = null;
+  vaultKey = null;
+}
+
+// Another tab changed the vault or the storage mode. If the vault still uses this tab's key, read
+// the new contents; otherwise lock this tab so it asks for the passphrase again.
+try {
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key !== null && e.key !== VAULT_KEY && e.key !== MODE_KEY) return;
+    if (unlocked === null && vaultKey === null) return;
+    const blob = readVault();
+    const key = vaultKey;
+    if (!blob || !key || readStorage("local", MODE_KEY) !== "encrypted" || blob.salt !== toB64(key.salt)) {
+      forgetUnlocked();
+      notifyChange();
+      return;
+    }
+    subtle()
+      .decrypt({ name: "AES-GCM", iv: fromB64(blob.iv) }, key.key, fromB64(blob.ct))
+      .then((pt) => {
+        if (vaultKey !== key) return;
+        unlocked = sanitizeCredentials(JSON.parse(new TextDecoder().decode(pt)));
+      })
+      .catch(() => forgetUnlocked())
+      .finally(notifyChange);
+  });
+} catch {
+  /* non-browser environment */
+}
+
 /** Subscribe to credential changes (save, remove, unlock, lock, mode switch). */
 export function onBrokerCredentialsChange(cb: () => void): () => void {
   try {
@@ -299,7 +341,14 @@ export function isVaultLocked(): boolean {
 
 export function getSavedBrokers(): BrokerCredentials[] {
   const state = getStorageState();
-  if (state === "encrypted") return unlocked ? unlocked.map((c) => ({ ...c, values: { ...c.values } })) : [];
+  if (state === "encrypted") {
+    if (unlocked && !vaultMatchesKey()) {
+      // Re-keyed in another tab: never show or send the old credentials.
+      forgetUnlocked();
+      queueMicrotask(notifyChange);
+    }
+    return unlocked ? unlocked.map((c) => ({ ...c, values: { ...c.values } })) : [];
+  }
   if (state === "legacy") return parseList(readStorage("local", LEGACY_KEY));
   return parseList(readStorage("session", SESSION_KEY));
 }
@@ -309,6 +358,11 @@ async function persist(list: BrokerCredentials[]): Promise<void> {
   const state = getStorageState();
   if (state === "encrypted") {
     if (!vaultKey) throw new Error("Vault is locked. Unlock it with your passphrase first.");
+    if (!vaultMatchesKey()) {
+      forgetUnlocked();
+      notifyChange();
+      throw new Error("The vault was changed in another tab. Unlock it again.");
+    }
     const blob = await encryptWithKey(vaultKey.key, vaultKey.salt, vaultKey.iterations, clean);
     writeStorage("local", VAULT_KEY, JSON.stringify(blob));
     unlocked = clean;
@@ -422,8 +476,4 @@ export function wipeAllCredentials(): void {
   unlocked = null;
   vaultKey = null;
   notifyChange();
-}
-
-export function getBrokerInfo(brokerId: string): BrokerInfo | undefined {
-  return BROKERS.find((b) => b.id === brokerId);
 }

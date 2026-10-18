@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Flame, Plus, SlidersHorizontal } from "lucide-react";
+import { Segmented } from "@/components/strategy/Segmented";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,10 +55,10 @@ function ThresholdEditor({ value, onChange }: { value: UnusualThresholds; onChan
           const n = Number(e.target.value);
           if (Number.isFinite(n) && n >= 0) onChange({ ...value, [k]: n });
         }}
-        className="h-8 tabular-nums"
+        className="tabular-nums"
         aria-describedby={`thr-${k}-help`}
       />
-      <p id={`thr-${k}-help`} className="text-micro normal-case tracking-normal text-muted-foreground">
+      <p id={`thr-${k}-help`} className="text-micro text-muted-foreground">
         {help}
       </p>
     </div>
@@ -149,20 +151,13 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="Underlying" className="flex flex-wrap gap-1">
-            {symbols.map((s) => (
-              <Button
-                key={s}
-                role="tab"
-                aria-selected={s === symbol}
-                variant={s === symbol ? "default" : "outline"}
-                size="pill"
-                onClick={() => setPicked(s)}
-              >
-                {s}
-              </Button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Underlying"
+            size="md"
+            value={symbol}
+            onChange={setPicked}
+            options={symbols.map((s) => ({ value: s, label: s }))}
+          />
           {onAddSymbol ? (
             <Select
               value=""
@@ -172,7 +167,7 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
                 setPicked(v);
               }}
             >
-              <SelectTrigger className="h-7 w-[170px] rounded-pill text-body-sm" aria-label="Scan another underlying">
+              <SelectTrigger className="w-[170px]" aria-label="Scan another underlying">
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   <SelectValue placeholder="Add underlying" />
@@ -204,8 +199,8 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
                 aria-checked={on}
                 onClick={() => setPreset(p.id)}
                 className={cn(
-                  "rounded-tile border p-3 text-left transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                  on ? "border-primary/60 bg-wash-brand/60" : "border-border bg-card hover:bg-muted/50",
+                  "rounded-tile p-3 text-left transition-[background-color,box-shadow] duration-fast focus-visible:shadow-ember focus-visible:outline-none",
+                  on ? "bg-wash-brand shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.55)]" : "bg-muted/50 hover:bg-muted",
                 )}
               >
                 <span className="flex items-center justify-between gap-2">
@@ -214,9 +209,7 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
                 </span>
                 <span className="mt-1 block text-body-sm text-muted-foreground">{p.description}</span>
                 {p.id !== "all" ? (
-                  <span className="mt-1.5 block text-micro uppercase text-muted-foreground">
-                    Educational, not advice
-                  </span>
+                  <span className="mt-1.5 block text-micro text-muted-foreground">Educational, not advice</span>
                 ) : null}
               </button>
             );
@@ -237,52 +230,48 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
             preset or loosen the thresholds.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-tile border border-border">
-            <table className="w-full min-w-[820px] text-body-sm">
+          <div className="hairline overflow-hidden rounded-tile">
+            <Table className="min-w-[820px] [&_td]:py-1">
               <caption className="sr-only">
                 Unusual {symbol} options for {formatDateIST(feed.expiry)}
               </caption>
-              <thead className="bg-surface text-left text-label uppercase text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-3 py-2">
-                    Contract
-                  </th>
-                  <th scope="col" className="px-3 py-2">
-                    Signals
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Contract</TableHead>
+                  <TableHead scope="col">Signals</TableHead>
+                  <TableHead scope="col" className="text-right">
                     Volume
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     OI
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     Vol/OI
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     × avg
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     Premium
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     LTP
-                  </th>
-                  <th scope="col" className="px-3 py-2 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="text-right">
                     OI chg
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {list.slice(0, 60).map((c) => (
-                  <tr key={c.key} className="hover:bg-muted/40">
-                    <td className="whitespace-nowrap px-3 py-1.5">
+                  <TableRow key={c.key}>
+                    <TableCell className="whitespace-nowrap">
                       <span className="font-semibold tabular-nums">{formatStrike(c.strike)}</span>{" "}
                       <span className={c.type === "CE" ? "text-bullish" : "text-bearish"}>{c.type}</span>
-                      <span className="ml-1.5 text-micro uppercase text-muted-foreground">{c.moneyness}</span>
+                      <span className="ml-1.5 text-micro text-muted-foreground">{c.moneyness}</span>
                       <span className="ml-1.5 text-muted-foreground">{c.dte === 0 ? "0DTE" : `${c.dte}d`}</span>
-                    </td>
-                    <td className="px-3 py-1.5">
+                    </TableCell>
+                    <TableCell>
                       <span className="flex flex-wrap gap-1">
                         {c.flags.map((f) => (
                           <Badge
@@ -294,32 +283,32 @@ export function UnusualScanner({ feeds, onAddSymbol, extraSymbols = [] }: Unusua
                           </Badge>
                         ))}
                       </span>
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{formatNumberIN(c.volume)}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{formatNumberIN(c.oi)}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{formatNumberIN(c.volume)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatNumberIN(c.oi)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {Number.isFinite(c.volOi) ? c.volOi.toFixed(2) : "New"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {c.volMultiple !== undefined ? `${c.volMultiple.toFixed(1)}×` : "—"}
-                    </td>
-                    <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{fmtRs(c.premium)}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{fmtRs(c.premium)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {formatNumberIN(c.ltp, 2)}
                       {c.priceChange !== undefined ? (
                         <span className={cn("ml-1", signClass(c.priceChange))}>
                           {c.priceChange > 0 ? "▲" : c.priceChange < 0 ? "▼" : ""}
                         </span>
                       ) : null}
-                    </td>
-                    <td className={cn("px-3 py-1.5 text-right tabular-nums", signClass(c.oiChange))}>
+                    </TableCell>
+                    <TableCell className={cn("text-right tabular-nums", signClass(c.oiChange))}>
                       {c.oiChange > 0 ? "+" : ""}
                       {formatNumberIN(c.oiChange)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
         {list.length > 60 ? (

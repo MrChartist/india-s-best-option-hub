@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Calculators from "@/pages/Calculators";
@@ -73,5 +73,16 @@ describe("Calculators page", () => {
     const region = screen.getByRole("region", { name: "Next 6 expiries" });
     expect(within(region).getAllByRole("listitem")).toHaveLength(6);
     expect(screen.getByRole("region", { name: "NIFTY" })).toBeInTheDocument();
+  });
+});
+
+describe("IV calculator regressions", () => {
+  it("a zero premium is flagged invalid instead of reported as above 500% vol", () => {
+    renderAt("/calculators?tab=iv");
+    const input = screen.getByLabelText(/Market premium/);
+    fireEvent.change(input, { target: { value: "0" } });
+    expect(screen.getByText("Premium must be above zero")).toBeInTheDocument();
+    expect(screen.queryByText(/above what any volatility/)).not.toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-invalid", "true");
   });
 });

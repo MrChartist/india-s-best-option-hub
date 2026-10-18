@@ -93,6 +93,24 @@ function fetchNSEProxy<T>(endpoint: string, params?: Record<string, string | und
   return proxyFetchJSON<T>("/api/nse-proxy", { endpoint, ...params }, { withDhan: false });
 }
 
+/**
+ * A legacy-route result with the proxy's last-good flags. On an upstream failure /api/nse-proxy
+ * and /api/tv-scan answer 200 with the last saved copy (up to 18 h old) marked
+ * `{ stale: true, cachedAt }`; callers must not label that copy live.
+ */
+export interface Stamped<T> {
+  data: T;
+  stale: boolean;
+  cachedAt: number | null;
+}
+
+/** Read the last-good flags from a legacy proxy body. */
+export function legacyStamp(raw: unknown): { stale: boolean; cachedAt: number | null } {
+  const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as { stale?: unknown; cachedAt?: unknown }) : {};
+  const cachedAt = typeof o.cachedAt === "number" && Number.isFinite(o.cachedAt) ? o.cachedAt : null;
+  return { stale: o.stale === true, cachedAt };
+}
+
 // ── Parse Dhan Option Chain ──
 
 const EMPTY_LEG: OptionLegDataExt = { ltp: 0, oi: 0, oiChange: 0, volume: 0, iv: 0, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: 0, askPrice: 0 };
@@ -275,7 +293,7 @@ async function fetchDhanChain(symbol: string, expiry?: string): Promise<LiveOpti
   if (parsed.chain.length === 0) return null; // empty "success" is not a result
   let expiries: ExpiryDate[] = [];
   try {
-    expiries = await fetchExpiryList(symbol);
+    expiries = (await fetchExpiryList(symbol)).list;
   } catch {
     /* chain is still useful without the list */
   }
@@ -333,21 +351,27 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string): Pro
   throw nseError instanceof Error ? nseError : new Error(`No option chain available for ${sym}`);
 }
 
+export interface ExpiryListResult {
+  list: ExpiryDate[];
+  /** Which source answered: Dhan first, then the NSE option chain. */
+  source: "dhan" | "nse";
+}
+
 /** Dhan expiry list, normalised to ISO. Falls back to the NSE chain's expiry list. */
-export async function fetchExpiryList(symbol: string): Promise<ExpiryDate[]> {
+export async function fetchExpiryList(symbol: string): Promise<ExpiryListResult> {
   const sym = symbol.toUpperCase();
   try {
     const raw = await fetchDhanProxy<DhanExpiryListDTO>("expiry-list", { symbol: sym });
     const list = toExpiryDates(raw?.data);
-    if (list.length > 0) return list;
+    if (list.length > 0) return { list, source: "dhan" };
   } catch {
     /* try NSE */
   }
   try {
     const raw = await fetchNSEProxy<NSEOptionChainDTO>("option-chain", { symbol: sym });
-    return toExpiryDates(raw?.records?.expiryDates);
+    return { list: toExpiryDates(raw?.records?.expiryDates), source: "nse" };
   } catch {
-    return [];
+    return { list: [], source: "nse" };
   }
 }
 
@@ -388,13 +412,14 @@ export async function fetchChainMulti(
 
 // ── Indices, status, F&O lists ──
 
-export async function fetchLiveIndices(): Promise<IndexData[]> {
+export async function fetchLiveIndices(): Promise<Stamped<IndexData[]>> {
   const raw = await fetchNSEProxy<NSEAllIndicesDTO>("indices");
-  return parseNSEIndices(raw);
+  return { data: parseNSEIndices(raw), ...legacyStamp(raw) };
 }
 
-export async function fetchMarketStatus(): Promise<NSEMarketStatusDTO> {
-  return fetchNSEProxy<NSEMarketStatusDTO>("market-status");
+export async function fetchMarketStatus(): Promise<Stamped<NSEMarketStatusDTO>> {
+  const raw = await fetchNSEProxy<NSEMarketStatusDTO>("market-status");
+  return { data: raw, ...legacyStamp(raw) };
 }
 
 export async function fetchFnOStocks(): Promise<NSEEquityDerivativesDTO> {
@@ -471,9 +496,9 @@ export function parseAllIndices(raw: NSEAllIndicesDTO | null | undefined): AllIn
   return { vix, sectors, advances: num(nifty50?.advances), declines: num(nifty50?.declines), unchanged: num(nifty50?.unchanged) };
 }
 
-export async function fetchAllIndices(): Promise<AllIndicesSnapshot | null> {
+export async function fetchAllIndices(): Promise<Stamped<AllIndicesSnapshot | null>> {
   const raw = await fetchNSEProxy<NSEAllIndicesDTO>("indices");
-  return parseAllIndices(raw);
+  return { data: parseAllIndices(raw), ...legacyStamp(raw) };
 }
 
 export interface FnOStockData {
@@ -516,20 +541,24 @@ export function parseNSEFnOStocks(raw: NSEEquityDerivativesDTO | null | undefine
     });
 }
 
-export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
+export async function fetchLiveFnOStocks(): Promise<Stamped<FnOStockData[]>> {
+  let saved: Stamped<FnOStockData[]> | null = null;
   try {
-    const list = parseNSEFnOStocks(await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives"));
-    if (list.length > 0) return list;
+    const raw = await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives");
+    const nse = { data: parseNSEFnOStocks(raw), ...legacyStamp(raw) };
+    if (nse.data.length > 0 && !nse.stale) return nse;
+    if (nse.data.length > 0) saved = nse;
   } catch {
     /* fall back to TradingView */
   }
   try {
     const tv = await fetchTradingViewStocks();
-    if (tv.length > 0) return tv;
+    if (tv.data.length > 0 && (!tv.stale || !saved)) return tv;
+    if (tv.data.length > 0 && saved && (tv.cachedAt ?? 0) > (saved.cachedAt ?? 0)) return tv;
   } catch {
     /* both failed */
   }
-  return [];
+  return saved ?? { data: [], stale: false, cachedAt: null };
 }
 
 // ── TradingView scanner ──
@@ -554,14 +583,9 @@ function tvToFnO(s: TVStockDTO): FnOStockData {
   };
 }
 
-export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
+export async function fetchTradingViewStocks(): Promise<Stamped<FnOStockData[]>> {
   const data = await proxyFetchJSON<TVScanDTO>("/api/tv-scan", { type: "stocks" }, { withDhan: false });
-  return (data.stocks ?? []).map(tvToFnO);
-}
-
-export async function fetchTradingViewIndices(): Promise<TVStockDTO[]> {
-  const data = await proxyFetchJSON<TVScanDTO>("/api/tv-scan", { type: "indices" }, { withDhan: false });
-  return data.stocks ?? [];
+  return { data: (data.stocks ?? []).map(tvToFnO), ...legacyStamp(data) };
 }
 
 // ── FII/DII cash activity ──

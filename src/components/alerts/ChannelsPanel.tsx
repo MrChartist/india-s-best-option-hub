@@ -24,7 +24,7 @@ function Row({
   children?: ReactNode;
 }) {
   return (
-    <div className="space-y-2 border-b border-border py-3 last:border-b-0">
+    <div className="space-y-2 border-b border-separator py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-2.5">
           <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>

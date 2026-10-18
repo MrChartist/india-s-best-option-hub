@@ -59,7 +59,7 @@ export function FuturesVIX() {
       <Card className="lg:col-span-2">
         <div className={cn("flex items-center gap-2", d.headPad)}>
           <BarChart3 className="h-4 w-4 text-primary-ink" aria-hidden="true" />
-          <h3 className="font-display text-lead font-bold">Index day change</h3>
+          <h3 className="font-display text-headline">Index day change</h3>
           <div className="ml-auto">
             <DataStatus status={idxStatus} lastUpdated={idx.asOf} source={sourceName(idx.source)} />
           </div>
@@ -72,7 +72,7 @@ export function FuturesVIX() {
                 const up = r.changePercent >= 0;
                 return (
                   <li key={r.symbol} className="grid grid-cols-[88px_1fr_72px] items-center gap-2">
-                    <Link to={`/option-chain?symbol=${r.symbol}`} className="truncate rounded-sm text-body font-medium hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+                    <Link to={`/option-chain?symbol=${r.symbol}`} className="truncate rounded-sm text-body font-medium hover:underline focus-visible:shadow-focus focus-visible:outline-none">
                       {r.symbol}
                     </Link>
                     <div className="relative h-3 rounded-full bg-muted" aria-hidden="true">
@@ -94,9 +94,9 @@ export function FuturesVIX() {
       <Card className="lg:col-span-3">
         <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
           <Activity className="h-4 w-4 text-warning" aria-hidden="true" />
-          <h3 className="font-display text-lead font-bold">India VIX</h3>
+          <h3 className="font-display text-headline">India VIX</h3>
           {vix ? (
-            <span className="font-num text-lead font-bold tabular-nums">
+            <span className="font-num text-lead font-semibold tabular-nums">
               {formatNumberIN(vix.value, 2, { minDecimals: 2 })}{" "}
               <span className={cn("text-body-sm font-medium", vix.changePercent > 0 ? "text-bearish" : vix.changePercent < 0 ? "text-bullish" : "text-muted-foreground")}>
                 {formatPct(vix.changePercent, { signed: true })}
@@ -116,8 +116,8 @@ export function FuturesVIX() {
                 { k: "Day low", v: vix.low ? formatNumberIN(vix.low, 2) : "—" },
                 { k: "Day high", v: vix.high ? formatNumberIN(vix.high, 2) : "—" },
               ].map((x) => (
-                <div key={x.k} className="rounded-tile bg-surface px-2 py-1.5">
-                  <dt className="text-micro uppercase text-muted-foreground">{x.k}</dt>
+                <div key={x.k} className="rounded-md bg-surface px-2 py-1.5">
+                  <dt className="text-micro text-muted-foreground">{x.k}</dt>
                   <dd className="font-num text-body font-semibold tabular-nums">{x.v}</dd>
                 </div>
               ))}
@@ -152,5 +152,3 @@ export function FuturesVIX() {
     </div>
   );
 }
-
-export default FuturesVIX;

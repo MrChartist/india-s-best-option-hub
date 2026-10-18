@@ -5,7 +5,7 @@
  */
 import { useId, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, Check, Copy, Download, Map as MapIcon, Pencil, Plus, RotateCcw, SlidersHorizontal, Trash2, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -42,9 +42,9 @@ interface Props {
 }
 
 const iconBtn =
-  "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:shadow-ember focus-visible:outline-none";
+  "inline-flex h-7 w-7 items-center justify-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:shadow-focus focus-visible:outline-none";
 const smallBtn =
-  "inline-flex h-7 items-center gap-1 rounded-md px-2 text-body-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:shadow-ember focus-visible:outline-none";
+  "inline-flex h-7 items-center gap-1 rounded-pill px-2 text-body-sm text-muted-foreground hover:bg-control-track hover:text-foreground disabled:pointer-events-none disabled:opacity-40 focus-visible:shadow-focus focus-visible:outline-none";
 
 function DensityToggle({ value, onChange }: { value: Density; onChange: (d: Density) => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ function DensityToggle({ value, onChange }: { value: Density; onChange: (d: Dens
     requestAnimationFrame(() => ref.current?.querySelector<HTMLButtonElement>(`[data-density="${next}"]`)?.focus());
   };
   return (
-    <div ref={ref} role="radiogroup" aria-label="Density" className="inline-flex h-8 items-center rounded-capsule border border-border bg-muted p-0.5" onKeyDown={onKeyDown}>
+    <div ref={ref} role="radiogroup" aria-label="Density" className="inline-flex h-7 items-center rounded-pill bg-control-track p-0.5" onKeyDown={onKeyDown}>
       {(["comfortable", "compact"] as const).map((d) => (
         <button
           key={d}
@@ -67,8 +67,8 @@ function DensityToggle({ value, onChange }: { value: Density; onChange: (d: Dens
           tabIndex={value === d ? 0 : -1}
           onClick={() => onChange(d)}
           className={cn(
-            "h-7 rounded-capsule px-2.5 text-body-sm font-medium capitalize transition-colors focus-visible:shadow-ember focus-visible:outline-none",
-            value === d ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
+            "h-6 rounded-[5px] px-2.5 text-body-sm font-medium capitalize transition-[background-color,color,box-shadow] duration-base ease-spring focus-visible:shadow-focus focus-visible:outline-none",
+            value === d ? "bg-control text-foreground shadow-control" : "text-foreground/80 hover:text-foreground",
           )}
         >
           {d}
@@ -143,20 +143,20 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+            className={cn(buttonVariants({ variant: "outline" }), "px-2.5")}
             title="Customise dashboard"
             aria-label={`Customise dashboard. Workspace ${ws.name}${hiddenCount ? `, ${hiddenCount} section${hiddenCount > 1 ? "s" : ""} hidden` : ""}`}
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+            <SlidersHorizontal className="!size-3.5" aria-hidden="true" />
             <span className="hidden max-w-[10rem] truncate sm:inline">{state.workspaces.length > 1 ? ws.name : "Customise"}</span>
             {hiddenCount ? <span className="rounded-chip bg-muted px-1 font-num text-micro tabular-nums text-muted-foreground">{hiddenCount}</span> : null}
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="max-h-[min(80vh,640px)] w-[340px] max-w-[calc(100vw-2rem)] overflow-y-auto p-0">
           {/* Workspace */}
-          <div className="space-y-2 border-b border-border p-3">
+          <div className="space-y-2 hairline-b p-3">
             <div className="flex items-center justify-between">
-              <label htmlFor={selectId} className="text-label uppercase text-muted-foreground">
+              <label htmlFor={selectId} className="text-label text-muted-foreground">
                 Workspace
               </label>
               {!saved ? <span className="text-body-sm text-warning">Not saved in this browser</span> : null}
@@ -178,12 +178,12 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
                     e.stopPropagation();
                     setMode(null);
                   }}
-                  className="h-8 flex-1"
+                  className="flex-1"
                 />
-                <Button type="submit" size="sm" className="h-8">
+                <Button type="submit">
                   Save
                 </Button>
-                <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setMode(null)}>
+                <Button type="button" variant="ghost" className="px-2" onClick={() => setMode(null)}>
                   Cancel
                 </Button>
               </form>
@@ -193,7 +193,7 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
                   id={selectId}
                   value={state.activeId}
                   onChange={(e) => onChange((s) => switchWorkspace(s, e.target.value))}
-                  className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-body focus-visible:border-primary focus-visible:shadow-ember focus-visible:outline-none"
+                  className="h-7 min-w-0 flex-1 rounded-pill bg-control px-2 text-body shadow-control focus-visible:shadow-focus focus-visible:outline-none"
                 >
                   {state.workspaces.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -226,8 +226,8 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
           </div>
 
           {/* Presets */}
-          <div className="space-y-2 border-b border-border p-3">
-            <p className="text-label uppercase text-muted-foreground" id={`${selectId}-presets`}>
+          <div className="space-y-2 hairline-b p-3">
+            <p className="text-label text-muted-foreground" id={`${selectId}-presets`}>
               Presets
             </p>
             <div className="grid grid-cols-2 gap-1.5" role="group" aria-labelledby={`${selectId}-presets`}>
@@ -244,8 +244,8 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
                       setNote(`${p.name} preset applied to “${ws.name}”.`);
                     }}
                     className={cn(
-                      "flex min-h-[44px] flex-col items-start rounded-tile border px-2 py-1.5 text-left transition-colors focus-visible:shadow-ember focus-visible:outline-none",
-                      on ? "border-primary/60 bg-wash-brand/60" : "border-border hover:bg-accent",
+                      "flex min-h-[44px] flex-col items-start rounded-md px-2 py-1.5 text-left transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none",
+                      on ? "bg-wash-brand shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.5)]" : "bg-control-track hover:bg-control-track/80",
                     )}
                   >
                     <span className="flex w-full items-center justify-between gap-1 text-body font-semibold">
@@ -260,15 +260,15 @@ export function LayoutCustomizer({ state, onChange, showContext, onShowContext, 
           </div>
 
           {/* Density */}
-          <div className="flex items-center justify-between gap-2 border-b border-border p-3">
-            <p className="text-label uppercase text-muted-foreground">Density</p>
+          <div className="flex items-center justify-between gap-2 hairline-b p-3">
+            <p className="text-label text-muted-foreground">Density</p>
             <DensityToggle value={layout.density} onChange={(density) => onChange((s) => updateActiveLayout(s, (l) => ({ ...l, density })))} />
           </div>
 
           {/* Sections */}
-          <div className="border-b border-border p-2">
+          <div className="hairline-b p-2">
             <div className="flex items-center justify-between px-1 pb-1">
-              <p className="text-label uppercase text-muted-foreground">Sections</p>
+              <p className="text-label text-muted-foreground">Sections</p>
               <button
                 type="button"
                 onClick={() => onChange((s) => updateActiveLayout(s, (l) => ({ ...DEFAULT_LAYOUT, order: [...DEFAULT_LAYOUT.order], density: l.density })))}
@@ -391,7 +391,7 @@ function ImportDialog({ open, onOpenChange, onImport }: { open: boolean; onOpenC
           <DialogDescription>Paste JSON exported from this dashboard, or choose a .json file. Imported workspaces are added alongside yours; nothing is overwritten.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <label htmlFor={areaId} className="text-label uppercase text-muted-foreground">
+          <label htmlFor={areaId} className="text-label text-muted-foreground">
             Workspace JSON
           </label>
           <Textarea
@@ -427,5 +427,3 @@ function ImportDialog({ open, onOpenChange, onImport }: { open: boolean; onOpenC
     </Dialog>
   );
 }
-
-export default LayoutCustomizer;

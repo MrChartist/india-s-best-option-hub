@@ -17,7 +17,7 @@ import { formatTimeIST } from "@/lib/options";
 import { alertStore, fireCountByRule, newRuleId, ruleCoverage, type AlertRule } from "@/lib/alerts";
 import { IdeasList } from "./IdeasList";
 import { RuleEditor } from "./RuleEditor";
-import { RuleRow } from "./RuleRow";
+import { RULE_LIST, RuleRow } from "./RuleRow";
 import { TriggerLog } from "./TriggerLog";
 
 const MODE_LABEL = {
@@ -49,7 +49,7 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-[460px]">
-        <SheetHeader className="space-y-1 border-b border-border px-4 py-4 text-left">
+        <SheetHeader className="space-y-1 border-b border-separator px-4 py-4 text-left">
           <SheetTitle className="flex items-center gap-2 font-display">
             <Bell className="h-4 w-4" aria-hidden="true" /> Alerts
             <Badge variant={active > 0 ? "default" : "neutral"}>{active} active</Badge>
@@ -65,7 +65,7 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
           </Button>
         </SheetHeader>
 
-        <div className="space-y-3 border-b border-border px-4 py-3">
+        <div className="space-y-3 border-b border-separator px-4 py-3">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex items-center gap-2">
               <Switch
@@ -97,7 +97,7 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
           </div>
           {engine.status.length > 0 || engine.hasBanRule ? (
             <div className="flex flex-wrap items-center gap-1.5" aria-label="Data feeds">
-              <span className="text-micro uppercase text-muted-foreground">Watching</span>
+              <span className="text-micro text-muted-foreground">Watching</span>
               {engine.status.map((s) => (
                 <Badge
                   key={s.symbol}
@@ -126,12 +126,12 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
           </TabsList>
           <TabsContent value="rules" className="mt-3 space-y-3">
             {engine.rules.length === 0 && !adding ? (
-              <div className="rounded-tile border border-dashed border-border px-4 py-6 text-center text-body-sm text-muted-foreground">
+              <div className="rounded-tile px-4 py-6 text-center text-body-sm text-muted-foreground">
                 <BellRing className="mx-auto mb-2 h-5 w-5" aria-hidden="true" />
                 No rules yet. Add one, or start from the Ideas tab.
               </div>
             ) : null}
-            <ul className="space-y-2">
+            <ul className={RULE_LIST}>
               {engine.rules.map((r) => (
                 <RuleRow
                   key={r.id}
@@ -146,7 +146,7 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
               ))}
             </ul>
             {adding ? (
-              <div className="rounded-tile border border-border bg-surface p-3">
+              <div className="rounded-tile border border-separator bg-surface p-3">
                 <RuleEditor compact onSave={onAdd} onCancel={() => setAdding(false)} />
               </div>
             ) : (
@@ -163,7 +163,7 @@ export default function AlertSheet({ open, onOpenChange }: AlertSheetProps) {
           </TabsContent>
         </Tabs>
 
-        <p className="border-t border-border px-4 py-3 text-micro normal-case tracking-normal text-muted-foreground">
+        <p className="border-t border-separator px-4 py-3 text-micro normal-case tracking-normal text-muted-foreground">
           Alerts are educational, not advice. Data for education and research. Not investment advice.
         </p>
       </SheetContent>

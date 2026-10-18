@@ -224,3 +224,11 @@ describe("dashboard widgets", () => {
     expect(screen.getByText("Derived")).toBeInTheDocument();
   });
 });
+
+describe("Volatility page with an unknown symbol", () => {
+  it("shows NIFTY with a notice instead of a sample chain for the made-up symbol", async () => {
+    wrap(<Volatility />, "/volatility?symbol=XYZ");
+    expect(await screen.findByText(/“XYZ” is not an F&O underlying, so this page is showing NIFTY/)).toBeInTheDocument();
+    expect(screen.queryByText(/^XYZ /)).toBeNull();
+  });
+});

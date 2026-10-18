@@ -72,56 +72,56 @@ export function StrategyWizard({ open, onOpenChange, ctx, timeline, broker, onPi
         </DialogHeader>
 
         {!ctx || !(spot > 0) ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Waiting for market data…</p>
+          <p className="py-8 text-center text-body text-muted-foreground">Waiting for market data…</p>
         ) : (
           <div className="space-y-4">
             <Segmented ariaLabel="Market view" value={view} onChange={setView} options={TEMPLATE_VIEWS.map((v) => ({ value: v, label: v }))} />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="wiz-target" className="text-xs">
+                <Label htmlFor="wiz-target" className="text-body-sm">
                   {view === "Volatile" ? "Move size (either way)" : view === "Neutral" ? "Expected price (stays near)" : "Target price"}
                 </Label>
                 <div className="flex items-center gap-2">
-                  <Input id="wiz-target" type="number" inputMode="decimal" value={target || ""} onChange={(e) => setTarget(Number(e.target.value))} className="h-9 w-32 font-num" />
-                  <span className={cn("font-num text-xs", movePct >= 0 ? "text-bullish" : "text-bearish")}>{formatPct(movePct, { decimals: 2, signed: true })}</span>
-                  <span className="text-xs text-muted-foreground">from {formatStrike(Math.round(spot))}</span>
+                  <Input id="wiz-target" type="number" inputMode="decimal" value={target || ""} onChange={(e) => setTarget(Number(e.target.value))} className="w-32 font-num" />
+                  <span className={cn("font-num text-body-sm", movePct >= 0 ? "text-bullish" : "text-bearish")}>{formatPct(movePct, { decimals: 2, signed: true })}</span>
+                  <span className="text-body-sm text-muted-foreground">from {formatStrike(Math.round(spot))}</span>
                 </div>
                 <Slider value={[Math.min(Math.max(target, lo), hi)]} min={lo} max={hi} step={Math.max(1, Math.round((hi - lo) / 200))} onValueChange={([v]) => setTarget(v)} aria-label="Target price" />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
+                <div className="flex justify-between text-micro font-normal text-muted-foreground">
                   <span>−2.5σ {formatStrike(lo)}</span>
                   <span>+2.5σ {formatStrike(hi)}</span>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">By date</Label>
+                <Label className="text-body-sm">By date</Label>
                 <Select value={String(dateIdx)} onValueChange={(v) => setDateIdx(Number(v))}>
-                  <SelectTrigger className="h-9" aria-label="Target date">
+                  <SelectTrigger aria-label="Target date">
                     <SelectValue placeholder="Choose a date" />
                   </SelectTrigger>
                   <SelectContent>
                     {dateChoices.map((p, i) => (
-                      <SelectItem key={p.at.getTime()} value={String(i)} className="text-xs">
+                      <SelectItem key={p.at.getTime()} value={String(i)} className="text-body-sm">
                         {p.label === "At expiry" ? `At expiry · ${timeLabel(p.at)}` : timeLabel(p.at)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground">Uses today's IV for later dates. Margin is an estimate.</p>
+                <p className="text-body-sm text-muted-foreground">Uses today's IV for later dates. Margin is an estimate.</p>
               </div>
             </div>
 
-            <div className="space-y-2" aria-live="polite">
+            <div className={cn(ranked.length > 0 && "divide-y divide-separator overflow-hidden rounded-md border border-separator")} aria-live="polite">
               {ranked.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No templates match. Try another target.</p>
+                <p className="py-4 text-center text-body text-muted-foreground">No templates match. Try another target.</p>
               ) : (
                 ranked.map((r, i) => (
-                  <div key={r.template.id} className={cn("flex flex-wrap items-center gap-3 rounded-tile border border-border p-3", i === 0 && "border-primary/45 bg-wash-brand/30")}>
+                  <div key={r.template.id} className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", i === 0 && "bg-wash-brand/40")}>
                     <div className="min-w-[160px] flex-1">
-                      <div className="flex items-center gap-1.5 text-sm font-semibold">
+                      <div className="flex items-center gap-1.5 text-body font-semibold">
                         <ViewIcon view={r.template.view} /> {r.template.name}
                         {i === 0 && <Badge>Best fit</Badge>}
                       </div>
-                      <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 font-num text-[11px] sm:grid-cols-4">
+                      <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 font-num text-body-sm sm:grid-cols-4">
                         <span>
                           <span className="text-muted-foreground">Return </span>
                           <span className={r.returnOnMargin >= 0 ? "text-bullish" : "text-bearish"}>{Number.isFinite(r.returnOnMargin) ? formatPct(r.returnOnMargin * 100, { decimals: 1, signed: true }) : "—"}</span>
@@ -160,7 +160,7 @@ export function StrategyWizard({ open, onOpenChange, ctx, timeline, broker, onPi
                 ))
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground">Model results, not predictions. Data for education and research. Not investment advice.</p>
+            <p className="text-body-sm text-muted-foreground">Model results, not predictions. Data for education and research. Not investment advice.</p>
           </div>
         )}
       </DialogContent>

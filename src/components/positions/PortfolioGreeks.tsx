@@ -6,20 +6,19 @@ import { cn } from "@/lib/utils";
 import type { PortfolioSummary } from "./analytics";
 import { signedClass, signedINR, type QuoteSource } from "./helpers";
 import type { BetaInfo } from "./useBetas";
-import { HelpTip, SourceBadge, Stat } from "./ui";
+import { HelpTip, SourceBadge, Stat, STAT_GROUP, STICKY_CELL } from "./ui";
 
 const lotsText = (v: number) => (Number.isFinite(v) ? `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatNumberIN(Math.abs(v), 2)}` : "—");
 
 export function PortfolioTiles({ summary, closedNet }: { summary: PortfolioSummary; closedNet: number }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+    <div className={cn(STAT_GROUP, "grid-cols-2 sm:grid-cols-4 xl:grid-cols-8")}>
       <Stat
         label="Net MTM"
         value={signedINR(summary.netPnl)}
         tone={summary.netPnl > 0 ? "bullish" : summary.netPnl < 0 ? "bearish" : "muted"}
         sub={`gross ${signedINR(summary.grossPnl)}`}
         help="Open P&L after deducting entry charges and the charges for squaring off at the current price."
-        className="col-span-2 sm:col-span-1"
       />
       <Stat label="Realised" value={signedINR(closedNet)} tone={closedNet > 0 ? "bullish" : closedNet < 0 ? "bearish" : "muted"} sub="closed, net of charges" />
       <Stat
@@ -107,7 +106,7 @@ export function UnderlyingGreeksTable({
           const src = spotSources[u.symbol];
           return (
             <TableRow key={u.symbol}>
-              <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
+              <TableCell className={cn(STICKY_CELL, "font-semibold")}>
                 {u.symbol}
                 <span className="ml-1.5 text-micro text-muted-foreground">
                   {u.positions} leg{u.positions === 1 ? "" : "s"}

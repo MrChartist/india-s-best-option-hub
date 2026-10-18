@@ -91,7 +91,7 @@ export function GexProfileChart({
   ];
 
   return (
-    <Card className={cn("flex flex-col rounded-card", className)}>
+    <Card className={cn("flex flex-col", className)}>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 pb-2">
         <div>
           <CardTitle className="flex items-center gap-2 text-lead">
@@ -121,12 +121,12 @@ export function GexProfileChart({
         {loading ? (
           <Skeleton className="min-h-[320px] w-full flex-1 rounded-tile" />
         ) : profile.length < 2 ? (
-          <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-tile border border-dashed border-border text-body text-muted-foreground">
+          <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-tile bg-muted/40 text-body text-muted-foreground">
             No open interest to build a profile.
           </div>
         ) : (
           <>
-            <p className="mb-1 text-micro uppercase text-muted-foreground" aria-hidden>
+            <p className="mb-1 text-micro text-muted-foreground" aria-hidden>
               ₹ Cr per 1% move
             </p>
             <div
@@ -135,17 +135,17 @@ export function GexProfileChart({
               aria-label={`GEX profile from ${fmtLevel(lo)} to ${fmtLevel(hi)}. ${shownFlip !== null ? `Flip at ${fmtLevel(shownFlip)}.` : "No flip in range."}`}
             >
               {hasPositive && (
-                <span className="pointer-events-none absolute left-14 top-2 z-10 rounded-chip bg-wash-profit px-1.5 py-0.5 text-micro uppercase text-bullish">
+                <span className="pointer-events-none absolute left-14 top-2 z-10 rounded-chip bg-wash-profit px-1.5 py-0.5 text-micro text-bullish">
                   Volatility damped
                 </span>
               )}
               {hasNegative && (
-                <span className="pointer-events-none absolute bottom-9 left-14 z-10 rounded-chip bg-wash-loss px-1.5 py-0.5 text-micro uppercase text-bearish">
+                <span className="pointer-events-none absolute bottom-9 left-14 z-10 rounded-chip bg-wash-loss px-1.5 py-0.5 text-micro text-bearish">
                   Volatility amplified
                 </span>
               )}
               {seller && values.length > 0 && (
-                <span className="pointer-events-none absolute bottom-9 left-14 z-10 rounded-chip bg-muted px-1.5 py-0.5 text-micro uppercase text-muted-foreground">
+                <span className="pointer-events-none absolute bottom-9 left-14 z-10 rounded-chip bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
                   Writers short gamma
                 </span>
               )}
@@ -219,5 +219,3 @@ export function GexProfileChart({
     </Card>
   );
 }
-
-export default GexProfileChart;

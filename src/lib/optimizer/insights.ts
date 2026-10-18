@@ -124,8 +124,6 @@ export function matchesView(c: { deltaPerSet: number; spotInProfitZone: boolean 
   return c.deltaPerSet < -DIRECTIONAL_DELTA;
 }
 
-export type SliderKey = "ArrowRight" | "ArrowUp" | "ArrowLeft" | "ArrowDown" | "PageUp" | "PageDown" | "Home" | "End";
-
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
 /**

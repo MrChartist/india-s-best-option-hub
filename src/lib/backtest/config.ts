@@ -9,7 +9,6 @@ import { SAMPLE_RANGE } from "./sampleData";
 import type { BacktestConfig, EntryTiming, ExpirySeries, StrikeMode, Trade } from "./types";
 
 export const BACKTEST_SYMBOLS = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"] as const;
-export type BacktestSymbol = (typeof BACKTEST_SYMBOLS)[number];
 
 export type DataChoice = "sample" | "bhavcopy";
 

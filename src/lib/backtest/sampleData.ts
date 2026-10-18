@@ -33,8 +33,6 @@ import type { EodChain, EodDataset, EodDay } from "./types";
 /** Fixed window of the sample (one year of sessions ending before the app's sample "today"). */
 export const SAMPLE_RANGE = { from: "2025-10-01", to: "2026-09-30" } as const;
 
-export const SAMPLE_SYMBOLS = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY"] as const;
-
 interface SymbolProfile {
   spot: number;
   /** ATM IV ÷ VIX. */

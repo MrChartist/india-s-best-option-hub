@@ -58,7 +58,7 @@ function FlowChart({ points, spotAxis, label }: { points: OIFlowPoint[]; spotAxi
 function Body({ session, children }: { session: OiSession; children: () => JSX.Element }) {
   if (session.loading && session.snaps.length === 0) {
     return (
-      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground" role="status">
+      <div className="flex items-center justify-center gap-2 py-12 text-body text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" /> Reading snapshots…
       </div>
     );

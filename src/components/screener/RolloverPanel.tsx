@@ -42,33 +42,33 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
         {isSample ? null : <DerivedBadge title="EOD · derived" />}
       </PanelHeader>
 
-      <div className="grid grid-cols-2 gap-3 border-b border-border p-4 sm:grid-cols-4">
+      <div className="hairline-b grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
         <div
           className={cn(
-            "rounded-tile border p-3",
-            rolloverWeek ? "border-warning/50 bg-wash-warning" : "border-border",
+            "rounded-md border p-3",
+            rolloverWeek ? "border-warning/50 bg-wash-warning" : "border-transparent bg-control-track",
           )}
         >
-          <p className="text-label uppercase text-muted-foreground">Stock futures expiry</p>
+          <p className="text-body-sm font-medium text-muted-foreground">Stock futures expiry</p>
           <p className="mt-1 font-display text-title">{monthly ? formatDateIST(monthly.date) : "—"}</p>
           <p className={cn("text-body-sm", rolloverWeek ? "text-warning" : "text-muted-foreground")}>
             {monthly ? `${dteLabel(monthly.date)}${rolloverWeek ? " · rollover week" : ""}` : ""}
           </p>
         </div>
-        <div className="rounded-tile border border-border p-3">
-          <p className="text-label uppercase text-muted-foreground">Median rollover</p>
+        <div className="rounded-md bg-control-track p-3">
+          <p className="text-body-sm font-medium text-muted-foreground">Median rollover</p>
           <p className="mt-1 font-num text-title">{rollMed === null ? "—" : `${rollMed.toFixed(0)}%`}</p>
           <p className="text-body-sm text-muted-foreground">{withFut.length} underlyings</p>
         </div>
-        <div className="rounded-tile border border-border p-3">
-          <p className="text-label uppercase text-muted-foreground">Median carry</p>
+        <div className="rounded-md bg-control-track p-3">
+          <p className="text-body-sm font-medium text-muted-foreground">Median carry</p>
           <p className="mt-1 text-title">
             <Signed value={carryMed} decimals={1} />
           </p>
           <p className="text-body-sm text-muted-foreground">Annualised</p>
         </div>
-        <div className="rounded-tile border border-border p-3">
-          <p className="text-label uppercase text-muted-foreground">Futures at discount</p>
+        <div className="rounded-md bg-control-track p-3">
+          <p className="text-body-sm font-medium text-muted-foreground">Futures at discount</p>
           <p className="mt-1 font-num text-title">{discount}</p>
           <p className="text-body-sm text-muted-foreground">Negative basis, often a dividend or heavy shorts</p>
         </div>
@@ -99,7 +99,7 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
           <table className="w-full min-w-[620px] text-body-sm">
             <caption className="sr-only">Futures rollover, basis and carry</caption>
             <thead>
-              <tr className="border-y border-border bg-muted/40 text-label uppercase text-muted-foreground">
+              <tr className="bg-surface text-label text-muted-foreground [&>th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
                 <th scope="col" className="px-4 py-2 text-left">
                   Symbol
                 </th>
@@ -124,16 +124,16 @@ export function RolloverPanel({ rows, isSample }: { rows: ScreenerRow[]; isSampl
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {sorted.map((r) => (
-                <tr key={r.symbol} className="border-b border-border/60">
+                <tr key={r.symbol}>
                   <th scope="row" className="px-4 py-1.5 text-left font-semibold">
                     {r.symbol}
                   </th>
                   <td className="px-2 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <div
-                        className="hidden h-1.5 w-16 overflow-hidden rounded-capsule bg-muted sm:block"
+                        className="hidden h-1.5 w-16 overflow-hidden rounded-capsule bg-control-track sm:block"
                         aria-hidden="true"
                       >
                         <div

@@ -12,12 +12,14 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChannelsPanel } from "@/components/alerts/ChannelsPanel";
 import { IdeasList } from "@/components/alerts/IdeasList";
 import { RuleEditor } from "@/components/alerts/RuleEditor";
-import { RuleRow } from "@/components/alerts/RuleRow";
+import { RULE_LIST, RuleRow } from "@/components/alerts/RuleRow";
 import { TriggerLog } from "@/components/alerts/TriggerLog";
+import { STAT_GROUP, Stat } from "@/components/positions/ui";
 import { downloadText } from "@/components/alerts/alertConstants";
 import { useAlertEngine } from "@/hooks/useAlertEngine";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { formatTimeIST, istDateString } from "@/lib/options";
+import { cn } from "@/lib/utils";
 import {
   CATEGORY_LABEL,
   RULE_CATEGORY,
@@ -35,16 +37,6 @@ import {
 type CategoryFilter = "all" | RuleCategory;
 type LogFilter = "all" | "real" | "test";
 const MAX_IMPORT_BYTES = 512 * 1024;
-
-function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
-  return (
-    <div className="min-w-0 rounded-tile border border-border bg-card px-3 py-2.5">
-      <p className="text-label uppercase text-muted-foreground">{label}</p>
-      <p className="font-display text-xl font-semibold tabular-nums">{value}</p>
-      {hint ? <p className="truncate text-micro normal-case tracking-normal text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
-}
 
 /** File contents as text (Blob.text where available, FileReader otherwise). */
 function readFileText(file: File): Promise<string> {
@@ -201,7 +193,6 @@ export default function Alerts() {
     <div className="mx-auto w-full max-w-6xl space-y-5">
       <PageHeader
         icon={BellRing}
-        eyebrow="Portfolio"
         title="Alerts"
         description="Every alert in one place: price, IV, PCR, OI walls, max pain and gamma flip, option contracts, Premium Tide, the F&O ban list and your positions’ P&L and Greeks. Checked in this browser while the terminal is open."
         source={source}
@@ -229,18 +220,18 @@ export default function Alerts() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className={cn(STAT_GROUP, "grid-cols-2 sm:grid-cols-4")}>
         <Stat
           label="Active rules"
           value={active}
-          hint={rules.length > active ? `${rules.length - active} paused` : "None paused"}
+          sub={rules.length > active ? `${rules.length - active} paused` : "None paused"}
         />
-        <Stat label="Fired today" value={firedToday} hint="IST, test alerts excluded" />
-        <Stat label="Channels on" value={`${channelsOn} of 4`} hint="In-app, browser, sound, webhook" />
+        <Stat label="Fired today" value={firedToday} sub="IST, test alerts excluded" />
+        <Stat label="Channels on" value={`${channelsOn} of 4`} sub="In-app, browser, sound, webhook" />
         <Stat
           label="Feeds"
           value={feeds.length}
-          hint={feeds.length ? feeds.map((f) => f.symbol).join(", ") : "Polled only when a rule needs them"}
+          sub={feeds.length ? feeds.map((f) => f.symbol).join(", ") : "Polled only when a rule needs them"}
         />
       </div>
 
@@ -275,7 +266,7 @@ export default function Alerts() {
 
         <TabsContent value="rules" className="mt-4 space-y-3">
           {rules.length === 0 ? (
-            <div className="rounded-tile border border-dashed border-border px-4 py-10 text-center">
+            <div className="rounded-tile px-4 py-10 text-center">
               <BellRing className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden="true" />
               <p className="font-semibold">No alert rules yet</p>
               <p className="mx-auto mt-1 max-w-md text-body-sm text-muted-foreground">
@@ -327,7 +318,7 @@ export default function Alerts() {
 
               {selectedIds.length > 0 ? (
                 <div
-                  className="flex flex-wrap items-center gap-2 rounded-tile border border-border bg-muted/40 px-3 py-2"
+                  className="flex flex-wrap items-center gap-2 rounded-tile bg-control-track px-3 py-1.5"
                   role="region"
                   aria-label="Bulk actions"
                 >
@@ -353,11 +344,11 @@ export default function Alerts() {
               ) : null}
 
               {visible.length === 0 ? (
-                <p className="rounded-tile border border-dashed border-border px-4 py-6 text-center text-body-sm text-muted-foreground">
+                <p className="rounded-tile px-4 py-6 text-center text-body-sm text-muted-foreground">
                   No rules match this filter.
                 </p>
               ) : (
-                <ul className="space-y-2" aria-label="Alert rules">
+                <ul className={RULE_LIST} aria-label="Alert rules">
                   {visible.map((r) => (
                     <RuleRow
                       key={r.id}
@@ -424,7 +415,7 @@ export default function Alerts() {
         </TabsContent>
 
         <TabsContent value="channels" className="mt-4">
-          <div className="max-w-2xl rounded-card border border-border bg-card px-4 py-1">
+          <div className="max-w-2xl rounded-card border border-separator bg-card px-4 py-1">
             <ChannelsPanel engine={engine} />
           </div>
         </TabsContent>

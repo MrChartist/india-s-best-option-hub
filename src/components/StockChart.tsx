@@ -506,5 +506,3 @@ export function StockChart({
     </Card>
   );
 }
-
-export default StockChart;

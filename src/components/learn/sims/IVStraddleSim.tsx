@@ -96,7 +96,7 @@ export default function IVStraddleSim() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-3 rounded-tile border border-border bg-product-wash/60 p-3 text-body">
+          <div className="mt-3 rounded-tile border border-separator bg-product-wash/60 p-3 text-body">
             <p className="font-semibold text-foreground">
               1σ expected move (from IV): ±{formatNumberIN(emIv.move)} points
               <span className="font-normal text-muted-foreground"> · {formatNumberIN(emIv.lower)} – {formatNumberIN(emIv.upper)} (±{formatPct(emIv.pct, { decimals: 2 })})</span>

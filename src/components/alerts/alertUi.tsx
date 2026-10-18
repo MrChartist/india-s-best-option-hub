@@ -5,7 +5,7 @@ import { TONE_DOT } from "./alertConstants";
 
 export function ToneDot({ tone, className }: { tone: AlertTone; className?: string }) {
   return (
-    <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", TONE_DOT[tone], className)} aria-hidden="true" />
+    <span className={cn("inline-block h-2 w-2 shrink-0 rounded-capsule", TONE_DOT[tone], className)} aria-hidden="true" />
   );
 }
 

@@ -105,7 +105,7 @@ export function TermStructure({ symbol, term, shape, iv30, isSample, prev }: Ter
           {fwdSeries.length > 0 ? <LegendChip color={chartColors.spot} label="Forward vol" dashed /> : null}
         </div>
 
-        <div className="overflow-x-auto rounded-tile border border-border">
+        <div className="overflow-hidden rounded-tile hairline">
           <Table>
             <TableHeader>
               <TableRow>

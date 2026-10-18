@@ -121,7 +121,7 @@ export function SuggestionDialog({ row, preset, allowLive, onOpenChange }: Sugge
         ) : state.status === "error" ? (
           <p
             role="alert"
-            className="flex items-start gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning"
+            className="flex items-start gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             {state.message}
@@ -154,17 +154,17 @@ export function SuggestionDialog({ row, preset, allowLive, onOpenChange }: Sugge
             {legs.length === 0 ? (
               <p
                 role="alert"
-                className="flex items-start gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning"
+                className="flex items-start gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 {ready.structure.error ?? "The legs could not be built from this chain."}
               </p>
             ) : (
-              <div className="overflow-x-auto rounded-tile border border-border">
+              <div className="overflow-x-auto rounded-tile border border-separator">
                 <table className="w-full min-w-[320px] text-body-sm">
                   <caption className="sr-only">Suggested legs, one lot each</caption>
                   <thead>
-                    <tr className="border-b border-border bg-muted/40 text-label uppercase text-muted-foreground">
+                    <tr className="bg-surface text-label text-muted-foreground [&>th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
                       <th scope="col" className="px-3 py-2 text-left">
                         Leg
                       </th>
@@ -179,9 +179,9 @@ export function SuggestionDialog({ row, preset, allowLive, onOpenChange }: Sugge
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="zebra-rows">
                     {legs.map((l) => (
-                      <tr key={`${l.side}-${l.type}-${l.strike}`} className="border-b border-border/60 last:border-0">
+                      <tr key={`${l.side}-${l.type}-${l.strike}`}>
                         <th scope="row" className="px-3 py-1.5 text-left font-normal">
                           <span
                             className={cn(
@@ -211,16 +211,16 @@ export function SuggestionDialog({ row, preset, allowLive, onOpenChange }: Sugge
 
             {legs.length > 0 ? (
               <dl className="grid grid-cols-2 gap-2">
-                <div className="rounded-tile border border-border px-3 py-2">
-                  <dt className="text-label uppercase text-muted-foreground">
+                <div className="rounded-md bg-control-track px-3 py-2">
+                  <dt className="text-label text-muted-foreground">
                     {net >= 0 ? "Net credit / unit" : "Net debit / unit"}
                   </dt>
                   <dd className={cn("font-num text-lead tabular-nums", net >= 0 ? "text-bullish" : "text-bearish")}>
                     {formatINR(Math.abs(net), { decimals: 2 })}
                   </dd>
                 </div>
-                <div className="rounded-tile border border-border px-3 py-2">
-                  <dt className="text-label uppercase text-muted-foreground">Per lot</dt>
+                <div className="rounded-md bg-control-track px-3 py-2">
+                  <dt className="text-label text-muted-foreground">Per lot</dt>
                   <dd className="font-num text-lead tabular-nums">
                     {Number.isFinite(lot) ? formatINR(Math.abs(net) * lot, { decimals: 0 }) : "—"}
                   </dd>

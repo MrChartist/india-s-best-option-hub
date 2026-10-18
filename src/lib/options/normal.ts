@@ -75,10 +75,6 @@ export function erfc(x: number): number {
   return x < 0 ? 2 - result : result;
 }
 
-export function erf(x: number): number {
-  return 1 - erfc(x);
-}
-
 /** Standard normal CDF, accurate to ~1e-15 in the tails. */
 export function normCdf(x: number): number {
   if (Number.isNaN(x)) return NaN;

@@ -22,7 +22,15 @@ import { useGexConvention } from "@/components/gex/useGexConvention";
 import { formatDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAllIndices, useChainMulti, useLiveOptionChain } from "@/hooks/useMarketData";
 import { buildGexView, GEX_CONVENTION_LABEL, inferOiUnit, type GexChainInput } from "@/lib/gexData";
-import { dteLabel, formatDateIST, getContractSpec, getLotSize, isIndexSymbol, maxPain as maxPainOf, normalizeSymbol } from "@/lib/options";
+import {
+  dteLabel,
+  formatDateIST,
+  getContractSpec,
+  getLotSize,
+  isIndexSymbol,
+  maxPain as maxPainOf,
+  normalizeSymbol,
+} from "@/lib/options";
 
 const SYMBOLS = ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX"] as const;
 type ViewMode = "nearest" | "all";
@@ -32,7 +40,8 @@ export default function GammaExposure() {
   const paramSymbol = normalizeSymbol(params.get("symbol") || "");
   // Indices and F&O stocks both work (dealer gamma is computed from any option chain). An unknown
   // symbol keeps its ?symbol= in the URL and the page says it is showing NIFTY instead.
-  const known = !!paramSymbol && ((SYMBOLS as readonly string[]).includes(paramSymbol) || !!getContractSpec(paramSymbol));
+  const known =
+    !!paramSymbol && ((SYMBOLS as readonly string[]).includes(paramSymbol) || !!getContractSpec(paramSymbol));
   const symbol = known ? paramSymbol : "NIFTY";
   const unknownParam = !!paramSymbol && !known ? paramSymbol : null;
   const isStock = !isIndexSymbol(symbol);
@@ -153,7 +162,6 @@ export default function GammaExposure() {
       <FlowFeeder symbol={symbol} />
       <PageHeader
         icon={Magnet}
-        eyebrow="Positioning"
         title="Gamma Exposure"
         description={
           <>
@@ -165,7 +173,7 @@ export default function GammaExposure() {
         actions={
           <>
             <Select value={symbol} onValueChange={setSymbol}>
-              <SelectTrigger className="h-9 w-[150px]" aria-label="Underlying">
+              <SelectTrigger className="w-[150px]" aria-label="Underlying">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -176,60 +184,50 @@ export default function GammaExposure() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9"
-              onClick={refetch}
-              disabled={fetching}
-              aria-label="Refresh data"
-            >
-              <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} aria-hidden />
+            <Button variant="outline" size="sm" onClick={refetch} disabled={fetching} aria-label="Refresh data">
+              <RefreshCw className={fetching ? "animate-spin motion-reduce:animate-none" : undefined} aria-hidden />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
           </>
         }
       />
 
-      <Card className="rounded-card">
-        <CardContent className="flex flex-col gap-3 p-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <ToggleGroup
-              type="single"
-              value={mode}
-              onValueChange={(v) => v && setMode(v as ViewMode)}
-              aria-label="Expiry scope"
-              className="rounded-tab bg-muted p-0.5"
-            >
-              <ToggleGroupItem
-                value="nearest"
-                className="h-8 rounded-[7px] px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
-              >
-                {isStock ? "Nearest expiry" : "Nearest expiry (0DTE)"}
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="all"
-                className="h-8 rounded-[7px] px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
-              >
-                <Layers className="mr-1 h-3.5 w-3.5" aria-hidden />
-                All expiries
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <span className="text-body-sm text-muted-foreground">{scopeText}</span>
-          </div>
-          <ConventionToggle value={convention} onChange={setConvention} />
-        </CardContent>
-      </Card>
+      {/* View controls as a plain toolbar row, not a card of their own. */}
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={mode}
+            onValueChange={(v) => v && setMode(v as ViewMode)}
+            aria-label="Expiry scope"
+          >
+            <ToggleGroupItem value="nearest">{isStock ? "Nearest expiry" : "Nearest expiry (0DTE)"}</ToggleGroupItem>
+            <ToggleGroupItem value="all">
+              <Layers aria-hidden />
+              All expiries
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <span className="text-body-sm text-muted-foreground">{scopeText}</span>
+        </div>
+        <ConventionToggle value={convention} onChange={setConvention} />
+      </div>
 
       {unknownParam && (
-        <p className="flex items-center gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning" role="status">
+        <p
+          className="flex items-center gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning"
+          role="status"
+        >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           &ldquo;{unknownParam}&rdquo; is not an F&amp;O underlying, so this page is showing NIFTY.
         </p>
       )}
       {isStock && (
-        <p className="flex items-center gap-2 rounded-tile bg-muted px-3 py-2 text-body-sm text-muted-foreground" role="note">
-          Single-stock GEX: stock options are monthly, less liquid and physically settled, so dealer positioning is a weaker guide than for indices.
+        <p
+          className="flex items-center gap-2 rounded-tile bg-muted px-3 py-2 text-body-sm text-muted-foreground"
+          role="note"
+        >
+          Single-stock GEX: stock options are monthly, less liquid and physically settled, so dealer positioning is a
+          weaker guide than for indices.
         </p>
       )}
 
@@ -244,7 +242,7 @@ export default function GammaExposure() {
       )}
 
       {isError ? (
-        <Card className="rounded-card">
+        <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <AlertTriangle className="h-6 w-6 text-warning" aria-hidden />
             <p className="text-body text-muted-foreground">Could not load the option chain for {symbol}.</p>
@@ -266,9 +264,9 @@ export default function GammaExposure() {
               symbol={symbol}
               title={`GEX profile · ${GEX_CONVENTION_LABEL[convention]}`}
             />
-            <Card className="rounded-card">
+            <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lead">Key levels</CardTitle>
+                <CardTitle>Key levels</CardTitle>
                 <p className="text-body-sm text-muted-foreground">
                   Spot <span className="font-num font-semibold text-foreground">{fmtLevel(spot)}</span>
                   {lotSize > 0 && <> · Lot {lotSize}</>}

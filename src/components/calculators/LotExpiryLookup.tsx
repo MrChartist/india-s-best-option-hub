@@ -35,19 +35,19 @@ export default function LotExpiryLookup() {
         {results.length === 0 ? (
           <p className="mt-4 text-body text-muted-foreground">No contract matches “{query}”. Only F&O-eligible symbols are listed.</p>
         ) : (
-          <div className="mt-2 max-h-[560px] overflow-auto rounded-tile border border-border">
+          <div className="mt-2 max-h-[560px] overflow-auto rounded-md border border-separator">
             <table className="w-full text-body">
               <caption className="sr-only">Contract specifications</caption>
-              <thead className="sticky top-0 z-10 bg-card">
-                <tr className="border-b border-border text-left text-label uppercase text-muted-foreground">
-                  <th className="px-3 py-2 font-semibold">Symbol</th>
-                  <th className="px-3 py-2 text-right font-semibold">Lot</th>
-                  <th className="hidden px-3 py-2 text-right font-semibold sm:table-cell">Step</th>
-                  <th className="hidden px-3 py-2 text-right font-semibold md:table-cell">Freeze</th>
-                  <th className="px-3 py-2 font-semibold">Expiry</th>
+              <thead className="sticky top-0 z-10 bg-surface [&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                <tr className="hairline-b text-left">
+                  <th scope="col">Symbol</th>
+                  <th scope="col" className="text-right">Lot</th>
+                  <th scope="col" className="hidden text-right sm:table-cell">Step</th>
+                  <th scope="col" className="hidden text-right md:table-cell">Freeze</th>
+                  <th scope="col">Expiry</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="zebra-rows">
                 {results.map((s) => {
                   const active = s.symbol === selected;
                   return (
@@ -62,16 +62,16 @@ export default function LotExpiryLookup() {
                           setSelected(s.symbol);
                         }
                       }}
-                      className={cn("cursor-pointer transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none", active && "bg-wash-brand/55 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.45)]")}
+                      className={cn("cursor-default transition-colors duration-fast hover:bg-control-track focus-visible:bg-control-track focus-visible:outline-none", active && "bg-selection-unfocused hover:bg-selection-unfocused [&>td:first-child]:shadow-[inset_2px_0_0_hsl(var(--primary))]")}
                     >
-                      <td className="px-3 py-2">
+                      <td className="py-1.5">
                         <div className="font-semibold">{s.symbol}</div>
                         <div className="truncate text-body-sm text-muted-foreground">{s.name ?? (s.kind === "INDEX" ? "Index" : "Stock")}</div>
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatNumberIN(s.lotSize)}</td>
-                      <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{formatNumberIN(s.strikeStep, 2)}</td>
-                      <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{s.freezeQty ? formatNumberIN(s.freezeQty) : "—"}</td>
-                      <td className="px-3 py-2">
+                      <td className="py-1.5 text-right">{formatNumberIN(s.lotSize)}</td>
+                      <td className="hidden py-1.5 text-right sm:table-cell">{formatNumberIN(s.strikeStep, 2)}</td>
+                      <td className="hidden py-1.5 text-right md:table-cell">{s.freezeQty ? formatNumberIN(s.freezeQty) : "—"}</td>
+                      <td className="py-1.5">
                         <Badge variant={s.weekly ? "info" : "neutral"}>{s.weekly ? "Weekly" : "Monthly"}</Badge>
                       </td>
                     </tr>
@@ -83,7 +83,7 @@ export default function LotExpiryLookup() {
         )}
       </Panel>
 
-      <div className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:self-start">
+      <div className="min-w-0 space-y-4 lg:sticky lg:top-3 lg:self-start">
         {spec ? (
           <>
             <Panel
@@ -96,7 +96,7 @@ export default function LotExpiryLookup() {
                 </>
               }
             >
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-separator">
                 <KV k="Lot size" v={`${formatNumberIN(spec.lotSize)} units`} strong />
                 <KV k="Effective from" v={formatDateIST(spec.effectiveFrom)} />
                 <KV k="Strike step" v={formatNumberIN(spec.strikeStep, 2)} />
@@ -106,7 +106,7 @@ export default function LotExpiryLookup() {
               </div>
               {history.length > 1 ? (
                 <div className="mt-3">
-                  <div className="text-label uppercase text-muted-foreground">Lot size history</div>
+                  <div className="text-label text-muted-foreground">Lot size history</div>
                   <ol className="mt-1 flex flex-wrap gap-1.5">
                     {history.map((h) => (
                       <li key={h.from}>
@@ -125,9 +125,9 @@ export default function LotExpiryLookup() {
               {expiries.length === 0 ? (
                 <p className="text-body text-muted-foreground">No upcoming expiries found.</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="divide-y divide-separator overflow-hidden rounded-md border border-separator">
                   {expiries.map((e) => (
-                    <li key={e.date} className={cn("rounded-tile border px-3 py-2", e.shiftedFrom ? "border-warning/40 bg-wash-warning" : "border-border bg-surface")}>
+                    <li key={e.date} className={cn("px-3 py-2", e.shiftedFrom && "bg-wash-warning")}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-num font-semibold tabular-nums">{formatDateIST(e.date)}</span>
                         <Badge variant={e.type === "monthly" ? "default" : "info"}>{e.type === "monthly" ? "Monthly" : "Weekly"}</Badge>

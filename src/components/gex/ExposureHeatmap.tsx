@@ -112,7 +112,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
   }, [spotStrike, rowCount, win, loading]);
 
   return (
-    <Card className="rounded-card">
+    <Card>
       <CardHeader className="space-y-3 pb-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -129,7 +129,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Select value={metric} onValueChange={(v) => setMetric(v as HeatMetric)}>
-            <SelectTrigger className="h-8 w-[170px]" aria-label="Heatmap metric">
+            <SelectTrigger className="w-[170px]" aria-label="Heatmap metric">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -145,13 +145,11 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
             value={win}
             onValueChange={(v) => v && setWin(v as Win)}
             aria-label="Heatmap strike window"
-            className="rounded-tab bg-muted p-0.5"
           >
             {(["10", "20", "all"] as Win[]).map((w) => (
               <ToggleGroupItem
                 key={w}
                 value={w}
-                className="h-7 rounded-[7px] px-2 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
                 aria-label={w === "all" ? "All strikes" : `${w} strikes either side of spot`}
               >
                 {w === "all" ? "All" : `±${w}`}
@@ -164,14 +162,14 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
         {loading ? (
           <Skeleton className="h-[420px] w-full rounded-tile" />
         ) : model.expiries.length === 0 || model.strikes.length === 0 ? (
-          <div className="flex h-[240px] items-center justify-center rounded-tile border border-dashed border-border text-body text-muted-foreground">
+          <div className="flex h-[240px] items-center justify-center rounded-tile bg-muted/40 text-body text-muted-foreground">
             No multi-expiry data available.
           </div>
         ) : (
           <>
             <div
               ref={scrollRef}
-              className="max-h-[480px] overflow-auto rounded-tile border border-border focus-visible:shadow-ember focus-visible:outline-none"
+              className="hairline max-h-[480px] overflow-auto rounded-tile focus-visible:shadow-ember focus-visible:outline-none"
               tabIndex={0}
               role="region"
               aria-label={`${meta.label} heatmap, ${model.strikes.length} strikes by ${model.expiries.length} expiries`}
@@ -184,18 +182,18 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                   <tr>
                     <th
                       scope="col"
-                      className="sticky left-0 z-30 border-b border-border bg-card px-2 py-1.5 text-left font-normal"
+                      className="sticky left-0 z-30 border-b border-separator-strong bg-card px-2 py-1.5 text-left font-normal"
                     >
-                      <span className="block text-label uppercase text-muted-foreground">Strike</span>
+                      <span className="block text-label text-muted-foreground">Strike</span>
                       <span className="block text-micro text-primary-ink">{meta.short}</span>
                     </th>
                     {model.expiries.map((e) => (
                       <th
                         key={e}
                         scope="col"
-                        className="min-w-[84px] border-b border-border px-2 py-1.5 text-right font-normal"
+                        className="min-w-[84px] border-b border-separator-strong px-2 py-1.5 text-right font-normal"
                       >
-                        <span className="block text-label uppercase text-foreground">
+                        <span className="block text-label text-foreground">
                           {formatDateIST(e).replace(/ \d{4}$/, "")}
                         </span>
                         <span className="block text-micro text-muted-foreground">{dteLabel(e)}</span>
@@ -218,12 +216,12 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                         <th
                           scope="row"
                           className={cn(
-                            "sticky left-0 z-10 border-b border-border/60 bg-card px-2 py-1 text-left font-num font-medium",
+                            "sticky left-0 z-10 border-b border-separator bg-card px-2 py-1 text-left font-num font-medium",
                             isSpot && "bg-wash-brand text-primary-ink",
                           )}
                         >
                           {k.toLocaleString("en-IN")}
-                          {isSpot && <span className="ml-1 text-micro uppercase">Spot</span>}
+                          {isSpot && <span className="ml-1 text-micro">Spot</span>}
                         </th>
                         {model.expiries.map((e, j) => {
                           const v = model.values[i][j];
@@ -237,7 +235,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                             <td
                               key={e}
                               title={title}
-                              className="relative border-b border-border/60 px-2 py-1 text-right font-num"
+                              className="relative border-b border-separator px-2 py-1 text-right font-num"
                               style={{ backgroundColor: cellBg(ramp, v, model.maxAbs) }}
                             >
                               <span className="flex items-center justify-end gap-1">
@@ -305,9 +303,7 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
                     : `Darker = ${meta.pos.toLowerCase()}`}
                 </span>
               )}
-              <span>
-                Opens centred on spot: near expiries concentrate gamma at strikes close to spot.
-              </span>
+              <span>Opens centred on spot: near expiries concentrate gamma at strikes close to spot.</span>
               <span>
                 Square-root colour scale; strongest cell ={" "}
                 {meta.crore ? fmtCr(model.maxAbs) : formatCompactIN(model.maxAbs)}.
@@ -320,5 +316,3 @@ export function ExposureHeatmap({ chains, spot, convention, oiUnit, loading, sou
     </Card>
   );
 }
-
-export default ExposureHeatmap;

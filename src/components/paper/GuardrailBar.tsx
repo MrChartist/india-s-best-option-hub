@@ -3,7 +3,7 @@ import { useState } from "react";
 import { OctagonX, ShieldCheck, ShieldOff } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -38,7 +38,7 @@ export function GuardrailBar({
     <div
       role="region"
       aria-label="Guardrails"
-      className={cn("flex flex-col gap-3 rounded-tile border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between", killActive ? "border-bearish/40 bg-wash-loss" : "border-border bg-card shadow-card")}
+      className={cn("flex flex-col gap-3 rounded-tile border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between", killActive ? "border-bearish/40 bg-wash-loss" : "border-separator bg-card shadow-card")}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-body-sm">
         {killActive ? (
@@ -74,7 +74,7 @@ export function GuardrailBar({
       ) : (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button size="sm" className="shrink-0 bg-bearish text-bearish-foreground hover:bg-bearish/90">
+            <Button size="sm" variant="destructive" className="shrink-0">
               <OctagonX aria-hidden="true" /> Kill switch
             </Button>
           </AlertDialogTrigger>
@@ -93,7 +93,7 @@ export function GuardrailBar({
             ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onKill(openPositions > 0 && squareOff)}>Turn on kill switch</AlertDialogAction>
+              <AlertDialogAction className={buttonVariants({ variant: "destructive" })} onClick={() => onKill(openPositions > 0 && squareOff)}>Turn on kill switch</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

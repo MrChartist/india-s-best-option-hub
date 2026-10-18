@@ -121,7 +121,7 @@ function IndexCard({ index, samplePath }: { index: IndexData; samplePath?: numbe
       <Card className={cn("h-full transition-shadow duration-200 group-hover:shadow-card-hover", d.pad)}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-label uppercase text-muted-foreground">
+            <p className="truncate text-label text-muted-foreground">
               <Link
                 to={`/option-chain?symbol=${encodeURIComponent(index.symbol)}`}
                 className="after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none"
@@ -130,7 +130,7 @@ function IndexCard({ index, samplePath }: { index: IndexData; samplePath?: numbe
                 <span className="sr-only">: open option chain</span>
               </Link>
             </p>
-            <p className="mt-1 font-num text-[24px] font-bold leading-none tabular-nums text-foreground">{n2(index.ltp)}</p>
+            <p className="mt-1 font-num text-num-hero leading-none tabular-nums text-foreground">{n2(index.ltp)}</p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             <span className={cn("inline-flex items-center gap-1 rounded-chip px-1.5 py-0.5 font-num text-body-sm font-semibold tabular-nums", up ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
@@ -145,10 +145,10 @@ function IndexCard({ index, samplePath }: { index: IndexData; samplePath?: numbe
           {spark.values.length > 2 ? (
             <>
               <Sparkline values={spark.values} baseline={index.prevClose > 0 ? index.prevClose : undefined} width="100%" height={44} label={`${index.symbol} ${spark.label} price line with previous close`} />
-              <span className="absolute right-0 top-0 rounded-chip bg-card/80 px-1 text-micro uppercase text-muted-foreground">{spark.label}</span>
+              <span className="absolute right-0 top-0 rounded-chip bg-card/80 px-1 text-micro text-muted-foreground">{spark.label}</span>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center rounded-tile border border-dashed border-border text-body-sm text-muted-foreground">No chart data yet</div>
+            <div className="flex h-full items-center justify-center rounded-md border border-dashed border-separator-strong text-body-sm text-muted-foreground">No chart data yet</div>
           )}
         </div>
 
@@ -161,10 +161,10 @@ function IndexCard({ index, samplePath }: { index: IndexData; samplePath?: numbe
             </div>
           ) : null}
           <dl className="grid grid-cols-4 gap-1 font-num text-body-sm tabular-nums text-muted-foreground">
-            <div><dt className="text-micro uppercase">Open</dt><dd className="text-foreground">{formatNumberIN(index.open, 0)}</dd></div>
-            <div><dt className="text-micro uppercase">High</dt><dd className="text-foreground">{formatNumberIN(index.high, 0)}</dd></div>
-            <div><dt className="text-micro uppercase">Low</dt><dd className="text-foreground">{formatNumberIN(index.low, 0)}</dd></div>
-            <div className="text-right"><dt className="text-micro uppercase">Prev cl.</dt><dd className="text-foreground">{formatNumberIN(index.prevClose, 0)}</dd></div>
+            <div><dt className="text-micro">Open</dt><dd className="text-foreground">{formatNumberIN(index.open, 0)}</dd></div>
+            <div><dt className="text-micro">High</dt><dd className="text-foreground">{formatNumberIN(index.high, 0)}</dd></div>
+            <div><dt className="text-micro">Low</dt><dd className="text-foreground">{formatNumberIN(index.low, 0)}</dd></div>
+            <div className="text-right"><dt className="text-micro">Prev cl.</dt><dd className="text-foreground">{formatNumberIN(index.prevClose, 0)}</dd></div>
           </dl>
         </div>
       </Card>
@@ -181,7 +181,7 @@ function VixTile({ value, changePct, high, low, sample }: { value: number | null
       <Card className={cn("flex h-full items-center gap-3 transition-shadow group-hover:shadow-card-hover", d.padX, "py-2.5")}>
         <Activity className="h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-label text-muted-foreground">
             <Link to="/volatility" className="after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none">
               India VIX
               <span className="sr-only">: open volatility</span>
@@ -189,7 +189,7 @@ function VixTile({ value, changePct, high, low, sample }: { value: number | null
             {sample ? <span className="rounded-chip bg-wash-warning px-1 text-micro font-semibold text-warning">Sample</span> : null}
           </p>
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-num text-lead font-bold tabular-nums">{value !== null ? n2(value) : "—"}</span>
+            <span className="font-num text-lead font-semibold tabular-nums">{value !== null ? n2(value) : "—"}</span>
             {/* VIX up = more fear, so rising VIX is shown in the bearish colour */}
             {dir && changePct !== null ? (
               <span className={cn("font-num text-body-sm tabular-nums", dir === "up" ? "text-bearish" : dir === "down" ? "text-bullish" : "text-muted-foreground")}>
@@ -218,10 +218,10 @@ function GiftTile({ lastPrice, change, changePct, niftyClose }: { lastPrice: num
     <Card className={cn("flex h-full items-center gap-3", d.padX, "py-2.5")}>
       <Plane className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        <p className="text-label uppercase text-muted-foreground">GIFT Nifty</p>
+        <p className="text-label text-muted-foreground">GIFT Nifty</p>
         {has ? (
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-num text-lead font-bold tabular-nums">{formatNumberIN(lastPrice, 1)}</span>
+            <span className="font-num text-lead font-semibold tabular-nums">{formatNumberIN(lastPrice, 1)}</span>
             <span className={cn("font-num text-body-sm tabular-nums", signTone(change))}>
               <span aria-hidden="true">{ARROW[dir]}</span> {formatSigned(change, 1)} ({formatPct(changePct, { signed: true })})
             </span>
@@ -232,12 +232,10 @@ function GiftTile({ lastPrice, change, changePct, niftyClose }: { lastPrice: num
       </div>
       {gap !== null ? (
         <div className="hidden shrink-0 text-right sm:block">
-          <p className="text-micro uppercase text-muted-foreground" title="GIFT Nifty's % change applied to the NIFTY close">Implied gap</p>
+          <p className="text-micro text-muted-foreground" title="GIFT Nifty's % change applied to the NIFTY close">Implied gap</p>
           <p className={cn("font-num text-body-sm font-semibold tabular-nums", signTone(gap))}>{formatSigned(gap, 0)} pts</p>
         </div>
       ) : null}
     </Card>
   );
 }
-
-export default IndexCards;

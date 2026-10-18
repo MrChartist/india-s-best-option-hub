@@ -39,7 +39,8 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center gap-0.5 rounded-tile bg-muted p-1 text-muted-foreground",
+      // macOS segmented control tray.
+      "inline-flex h-7 items-center justify-center rounded-pill bg-control-track p-0.5 text-muted-foreground",
       className,
     )}
     {...props}
@@ -57,7 +58,8 @@ const TabsTrigger = React.forwardRef<
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-tab px-3 py-1.5 text-sm font-semibold transition-[background-color,color,box-shadow] duration-fast ease-expo hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-card data-[state=active]:ring-1 data-[state=active]:ring-border dark:data-[state=active]:bg-white/10 dark:data-[state=active]:ring-white/15",
+        // Segment: raised thumb when selected (bg-control is white in light, graphite in dark).
+        "inline-flex h-full min-w-[3rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-[5px] px-2.5 text-body font-medium text-foreground/80 transition-[background-color,color,box-shadow] duration-base ease-spring hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40 data-[state=active]:bg-control data-[state=active]:text-foreground data-[state=active]:shadow-control [&_svg]:size-3.5",
         className,
       )}
       {...props}
@@ -73,7 +75,7 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn("mt-2 rounded-card focus-visible:shadow-ember focus-visible:outline-none", className)}
+    className={cn("mt-3 rounded-sm focus-visible:shadow-focus focus-visible:outline-none", className)}
     {...props}
   />
 ));

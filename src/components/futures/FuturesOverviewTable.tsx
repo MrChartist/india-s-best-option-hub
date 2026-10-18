@@ -40,47 +40,47 @@ export function FuturesOverviewTable({ snapshots, selected, onSelect, caption }:
     // The right-edge fade (phones only) tells the user the table scrolls sideways; the symbol column is sticky.
     <div className="relative">
       <ScrollRegion label={caption} className="relative">
-        <table className="w-full min-w-[980px] border-collapse text-body-sm">
+        <table className="w-full min-w-[980px] border-collapse text-body">
           <caption className="sr-only">
             {caption}. Select a row to see its term structure, rollover and history.
           </caption>
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-label uppercase text-muted-foreground">
-              <th scope="col" className="sticky left-0 z-10 bg-card py-2 pl-4 pr-2 text-left">
+            <tr className="border-b border-separator-strong bg-surface text-label text-muted-foreground">
+              <th scope="col" className="sticky left-0 z-10 h-7 bg-surface py-1 pl-4 pr-2 text-left">
                 Symbol
               </th>
-              <th scope="col" className="px-2 py-2 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Spot
               </th>
-              <th scope="col" className="px-2 py-2 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Near
               </th>
-              <th scope="col" className="px-2 py-2 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Next
               </th>
-              <th scope="col" className="px-2 py-2 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Far
               </th>
-              <th scope="col" className="px-2 py-2 text-right" title="Near future minus spot, and as % of spot">
+              <th scope="col" className="px-2 py-1 text-right" title="Near future minus spot, and as % of spot">
                 Basis
               </th>
-              <th scope="col" className="px-2 py-2 text-right" title="Annualised: (F ÷ S − 1) × 365 ÷ days to expiry">
+              <th scope="col" className="px-2 py-1 text-right" title="Annualised: (F ÷ S − 1) × 365 ÷ days to expiry">
                 Carry p.a.
               </th>
               <th
                 scope="col"
-                className="px-2 py-2 text-right"
+                className="px-2 py-1 text-right"
                 title="Next minus near, annualised over the gap between the expiries"
               >
                 Roll cost p.a.
               </th>
-              <th scope="col" className="px-2 py-2 text-right" title="Share of futures OI in the next and far months">
+              <th scope="col" className="px-2 py-1 text-right" title="Share of futures OI in the next and far months">
                 Rollover
               </th>
-              <th scope="col" className="px-2 py-2 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Fut OI
               </th>
-              <th scope="col" className="px-2 py-2 pr-4 text-left" title="Near-month price and OI direction">
+              <th scope="col" className="px-2 py-1 pr-4 text-left" title="Near-month price and OI direction">
                 Buildup
               </th>
             </tr>
@@ -93,25 +93,30 @@ export function FuturesOverviewTable({ snapshots, selected, onSelect, caption }:
                 <tr
                   key={symbol}
                   className={cn(
-                    "group border-b border-border/60 transition-colors duration-fast hover:bg-accent/50",
-                    // Dark wash-brand is a deep orange; at full strength small red/green text drops below 4.5:1.
-                    active && "bg-wash-brand dark:bg-wash-brand/40",
+                    // Finder-style selection: a neutral fill (the accent pill is reserved for focused lists),
+                    // so the red/green figures in the row keep their contrast. In dark mode the 10% selection
+                    // fill drops the 10px bearish % lines below 4.5:1, so the selected row uses the lighter
+                    // control-track fill there and hover steps down to the zebra tint.
+                    "group border-b border-separator transition-colors duration-fast last:border-0 hover:bg-control-track dark:hover:bg-zebra",
+                    active &&
+                      "bg-selection-unfocused hover:bg-selection-unfocused dark:bg-control-track dark:hover:bg-control-track",
                   )}
                 >
                   <th
                     scope="row"
                     className={cn(
-                      "sticky left-0 z-10 py-1.5 pl-2 pr-2 text-left font-normal group-hover:bg-accent/50",
+                      // Sticky cell: opaque card underneath, row tint layered on top as a gradient.
+                      "sticky left-0 z-10 bg-card py-1 pl-2 pr-2 text-left font-normal",
                       active
-                        ? "bg-wash-brand dark:bg-[hsl(var(--card))] dark:bg-[linear-gradient(hsl(var(--wash-brand)/0.4),hsl(var(--wash-brand)/0.4))]"
-                        : "bg-card",
+                        ? "bg-[linear-gradient(hsl(var(--selection-unfocused)),hsl(var(--selection-unfocused)))] dark:bg-[linear-gradient(hsl(var(--control-track)),hsl(var(--control-track)))]"
+                        : "group-hover:bg-[linear-gradient(hsl(var(--control-track)),hsl(var(--control-track)))] dark:group-hover:bg-[linear-gradient(hsl(var(--zebra)),hsl(var(--zebra)))]",
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => onSelect(symbol)}
                       aria-pressed={active}
-                      className="inline-flex min-h-9 items-center rounded-chip px-2 font-semibold text-foreground hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none"
+                      className="inline-flex min-h-7 items-center rounded-chip px-2 font-semibold text-foreground hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none aria-pressed:text-primary-ink [@media(pointer:coarse)]:min-h-9"
                     >
                       {symbol}
                     </button>

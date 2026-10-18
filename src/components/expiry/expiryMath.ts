@@ -89,12 +89,6 @@ export function pickExpirySymbol(now: Date = new Date(), symbols: readonly Expir
   return cands[0] ?? { symbol: "NIFTY", expiry: "", today: false, type: "weekly" };
 }
 
-/** Next two expiries for a symbol (near and next). */
-export function nearAndNext(symbol: string, now: Date = new Date()): { near: string; next: string } {
-  const list = getExpiries(symbol, now, 2);
-  return { near: list[0]?.date ?? "", next: list[1]?.date ?? "" };
-}
-
 // ── Snapshot helpers ──
 
 /** Mid when a sane two-sided quote exists (spread at most 20% of mid), else LTP. NaN when nothing. */

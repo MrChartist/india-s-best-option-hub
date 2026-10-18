@@ -4,6 +4,7 @@
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { log } from "@/lib/log";
 import { cn } from "@/lib/utils";
 
@@ -44,22 +45,16 @@ export class WidgetBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className={cn("flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border bg-card p-4 text-center", this.props.className)}
+        className={cn("flex min-h-[96px] flex-col items-center justify-center gap-2 rounded-card border border-dashed border-separator-strong bg-card p-4 text-center", this.props.className)}
       >
         <AlertTriangle className="h-5 w-5 text-bearish" aria-hidden="true" />
         <p className="text-body font-medium text-foreground">{this.props.name} could not be shown.</p>
         <p className="max-w-sm text-body-sm text-muted-foreground">The rest of the dashboard still works. Try again, or reload the page if it keeps failing.</p>
-        <button
-          type="button"
-          onClick={this.reset}
-          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-body-sm font-medium hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
-        >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+        <Button type="button" variant="outline" onClick={this.reset}>
+          <RefreshCw className="!size-3.5" aria-hidden="true" />
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
 }
-
-export default WidgetBoundary;

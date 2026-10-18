@@ -77,12 +77,12 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-8 text-xs">
+          <Button type="button" variant="secondary">
             <Share2 /> Save & share
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="text-label uppercase text-muted-foreground">Strategy</DropdownMenuLabel>
+          <DropdownMenuLabel>Strategy</DropdownMenuLabel>
           <DropdownMenuItem
             disabled={empty}
             onSelect={() => {
@@ -90,7 +90,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               setSaveOpen(true);
             }}
           >
-            <BookmarkPlus className="mr-2 h-4 w-4" /> Save…
+            <BookmarkPlus aria-hidden="true" /> Save…
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => {
@@ -98,7 +98,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               setListOpen(true);
             }}
           >
-            <FolderOpen className="mr-2 h-4 w-4" /> Saved strategies
+            <FolderOpen aria-hidden="true" /> Saved strategies
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -109,7 +109,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               else toast.error("Could not copy the link");
             }}
           >
-            <Link2 className="mr-2 h-4 w-4" /> Copy share link
+            <Link2 aria-hidden="true" /> Copy share link
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={empty}
@@ -119,7 +119,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               else toast.error("Could not copy the summary");
             }}
           >
-            <ClipboardCopy className="mr-2 h-4 w-4" /> Copy trade summary
+            <ClipboardCopy aria-hidden="true" /> Copy trade summary
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={empty}
@@ -130,7 +130,7 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               else if (res === "failed") toast.error("Could not create the image", { description: "Your browser blocked it. Try again or take a screenshot." });
             }}
           >
-            <Images className="mr-2 h-4 w-4" /> Copy as image
+            <Images aria-hidden="true" /> Copy as image
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={empty}
@@ -139,11 +139,11 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
               if (!ok) toast.error("PNG export failed", { description: "Your browser blocked the image. Try again or take a screenshot." });
             }}
           >
-            <ImageDown className="mr-2 h-4 w-4" /> Download payoff PNG
+            <ImageDown aria-hidden="true" /> Download payoff PNG
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={empty} onSelect={onAddToPositions}>
-            <Briefcase className="mr-2 h-4 w-4" /> Add to Positions
+            <Briefcase aria-hidden="true" /> Add to Positions
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -188,22 +188,21 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
             <DialogDescription>Loading a strategy replaces the current legs. Entry prices are the ones you saved.</DialogDescription>
           </DialogHeader>
           {saved.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nothing saved yet.</p>
+            <p className="py-6 text-center text-body text-muted-foreground">Nothing saved yet.</p>
           ) : (
-            <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto">
+            <ul className="max-h-[50vh] divide-y divide-separator overflow-y-auto rounded-md border border-separator">
               {saved.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 rounded-tile border border-border p-2">
+                <li key={s.id} className="flex items-center gap-2 px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{s.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="truncate text-body font-medium">{s.name}</p>
+                    <p className="text-body-sm text-muted-foreground">
                       {s.symbol} · {formatDateIST(s.savedAt)} {formatTimeIST(s.savedAt)}
                     </p>
                   </div>
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
-                    className="h-8"
+                    variant="secondary"
                     onClick={() => {
                       onLoad(s.share);
                       setListOpen(false);
@@ -211,8 +210,8 @@ export function SaveShareMenu({ legs, symbol, name, summary, chartRef, onLoad, o
                   >
                     Load
                   </Button>
-                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-bearish" aria-label={`Delete ${s.name}`} onClick={() => setSaved(deleteSavedStrategy(s.id))}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button type="button" size="icon" variant="ghost" className="text-muted-foreground hover:text-bearish" aria-label={`Delete ${s.name}`} onClick={() => setSaved(deleteSavedStrategy(s.id))}>
+                    <Trash2 aria-hidden="true" />
                   </Button>
                 </li>
               ))}

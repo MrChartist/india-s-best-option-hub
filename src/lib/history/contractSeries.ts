@@ -35,8 +35,6 @@ import type { OptionLegData } from "@/lib/mockData";
 import type { ChainSnapshot } from "@/lib/snapshotStore";
 import type { ContractDailyRow } from "./sampleSession";
 
-export const CONTRACT_ROUTE = "/contract/:symbol/:expiry/:strike/:type";
-
 export interface ContractKey {
   symbol: string;
   expiry: string;

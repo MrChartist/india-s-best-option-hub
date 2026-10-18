@@ -27,7 +27,7 @@ function NumberField({ id, label, value, onCommit, min, max, step, suffix, help 
         {label}
         {suffix ? <span className="ml-1 font-normal text-muted-foreground">{suffix}</span> : null}
       </Label>
-      <Input id={id} type="number" inputMode="decimal" min={min} max={max} step={step} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} className="h-9" aria-describedby={help ? `${id}-help` : undefined} />
+      <Input id={id} type="number" inputMode="decimal" min={min} max={max} step={step} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} aria-describedby={help ? `${id}-help` : undefined} />
       {help ? (
         <p id={`${id}-help`} className="text-micro text-muted-foreground">
           {help}
@@ -69,7 +69,7 @@ export function AccountSheet({
 
         <div className="mt-5 space-y-6">
           <section className="space-y-3" aria-labelledby={`${uid}-fills`}>
-            <h3 id={`${uid}-fills`} className="font-display text-lead font-bold">
+            <h3 id={`${uid}-fills`} className="font-display text-lead font-semibold">
               Fills and charges
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -77,7 +77,7 @@ export function AccountSheet({
               <div className="grid gap-1.5">
                 <Label htmlFor={`${uid}-broker`}>Broker charges</Label>
                 <Select value={state.settings.brokerId} onValueChange={(v) => onSettings({ brokerId: v })}>
-                  <SelectTrigger id={`${uid}-broker`} className="h-9">
+                  <SelectTrigger id={`${uid}-broker`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -98,8 +98,8 @@ export function AccountSheet({
             </div>
           </section>
 
-          <section className="space-y-3 border-t border-border pt-5" aria-labelledby={`${uid}-guard`}>
-            <h3 id={`${uid}-guard`} className="flex items-center gap-1.5 font-display text-lead font-bold">
+          <section className="space-y-3 border-t border-separator pt-5" aria-labelledby={`${uid}-guard`}>
+            <h3 id={`${uid}-guard`} className="flex items-center gap-1.5 font-display text-lead font-semibold">
               <ShieldCheck className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Guardrails
             </h3>
             <div className="flex items-start justify-between gap-3">
@@ -135,14 +135,14 @@ export function AccountSheet({
             </div>
           </section>
 
-          <section className="space-y-3 border-t border-border pt-5" aria-labelledby={`${uid}-reset`}>
-            <h3 id={`${uid}-reset`} className="font-display text-lead font-bold">
+          <section className="space-y-3 border-t border-separator pt-5" aria-labelledby={`${uid}-reset`}>
+            <h3 id={`${uid}-reset`} className="font-display text-lead font-semibold">
               Capital and reset
             </h3>
             <div className="flex flex-wrap items-end gap-2">
               <div className="grid flex-1 gap-1.5">
                 <Label htmlFor={`${uid}-capital`}>Virtual capital (₹)</Label>
-                <Input id={`${uid}-capital`} type="number" inputMode="numeric" min={10000} step={10000} value={capitalText} onChange={(e) => setCapitalText(e.target.value)} className="h-9" />
+                <Input id={`${uid}-capital`} type="number" inputMode="numeric" min={10000} step={10000} value={capitalText} onChange={(e) => setCapitalText(e.target.value)} />
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>

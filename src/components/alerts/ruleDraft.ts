@@ -95,7 +95,11 @@ export function retypeDraft(d: RuleDraft, type: AlertRuleType, spot?: number): R
   return next;
 }
 
-const num = (s: string) => Number(String(s).replace(/[,\s₹]/g, ""));
+/** Parse a draft field. A blank field is NaN (not 0) so it fails validation with the field's own message. */
+const num = (s: string) => {
+  const t = String(s).replace(/[,\s₹]/g, "");
+  return t === "" ? NaN : Number(t);
+};
 
 function channelsFromDraft(c: RuleDraft["channels"]): RuleChannels | undefined {
   const out: RuleChannels = {};

@@ -30,9 +30,10 @@ export function Panel({
   const headingId = `${id ?? autoId}-title`;
   return (
     <Card className={cn("min-w-0 overflow-hidden", className)} role="region" aria-labelledby={headingId} id={id}>
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
+      <div className="hairline-b flex flex-wrap items-start justify-between gap-2 px-4 py-3">
         <div className="min-w-0">
-          <div role="heading" aria-level={2} id={headingId} className="flex flex-wrap items-center gap-2 font-display text-lead font-bold tracking-[-0.01em]">
+          {/* Same type as CardTitle so every card on the page reads alike. */}
+          <div role="heading" aria-level={2} id={headingId} className="flex flex-wrap items-center gap-2 font-display text-[14px] font-bold leading-snug [&>svg]:h-4 [&>svg]:w-4">
             {title}
           </div>
           {subtitle ? <p className="mt-0.5 text-body-sm text-muted-foreground">{subtitle}</p> : null}
@@ -51,12 +52,12 @@ export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; la
         <button
           type="button"
           aria-label={label}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-capsule text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
         >
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[300px] text-xs leading-relaxed">{text}</TooltipContent>
+      <TooltipContent className="max-w-[300px] text-body-sm">{text}</TooltipContent>
     </Tooltip>
   );
 }
@@ -74,14 +75,14 @@ export function ModeBadge({ mode, asOf, reason, source }: { mode: SessionMode; a
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-focus focus-visible:outline-none">
           <Badge variant={variant}>
             <Icon aria-hidden="true" />
             {MODE_TEXT[mode]}
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[280px] text-xs">
+      <TooltipContent className="max-w-[280px] text-body-sm">
         <p className="font-semibold">{MODE_TEXT[mode]}</p>
         {asOf ? <p className="text-muted-foreground">As of {formatTimeIST(asOf, { seconds: true })}</p> : null}
         {mode === "live" ? <p className="mt-1 text-muted-foreground">Live chain{source ? ` (${source.toUpperCase()})` : ""}, plus snapshots kept while this page is open.</p> : null}
@@ -122,9 +123,9 @@ export function ModelBadge() {
 
 export function EmptyState({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-border px-4 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-tile bg-control-track px-4 py-10 text-center">
       {icon ? <div className="text-muted-foreground">{icon}</div> : null}
-      <p className="font-display text-lead font-bold">{title}</p>
+      <p className="text-headline text-foreground">{title}</p>
       {children ? <div className="max-w-md text-body-sm text-muted-foreground">{children}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
@@ -140,16 +141,44 @@ export function PanelSkeleton({ height = 280, label = "Loading" }: { height?: nu
   );
 }
 
-export function Stat({ label, value, hint, tone, help, tag, className }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode; tag?: ReactNode; className?: string }) {
+/**
+ * Metric tile. "box" (default) is a flat group box for tiles on the window; "inset" is a filled
+ * well for tiles that sit inside a card.
+ */
+export function Stat({
+  label,
+  value,
+  hint,
+  tone,
+  help,
+  tag,
+  className,
+  variant = "box",
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  tone?: string;
+  help?: ReactNode;
+  tag?: ReactNode;
+  className?: string;
+  variant?: "box" | "inset";
+}) {
   return (
-    <div className={cn("min-w-0 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card", className)}>
+    <div
+      className={cn(
+        "min-w-0 px-3 py-2",
+        variant === "box" ? "rounded-tile border border-separator bg-card shadow-card" : "rounded-md bg-control-track",
+        className,
+      )}
+    >
       {/* div, not p: the HelpTip tooltip content renders inline (not portalled) as a div. */}
-      <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-label uppercase text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-body-sm font-medium text-muted-foreground">
         <span className="truncate">{label}</span>
         {help ? <HelpTip text={help} label={`About ${label}`} /> : null}
         {tag ? <span className="ml-auto shrink-0">{tag}</span> : null}
       </div>
-      <p className={cn("mt-1 truncate font-num text-title tabular-nums", tone)}>{value}</p>
+      <p className={cn("mt-0.5 truncate font-num text-title tabular-nums", tone)}>{value}</p>
       {hint ? <p className="mt-0.5 truncate text-body-sm text-muted-foreground">{hint}</p> : null}
     </div>
   );

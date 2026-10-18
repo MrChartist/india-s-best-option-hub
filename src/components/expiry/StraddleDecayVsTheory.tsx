@@ -104,9 +104,9 @@ export function StraddleDecayVsTheory({ snaps, expiry, r, q, mode, loading }: Pr
         </figure>
 
         <div className="space-y-2">
-          <p className="text-label uppercase text-muted-foreground">Change since {hhmmIST(open.ts)} IST (₹/unit)</p>
+          <p className="text-label text-muted-foreground">Change since {hhmmIST(open.ts)} IST (₹/unit)</p>
           <dl className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2 border-b border-border pb-1.5">
+            <div className="hairline-b flex items-center justify-between gap-2 pb-1.5">
               <dt className="font-semibold">Total</dt>
               <dd className={cn("font-num tabular-nums font-semibold", signTone(total))}>{formatSigned(total, 2)}</dd>
             </div>
@@ -131,7 +131,7 @@ export function StraddleDecayVsTheory({ snaps, expiry, r, q, mode, loading }: Pr
 
       {schedule.length > 0 ? (
         <div className="mt-4">
-          <div className="mb-1 flex items-center gap-1 text-label uppercase text-muted-foreground">
+          <div className="mb-1 flex items-center gap-1 text-label text-muted-foreground">
             Model decay schedule from the open <HelpTip text="Black-76 value of the opening straddle at each time if spot and IV stayed where they were at the open. On expiry day most of the premium goes in the last two hours." />
           </div>
           <div className="overflow-x-auto">

@@ -83,13 +83,13 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
         <CardContent className="space-y-3 p-4 pt-0">
           <div className="flex flex-wrap items-center gap-2">
             {stocks.map((s) => (
-              <Badge key={s} variant="outline" className="h-7 gap-1 pl-2 pr-1 text-xs normal-case">
+              <Badge key={s} variant="outline" className="h-6 gap-1 pl-2 pr-1 text-body-sm normal-case">
                 {s}
                 <button
                   type="button"
                   onClick={() => onStocksChange(stocks.filter((x) => x !== s))}
                   aria-label={`Remove ${s}`}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
                 >
                   <X className="h-3 w-3" aria-hidden="true" />
                 </button>
@@ -97,7 +97,7 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
             ))}
             {stocks.length < MAX_COMPARE_STOCKS ? (
               <Select value="" onValueChange={(v) => v && onStocksChange([...stocks, v])}>
-                <SelectTrigger className="h-8 w-[160px]" aria-label="Add a stock to compare">
+                <SelectTrigger className="w-[160px]" aria-label="Add a stock to compare">
                   <span className="flex items-center gap-1.5 text-body-sm">
                     <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     <SelectValue placeholder="Add stock" />
@@ -121,11 +121,11 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
             ) : null}
           </div>
 
-          <ScrollRegion label="Volatility comparison table" className="rounded-tile border border-border">
+          <ScrollRegion label="Volatility comparison table" className="rounded-tile hairline">
             <table className="w-full min-w-[760px] border-collapse text-body-sm">
               <caption className="sr-only">Volatility comparison across symbols{anySample ? " (includes sample data)" : ""}</caption>
               <thead>
-                <tr className="border-b border-border">
+                <tr className="border-b border-separator-strong bg-surface">
                   {COLUMNS.map((c) => {
                     const active = sort?.key === c.key;
                     const Icon = !active ? ArrowUpDown : sort?.dir === "asc" ? ArrowUp : ArrowDown;
@@ -135,15 +135,15 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
                         scope="col"
                         aria-sort={active ? (sort?.dir === "asc" ? "ascending" : "descending") : "none"}
                         className={cn(
-                          "px-2 py-2 text-label uppercase text-muted-foreground",
-                          c.key === "symbol" ? "sticky left-0 z-[1] bg-card pl-3 text-left" : "text-right",
+                          "h-7 px-2 py-1 text-label text-muted-foreground",
+                          c.key === "symbol" ? "sticky left-0 z-[1] bg-surface pl-3 text-left" : "text-right",
                         )}
                       >
                         <span className={cn("inline-flex items-center gap-1", c.key !== "symbol" && "justify-end")}>
                           <button
                             type="button"
                             onClick={() => toggleSort(c.key)}
-                            className="inline-flex items-center gap-1 rounded-sm uppercase hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+                            className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
                           >
                             {c.label}
                             <Icon className={cn("h-3 w-3", active ? "text-foreground" : "opacity-50")} aria-hidden="true" />
@@ -160,8 +160,8 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
                   const st = state[sym];
                   const r = st?.row ?? null;
                   return (
-                    <tr key={sym} className="border-b border-border/60 last:border-0 hover:bg-accent/40">
-                      <th scope="row" className="sticky left-0 z-[1] bg-card px-3 py-2 text-left font-medium">
+                    <tr key={sym} className="group border-b border-separator transition-colors duration-fast last:border-0 hover:bg-control-track">
+                      <th scope="row" className="sticky left-0 z-[1] bg-card px-3 py-2 text-left font-medium group-hover:bg-[linear-gradient(hsl(var(--control-track)),hsl(var(--control-track)))]">
                         <button
                           type="button"
                           onClick={() => onSelectSymbol(sym)}
@@ -172,7 +172,7 @@ export function ComparePanel({ stocks, onStocksChange, onSelectSymbol }: Compare
                         <span className="block text-micro text-muted-foreground">
                           {r ? `${formatDateIST(r.expiry)} · ${dteLabel(r.expiry)}` : st?.loading !== false ? "Loading…" : "No usable chain"}
                         </span>
-                        {r?.sample ? <span className="text-micro uppercase text-warning">Sample</span> : null}
+                        {r?.sample ? <span className="text-micro text-warning">Sample</span> : null}
                       </th>
                       {!r ? (
                         <td colSpan={COLUMNS.length - 1} className="px-2 py-2 text-right text-muted-foreground">

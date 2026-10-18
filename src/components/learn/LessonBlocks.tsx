@@ -51,7 +51,7 @@ const CALLOUT: Record<CalloutTone, { cls: string; icon: ReactNode }> = {
 
 function SimSkeleton() {
   return (
-    <div className="rounded-card border border-border bg-card p-5" role="status" aria-busy="true" aria-label="Loading simulator">
+    <div className="rounded-card border border-separator bg-card p-5" role="status" aria-busy="true" aria-label="Loading simulator">
       <Skeleton className="h-5 w-48" />
       <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
         <div className="space-y-4">
@@ -82,12 +82,12 @@ function SimBlock({ sim, caption }: { sim: SimId; caption?: string }) {
 function MetricsBlock({ metrics }: { metrics: MetricKey[] }) {
   return (
     <div className="my-6">
-      <p className="mb-2 text-label uppercase text-muted-foreground">Metric explainers used in the terminal</p>
+      <p className="mb-2 text-label text-muted-foreground">Metric explainers used in the terminal</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {metrics.map((k) => {
           const m = METRICS[k];
           return (
-            <div key={k} className="rounded-tile border border-border bg-surface p-3">
+            <div key={k} className="rounded-tile border border-separator bg-surface p-3">
               <div className="flex items-center gap-1 font-semibold text-foreground">
                 <MetricHelp metric={k}>{m.title}</MetricHelp>
               </div>
@@ -106,16 +106,16 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function ContractTable() {
   const rows = Object.values(CONTRACT_SPECS).filter((s) => s.kind === "INDEX");
   return (
-    <div className="my-6 overflow-x-auto rounded-tile border border-border">
+    <div className="my-6 overflow-x-auto rounded-tile border border-separator">
       <table className="w-full min-w-[520px] text-body">
-        <caption className="border-b border-border bg-surface px-3 py-2 text-left text-body-sm text-muted-foreground">
+        <caption className="border-b border-separator bg-surface px-3 py-2 text-left text-body-sm text-muted-foreground">
           Index contract specs from the terminal's instrument registry{" "}
           <Badge variant="warning" className="ml-1 align-middle">
             Verify
           </Badge>
         </caption>
         <thead>
-          <tr className="border-b border-border text-label uppercase text-muted-foreground">
+          <tr className="border-b border-separator text-label text-muted-foreground">
             <th scope="col" className="px-3 py-2 text-left">Index</th>
             <th scope="col" className="px-3 py-2 text-right">Lot size</th>
             <th scope="col" className="px-3 py-2 text-right">Strike step</th>
@@ -125,7 +125,7 @@ function ContractTable() {
         </thead>
         <tbody>
           {rows.map((s) => (
-            <tr key={s.symbol} className="border-b border-border last:border-0">
+            <tr key={s.symbol} className="border-b border-separator last:border-0">
               <th scope="row" className="px-3 py-2 text-left font-semibold">
                 {s.symbol} <span className="font-normal text-muted-foreground">· {s.exchange}</span>
               </th>
@@ -149,7 +149,7 @@ function ExpiryList({ symbols }: { symbols: string[] }) {
   return (
     <div className="my-6 grid gap-3 sm:grid-cols-3">
       {lists.map(({ symbol, expiries }) => (
-        <div key={symbol} className="rounded-tile border border-border bg-surface p-3">
+        <div key={symbol} className="rounded-tile border border-separator bg-surface p-3">
           <div className="flex items-center justify-between gap-2 font-semibold text-foreground">
             {symbol}
             <Badge variant="neutral">Next expiries</Badge>
@@ -162,7 +162,7 @@ function ExpiryList({ symbols }: { symbols: string[] }) {
                 <li key={e.date} className="flex items-baseline justify-between gap-2">
                   <span className="font-num tabular-nums text-foreground">
                     {formatDateIST(e.date)}
-                    {e.type === "monthly" ? <span className="ml-1 text-micro uppercase text-primary-ink">Monthly</span> : null}
+                    {e.type === "monthly" ? <span className="ml-1 text-micro text-primary-ink">Monthly</span> : null}
                   </span>
                   <span className="text-muted-foreground">{dteLabel(e.date, now)}</span>
                 </li>
@@ -213,18 +213,18 @@ function Block({ block }: { block: LessonBlock }) {
     }
     case "formula":
       return (
-        <div className="my-5 rounded-tile border border-border bg-surface px-4 py-3">
-          {block.label ? <p className="text-label uppercase text-muted-foreground">{block.label}</p> : null}
+        <div className="my-5 rounded-tile border border-separator bg-surface px-4 py-3">
+          {block.label ? <p className="text-label text-muted-foreground">{block.label}</p> : null}
           <p className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-body text-foreground">{block.text}</p>
         </div>
       );
     case "table":
       return (
-        <div className="my-5 overflow-x-auto rounded-tile border border-border">
+        <div className="my-5 overflow-x-auto rounded-tile border border-separator">
           <table className="w-full min-w-[420px] text-body">
-            {block.caption ? <caption className="border-b border-border bg-surface px-3 py-2 text-left text-body-sm text-muted-foreground">{block.caption}</caption> : null}
+            {block.caption ? <caption className="border-b border-separator bg-surface px-3 py-2 text-left text-body-sm text-muted-foreground">{block.caption}</caption> : null}
             <thead>
-              <tr className="border-b border-border text-label uppercase text-muted-foreground">
+              <tr className="border-b border-separator text-label text-muted-foreground">
                 {block.head.map((h) => (
                   <th key={h} scope="col" className="px-3 py-2 text-left">
                     {h}
@@ -234,7 +234,7 @@ function Block({ block }: { block: LessonBlock }) {
             </thead>
             <tbody>
               {block.rows.map((r, i) => (
-                <tr key={`${i}-${r[0]}`} className="border-b border-border last:border-0">
+                <tr key={`${i}-${r[0]}`} className="border-b border-separator last:border-0">
                   {r.map((c, j) =>
                     j === 0 ? (
                       <th key={`${j}-${c}`} scope="row" className="px-3 py-2 text-left font-semibold text-foreground">
@@ -264,7 +264,7 @@ function Block({ block }: { block: LessonBlock }) {
       return (
         <p className="my-3 text-body-sm text-muted-foreground">
           Source:{" "}
-          <a href={block.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+          <a href={block.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-primary-ink underline-offset-4 hover:underline focus-visible:shadow-focus focus-visible:outline-none">
             {block.label} <ExternalLink className="h-3 w-3" aria-hidden="true" />
             <span className="sr-only">(opens in a new tab)</span>
           </a>

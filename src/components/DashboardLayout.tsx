@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -8,7 +8,8 @@ import { BRAND } from "@/lib/brand/links";
 import { Button } from "@/components/ui/button";
 import { StatusFooter } from "@/components/StatusFooter";
 import { SampleBanner } from "@/components/SampleBanner";
-import { SHORTCUT_HELP, useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { SHORTCUT_HELP, isMacPlatform, modKeyLabel, useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { findRoute } from "@/lib/routes";
 import { probeProxy, useProxyStatus } from "@/lib/api/proxyClient";
 import { startMarketWS } from "@/lib/websocketClient";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -66,15 +67,15 @@ function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         <div className="grid gap-4 sm:grid-cols-2">
           {SHORTCUT_HELP.map((group) => (
             <section key={group.category} className={group.category === "Navigation" ? "sm:row-span-2" : undefined}>
-              <h3 className="mb-1.5 text-label uppercase text-muted-foreground">{group.category}</h3>
+              <h3 className="mb-1.5 font-sans text-label text-muted-foreground">{group.category}</h3>
               <ul className="space-y-1">
                 {group.items.map((item) => (
-                  <li key={item.description} className="flex items-center justify-between gap-3 text-sm">
+                  <li key={item.description} className="flex items-center justify-between gap-3 text-body">
                     <span className="text-foreground/90">{item.description}</span>
                     <span className="flex shrink-0 gap-1">
                       {item.keys.map((k) => (
-                        <kbd key={k} className="min-w-[1.5rem] rounded border border-border bg-muted px-1.5 py-0.5 text-center font-mono text-xs">
-                          {k.length === 1 ? k.toUpperCase() : k}
+                        <kbd key={k} className="min-w-[1.375rem] rounded-chip bg-control px-1 py-px text-center font-sans text-body-sm shadow-control">
+                          {k === "Ctrl" && isMacPlatform() ? "⌘" : k.length === 1 ? k.toUpperCase() : k}
                         </kbd>
                       ))}
                     </span>
@@ -120,7 +121,7 @@ function ISTClock() {
   return (
     <time
       dateTime={now.toISOString()}
-      className="hidden font-num text-xs font-medium tabular-nums text-muted-foreground md:inline"
+      className="hidden pl-1 font-num text-body-sm tabular-nums text-muted-foreground 2xl:inline"
       aria-label={`Indian Standard Time ${formatTimeIST(now)}`}
     >
       {formatTimeIST(now, { seconds: true })}
@@ -138,12 +139,12 @@ function ExpiryCountdown() {
     <Tooltip>
       <TooltipTrigger asChild>
         <div
-          className="hidden h-7 items-center gap-1.5 rounded-capsule border border-border bg-card/70 px-2.5 text-xs sm:flex"
+          className="hidden h-7 items-center gap-1.5 rounded-pill px-2 text-body-sm transition-colors duration-fast hover:bg-control-track sm:flex"
           tabIndex={0}
           aria-label={`${EXPIRY_SYMBOL} exp ${label}: next expiry ${formatDateIST(next.date)}`}
         >
           <Timer className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
-          <span className="hidden text-label uppercase text-muted-foreground lg:inline">{EXPIRY_SYMBOL} exp</span>
+          <span className="hidden text-muted-foreground lg:inline">{EXPIRY_SYMBOL} expiry</span>
           <span className="font-num font-semibold tabular-nums text-foreground">{label}</span>
         </div>
       </TooltipTrigger>
@@ -159,11 +160,11 @@ function TickerItem({ label, value, changePct, invert = false }: { label: string
   const up = hasChange && (changePct as number) >= 0;
   const good = invert ? !up : up;
   return (
-    <div className="flex shrink-0 items-center gap-1.5 px-3 first:pl-0 last:pr-0">
-      <span className="text-label uppercase text-muted-foreground">{label}</span>
-      <span className="font-num text-xs font-semibold tabular-nums">{value}</span>
+    <div className="flex shrink-0 items-center gap-1.5 px-2.5 first:pl-0 last:pr-0">
+      <span className="text-label text-muted-foreground">{label}</span>
+      <span className="font-num text-body-sm font-semibold tabular-nums">{value}</span>
       {hasChange && (
-        <span className={cn("font-num text-xs font-medium tabular-nums", good ? "text-bullish" : "text-bearish")}>
+        <span className={cn("font-num text-body-sm font-medium tabular-nums", good ? "text-bullish" : "text-bearish")}>
           {up ? "▲" : "▼"} {Math.abs(changePct as number).toFixed(2)}%
         </span>
       )}
@@ -171,6 +172,42 @@ function TickerItem({ label, value, changePct, invert = false }: { label: string
   );
 }
 
+/**
+ * Mail-style toolbar title: true once the page's own header ([data-page-header]) has scrolled
+ * out of the content area, so the title is never shown twice. Pages without a PageHeader
+ * always show it.
+ */
+function usePageHeaderHidden(mainRef: RefObject<HTMLElement>, pathname: string): boolean {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const header = main.querySelector<HTMLElement>("[data-page-header]");
+      if (!header) {
+        setHidden(true);
+        return;
+      }
+      setHidden(header.getBoundingClientRect().bottom <= main.getBoundingClientRect().top + 4);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+    // Lazy pages mount their header after the route changes; re-measure when the DOM settles.
+    const observer = new MutationObserver(schedule);
+    observer.observe(main, { childList: true, subtree: true });
+    main.addEventListener("scroll", schedule, { passive: true });
+    schedule();
+    return () => {
+      observer.disconnect();
+      main.removeEventListener("scroll", schedule);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [mainRef, pathname]);
+  return hidden;
+}
 
 /** Query-key roots holding live market data; the R / refresh button only touches these. */
 const LIVE_QUERY_KEYS = new Set<string>([
@@ -285,34 +322,58 @@ export default function DashboardLayout() {
   }, [handleQuickRefresh]);
 
   const showTicker = indices.length > 0 || Boolean(liveVix);
+  const mainRef = useRef<HTMLElement>(null);
+  const headerHidden = usePageHeaderHidden(mainRef, location.pathname);
+  // <main> is the scroll container, so the browser never resets it on navigation. Start each
+  // new page at the top, unless the URL targets an anchor (the page scrolls to it itself).
+  useEffect(() => {
+    if (location.hash) return;
+    const main = mainRef.current;
+    if (main) main.scrollTop = 0;
+  }, [location.pathname, location.hash]);
+  const pageTitle = findRoute(location.pathname)?.title ?? "";
+  const searchHint = modKeyLabel("K");
 
   return (
     <SidebarProvider>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <div className="relative flex h-svh w-full overflow-hidden bg-background">
-        <div className="bg-noise" aria-hidden="true" />
-
+      <div className="relative flex h-svh w-full overflow-hidden bg-window-backdrop">
         <AppSidebar />
-        <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Top bar */}
-          <header className="glass-nav sticky top-0 z-30 flex min-h-12 shrink-0 items-center gap-2 px-2.5 sm:px-3">
-            <SidebarTrigger className="h-8 w-8 shrink-0" aria-label="Toggle sidebar" />
-            {/* Phones: the sidebar (and its logo) is a drawer, so show the mark in the top bar. */}
+        {/* The content "window": inset beside the sidebar material on desktop, edge to edge on phones. */}
+        <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden bg-window md:my-2 md:mr-2 md:rounded-panel md:shadow-window">
+          {/* Unified toolbar */}
+          <header className="mac-toolbar sticky top-0 z-30 flex h-[52px] shrink-0 items-center gap-1.5 px-2.5 sm:px-3">
+            <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground [&_svg]:size-4" aria-label="Toggle sidebar" />
+            {/* Phones: the sidebar (and its logo) is a drawer, so show the mark in the toolbar. */}
             <Link
               to="/"
               aria-label={`${BRAND.productFull}: dashboard`}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-foreground focus-visible:shadow-ember focus-visible:outline-none md:hidden"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-pill text-foreground focus-visible:shadow-focus focus-visible:outline-none md:hidden"
             >
-              <MrChartistMark size={22} decorative />
+              <MrChartistMark size={20} decorative />
             </Link>
 
-            {/* Ticker capsule: live indices */}
-            <div className="hidden min-w-0 flex-1 lg:flex">
+            {/* Title block: fades in once the page header scrolls away, so the title is never shown twice. */}
+            <div
+              aria-hidden="true"
+              className={cn(
+                "min-w-0 flex-1 pl-1 transition-opacity duration-base ease-out md:flex-initial md:shrink",
+                headerHidden ? "opacity-100" : "pointer-events-none opacity-0",
+              )}
+            >
+              <p className="truncate text-lead font-semibold leading-tight text-foreground">{pageTitle}</p>
+              <p className="hidden truncate text-body-sm leading-tight text-muted-foreground xl:block">
+                {sessionMeta.label} · {isLiveData ? "Live" : proxy.sampleMode ? "Sample data" : "Offline"}
+              </p>
+            </div>
+
+            {/* Ticker: live indices as one toolbar item group */}
+            <div className="hidden min-w-0 flex-1 justify-center xl:flex">
               {showTicker && (
                 <div
-                  className="flex h-8 min-w-0 items-center divide-x divide-border overflow-hidden rounded-capsule border border-border bg-card/70 px-3.5 shadow-card"
+                  className="flex h-7 min-w-0 items-center divide-x divide-separator overflow-hidden rounded-pill bg-control-track px-2.5"
                   aria-label="Market ticker"
                   role="group"
                 >
@@ -331,15 +392,15 @@ export default function DashboardLayout() {
                     invert
                   />
                   {giftNifty && giftNifty.lastPrice > 0 && (
-                    <div className="hidden shrink-0 items-center gap-1.5 px-3 last:pr-0 xl:flex">
+                    <div className="hidden shrink-0 items-center gap-1.5 px-2.5 last:pr-0 2xl:flex">
                       <Plane className="h-3 w-3 text-primary-ink" aria-hidden="true" />
-                      <span className="text-label uppercase text-primary-ink">GIFT</span>
-                      <span className="font-num text-xs font-semibold tabular-nums">
+                      <span className="text-label text-primary-ink">GIFT</span>
+                      <span className="font-num text-body-sm font-semibold tabular-nums">
                         {giftNifty.lastPrice.toLocaleString("en-IN")}
                       </span>
                       <span
                         className={cn(
-                          "font-num text-xs font-medium tabular-nums",
+                          "font-num text-body-sm font-medium tabular-nums",
                           giftNifty.change >= 0 ? "text-bullish" : "text-bearish",
                         )}
                       >
@@ -352,13 +413,13 @@ export default function DashboardLayout() {
             </div>
 
             {/* Controls */}
-            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
               {/* One status pill: market session + data feed */}
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="flex h-7 items-center gap-2 rounded-capsule border border-border bg-card/70 px-2.5 text-xs font-semibold transition-colors duration-fast hover:border-primary/40 focus-visible:outline-none focus-visible:shadow-ember"
+                    className="flex h-7 items-center gap-2 rounded-pill px-2 text-body-sm font-medium transition-colors duration-fast hover:bg-control-track focus-visible:outline-none focus-visible:shadow-focus data-[state=open]:bg-control-track"
                   >
                     <span className="relative flex h-2 w-2" aria-hidden="true">
                       {sessionMeta.tone === "open" && (
@@ -367,7 +428,7 @@ export default function DashboardLayout() {
                       <span className={cn("relative h-2 w-2 rounded-full", TONE_DOT[sessionMeta.tone])} />
                     </span>
                     <span className="text-foreground">{sessionMeta.short}</span>
-                    <span className="h-3 w-px bg-border" aria-hidden="true" />
+                    <span className="h-3 w-[var(--hairline)] bg-separator-strong" aria-hidden="true" />
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <span
                         className={cn("h-1.5 w-1.5 rounded-full", isLiveData ? "bg-bullish" : "bg-bearish")}
@@ -384,14 +445,14 @@ export default function DashboardLayout() {
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <span className={cn("h-2.5 w-2.5 rounded-full", TONE_DOT[sessionMeta.tone])} aria-hidden="true" />
-                        <p className="text-sm font-semibold">{sessionMeta.label}</p>
+                        <p className="text-headline">{sessionMeta.label}</p>
                       </div>
-                      <p className="pl-[18px] text-xs text-muted-foreground">
+                      <p className="pl-[18px] text-body-sm text-muted-foreground">
                         NSE · {nextChange.label} · {formatTimeIST(sessionNow)}
                       </p>
                     </div>
 
-                    <div className="space-y-1.5 border-t border-border pt-3 text-xs">
+                    <div className="hairline-t space-y-1.5 pt-3 text-body-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Proxy</span>
                         <Badge variant={proxyOnline ? "bullish" : proxy.status === "unknown" ? "warning" : "bearish"}>
@@ -418,20 +479,19 @@ export default function DashboardLayout() {
 
                     {!hasDhanKeys && (
                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-full gap-1.5 text-xs"
+                        variant="secondary"
+                        className="w-full"
                         onClick={() => navigate("/broker-settings")}
                       >
-                        <Settings className="h-3 w-3" aria-hidden="true" />
+                        <Settings aria-hidden="true" />
                         Configure broker keys
-                        <ExternalLink className="ml-auto h-3 w-3" aria-hidden="true" />
+                        <ExternalLink className="ml-auto !size-3" aria-hidden="true" />
                       </Button>
                     )}
 
                     {!isLiveData && (
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Run <code className="rounded bg-muted px-1 text-xs">npm run dev</code> to start Vite and the
+                      <p className="text-body-sm leading-relaxed text-muted-foreground">
+                        Run <code className="rounded-chip bg-control-track px-1 text-body-sm">npm run dev</code> to start Vite and the
                         proxy server, or add Dhan API keys for live data.
                       </p>
                     )}
@@ -441,61 +501,45 @@ export default function DashboardLayout() {
 
               <ExpiryCountdown />
 
-              <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-
               {/* Refresh */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={handleQuickRefresh}
-                    aria-label="Refresh all data"
-                  >
-                    <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} aria-hidden="true" />
+                  <Button variant="ghost" size="icon" onClick={handleQuickRefresh} aria-label="Refresh all data">
+                    <RefreshCw className={cn("text-muted-foreground", isRefreshing && "animate-spin")} strokeWidth={1.75} aria-hidden="true" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  Refresh <kbd className="ml-1 rounded bg-muted px-1 text-micro">R</kbd>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Search */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={openSearch}
-                    onPointerEnter={() => void loadCommandPalette()}
-                    onFocus={() => void loadCommandPalette()}
-                    aria-label="Search pages and symbols"
-                  >
-                    <Search className="h-3.5 w-3.5" aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  Search <kbd className="ml-1 rounded bg-muted px-1 text-micro">Ctrl K</kbd>
+                  Refresh <kbd className="ml-1 font-sans text-muted-foreground">R</kbd>
                 </TooltipContent>
               </Tooltip>
 
               {/* Alerts */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setAlertsOpen(true)}
-                    aria-label="Open alerts"
-                  >
-                    <Bell className="h-3.5 w-3.5" aria-hidden="true" />
+                  <Button variant="ghost" size="icon" onClick={() => setAlertsOpen(true)} aria-label="Open alerts">
+                    <Bell className="text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Alerts</TooltipContent>
               </Tooltip>
+
+              {/* Search: a macOS search field on desktop, an icon button on phones. Both open the palette. */}
+              <button
+                type="button"
+                onClick={openSearch}
+                onPointerEnter={() => void loadCommandPalette()}
+                onFocus={() => void loadCommandPalette()}
+                aria-keyshortcuts="Control+K Meta+K /"
+                className="relative ml-1 flex h-7 shrink-0 items-center gap-1.5 rounded-pill text-body text-muted-foreground transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none max-md:w-7 max-md:justify-center max-md:hover:bg-control-track md:w-44 md:bg-control-track md:px-2 md:hover:text-foreground lg:w-56 [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-['']"
+              >
+                <Search className="h-4 w-4 shrink-0 md:h-3.5 md:w-3.5" strokeWidth={2} aria-hidden="true" />
+                {/* Accessible name "Search pages and symbols" starts with the visible word (WCAG 2.5.3). */}
+                <span className="flex-1 text-left max-md:sr-only">Search</span>
+                <span className="sr-only"> pages and symbols</span>
+                <kbd className="hidden font-sans text-micro text-muted-foreground md:inline" aria-hidden="true">
+                  {searchHint}
+                </kbd>
+              </button>
 
               <ISTClock />
             </div>
@@ -503,7 +547,12 @@ export default function DashboardLayout() {
 
           <SampleBanner />
 
-          <main id="main" tabIndex={-1} className="flex-1 overflow-auto p-2.5 focus:outline-none focus-visible:shadow-none sm:p-3 lg:p-4">
+          <main
+            id="main"
+            ref={mainRef}
+            tabIndex={-1}
+            className="flex-1 overflow-auto px-3 py-3 focus:outline-none focus-visible:shadow-none sm:px-4 lg:px-5 lg:py-4"
+          >
             <div className="page-transition" key={location.pathname}>
               <Outlet />
             </div>

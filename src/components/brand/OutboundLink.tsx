@@ -36,5 +36,3 @@ export function OutboundLink({ url, campaign, children, className, arrow = false
     </a>
   );
 }
-
-export default OutboundLink;

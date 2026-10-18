@@ -82,10 +82,7 @@ export function PremiumTideChart({
         Cumulative call premium {fmtRs(last.ce, true)}, put premium {fmtRs(last.pe, true)}, net {fmtRs(last.net, true)}{" "}
         as of {hhmm(last.ts)} IST.
       </figcaption>
-      <div
-        className="mb-1 flex items-center justify-between text-micro uppercase text-muted-foreground"
-        aria-hidden="true"
-      >
+      <div className="mb-1 flex items-center justify-between text-micro text-muted-foreground" aria-hidden="true">
         <span>₹ premium, cumulative</span>
         {hasSpot ? <span>Spot</span> : null}
       </div>

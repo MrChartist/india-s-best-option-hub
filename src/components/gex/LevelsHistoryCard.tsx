@@ -116,7 +116,7 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
   const last = points[points.length - 1];
 
   return (
-    <Card className={cn("flex min-w-0 flex-col rounded-card", className)}>
+    <Card className={cn("flex min-w-0 flex-col", className)}>
       <CardHeader className="space-y-1 pb-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
@@ -145,7 +145,7 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
         {!feed ? (
           <Skeleton className="min-h-[300px] w-full flex-1 rounded-tile" />
         ) : points.length < 2 ? (
-          <div className="flex min-h-[240px] flex-1 items-center justify-center rounded-tile border border-dashed border-border px-4 text-center text-body text-muted-foreground">
+          <div className="flex min-h-[240px] flex-1 items-center justify-center rounded-tile bg-muted/40 px-4 text-center text-body text-muted-foreground">
             Not enough snapshots with open interest to track levels yet.
           </div>
         ) : (
@@ -217,7 +217,7 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
                 ))}
               </ul>
               <div className="mt-3">
-                <p className="mb-1 flex items-center gap-1 text-micro uppercase text-muted-foreground">
+                <p className="mb-1 flex items-center gap-1 text-micro text-muted-foreground">
                   Total GEX, ₹ Cr per 1% <MetricHelp metric="gex" />
                 </p>
                 <div className="h-[84px] w-full">
@@ -250,7 +250,7 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
             </figure>
 
             <section className="w-full shrink-0 lg:w-[280px]" aria-labelledby="levels-changed-heading">
-              <h3 id="levels-changed-heading" className="text-label uppercase text-muted-foreground">
+              <h3 id="levels-changed-heading" className="text-label text-muted-foreground">
                 Changed since open · {hhmm(first.ts)} to {hhmm(last.ts)} IST
               </h3>
               <p className="mt-0.5 text-body-sm text-muted-foreground">
@@ -258,12 +258,9 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
                 Call wall moved {moves.call} time{moves.call === 1 ? "" : "s"}, put wall {moves.put} time
                 {moves.put === 1 ? "" : "s"}.
               </p>
-              <ul className="mt-2 space-y-1.5">
+              <ul className="hairline mt-2 grid gap-px overflow-hidden rounded-tile bg-separator">
                 {changes.map((c) => (
-                  <li
-                    key={c.key}
-                    className="flex items-center justify-between gap-2 rounded-tile border border-border bg-surface px-3 py-2"
-                  >
+                  <li key={c.key} className="flex items-center justify-between gap-2 bg-card px-3 py-2">
                     <div className="min-w-0">
                       <p className="truncate text-body-sm font-semibold">{c.label}</p>
                       <p className="font-num text-body-sm text-muted-foreground">
@@ -291,5 +288,3 @@ export function LevelsHistoryCard({ symbol, feed, convention, className }: Props
     </Card>
   );
 }
-
-export default LevelsHistoryCard;

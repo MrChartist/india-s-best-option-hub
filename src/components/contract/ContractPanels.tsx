@@ -30,7 +30,7 @@ export function ContractActions({ k, leg }: { k: ContractKey; leg: OptionLegData
   const legs = encodeLegs([contractBasketLeg(k, side, leg)]);
   return (
     <>
-      <ToggleGroup type="single" size="sm" value={side} onValueChange={(v) => v && setSide(v as Side)} aria-label="Leg direction">
+      <ToggleGroup type="single" value={side} onValueChange={(v) => v && setSide(v as Side)} aria-label="Leg direction">
         <ToggleGroupItem value="BUY" aria-label="Buy" className="data-[state=on]:text-bullish">
           Buy
         </ToggleGroupItem>
@@ -38,12 +38,12 @@ export function ContractActions({ k, leg }: { k: ContractKey; leg: OptionLegData
           Sell
         </ToggleGroupItem>
       </ToggleGroup>
-      <Button asChild size="sm" variant="outline" className="gap-1.5">
+      <Button asChild variant="outline">
         <Link to={`/strategy-builder?legs=${legs}`}>
           <ListPlus aria-hidden="true" /> Add to builder
         </Link>
       </Button>
-      <Button asChild size="sm" className="gap-1.5">
+      <Button asChild>
         <Link to={`/paper-trading?legs=${legs}`}>
           <Wallet aria-hidden="true" /> Paper trade
         </Link>
@@ -66,16 +66,17 @@ export function ContractSwitcher({ k, strikes, expiries, spot }: { k: ContractKe
 
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Switch contract">
-      <ToggleGroup type="single" size="sm" value={k.type} onValueChange={(v) => v && v !== k.type && go({ type: v as "CE" | "PE" })} aria-label="Option type">
+      <ToggleGroup type="single" value={k.type} onValueChange={(v) => v && v !== k.type && go({ type: v as "CE" | "PE" })} aria-label="Option type">
         <ToggleGroupItem value="CE" aria-label="Call (CE)">CE</ToggleGroupItem>
         <ToggleGroupItem value="PE" aria-label="Put (PE)">PE</ToggleGroupItem>
       </ToggleGroup>
-      <div className="flex items-center gap-1">
-        <Button size="icon" variant="outline" className="h-9 w-9" disabled={i <= 0} onClick={() => go({ strike: list[i - 1] })} aria-label="Lower strike">
+      {/* Strike stepper: previous / pop-up / next share one bezel. */}
+      <div className="flex h-7 items-center rounded-pill bg-control shadow-control [@media(pointer:coarse)]:h-9">
+        <Button size="icon" variant="ghost" className="rounded-r-none" disabled={i <= 0} onClick={() => go({ strike: list[i - 1] })} aria-label="Lower strike">
           <ChevronLeft aria-hidden="true" />
         </Button>
         <Select value={String(k.strike)} onValueChange={(v) => go({ strike: Number(v) })}>
-          <SelectTrigger className="h-9 w-[156px] font-num tabular-nums" aria-label="Strike">
+          <SelectTrigger className="w-[148px] rounded-none border-x border-separator bg-transparent font-num tabular-nums shadow-none" aria-label="Strike">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -87,12 +88,12 @@ export function ContractSwitcher({ k, strikes, expiries, spot }: { k: ContractKe
             ))}
           </SelectContent>
         </Select>
-        <Button size="icon" variant="outline" className="h-9 w-9" disabled={i < 0 || i >= list.length - 1} onClick={() => go({ strike: list[i + 1] })} aria-label="Higher strike">
+        <Button size="icon" variant="ghost" className="rounded-l-none" disabled={i < 0 || i >= list.length - 1} onClick={() => go({ strike: list[i + 1] })} aria-label="Higher strike">
           <ChevronRight aria-hidden="true" />
         </Button>
       </div>
       <Select value={k.expiry} onValueChange={(v) => go({ expiry: v })}>
-        <SelectTrigger className="h-9 w-[150px]" aria-label="Expiry">
+        <SelectTrigger className="w-[140px]" aria-label="Expiry">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -103,7 +104,7 @@ export function ContractSwitcher({ k, strikes, expiries, spot }: { k: ContractKe
           ))}
         </SelectContent>
       </Select>
-      <Button asChild size="sm" variant="ghost" className="gap-1.5">
+      <Button asChild variant="ghost">
         <Link to={`/option-chain?symbol=${encodeURIComponent(k.symbol)}&expiry=${k.expiry}`}>
           <Layers aria-hidden="true" /> Option chain
         </Link>
@@ -139,19 +140,19 @@ export function DepthPanel({ leg, lotSize, sample }: { leg: OptionLegDataExt | u
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-tile border border-border bg-wash-profit/40 p-3">
-              <p className="text-label uppercase text-muted-foreground">Bid</p>
+            <div className="rounded-tile bg-wash-profit/50 px-3 py-2.5">
+              <p className="text-label text-muted-foreground">Bid</p>
               <p className="font-num text-title tabular-nums text-bullish">{bid > 0 ? formatINR(bid) : "—"}</p>
               <p className="font-num text-body-sm tabular-nums text-muted-foreground">{typeof bq === "number" ? `${formatNumberIN(bq)} qty ${lots(bq) ? `· ${lots(bq)}` : ""}` : "Quantity not sent"}</p>
             </div>
-            <div className="rounded-tile border border-border bg-wash-loss/40 p-3 text-right">
-              <p className="text-label uppercase text-muted-foreground">Ask</p>
+            <div className="rounded-tile bg-wash-loss/50 px-3 py-2.5 text-right">
+              <p className="text-label text-muted-foreground">Ask</p>
               <p className="font-num text-title tabular-nums text-bearish">{ask > 0 ? formatINR(ask) : "—"}</p>
               <p className="font-num text-body-sm tabular-nums text-muted-foreground">{typeof aq === "number" ? `${formatNumberIN(aq)} qty ${lots(aq) ? `· ${lots(aq)}` : ""}` : "Quantity not sent"}</p>
             </div>
           </div>
           {hasQty ? (
-            <div className="flex h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div className="flex h-1.5 overflow-hidden rounded-full bg-control-track" aria-hidden="true">
               <div className="ml-auto h-full bg-bullish/70" style={{ width: `${((bq ?? 0) / maxQty) * 50}%` }} />
               <div className="h-full bg-bearish/70" style={{ width: `${((aq ?? 0) / maxQty) * 50}%` }} />
             </div>
@@ -208,9 +209,9 @@ export function FactsPanel({ k, leg, spot, lotSize, thetaPerUnit }: { k: Contrac
       }
       subtitle="Per lot figures use the exchange lot size for this expiry"
     >
-      <dl className="divide-y divide-border text-body-sm">
+      <dl className="-my-1 divide-y divide-separator text-body">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-3 py-1.5">
+          <div key={row.label} className="flex min-h-8 items-center justify-between gap-3 py-1">
             <dt className="flex items-center gap-1 text-muted-foreground">
               {row.label}
               {row.help ? <HelpTip text={row.help} label={`About ${row.label}`} /> : null}

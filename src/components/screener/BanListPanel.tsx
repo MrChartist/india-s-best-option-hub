@@ -31,7 +31,7 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
   if (data.isLoading) {
     return (
       <Card className="p-4" aria-busy="true">
-        <div className="h-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-40 animate-pulse rounded-md bg-control-track" />
       </Card>
     );
   }
@@ -41,7 +41,7 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
       {danger.length > 0 ? (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-tile border border-bearish/40 bg-wash-loss px-3 py-2.5 text-body-sm text-bearish"
+          className="flex items-start gap-2 rounded-tile bg-wash-loss px-3 py-2.5 text-body-sm text-bearish"
         >
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
@@ -77,7 +77,7 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
               <table className="w-full text-body-sm">
                 <caption className="sr-only">Stocks in the F&amp;O ban period</caption>
                 <thead>
-                  <tr className="border-b border-border text-label uppercase text-muted-foreground">
+                  <tr className="bg-surface text-label text-muted-foreground [&>th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
                     <th scope="col" className="px-4 py-2 text-left">
                       Symbol
                     </th>
@@ -92,13 +92,13 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="zebra-rows">
                   {banned.map((s) => {
                     const m = mwplMap.get(s)?.mwplPct ?? null;
                     const o = banOutlook(m, true);
                     const since = isSample ? null : banSince(s, history);
                     return (
-                      <tr key={s} className="border-b border-border/60">
+                      <tr key={s}>
                         <th scope="row" className="px-4 py-2 text-left font-semibold">
                           {s}
                         </th>
@@ -134,7 +134,7 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
           {near.length === 0 ? (
             <EmptyState title="Nothing near the ban" body="No stock outside the ban is at or above 80% of MWPL." />
           ) : (
-            <ul className="divide-y divide-border/60">
+            <ul className="divide-y divide-separator">
               {near.slice(0, 15).map((n) => {
                 const o = banOutlook(n.mwplPct, false);
                 const row: MwplRow | undefined = mwplMap.get(n.symbol);
@@ -166,8 +166,8 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
           help="Entries and exits between the ban lists this device has seen, plus what the MWPL numbers point to for the next session. History builds up as you visit; it is kept only in this browser."
         />
         <div className="grid gap-4 p-4 md:grid-cols-[260px_minmax(0,1fr)]">
-          <section aria-label="Next session outlook" className="rounded-tile border border-border bg-background/60 p-3">
-            <h3 className="text-label uppercase text-muted-foreground">Next session · {formatDateIST(nextSession)}</h3>
+          <section aria-label="Next session outlook" className="rounded-md bg-control-track p-3">
+            <h3 className="text-label text-muted-foreground">Next session · {formatDateIST(nextSession)}</h3>
             <div className="mt-2 space-y-2 text-body-sm">
               <div>
                 <p className="flex items-center gap-1 font-medium text-bearish">
@@ -213,7 +213,7 @@ export function BanListPanel({ data, pageSample = false }: { data: BanData; page
                 {calendar.map((d) => (
                   <li
                     key={d.date}
-                    className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 rounded-tile border border-border/60 px-3 py-2 text-body-sm"
+                    className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 rounded-md bg-control-track px-3 py-2 text-body-sm"
                   >
                     <time dateTime={d.date} className="font-medium">
                       {formatDateIST(d.date)}

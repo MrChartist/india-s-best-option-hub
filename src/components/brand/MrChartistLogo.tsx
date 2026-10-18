@@ -73,5 +73,3 @@ export function MrChartistLogo({ variant = "lockup", size = 28, product = BRAND.
     </span>
   );
 }
-
-export default MrChartistLogo;

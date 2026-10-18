@@ -3,6 +3,8 @@
  * Delisted or renamed contracts are removed (ADANITRANS → ADANIENSOL, ZOMATO → ETERNAL,
  * TATAMOTORS → TMPV after the 2025 demerger). Check the NSE F&O list after each quarterly review.
  */
+import { getContractSpec } from "@/lib/options";
+
 export interface SymbolOption {
   label: string;
   value: string;
@@ -83,6 +85,23 @@ export function canonicalSymbol(input: string | null | undefined): string {
   const up = (input ?? "").trim().toUpperCase();
   if (!up) return "NIFTY";
   return RENAMES[up] ?? up;
+}
+
+/** True for an index or stock in the F&O universe (static catalogue or contract specs loaded from the proxy). */
+export function isKnownFnoSymbol(symbol: string): boolean {
+  return ALL_SYMBOLS.some((s) => s.value === symbol) || !!getContractSpec(symbol);
+}
+
+/**
+ * Resolve a ?symbol= from a link. A known F&O underlying (after renames) is used as is; anything
+ * else falls back to NIFTY and is returned as `unknown`, so the page can say so instead of building a
+ * convincing sample chain for a symbol that has no options.
+ */
+export function resolveFnoSymbol(input: string | null | undefined, fallback = "NIFTY"): { symbol: string; unknown: string | null } {
+  const raw = (input ?? "").trim();
+  if (!raw) return { symbol: fallback, unknown: null };
+  const symbol = canonicalSymbol(raw);
+  return isKnownFnoSymbol(symbol) ? { symbol, unknown: null } : { symbol: fallback, unknown: symbol.slice(0, 24) };
 }
 
 export function filterSymbols(query: string): SymbolCategory[] {

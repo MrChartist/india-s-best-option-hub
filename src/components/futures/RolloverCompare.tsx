@@ -31,8 +31,8 @@ export function RolloverCompare({ cmp, comparables, tradingDte }: RolloverCompar
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-tile border border-border p-3">
-          <p className="text-label uppercase text-muted-foreground">Rollover now</p>
+        <div className="rounded-tile bg-muted/50 p-3">
+          <p className="text-label text-muted-foreground">Rollover now</p>
           <p className="font-num text-title tabular-nums">
             {cmp.current === null ? "—" : `${cmp.current.toFixed(1)}%`}
           </p>
@@ -46,8 +46,8 @@ export function RolloverCompare({ cmp, comparables, tradingDte }: RolloverCompar
             ) : null}
           </p>
         </div>
-        <div className="rounded-tile border border-border p-3">
-          <p className="text-label uppercase text-muted-foreground">Roll cost p.a.</p>
+        <div className="rounded-tile bg-muted/50 p-3">
+          <p className="text-label text-muted-foreground">Roll cost p.a.</p>
           <p className="text-title">
             <Signed value={cmp.rollCostAnn} decimals={2} />
           </p>

@@ -372,8 +372,8 @@ function fullYear(y: string): number {
 /**
  * Normalise common expiry formats to ISO yyyy-mm-dd.
  * Accepts "2026-10-20", "2026-10-20T…", "20-Oct-2026", "20 Oct 2026", "20OCT26", "Oct 20, 2026",
- * "20/10/2026", "20-10-2026" and "20 Oct" (year inferred: this year, or next year if that date is
- * more than 60 days in the past). Returns "" when unparseable.
+ * "20/10/2026", "20-10-2026" and "20 Oct" (year inferred: the earliest of last year, this year
+ * and next year that is no more than 60 days in the past). Returns "" when unparseable.
  */
 export function normalizeExpiry(input: string, now: Date = new Date()): string {
   if (typeof input !== "string") return "";
@@ -391,7 +391,10 @@ export function normalizeExpiry(input: string, now: Date = new Date()): string {
     const y = +today.slice(0, 4);
     const candidate = mkIso(y, mo, day);
     if (!candidate) return "";
-    return calendarDaysBetween(candidate, today) > 60 ? mkIso(y + 1, mo, day) : candidate;
+    // Earliest of last year, this year and next year that is at most 60 days in the past, so
+    // "28 Dec" read on 3 Jan is last week's expiry, not one almost a year away.
+    const cands = [y - 1, y, y + 1].map((Y) => mkIso(Y, mo, day)).filter(Boolean);
+    return cands.find((c) => calendarDaysBetween(c, today) <= 60) ?? candidate;
   }
   m = /^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})$/.exec(s);
   if (m) {

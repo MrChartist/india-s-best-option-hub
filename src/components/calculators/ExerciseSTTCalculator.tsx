@@ -87,7 +87,7 @@ export default function ExerciseSTTCalculator() {
         </Callout>
       </Panel>
 
-      <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 space-y-4 xl:sticky xl:top-3 xl:self-start">
         <Panel title="Comparison">
           {!res.valid ? (
             <p className="text-body text-muted-foreground">Fill in strike, settlement, bid and quantity.</p>
@@ -102,12 +102,12 @@ export default function ExerciseSTTCalculator() {
                 ).map((c) => {
                   const win = res.better === c.id;
                   return (
-                    <div key={c.id} className={cn("rounded-tile border p-3", win ? "border-bullish/50 bg-wash-profit" : "border-border bg-surface")}>
-                      <div className="flex items-center gap-1 text-label uppercase text-muted-foreground">
+                    <div key={c.id} className={cn("rounded-md px-3 py-2", win ? "bg-wash-profit shadow-[inset_0_0_0_1px_hsl(var(--bullish)/0.35)]" : "bg-control-track")}>
+                      <div className="flex items-center gap-1 text-label text-muted-foreground">
                         {win ? <CheckCircle2 className="h-3.5 w-3.5 text-bullish" aria-hidden="true" /> : null}
                         {c.title}
                       </div>
-                      <div className="mt-1 font-num text-lead font-bold tabular-nums">{formatINR(c.net, { decimals: 0 })}</div>
+                      <div className="mt-0.5 font-num text-lead font-semibold tabular-nums">{formatINR(c.net, { decimals: 0 })}</div>
                       <div className="text-body-sm text-muted-foreground">Costs {formatINR(c.cost)}</div>
                       {isPos(toNum(entry)) ? <div className={cn("text-body-sm font-medium", c.pnl >= 0 ? "text-bullish" : "text-bearish")}>P&L {formatINR(c.pnl, { decimals: 0 })}</div> : null}
                     </div>
@@ -126,7 +126,7 @@ export default function ExerciseSTTCalculator() {
                   Square off wins whenever you can sell at or above <span className="font-num font-semibold text-foreground">{formatINR(res.squareOffThreshold)}</span>.
                 </p>
               ) : null}
-              <div className="mt-4 divide-y divide-border">
+              <div className="mt-4 divide-y divide-separator">
                 <KV k="Intrinsic per unit" v={formatINR(res.intrinsicPerUnit)} />
                 <KV k="Sale proceeds" v={formatINR(res.squareOff.proceeds, { decimals: 0 })} />
                 <KV k="Square-off STT" v={formatINR(res.squareOff.charges.stt)} />

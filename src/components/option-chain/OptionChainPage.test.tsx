@@ -125,6 +125,16 @@ describe("OptionChain page", () => {
     expect(JSON.parse(localStorage.getItem("mc_basket_sent_v1") ?? "{}")).toMatchObject({ target: "paper", count: 1, symbols: ["NIFTY"] });
   });
 
+  it("toggles the strike inspector and remembers the choice", () => {
+    renderPage();
+    expect(screen.queryByRole("complementary", { name: "Strike inspector" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Strike inspector" }));
+    expect(screen.getByRole("complementary", { name: "Strike inspector" })).toBeInTheDocument();
+    expect(localStorage.getItem("mc_chain_inspector_v1")).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: "Close the strike inspector" }));
+    expect(screen.queryByRole("complementary", { name: "Strike inspector" })).not.toBeInTheDocument();
+  });
+
   it("uses the page header, without a duplicate sample banner", () => {
     renderPage();
     expect(screen.getByRole("heading", { level: 1, name: "Option Chain" })).toBeInTheDocument();

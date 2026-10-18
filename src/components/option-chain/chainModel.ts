@@ -181,7 +181,7 @@ function buildLeg(
   const spread = twoSided ? leg.askPrice - leg.bidPrice : NaN;
   const spreadPct = twoSided && mid > 0 ? (spread / mid) * 100 : NaN;
   const pIn = pos(sigma) && pos(ctx.F) && pos(ctx.T) ? probITM({ F: ctx.F, K, T: ctx.T, sigma, type }) : NaN;
-  const pTouch = pos(sigma) && pos(ctx.F) && pos(ctx.T) ? probTouch({ F: ctx.F, K, T: ctx.T, sigma, type }) : NaN;
+  const pTouch = pos(sigma) && pos(ctx.F) && pos(ctx.T) ? probTouch({ F: ctx.F, S: ctx.spot, K, T: ctx.T, sigma, type }) : NaN;
   const prevOi = (leg.oi ?? 0) - (leg.oiChange ?? 0);
   const oiChgPct = prevOi > 0 ? ((leg.oiChange ?? 0) / prevOi) * 100 : NaN;
   const ltpChg = fin(leg.change) ? leg.change : null;

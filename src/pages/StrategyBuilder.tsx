@@ -516,7 +516,7 @@ export default function StrategyBuilder() {
     () => analyseStrategy({ legs: deferredLegs, spot, now, r, q, atmIv: atmIvDec, smile: smileFor(frontExp), broker, roundTrip }),
     [deferredLegs, spot, now, r, q, atmIvDec, smileFor, frontExp, broker, roundTrip],
   );
-  const p50 = useMemo(() => computeP50(analysis, spot, atmIvDec, r), [analysis, spot, atmIvDec, r]);
+  const p50 = useMemo(() => computeP50(analysis, spot, atmIvDec, r, q), [analysis, spot, atmIvDec, r, q]);
   const timeline = useMemo(() => targetTimeline(analysis.frontExpiry || expiry, now), [analysis.frontExpiry, expiry, now]);
   const wizardTimeline = useMemo(() => targetTimeline(expiry, now), [expiry, now]);
   useEffect(() => {
@@ -728,7 +728,6 @@ export default function StrategyBuilder() {
     <div className="space-y-4">
       <PageHeader
         icon={Layers}
-        eyebrow="Strategy"
         title="Strategy Builder"
         description="Build multi-leg option strategies from the live chain, then test them across price, time and IV."
         source={sourceBadge}
@@ -745,13 +744,13 @@ export default function StrategyBuilder() {
             </Button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Keyboard shortcuts">
-                  <Keyboard className="h-4 w-4" />
+                <Button variant="ghost" size="icon" aria-label="Keyboard shortcuts">
+                  <Keyboard />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64 p-3" align="end">
-                <p className="mb-2 text-label uppercase text-muted-foreground">Keyboard shortcuts</p>
-                <dl className="space-y-1.5 text-xs">
+                <p className="mb-2 text-label text-muted-foreground">Keyboard shortcuts</p>
+                <dl className="space-y-1.5 text-body-sm">
                   {[
                     ["Add leg", "N"],
                     ["Flip buy/sell of the selected leg", "Space"],
@@ -762,12 +761,12 @@ export default function StrategyBuilder() {
                     <div key={k} className="flex items-center justify-between gap-2">
                       <dt className="text-muted-foreground">{k}</dt>
                       <dd>
-                        <kbd className="rounded-chip border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">{v}</kbd>
+                        <kbd className="rounded-chip bg-control-track px-1.5 py-0.5 font-mono text-micro">{v}</kbd>
                       </dd>
                     </div>
                   ))}
                 </dl>
-                <p className="mt-2 text-[11px] text-muted-foreground">Click or Tab to a leg to select it. Shortcuts pause while you type or view a shared snapshot.</p>
+                <p className="mt-2 text-body-sm text-muted-foreground">Click or Tab to a leg to select it. Shortcuts pause while you type or view a shared snapshot.</p>
               </PopoverContent>
             </Popover>
           </>
@@ -775,7 +774,7 @@ export default function StrategyBuilder() {
       />
 
       {shared && (
-        <div role="status" className="flex flex-col gap-2 rounded-tile border border-info/30 bg-wash-info px-3 py-2.5 text-xs sm:flex-row sm:items-center">
+        <div role="status" className="flex flex-col gap-2 rounded-tile border border-info/30 bg-wash-info px-3 py-2.5 text-body-sm sm:flex-row sm:items-center">
           <Eye className="hidden h-4 w-4 shrink-0 text-info sm:block" aria-hidden="true" />
           <div className="min-w-0 flex-1 leading-relaxed">
             <p className="font-semibold">
@@ -801,7 +800,7 @@ export default function StrategyBuilder() {
       )}
 
       {skippedGroups.length > 0 && (
-        <div role="note" className="flex flex-col gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2.5 text-xs sm:flex-row sm:items-center">
+        <div role="note" className="flex flex-col gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2.5 text-body-sm sm:flex-row sm:items-center">
           <AlertTriangle className="hidden h-4 w-4 shrink-0 text-warning sm:block" aria-hidden="true" />
           <div className="min-w-0 flex-1 leading-relaxed">
             <p className="font-semibold">
@@ -815,15 +814,15 @@ export default function StrategyBuilder() {
                 Build {g.symbol} ({g.legs.length})
               </Button>
             ))}
-            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label="Dismiss skipped legs notice" onClick={() => setSkipped([])}>
-              <X className="h-4 w-4" />
+            <Button type="button" size="icon" variant="ghost" aria-label="Dismiss skipped legs notice" onClick={() => setSkipped([])}>
+              <X />
             </Button>
           </div>
         </div>
       )}
 
       {!bannerHidden && (
-        <div role="note" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-xs">
+        <div role="note" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-body-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <p className="flex-1 leading-relaxed">
             <span className="font-semibold">9 out of 10 individual F&O traders lost money</span> between FY22 and FY24, according to a{" "}
@@ -838,7 +837,7 @@ export default function StrategyBuilder() {
               setBannerHidden(true);
               writeStore(BANNER_KEY, "1");
             }}
-            className="rounded-chip p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:shadow-ember [@media(pointer:coarse)]:p-2.5"
+            className="rounded-chip p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:shadow-focus [@media(pointer:coarse)]:p-2.5"
             aria-label="Dismiss risk notice"
           >
             <X className="h-3.5 w-3.5" />
@@ -847,42 +846,42 @@ export default function StrategyBuilder() {
       )}
 
       {/* Toolbar */}
-      <section aria-label="Strategy controls" className="flex min-w-0 flex-wrap items-center gap-2 rounded-card border border-border bg-card p-2.5 shadow-card">
+      <section aria-label="Strategy controls" className="flex min-w-0 flex-wrap items-center gap-2 rounded-tile border border-separator bg-card px-2.5 py-2 shadow-card">
         <SymbolPicker value={symbol} onChange={changeSymbol} />
         <Select value={expiry} onValueChange={changeExpiry}>
-          <SelectTrigger className="h-8 w-full min-w-0 gap-2 whitespace-nowrap text-xs sm:w-auto sm:min-w-[150px] sm:max-w-full" aria-label="Expiry for new legs">
+          <SelectTrigger className="w-full min-w-0 gap-2 whitespace-nowrap sm:w-auto sm:min-w-[150px] sm:max-w-full" aria-label="Expiry for new legs">
             <SelectValue placeholder="Expiry" />
           </SelectTrigger>
           <SelectContent>
             {expiries.map((e) => (
-              <SelectItem key={e} value={e} className="text-xs">
+              <SelectItem key={e} value={e} className="text-body-sm">
                 {formatDateIST(e)} <span className="text-muted-foreground">· {dteLabel(e, now)}</span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <div className="flex items-baseline gap-1.5 px-1 font-num text-sm">
-          <span className="text-label uppercase text-muted-foreground">Spot</span>
+        <div className="flex items-baseline gap-1.5 px-1 font-num text-body sm:border-l sm:border-separator sm:pl-3">
+          <span className="text-label text-muted-foreground">Spot</span>
           <span className="font-semibold">{spot > 0 ? formatStrike(Math.round(spot * 100) / 100) : "—"}</span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-body-sm text-muted-foreground">
             · Lot {lotSizeFor(symbol, expiry)} · IV {(atmIvDec * 100).toFixed(1)}%
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <Segmented ariaLabel="Price leg premiums at" value={priceMode} options={PRICE_MODES} onChange={(v) => {
+          <Segmented size="md" ariaLabel="Price leg premiums at" value={priceMode} options={PRICE_MODES} onChange={(v) => {
             setPriceMode(v);
             setLegs((prev) => prev.map((l) => (l.manual ? l : { ...l, requote: true })));
           }} />
           <div className="flex items-center gap-1.5">
             <Switch id="sb-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-            <Label htmlFor="sb-refresh" className="flex items-center gap-1 text-xs">
+            <Label htmlFor="sb-refresh" className="flex items-center gap-1 text-body-sm">
               <RefreshCw className="h-3 w-3" aria-hidden="true" /> Refresh to market
             </Label>
           </div>
-          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setLibraryOpen(true)}>
+          <Button type="button" variant="secondary" onClick={() => setLibraryOpen(true)}>
             <BookOpen /> Templates
           </Button>
-          <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setWizardOpen(true)}>
+          <Button type="button" variant="secondary" onClick={() => setWizardOpen(true)}>
             <Wand2 /> By view
           </Button>
           <SaveShareMenu
@@ -996,8 +995,8 @@ export default function StrategyBuilder() {
           hasLongOptions={analysis.active.some((l) => l.side === "BUY" && l.type !== "FUT")}
         />
         {wide ? (
-          <aside aria-label="How these numbers are worked out" className="self-start rounded-card border border-border bg-card p-4 text-body-sm leading-relaxed text-muted-foreground shadow-card">
-            <p className="mb-1 text-label uppercase text-muted-foreground">Method</p>
+          <aside aria-label="How these numbers are worked out" className="self-start rounded-tile border border-separator bg-card p-4 text-body-sm text-muted-foreground shadow-card">
+            <h2 className="mb-1 font-display text-headline text-foreground">Method</h2>
             {methodNote}
           </aside>
         ) : null}
@@ -1040,7 +1039,7 @@ export default function StrategyBuilder() {
 
       <StrategyWizard open={wizardOpen} onOpenChange={setWizardOpen} ctx={resolveCtx} timeline={wizardTimeline} broker={broker} onPick={applyTemplate} />
 
-      <footer className="space-y-1 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+      <footer className="hairline-t space-y-1 pt-3 text-body-sm text-muted-foreground">
         {wide ? null : <p>{methodNote}</p>}
         <p className="font-medium">Data for education and research. Not investment advice.</p>
       </footer>

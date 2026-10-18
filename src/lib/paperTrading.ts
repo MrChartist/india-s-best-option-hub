@@ -73,6 +73,7 @@ export interface Quote {
 export type OrderType = "MARKET" | "LIMIT";
 export type OrderStatus = "OPEN" | "FILLED" | "CANCELLED" | "REJECTED";
 export type OrderOrigin = "ticket" | "basket" | "sl" | "target" | "square-off";
+const ORDER_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>(["OPEN", "FILLED", "CANCELLED", "REJECTED"]);
 
 export interface OrderInput extends Contract {
   side: Side;
@@ -499,6 +500,24 @@ export function validateOrderInput(o: OrderInput): string | null {
   if (o.orderType === "LIMIT" && !(isNum(o.limitPrice) && o.limitPrice > 0)) return "Enter a limit price.";
   if (o.sl !== undefined && !(o.sl > 0)) return "Stop-loss must be above zero.";
   if (o.target !== undefined && !(o.target > 0)) return "Target must be above zero.";
+  if (o.orderType === "LIMIT") return riskSideError(o.side, o.limitPrice as number, o.sl, o.target);
+  return null;
+}
+
+/**
+ * Stop-loss and target must sit on the right side of the entry: below and above it for a buy,
+ * above and below it for a sell. Otherwise the order would exit on the very next tick and the
+ * max-loss guard would read the stop as zero risk.
+ */
+export function riskSideError(side: Side, entry: number, sl?: number, target?: number): string | null {
+  if (!(isNum(entry) && entry > 0)) return null;
+  const buy = side === "BUY";
+  if (sl !== undefined && isNum(sl) && sl > 0 && (buy ? sl >= entry : sl <= entry)) {
+    return buy ? "Stop-loss must be below the entry for a buy." : "Stop-loss must be above the entry for a sell.";
+  }
+  if (target !== undefined && isNum(target) && target > 0 && (buy ? target <= entry : target >= entry)) {
+    return buy ? "Target must be above the entry for a buy." : "Target must be below the entry for a sell.";
+  }
   return null;
 }
 
@@ -555,6 +574,8 @@ export function placeOrder(state: PaperState, input: OrderInput, ctx: PlaceConte
   if (!isNum(price)) {
     return { state: { ...state, orders: [...state.orders, order] }, order, outcome: "open", message: `Limit ${order.side} at ₹${order.limitPrice?.toFixed(2)} is waiting for the market.` };
   }
+  const sideErr = riskSideError(order.side, price, order.sl, order.target);
+  if (sideErr) return reject(sideErr);
   const short = fundsCheck(state, order, price, ctx);
   if (short) return reject(short);
   const next = applyFill(state, order, price, ctx.now, q?.source);
@@ -755,7 +776,7 @@ export function processTick(
     if (!canUseQuote(s, q ?? null)) continue;
     const px = limitFillPrice(q, o.side, o.limitPrice ?? NaN, s.settings.slippagePct);
     if (!isNum(px)) continue;
-    const short = fundsCheck(s, o, px, { ...ctx, quote: q });
+    const short = riskSideError(o.side, px, o.sl, o.target) ?? fundsCheck(s, o, px, { ...ctx, quote: q });
     if (short) {
       s = { ...s, orders: s.orders.map((x) => (x.id === o.id ? { ...x, status: "REJECTED", updatedAt: ts, reason: short } : x)) };
       events.push({ kind: "rejected", message: `Limit ${o.side} ${contractLabel(o)} rejected: ${short}` });
@@ -854,13 +875,29 @@ export function parsePaperState(json: string): PaperState | null {
     allowSampleFills: st.allowSampleFills !== false,
     guardrails: parseGuardrails(st.guardrails),
   };
+  // Imported or stored state is untrusted: hold it to the same rules as a freshly placed order.
+  const optPos = (v: unknown): number | undefined => (isNum(v) && v > 0 ? v : undefined);
   const positions = arr(o.positions)
-    .filter((p) => validContract(p) && isNum(p.netLots) && p.netLots !== 0 && isNum(p.lotSize) && p.lotSize > 0 && isNum(p.avgPrice))
+    .filter((p) => validContract(p) && isNum(p.netLots) && Number.isInteger(p.netLots) && p.netLots !== 0 && isNum(p.lotSize) && p.lotSize > 0 && isNum(p.avgPrice) && p.avgPrice >= 0)
     .map((p) => {
       const pos = p as unknown as PaperPosition;
-      return { ...pos, key: contractKey(pos) };
+      return { ...pos, sl: optPos(p.sl), target: optPos(p.target), key: contractKey(pos) };
     });
-  const orders = arr(o.orders).filter((x) => validContract(x) && typeof x.id === "string" && (x.side === "BUY" || x.side === "SELL") && isNum(x.lots) && isNum(x.lotSize) && typeof x.status === "string") as unknown as PaperOrder[];
+  const orders = arr(o.orders)
+    .filter(
+      (x) =>
+        validContract(x) &&
+        typeof x.id === "string" &&
+        (x.side === "BUY" || x.side === "SELL") &&
+        isNum(x.lots) &&
+        Number.isInteger(x.lots) &&
+        x.lots > 0 &&
+        isNum(x.lotSize) &&
+        x.lotSize > 0 &&
+        (x.orderType === "MARKET" || (x.orderType === "LIMIT" && isNum(x.limitPrice) && x.limitPrice > 0)) &&
+        ORDER_STATUSES.has(x.status as OrderStatus),
+    )
+    .map((x) => ({ ...x, sl: optPos(x.sl), target: optPos(x.target) })) as unknown as PaperOrder[];
   const trades = arr(o.trades).filter((x) => validContract(x) && typeof x.id === "string" && typeof x.date === "string" && isNum(x.price) && isNum(x.realisedNet) && isNum(x.realisedGross) && isNum(x.charges)) as unknown as PaperTrade[];
   const ledger = arr(o.ledger).filter((x) => typeof x.id === "string" && isNum(x.ts) && isNum(x.amount) && isNum(x.balance) && typeof x.kind === "string") as unknown as LedgerEntry[];
   return {
@@ -941,9 +978,54 @@ export interface PaperSaver {
   schedule(state: PaperState): void;
   /** Write any pending state now. Returns false only when a write was attempted and failed. */
   flush(): boolean;
+  /**
+   * Hold a mark-only state (new LTPs, spot marks) without a timer. It is written by the next flush
+   * (page hidden or closed) or carried by the next scheduled save, so price ticks alone never write
+   * the account and cannot race another tab's save.
+   */
+  defer(state: PaperState): void;
   /** Drop a pending write without saving. */
   cancel(): void;
+  /** True while a material (scheduled) change is waiting to be written. Deferred marks do not count. */
   pending(): boolean;
+}
+
+const MARK_FIELDS = new Set(["ltp", "markAt", "markSource"]);
+
+function samePositionIgnoringMarks(a: PaperPosition, b: PaperPosition): boolean {
+  if (a === b) return true;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    if (MARK_FIELDS.has(k)) continue;
+    const av = (a as unknown as Record<string, unknown>)[k];
+    const bv = (b as unknown as Record<string, unknown>)[k];
+    if (av !== bv) return false;
+  }
+  return true;
+}
+
+/**
+ * Does `next` hold a change worth writing straight away (orders, fills, trades, ledger, cash,
+ * settings, SL/target edits, kill switch)? Mark-only changes from a price tick (position LTPs,
+ * spot marks, the day-start snapshot) return false. `prev` null means nothing is saved yet.
+ */
+export function paperChangeIsMaterial(prev: PaperState | null, next: PaperState): boolean {
+  if (!prev) return true;
+  if (prev === next) return false;
+  if (
+    prev.orders !== next.orders ||
+    prev.trades !== next.trades ||
+    prev.ledger !== next.ledger ||
+    prev.cash !== next.cash ||
+    prev.startingCapital !== next.startingCapital ||
+    prev.settings !== next.settings ||
+    prev.killSwitch !== next.killSwitch ||
+    prev.createdAt !== next.createdAt ||
+    prev.positions.length !== next.positions.length
+  ) {
+    return true;
+  }
+  return next.positions.some((p, i) => !samePositionIgnoringMarks(prev.positions[i], p));
 }
 
 /**
@@ -957,6 +1039,7 @@ export function createPaperSaver(o?: { delayMs?: number; maxWaitMs?: number; sav
   const maxWait = Math.max(delay, o?.maxWaitMs ?? 5000);
   const save = o?.save ?? savePaper;
   let queued: PaperState | null = null;
+  let deferred: PaperState | null = null;
   let firstQueuedAt: number | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const clear = () => {
@@ -966,9 +1049,10 @@ export function createPaperSaver(o?: { delayMs?: number; maxWaitMs?: number; sav
   const flush = (): boolean => {
     clear();
     firstQueuedAt = null;
-    if (!queued) return true;
-    const st = queued;
+    const st = queued ?? deferred;
     queued = null;
+    deferred = null;
+    if (!st) return true;
     const ok = save(st);
     if (!ok) o?.onError?.();
     return ok;
@@ -976,6 +1060,7 @@ export function createPaperSaver(o?: { delayMs?: number; maxWaitMs?: number; sav
   return {
     schedule(state) {
       queued = state;
+      deferred = null;
       const now = Date.now();
       if (firstQueuedAt === null) firstQueuedAt = now;
       clear();
@@ -983,9 +1068,15 @@ export function createPaperSaver(o?: { delayMs?: number; maxWaitMs?: number; sav
       timer = setTimeout(flush, wait);
     },
     flush,
+    defer(state) {
+      // A newer state supersedes a queued one (it carries the queued change as well).
+      if (queued) queued = state;
+      else deferred = state;
+    },
     cancel() {
       clear();
       queued = null;
+      deferred = null;
       firstQueuedAt = null;
     },
     pending: () => queued !== null,
@@ -1201,6 +1292,11 @@ export interface RiskLeg {
   price: number;
 }
 
+function stopOnRightSide(l: RiskLeg): boolean {
+  const sl = l.input.sl;
+  return sl !== undefined && isNum(sl) && sl > 0 && (l.input.side === "BUY" ? sl < l.price : sl > l.price);
+}
+
 /**
  * Worst-case loss in ₹ for new orders, including entry and exit charges.
  * - One order with a stop-loss: the distance to the stop × qty (+ charges).
@@ -1214,7 +1310,7 @@ export function worstCaseLoss(legs: RiskLeg[], broker?: BrokerPreset, onDate?: s
   if (!valid.length) return { loss: 0, unlimited: false, charges: 0, basis: "premium" };
   const fills = valid.flatMap((l) => {
     const qty = l.input.lots * l.input.lotSize;
-    const exitPx = l.input.sl && l.input.sl > 0 ? l.input.sl : l.price;
+    const exitPx = stopOnRightSide(l) ? (l.input.sl as number) : l.price;
     const exchange = exchangeOf(l.input.symbol);
     return [
       { type: l.input.type, side: l.input.side, price: l.price, qty, exchange },
@@ -1225,8 +1321,10 @@ export function worstCaseLoss(legs: RiskLeg[], broker?: BrokerPreset, onDate?: s
   if (valid.length === 1) {
     const { input, price } = valid[0];
     const qty = input.lots * input.lotSize;
-    if (input.sl && input.sl > 0) {
-      const perUnit = input.side === "BUY" ? Math.max(0, price - input.sl) : Math.max(0, input.sl - price);
+    // A stop on the wrong side of the entry is no stop at all (never zero risk).
+    if (stopOnRightSide(valid[0])) {
+      const sl = input.sl as number;
+      const perUnit = input.side === "BUY" ? price - sl : sl - price;
       return { loss: round2(perUnit * qty + charges), unlimited: false, charges, basis: "stop" };
     }
     if (input.side === "BUY") return { loss: round2(price * qty + charges), unlimited: false, charges, basis: "premium" };

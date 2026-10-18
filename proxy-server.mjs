@@ -24,7 +24,8 @@
 
 import http from "node:http";
 import { URL, fileURLToPath, pathToFileURL } from "node:url";
-import { readFileSync, mkdirSync, readdirSync, existsSync, unlinkSync, promises as fsp } from "node:fs";
+import { readFileSync, mkdirSync, readdirSync, existsSync, unlinkSync, createReadStream, promises as fsp } from "node:fs";
+import { createInterface } from "node:readline";
 import { createHash } from "node:crypto";
 import { resolve, dirname, join } from "node:path";
 import { inflateRawSync } from "node:zlib";
@@ -201,42 +202,65 @@ function markSuccess(source) {
   if (h) h.lastSuccess = Date.now();
 }
 
-function markFailure(source, err) {
+// 429 back-off windows, keyed by source plus endpoint family and credential tag (for example
+// "dhan:oc:<tag>" or "nse:archive"), so one rate-limited endpoint or token does not block the rest.
+const upstreamBlocks = new Map(); // blockKey → blockedUntil (ms)
+
+function markFailure(source, err, blockKey = source) {
   const h = upstreamHealth[source];
   if (!h) return;
   h.lastFailure = Date.now();
   h.lastError = truncate(err?.message || String(err), 160);
-  if (err?.retryAfterMs) h.blockedUntil = Date.now() + err.retryAfterMs;
+  if (err?.retryAfterMs) {
+    const until = Date.now() + err.retryAfterMs;
+    upstreamBlocks.set(blockKey, until);
+    h.blockedUntil = until; // informational (/health); the gate reads upstreamBlocks
+  }
 }
 
-function isBlocked(source) {
-  const h = upstreamHealth[source];
-  return !!(h?.blockedUntil && Date.now() < h.blockedUntil);
+function blockedUntil(blockKey) {
+  const until = upstreamBlocks.get(blockKey);
+  if (!until) return 0;
+  if (Date.now() >= until) {
+    upstreamBlocks.delete(blockKey);
+    return 0;
+  }
+  return until;
+}
+
+/** Back-off for an upstream error response: only 429s block, and an explicit Retry-After (even 0) is respected. */
+export function retryAfterMsFor(status, retryAfterHeader) {
+  if (status !== 429) return 0;
+  if (retryAfterHeader === null || retryAfterHeader === undefined || String(retryAfterHeader).trim() === "") return 60000;
+  const secs = Number(retryAfterHeader);
+  if (Number.isFinite(secs) || Number.isFinite(Date.parse(retryAfterHeader))) return parseRetryAfter(retryAfterHeader);
+  return 60000;
 }
 
 /**
  * fetch() with a timeout, health tracking, Retry-After handling and truncated error bodies.
- * Returns the Response on 2xx; throws UpstreamError otherwise.
+ * Returns the Response on 2xx; throws UpstreamError otherwise. `blockKey` scopes the 429 back-off.
  */
-async function upstreamFetch(source, url, init = {}, timeoutMs = 15000) {
-  if (isBlocked(source)) {
-    throw new UpstreamError(source, 429, `${source} rate-limited; retry after ${Math.ceil((upstreamHealth[source].blockedUntil - Date.now()) / 1000)}s`, upstreamHealth[source].blockedUntil - Date.now());
+export async function upstreamFetch(source, url, init = {}, timeoutMs = 15000, blockKey = source) {
+  const until = blockedUntil(blockKey);
+  if (until) {
+    throw new UpstreamError(source, 429, `${source} rate-limited; retry after ${Math.ceil((until - Date.now()) / 1000)}s`, until - Date.now());
   }
   let res;
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   } catch (e) {
     const err = new UpstreamError(source, 0, e?.name === "TimeoutError" ? `${source} timed out after ${timeoutMs} ms` : `${source} unreachable: ${truncate(e?.message, 120)}`);
-    markFailure(source, err);
+    markFailure(source, err, blockKey);
     throw err;
   }
   if (!res.ok) {
     let body = "";
     try { body = await res.text(); } catch { /* ignore */ }
-    const retryAfterMs = res.status === 429 ? parseRetryAfter(res.headers.get("retry-after")) || 60000 : 0;
+    const retryAfterMs = retryAfterMsFor(res.status, res.headers.get("retry-after"));
     const clean = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     const err = new UpstreamError(source, res.status, `${source} HTTP ${res.status}: ${truncate(clean, 160)}`, retryAfterMs);
-    markFailure(source, err);
+    markFailure(source, err, blockKey);
     throw err;
   }
   return res;
@@ -616,12 +640,15 @@ export function credTag(creds) {
 
 async function dhanFetch(path, body, creds, { queue = queues.dhan, timeoutMs = 15000 } = {}) {
   if (!creds) throw new UpstreamError("dhan", 401, "Dhan credentials not configured (Broker settings or .env)");
+  // Back off per endpoint family and credential pair: an option-chain 429 (1 request per 3 s) for
+  // one token must not block LTP, history or other users' tokens.
+  const blockKey = `dhan:${queue === queues.dhanOC ? "oc" : "api"}:${credTag(creds)}`;
   return queue.schedule(async () => {
     const res = await upstreamFetch("dhan", `${DHAN_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json", "access-token": creds.accessToken, "client-id": creds.clientId },
       body: JSON.stringify(body),
-    }, timeoutMs);
+    }, timeoutMs, blockKey);
     const json = await res.json();
     if (json?.status === "failure" || json?.errorCode) {
       const err = new UpstreamError("dhan", 400, `Dhan: ${truncate(json.errorMessage || json.remarks || json.errorCode || "request failed", 160)}`);
@@ -941,7 +968,7 @@ async function nseArchive(path, { timeoutMs = 30000 } = {}) {
   const buf = await queues.nseArchive.schedule(async () => {
     const res = await upstreamFetch("nse", `${NSE_ARCHIVES}${path}`, {
       headers: { "User-Agent": UA, Accept: "*/*", Referer: `${NSE_BASE}/`, ...(cookie ? { Cookie: cookie } : {}) },
-    }, timeoutMs);
+    }, timeoutMs, "nse:archive"); // nsearchives has its own rate limit; do not block www.nseindia.com
     return Buffer.from(await res.arrayBuffer());
   });
   markSuccess("nse");
@@ -1122,6 +1149,17 @@ const YAHOO_SYMBOL_MAP = {
 };
 const YAHOO_INTERVAL = { 1: "1m", 5: "5m", 15: "15m", 25: "30m", 60: "1h", D: "1d" };
 
+/**
+ * Cache and coalesce key for a Yahoo chart request. It is built from the IST dates, not the raw
+ * epoch seconds: an open-ended range (no toDate, or toDate today or later) ends "now", which
+ * changes every second and would make the cache never hit.
+ */
+export function yahooCacheKey(ySym, yInt, fromIso, toIso, nowMs = Date.now()) {
+  const todayIst = istNow(new Date(nowMs)).iso;
+  const end = toIso && toIso < todayIst ? toIso : "today";
+  return `yahoo:${ySym}:${yInt}:${fromIso || "d365"}:${end}`;
+}
+
 async function yahooChart(symbol, interval, fromIso, toIso) {
   const ySym = YAHOO_SYMBOL_MAP[symbol] || `${symbol}.NS`;
   const yInt = YAHOO_INTERVAL[interval] || "1d";
@@ -1129,7 +1167,7 @@ async function yahooChart(symbol, interval, fromIso, toIso) {
   // Dates are IST calendar days: start at 00:00 IST, end at 23:59 IST.
   const p1 = fromIso ? Math.floor(Date.parse(`${fromIso}T00:00:00+05:30`) / 1000) : now - 365 * 86400;
   const p2 = toIso ? Math.min(now, Math.floor(Date.parse(`${toIso}T23:59:59+05:30`) / 1000)) : now;
-  const key = `yahoo:${ySym}:${yInt}:${p1}:${p2}`;
+  const key = yahooCacheKey(ySym, yInt, fromIso, toIso, now * 1000);
   const hit = cache.get(key);
   if (hit) return hit;
   return coalesce(key, () => queues.yahoo.schedule(async () => {
@@ -1190,6 +1228,16 @@ async function envelope(key, ttlMs, defaultSource, fetcher) {
   }
 }
 
+/**
+ * The list an NSE JSON payload should carry, or an UpstreamError when the field is missing or not
+ * an array. An unexpected payload (schema change, bot-check JSON, `{}`) must not be cached and saved
+ * as last-good as an empty list; a real empty array (no deals today) is still accepted.
+ */
+export function requireList(value, what) {
+  if (!Array.isArray(value)) throw new UpstreamError("nse", 204, `NSE returned an unexpected ${what} payload`);
+  return value;
+}
+
 // ── participant OI / volume ──
 
 const PARTICIPANTS = { CLIENT: "Client", DII: "DII", FII: "FII", PRO: "Pro" };
@@ -1236,15 +1284,26 @@ async function participantFile(kind, dateIso) {
   });
 }
 
+/**
+ * Whether an archive walk-back (trying earlier dates) should stop on this error. Only "file not
+ * there" answers (404/403) move on to the previous date. Network failures and timeouts (status 0),
+ * rate limits and server errors stop the walk: retrying older dates against a dead or hanging host
+ * would only spend minutes of timeouts. Parse errors (a corrupt file for one date) still move on.
+ */
+export function isWalkBackFatal(e) {
+  if (!(e instanceof UpstreamError)) return false;
+  return e.status !== 404 && e.status !== 403;
+}
+
 /** Latest available participant file on or before `dateIso` (walks back over weekdays). */
-async function latestParticipant(kind, dateIso) {
+export async function latestParticipant(kind, dateIso) {
   let lastErr = null;
   for (const d of recentWeekdays(dateIso, 6)) {
     try {
       return await participantFile(kind, d);
     } catch (e) {
       lastErr = e;
-      if (e?.status && e.status !== 404 && e.status !== 403) break;
+      if (isWalkBackFatal(e)) break;
     }
   }
   throw lastErr || new Error("No participant file found");
@@ -1256,7 +1315,7 @@ function defaultArchiveDate() {
   return t.hh >= 19 ? t.iso : addDaysIso(t.iso, -1);
 }
 
-async function participantHistory(days) {
+export async function participantHistory(days) {
   const out = [];
   const dates = recentWeekdays(defaultArchiveDate(), Math.ceil(days * 1.5) + 4);
   for (const d of dates) {
@@ -1265,7 +1324,7 @@ async function participantHistory(days) {
       out.push(...(await participantFile("oi", d)));
       // keep counting distinct dates below
     } catch (e) {
-      if (e?.status === 429) break;
+      if (isWalkBackFatal(e)) break;
     }
     const distinct = new Set(out.map((r) => r.date)).size;
     if (distinct >= days) break;
@@ -1692,19 +1751,51 @@ export function filterSnapshots(snaps, q) {
   return out.sort((a, b) => a.ts - b.ts);
 }
 
-/** Read and filter recorded snapshots from disk. Missing files are skipped. */
+const SNAP_TS_RE = /"ts":(\d+)/;
+const SNAP_EXPIRY_RE = /"expiry":"([^"\\]*)"/;
+
+/** Cheap pre-check on the raw NDJSON text: false when ts or expiry rule the line out before a full decode. */
+function snapshotLineMayMatch(line, q) {
+  const ts = SNAP_TS_RE.exec(line);
+  if (ts) {
+    const n = Number(ts[1]);
+    if (n < q.from || n > q.to) return false;
+  }
+  if (q.expiry) {
+    const ex = SNAP_EXPIRY_RE.exec(line);
+    if (ex && ex[1] !== q.expiry) return false;
+  }
+  return true;
+}
+
+/**
+ * Read and filter recorded snapshots from disk. Missing files are skipped. Day files are streamed
+ * line by line (oldest day first, lines appended in time order) and reading stops once `limit` + 1
+ * matches are in hand, so a small `limit` never decodes a month of files.
+ */
 export async function readRecordedSnapshots(dir, q) {
-  const all = [];
-  for (const day of istDaysInRange(q.from, q.to)) {
-    let text = "";
-    try { text = await fsp.readFile(snapshotFileFor(dir, q.symbol, day), "utf8"); } catch { continue; }
-    for (const line of text.split("\n")) {
-      if (!line.trim()) continue;
-      const s = decodeSnapshotLine(line);
-      if (s) all.push(s);
+  const matches = [];
+  outer: for (const day of istDaysInRange(q.from, q.to)) {
+    const stream = createReadStream(snapshotFileFor(dir, q.symbol, day), { encoding: "utf8" });
+    const lines = createInterface({ input: stream, crlfDelay: Infinity });
+    try {
+      for await (const line of lines) {
+        if (!line.trim() || !snapshotLineMayMatch(line, q)) continue;
+        const s = decodeSnapshotLine(line);
+        if (!s) continue;
+        const kept = filterSnapshots([s], q);
+        if (kept.length === 0) continue;
+        matches.push(kept[0]);
+        if (matches.length > q.limit) break outer;
+      }
+    } catch {
+      // unreadable file: skip it, like a missing one
+    } finally {
+      lines.close();
+      stream.destroy();
     }
   }
-  const filtered = filterSnapshots(all, q);
+  const filtered = filterSnapshots(matches, q);
   const truncated = filtered.length > q.limit;
   return { snapshots: truncated ? filtered.slice(0, q.limit) : filtered, truncated };
 }
@@ -1865,7 +1956,11 @@ async function handleSnapshots(params) {
 
 // ── /api/x router ──
 
-async function handleX(route, params, creds) {
+/**
+ * `creds` is a function, called only by the routes that use Dhan: a malformed x-dhan-* header must
+ * not turn NSE-only routes (ban list, holidays, snapshots and so on) into 400s.
+ */
+export async function handleX(route, params, creds = () => null) {
   switch (route) {
     case "lot-sizes":
       return envelope("lot-sizes", 6 * 3600000, "nse", async () => {
@@ -1931,7 +2026,7 @@ async function handleX(route, params, creds) {
             return { data: parseMwplCsv(unzipFirst(buf)), asOf: Date.parse(`${d}T18:30:00+05:30`) };
           } catch (e) {
             lastErr = e;
-            if (e?.status && e.status !== 404 && e.status !== 403) break;
+            if (isWalkBackFatal(e)) break;
           }
         }
         throw lastErr || new Error("No MWPL file found");
@@ -1975,6 +2070,7 @@ async function handleX(route, params, creds) {
       const type = vEnum(params.get("type"), new Set(["underlyings", "contracts"]), "underlyings", "type");
       return envelope(`oi-spurts:${type}`, 3 * 60000, "nse", async () => {
         const json = await nseJson(`/api/live-analysis-oi-spurts-${type}`, { referer: `${NSE_BASE}/market-data/oi-spurts` });
+        requireList(json?.data, "OI spurts");
         return { data: normaliseOiSpurts(json, type) };
       });
     }
@@ -1984,7 +2080,7 @@ async function handleX(route, params, creds) {
       const sort = vEnum(params.get("sort"), new Set(["volume", "value"]), "volume", "sort");
       return envelope(`most-active:${type}:${sort}`, 2 * 60000, "nse", async () => {
         const json = await nseJson(`/api/snapshot-derivatives-equity?index=${type}&limit=20`, { referer: `${NSE_BASE}/market-data/most-active-contracts` });
-        return { data: normaliseMostActive(json?.[sort]?.data) };
+        return { data: normaliseMostActive(requireList(json?.[sort]?.data, "most-active")) };
       });
     }
 
@@ -1999,7 +2095,7 @@ async function handleX(route, params, creds) {
         else {
           let lastErr = null;
           for (const d of recentWeekdays(defaultArchiveDate(), 6)) {
-            try { rows = await bhavcopyRows(d); usedDate = d; break; } catch (e) { lastErr = e; if (e?.status && e.status !== 404 && e.status !== 403) break; }
+            try { rows = await bhavcopyRows(d); usedDate = d; break; } catch (e) { lastErr = e; if (isWalkBackFatal(e)) break; }
           }
           if (!rows) throw lastErr || new Error("No bhavcopy found");
         }
@@ -2011,7 +2107,7 @@ async function handleX(route, params, creds) {
     case "event-calendar":
       return envelope("event-calendar", 6 * 3600000, "nse", async () => {
         const json = await nseJson("/api/event-calendar", { referer: `${NSE_BASE}/companies-listing/corporate-filings-event-calendar` });
-        const list = Array.isArray(json) ? json : json?.data || [];
+        const list = Array.isArray(json) ? json : requireList(json?.data, "event calendar");
         return { data: list.map((d) => ({ symbol: String(d.symbol || "").toUpperCase(), company: d.company || "", purpose: d.purpose || "", description: d.bm_desc || "", date: toIso(d.date || "") })).filter((d) => d.symbol && d.date) };
       });
 
@@ -2020,7 +2116,7 @@ async function handleX(route, params, creds) {
       const field = route === "bulk-deals" ? "BULK_DEALS_DATA" : "BLOCK_DEALS_DATA";
       return envelope(route, 15 * 60000, "nse", async () => {
         const json = await nseJson("/api/snapshot-capital-market-largedeal", { referer: `${NSE_BASE}/market-data/large-deals` });
-        return { data: normaliseDeals(json?.[field]) };
+        return { data: normaliseDeals(requireList(json?.[field], route)) };
       });
     }
 
@@ -2034,7 +2130,8 @@ async function handleX(route, params, creds) {
       const symbol = vSymbol(params.get("symbol"), "NIFTY");
       const raw = String(params.get("expiries") || "next3");
       if (raw !== "next3" && raw !== "all" && !/^[0-9A-Za-z,-]{10,120}$/.test(raw)) throw new InputError("expiries must be next3, all or a comma list of dates");
-      return envelope(`chain-multi:${symbol}:${raw}:${creds ? `d${credTag(creds)}` : "n"}`, 15000, creds ? "dhan" : "nse", () => chainMulti(symbol, raw, creds));
+      const dhanCreds = creds();
+      return envelope(`chain-multi:${symbol}:${raw}:${dhanCreds ? `d${credTag(dhanCreds)}` : "n"}`, 15000, dhanCreds ? "dhan" : "nse", () => chainMulti(symbol, raw, dhanCreds));
     }
 
     default:
@@ -2306,6 +2403,20 @@ function releaseInstruments(list) {
   }
 }
 
+/**
+ * Drop an upstream socket for good. Its listeners are removed, so a no-op 'error' listener is
+ * attached first: terminate() on a socket that is still CONNECTING aborts the handshake and
+ * emits 'error' on the next tick, and an 'error' with no listener crashes the whole process.
+ */
+export function closeUpstream(socket) {
+  if (!socket) return;
+  try {
+    socket.removeAllListeners();
+    socket.on("error", () => undefined);
+    socket.terminate();
+  } catch { /* ignore */ }
+}
+
 function connectDhanWebSocket(creds) {
   if (!creds) return;
   const same = dhanWSCreds && dhanWSCreds.clientId === creds.clientId && dhanWSCreds.accessToken === creds.accessToken;
@@ -2318,7 +2429,7 @@ function connectDhanWebSocket(creds) {
   }
   dhanWSCreds = creds;
   if (dhanWS) {
-    try { dhanWS.removeAllListeners(); dhanWS.terminate(); } catch { /* ignore */ }
+    closeUpstream(dhanWS);
     dhanWS = null;
   }
   if (dhanWSTimer) { clearTimeout(dhanWSTimer); dhanWSTimer = null; }
@@ -2378,7 +2489,7 @@ function connectDhanWebSocket(creds) {
 function disconnectDhanWebSocket() {
   if (dhanWSTimer) { clearTimeout(dhanWSTimer); dhanWSTimer = null; }
   if (dhanWS) {
-    try { dhanWS.removeAllListeners(); dhanWS.on("error", () => undefined); dhanWS.terminate(); } catch { /* ignore */ }
+    closeUpstream(dhanWS);
     dhanWS = null;
   }
   const wasActive = !!dhanWSCreds;
@@ -2552,13 +2663,61 @@ export function isAllowedHost(hostHeader, allowed = ALLOWED_HOSTS) {
   return !!name && allowed.has(name);
 }
 
+const IPV4_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+function ipv4ToInt(addr) {
+  const m = IPV4_RE.exec(addr);
+  if (!m) return null;
+  const parts = m.slice(1).map(Number);
+  if (parts.some((p) => p > 255)) return null;
+  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+
+/** Parse PROXY_TRUSTED_NETS: comma-separated IPv4 addresses, IPv4 CIDRs or exact IPv6 addresses. */
+export function parseTrustedNets(value) {
+  const out = [];
+  for (const raw of String(value || "").split(",")) {
+    const item = raw.trim().toLowerCase();
+    if (!item) continue;
+    const [addr, bitsRaw] = item.split("/");
+    const base = ipv4ToInt(addr);
+    if (base !== null) {
+      const bits = bitsRaw === undefined ? 32 : Number(bitsRaw);
+      if (!Number.isInteger(bits) || bits < 0 || bits > 32) continue;
+      const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+      out.push({ kind: 4, base: (base & mask) >>> 0, mask });
+    } else if (addr.includes(":") && bitsRaw === undefined) {
+      out.push({ kind: 6, addr });
+    }
+  }
+  return out;
+}
+
+const TRUSTED_NETS = parseTrustedNets(process.env.PROXY_TRUSTED_NETS);
+
 /**
- * Whether a request may fall back to the .env Dhan credentials. Browsers always send Origin on
- * cross-origin requests, so a request without one is a non-browser client; only trust it when it
- * comes from this machine. Requests that bring their own header credentials are unaffected.
+ * Whether a client socket address may use the .env Dhan credentials and the shared live feed:
+ * loopback, or an address listed in PROXY_TRUSTED_NETS (for Docker, the bridge gateway the host
+ * browser arrives from). Header values (Origin, Host) are never the trust signal: any non-browser
+ * client can forge them.
+ */
+export function isTrustedClient(addr, nets = TRUSTED_NETS) {
+  const a = String(addr || "").toLowerCase();
+  if (isLoopbackAddress(a)) return true;
+  const v4 = ipv4ToInt(a.startsWith("::ffff:") ? a.slice(7) : a);
+  for (const n of nets) {
+    if (n.kind === 4 && v4 !== null && ((v4 & n.mask) >>> 0) === n.base) return true;
+    if (n.kind === 6 && n.addr === a) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a request may fall back to the .env Dhan credentials. Decided by the socket's remote
+ * address only (see isTrustedClient). Requests that bring their own header credentials are unaffected.
  */
 function mayUseEnvCreds(req) {
-  return !!req.headers.origin || isLoopbackAddress(clientIp(req));
+  return isTrustedClient(clientIp(req));
 }
 
 function send(res, status, body, extraHeaders = {}) {
@@ -2588,7 +2747,7 @@ function healthPayload() {
   };
 }
 
-const server = http.createServer(async (req, res) => {
+export const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin;
   if (!isAllowedHost(req.headers.host)) return send(res, 403, { error: "Host not allowed", reason: "Add this host to PROXY_ALLOWED_HOSTS" });
   if (!isAllowedOrigin(origin)) return send(res, 403, { error: "Origin not allowed", reason: `Add ${truncate(origin, 80)} to PROXY_ALLOWED_ORIGINS` });
@@ -2648,7 +2807,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(snapshotsToCsvText(snapshots));
     }
     if (path.startsWith("/api/x/")) {
-      const out = await handleX(path.slice("/api/x/".length), params, creds());
+      const out = await handleX(path.slice("/api/x/".length), params, creds);
       if (!out) return send(res, 404, { data: null, meta: { source: "cache", asOf: Date.now(), stale: true, reason: "Unknown /api/x route" } });
       return send(res, out.status, out.body);
     }
@@ -2678,9 +2837,11 @@ server.on("upgrade", (req, socket, head) => {
   let pathname = "";
   try { pathname = new URL(req.url, `http://${HOST}:${PORT}`).pathname; } catch { /* bad url */ }
   const origin = req.headers.origin;
-  // No Origin means a non-browser client: only accept those from this machine.
-  const originOk = origin ? ALLOWED_ORIGINS.has(origin) : isLoopbackAddress(req.socket?.remoteAddress);
-  if (pathname !== "/ws" || !isAllowedHost(req.headers.host) || !originOk) {
+  // The feed is shared and runs on the owner's .env token, so the socket address must be trusted
+  // (loopback or PROXY_TRUSTED_NETS); a forged Origin header is not enough. A browser must also
+  // send an allowed Origin (cross-site WebSocket hijacking defence).
+  const originOk = !origin || ALLOWED_ORIGINS.has(origin);
+  if (pathname !== "/ws" || !isAllowedHost(req.headers.host) || !originOk || !isTrustedClient(req.socket?.remoteAddress)) {
     socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
     socket.destroy();
     return;

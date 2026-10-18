@@ -14,9 +14,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
-const SIDEBAR_WIDTH_MOBILE = "18rem";
-const SIDEBAR_WIDTH_ICON = "4rem";
+const SIDEBAR_WIDTH = "15rem";
+const SIDEBAR_WIDTH_MOBILE = "17rem";
+const SIDEBAR_WIDTH_ICON = "3.5rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 type SidebarContext = {
@@ -107,7 +107,7 @@ const SidebarProvider = React.forwardRef<
 
   return (
     <SidebarContext.Provider value={contextValue}>
-      <TooltipProvider delayDuration={0}>
+      <TooltipProvider delayDuration={400}>
         <div
           style={
             {
@@ -158,7 +158,7 @@ const Sidebar = React.forwardRef<
           data-mobile="true"
           // h-dvh (not h-full) so the footer stays above mobile browser chrome;
           // flex + overflow-hidden makes SidebarContent the only scroller.
-          className="flex h-dvh w-[--sidebar-width] flex-col gap-0 overflow-hidden bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="group/source flex h-dvh w-[--sidebar-width] flex-col gap-0 overflow-hidden rounded-r-panel border-0 bg-[hsl(var(--material-menu))] p-0 text-sidebar-foreground [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -207,14 +207,14 @@ const Sidebar = React.forwardRef<
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
-            : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
           className,
         )}
         {...props}
       >
         <div
           data-sidebar="sidebar"
-          className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground shadow-[inset_-1px_0_0_hsl(var(--sidebar-border)/0.72)] group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+          className="group/source flex h-full w-full flex-col text-sidebar-foreground"
         >
           {children}
         </div>
@@ -241,7 +241,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         }}
         {...props}
       >
-        <PanelLeft />
+        <PanelLeft strokeWidth={1.75} />
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
     );
@@ -369,7 +369,8 @@ const SidebarGroupLabel = React.forwardRef<HTMLDivElement, React.ComponentProps<
         ref={ref}
         data-sidebar="group-label"
         className={cn(
-          "flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground outline-none ring-sidebar-ring transition-[margin,opa] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+          // Finder group header: sentence case, 11px semibold, muted, no tracking.
+          "flex h-7 shrink-0 items-end rounded-sm px-2 pb-1 text-label text-muted-foreground outline-none transition-[margin,opacity] duration-base ease-out focus-visible:shadow-focus [&>svg]:size-4 [&>svg]:shrink-0",
           "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
           className,
         )}
@@ -419,19 +420,22 @@ const SidebarMenuItem = React.forwardRef<HTMLLIElement, React.ComponentProps<"li
 ));
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
+/**
+ * macOS source-list row: 28px, 6px pill, no hover fill (as in Finder). Selection is a filled
+ * pill: grey while focus is elsewhere, accent while the sidebar has keyboard/pointer focus.
+ */
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-0 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button relative flex w-full items-center gap-2 overflow-hidden rounded-pill px-2 text-left text-body text-sidebar-foreground outline-none transition-colors duration-fast focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-40 data-[active=true]:bg-selection-unfocused data-[active=true]:font-medium data-[active=true]:text-foreground group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-0 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
+        default: "",
+        outline: "bg-control shadow-control",
       },
       size: {
-        default: "h-8 text-sm",
-        sm: "h-7 text-xs",
-        lg: "h-12 text-sm group-data-[collapsible=icon]:!p-0",
+        default: "h-7",
+        sm: "h-6 text-body-sm",
+        lg: "h-11 group-data-[collapsible=icon]:!p-0",
       },
     },
     defaultVariants: {

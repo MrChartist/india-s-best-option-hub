@@ -17,14 +17,14 @@ export function MetricTip({ label, children, className, href, hrefLabel = "Read 
             type="button"
             aria-label={`What is ${label}?`}
             className={cn(
-              "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:shadow-ember",
+              "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:shadow-focus",
               className,
             )}
           >
             <HelpCircle className="h-3 w-3" aria-hidden="true" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+        <TooltipContent side="top" className="max-w-[260px] text-body-sm leading-relaxed">
           <p className="mb-0.5 font-semibold">{label}</p>
           <div className="text-muted-foreground">{children}</div>
           {href && (

@@ -20,7 +20,7 @@ interface Props {
 
 function Rule({ icon, title, children, tone }: { icon: ReactNode; title: string; children: ReactNode; tone?: "warning" }) {
   return (
-    <li className={cn("flex gap-3 rounded-tile border p-3", tone === "warning" ? "border-warning/40 bg-wash-warning" : "border-border bg-surface")}>
+    <li className={cn("flex gap-3 rounded-tile border p-3", tone === "warning" ? "border-warning/40 bg-wash-warning" : "border-transparent bg-control-track")}>
       <div className={cn("mt-0.5 shrink-0", tone === "warning" ? "text-warning" : "text-primary-ink")} aria-hidden="true">
         {icon}
       </div>

@@ -150,7 +150,7 @@ export default function PayoffSim() {
       </div>
 
       <div className="mt-4">
-        <p className="mb-1.5 text-label uppercase text-muted-foreground" id={strikesLabelId}>
+        <p className="mb-1.5 text-label text-muted-foreground" id={strikesLabelId}>
           Click a strike to {side === "BUY" ? "buy" : "sell"} a {type === "CE" ? "call" : "put"} · NIFTY lot {lotSize}
         </p>
         {atLegLimit ? (
@@ -175,13 +175,13 @@ export default function PayoffSim() {
                 disabled={atLegLimit && !legs.some((l) => l.type === type && l.side === side && l.strike === k)}
                 aria-label={`${side === "BUY" ? "Buy" : "Sell"} ${formatStrike(k)} ${type}`}
                 className={cn(
-                  "shrink-0 snap-center rounded-pill border px-2 py-1.5 font-num text-body-sm tabular-nums transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none disabled:opacity-40",
-                  k === atm ? "border-primary/60 bg-wash-brand text-primary-ink" : "border-border bg-surface text-foreground hover:bg-accent",
+                  "shrink-0 snap-center rounded-pill border px-2 py-1.5 font-num text-body-sm tabular-nums transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-40",
+                  k === atm ? "border-primary/60 bg-wash-brand text-primary-ink" : "border-separator bg-surface text-foreground hover:bg-accent",
                   inUse && "ring-1 ring-product/60",
                 )}
               >
                 {formatStrike(k)}
-                {k === atm ? <span className="ml-1 text-micro uppercase">ATM</span> : null}
+                {k === atm ? <span className="ml-1 text-micro">ATM</span> : null}
               </button>
             );
           })}
@@ -206,8 +206,8 @@ export default function PayoffSim() {
       </div>
 
       {legs.length === 0 || !analysis ? (
-        <div className="mt-4 grid place-items-center rounded-tile border border-dashed border-border bg-surface px-4 py-10 text-center">
-          <p className="font-display text-lead font-bold text-foreground">No legs yet</p>
+        <div className="mt-4 grid place-items-center rounded-tile bg-control-track px-4 py-10 text-center">
+          <p className="font-display text-lead font-semibold text-foreground">No legs yet</p>
           <p className="mt-1 max-w-sm text-body text-muted-foreground">Pick Call or Put and Buy or Sell, then click a strike. Or load a preset such as a bull call spread.</p>
         </div>
       ) : (
@@ -256,11 +256,11 @@ export default function PayoffSim() {
           <div className="space-y-3">
             <ul className="space-y-1.5" aria-label="Legs">
               {legs.map((l) => (
-                <li key={l.id} className="flex items-center gap-2 rounded-tile border border-border bg-surface px-2.5 py-1.5">
+                <li key={l.id} className="flex items-center gap-2 rounded-tile border border-separator bg-surface px-2.5 py-1.5">
                   <button
                     type="button"
                     onClick={() => setLegs((cur) => cur.map((x) => (x.id === l.id ? { ...x, side: x.side === "BUY" ? "SELL" : "BUY" } : x)))}
-                    className={cn("rounded-chip px-1.5 py-0.5 text-label uppercase focus-visible:shadow-ember focus-visible:outline-none", l.side === "BUY" ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}
+                    className={cn("rounded-chip px-1.5 py-0.5 text-label focus-visible:shadow-focus focus-visible:outline-none", l.side === "BUY" ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}
                     aria-label={`Switch ${formatStrike(l.strike)} ${l.type} to ${l.side === "BUY" ? "sell" : "buy"}`}
                   >
                     {l.side}

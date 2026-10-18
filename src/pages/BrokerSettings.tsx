@@ -2,8 +2,19 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   BROKERS,
@@ -130,7 +141,7 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
+        <CardTitle className="flex flex-wrap items-center gap-2">
           {safe ? (
             <ShieldCheck className="h-4 w-4 text-bullish" aria-hidden />
           ) : (
@@ -142,7 +153,7 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
           </Badge>
           {state === "encrypted" && <Badge variant="outline">{locked ? "Locked" : "Unlocked"}</Badge>}
         </CardTitle>
-        <CardDescription className="text-xs">{copy.body}</CardDescription>
+        <CardDescription>{copy.body}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {mode === "unlock" && state === "encrypted" ? (
@@ -159,11 +170,11 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
               onChange={(e) => setPass(e.target.value)}
               className="sm:max-w-xs"
             />
-            <Button type="submit" size="sm" disabled={busy || !pass} className="gap-1.5">
+            <Button type="submit" size="sm" disabled={busy || !pass}>
               {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                <Loader2 className="animate-spin" aria-hidden />
               ) : (
-                <LockOpen className="h-3.5 w-3.5" aria-hidden />
+                <LockOpen aria-hidden />
               )}{" "}
               Unlock
             </Button>
@@ -171,7 +182,7 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
         ) : mode === "encrypt" ? (
           <form onSubmit={onEncrypt} className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
             <div className="space-y-1">
-              <Label htmlFor="new-pass" className="text-xs">
+              <Label htmlFor="new-pass" className="text-body-sm">
                 New passphrase
               </Label>
               <Input
@@ -184,7 +195,7 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="new-pass2" className="text-xs">
+              <Label htmlFor="new-pass2" className="text-body-sm">
                 Repeat passphrase
               </Label>
               <Input
@@ -196,11 +207,11 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
               />
             </div>
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={busy} className="gap-1.5">
+              <Button type="submit" size="sm" disabled={busy}>
                 {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <Loader2 className="animate-spin" aria-hidden />
                 ) : (
-                  <Lock className="h-3.5 w-3.5" aria-hidden />
+                  <Lock aria-hidden />
                 )}{" "}
                 Encrypt
               </Button>
@@ -208,61 +219,78 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
                 Cancel
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground sm:col-span-3">
+            <p className="text-body-sm text-muted-foreground sm:col-span-3">
               There is no recovery. If you forget the passphrase, wipe the keys and paste them again.
             </p>
           </form>
         ) : (
           <div className="flex flex-wrap gap-2">
             {state !== "encrypted" && (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMode("encrypt")}>
-                <Lock className="h-3.5 w-3.5" aria-hidden /> Encrypt with a passphrase
+              <Button size="sm" variant="outline" onClick={() => setMode("encrypt")}>
+                <Lock aria-hidden /> Encrypt with a passphrase
               </Button>
             )}
             {state !== "session" && (
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5"
+               
                 disabled={locked}
                 onClick={async () => {
                   await switchToSessionMode();
                   toast.success("Keys now last only for this browser session");
                 }}
               >
-                <Clock3 className="h-3.5 w-3.5" aria-hidden /> Use session-only storage
+                <Clock3 aria-hidden /> Use session-only storage
               </Button>
             )}
             {state === "encrypted" && !locked && (
               <Button
                 size="sm"
                 variant="ghost"
-                className="gap-1.5"
+               
                 onClick={() => {
                   lockVault();
                   toast.info("Vault locked");
                 }}
               >
-                <Lock className="h-3.5 w-3.5" aria-hidden /> Lock now
+                <Lock aria-hidden /> Lock now
               </Button>
             )}
             {state !== "none" && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 text-muted-foreground hover:text-destructive"
-                onClick={() => {
-                  wipeAllCredentials();
-                  toast.info("All saved keys deleted");
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete all keys
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive">
+                    <Trash2 aria-hidden /> Delete all keys
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all saved keys?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Every broker key and the vault passphrase check are removed from this browser. The terminal falls
+                      back to NSE data until you paste keys again.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel autoFocus>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className={buttonVariants({ variant: "destructive" })}
+                      onClick={() => {
+                        wipeAllCredentials();
+                        toast.info("All saved keys deleted");
+                      }}
+                    >
+                      Delete all keys
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         )}
         {state === "encrypted" && locked && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             While locked, the terminal uses NSE data (or the proxy's own .env keys, if set).
           </p>
         )}
@@ -311,29 +339,29 @@ function DhanCard({
   };
 
   return (
-    <Card className={isActive ? "ring-1 ring-primary/50" : ""}>
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wash-brand text-xs font-bold text-primary-ink"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-primary text-body-sm font-semibold text-primary-foreground"
               aria-hidden
             >
               {broker.logo}
             </span>
             <div className="min-w-0">
-              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 {broker.name}
                 {saved && <Badge variant={isActive ? "default" : "secondary"}>{isActive ? "Active" : "Saved"}</Badge>}
               </CardTitle>
-              <CardDescription className="mt-0.5 text-xs">{broker.description}</CardDescription>
+              <CardDescription className="mt-0.5">{broker.description}</CardDescription>
             </div>
           </div>
           <a
             href={broker.docsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
             aria-label={`${broker.name} API docs (opens in a new tab)`}
           >
             <ExternalLink className="h-4 w-4" aria-hidden />
@@ -349,14 +377,14 @@ function DhanCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {disabled ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3.5 w-3.5" aria-hidden /> Unlock the vault above to view or edit these keys.
+          <p className="flex items-center gap-1.5 text-body-sm text-muted-foreground">
+            <Lock aria-hidden /> Unlock the vault above to view or edit these keys.
           </p>
         ) : editing ? (
           <form onSubmit={onSave} className="space-y-3">
             {broker.fields.map((field) => (
               <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={`f-${field.key}`} className="text-xs">
+                <Label htmlFor={`f-${field.key}`} className="text-body-sm">
                   {field.label}{" "}
                   {field.required && (
                     <span className="text-destructive" aria-hidden>
@@ -373,14 +401,14 @@ function DhanCard({
                     placeholder={field.placeholder}
                     value={values[field.key] || ""}
                     onChange={(e) => setValues({ ...values, [field.key]: e.target.value })}
-                    className="pr-9 text-sm"
+                    className="pr-8"
                     aria-describedby={field.helpText ? `h-${field.key}` : undefined}
                   />
                   {field.type === "password" && (
                     <button
                       type="button"
                       onClick={() => setShow({ ...show, [field.key]: !show[field.key] })}
-                      className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+                      className="absolute right-0.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-chip text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
                       aria-label={show[field.key] ? `Hide ${field.label}` : `Show ${field.label}`}
                     >
                       {show[field.key] ? (
@@ -392,34 +420,29 @@ function DhanCard({
                   )}
                 </div>
                 {field.helpText && (
-                  <p id={`h-${field.key}`} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <p id={`h-${field.key}`} className="flex items-center gap-1 text-body-sm text-muted-foreground">
                     <Info className="h-3 w-3 shrink-0" aria-hidden /> {field.helpText}
                   </p>
                 )}
               </div>
             ))}
-            <div className="flex gap-2 pt-1">
-              <Button type="submit" size="sm" className="flex-1 gap-1.5" disabled={busy}>
-                {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Key className="h-3.5 w-3.5" aria-hidden />
-                )}{" "}
-                Save keys
-              </Button>
+            <div className="flex justify-end gap-2 pt-1">
               {saved && (
-                <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                <Button type="button" variant="outline" onClick={() => setEditing(false)}>
                   Cancel
                 </Button>
               )}
+              <Button type="submit" disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Key aria-hidden />} Save keys
+              </Button>
             </div>
           </form>
         ) : (
           <div className="space-y-2">
-            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-2 text-body text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-bullish" aria-hidden />
               Client ID {saved?.values.clientId ? `••••${saved.values.clientId.slice(-4)}` : "—"}
-              <span className="text-xs">· added {saved ? formatDateIST(saved.addedAt) : "—"}</span>
+              <span className="text-body-sm">· added {saved ? formatDateIST(saved.addedAt) : "—"}</span>
             </p>
             <div className="flex flex-wrap gap-2">
               {!isActive && (
@@ -440,14 +463,14 @@ function DhanCard({
               <Button
                 size="sm"
                 variant="ghost"
-                className="gap-1.5 text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive"
                 onClick={async () => {
                   await removeBrokerCredentials(broker.id);
                   toast.info(`${broker.name} keys removed`);
                 }}
                 aria-label={`Remove ${broker.name} keys`}
               >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove
+                <Trash2 aria-hidden /> Remove
               </Button>
             </div>
           </div>
@@ -528,21 +551,20 @@ function ConnectionStatusPanel() {
         <Button
           size="sm"
           variant="outline"
-          className="h-7 gap-1 text-xs"
           onClick={runTest}
           disabled={test.state === "testing" || !reachable}
         >
           {test.state === "testing" ? (
             <>
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Testing
+              <Loader2 className="animate-spin" aria-hidden /> Testing
             </>
           ) : test.state === "success" ? (
             <>
-              <CheckCircle2 className="h-3 w-3 text-bullish" aria-hidden /> OK
+              <CheckCircle2 className="text-bullish" aria-hidden /> OK
             </>
           ) : test.state === "error" ? (
             <>
-              <XCircle className="h-3 w-3 text-bearish" aria-hidden /> Retry
+              <XCircle className="text-bearish" aria-hidden /> Retry
             </>
           ) : (
             "Test"
@@ -581,28 +603,28 @@ function ConnectionStatusPanel() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Wifi className="h-4 w-4 text-primary" aria-hidden />
+        <CardTitle className="flex items-center gap-2">
+          <Wifi className="h-4 w-4 text-primary-ink" aria-hidden />
           Data sources
           <Badge variant="outline" className="ml-auto">
             {rows.filter((s) => s.status === "online").length}/{rows.length} online
           </Badge>
         </CardTitle>
-        <CardDescription className="text-xs">
+        <CardDescription>
           Each source's last success or failure, as seen by your local proxy. Times in IST.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2" aria-live="polite">
+      <CardContent className="pb-1.5" aria-live="polite">
         {rows.map((src) => (
-          <div key={src.name} className="flex items-center gap-3 rounded-md bg-muted/40 p-2">
-            <span className={TXT[src.status]}>{src.icon}</span>
+          <div key={src.name} className="flex min-h-[44px] items-center gap-3 py-1.5 [&+&]:hairline-t">
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-control-track ${TXT[src.status]}`}>{src.icon}</span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium">{src.name}</span>
-                <span className={`h-1.5 w-1.5 rounded-full ${DOT[src.status]}`} aria-hidden />
+                <span className="text-body font-medium">{src.name}</span>
+                <span className={`h-1.5 w-1.5 rounded-capsule ${DOT[src.status]}`} aria-hidden />
                 <span className="sr-only">{src.status}</span>
               </div>
-              <p className="truncate text-xs text-muted-foreground" title={src.detail}>
+              <p className="truncate text-body-sm text-muted-foreground" title={src.detail}>
                 {src.detail}
               </p>
             </div>
@@ -624,20 +646,19 @@ export default function BrokerSettings() {
   const activeId = (saved.find((b) => b.isActive) ?? saved[0])?.brokerId;
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6 px-4 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1100px] space-y-4 py-1">
       <PageHeader
         icon={Plug}
-        eyebrow="Settings"
         title="Broker and Data Settings"
         description="Connect Dhan for live option chains and the real-time feed. Without keys the terminal uses NSE data through the local proxy."
       />
 
-      <Card className="border-warning/30 bg-wash-warning/40">
+      <Card className="bg-wash-warning/40">
         <CardContent className="flex items-start gap-3 py-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
-          <div className="space-y-1 text-sm">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+          <div className="space-y-1 text-body">
             <p className="font-medium text-foreground">How your keys are handled</p>
-            <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+            <ul className="list-disc space-y-0.5 pl-4 text-body-sm text-muted-foreground">
               <li>Keys stay in this browser. Mr. Chartist has no server and never receives them.</li>
               <li>
                 When the terminal needs Dhan data, the keys go to the proxy running on your own machine (127.0.0.1),
@@ -670,7 +691,7 @@ export default function BrokerSettings() {
       <DatabaseManager />
       <ChartDataDownloader />
 
-      <p className="text-xs text-muted-foreground">Data for education and research. Not investment advice.</p>
+      <p className="text-body-sm text-muted-foreground">Data for education and research. Not investment advice.</p>
     </div>
   );
 }

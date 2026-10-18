@@ -11,34 +11,34 @@ export function SplitTable({ rows, caption, groupLabel, empty }: { rows: SplitRo
     <ScrollRegion label={caption}>
       <table className="w-full min-w-[560px] text-body-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-            <th scope="col" className="px-2 py-2 font-semibold">{groupLabel}</th>
-            <th scope="col" className="px-2 py-2 text-right font-semibold">Trades</th>
-            <th scope="col" className="px-2 py-2 text-right font-semibold">Win rate</th>
-            <th scope="col" className="px-2 py-2 text-right font-semibold">Expectancy</th>
-            <th scope="col" className="px-2 py-2 text-right font-semibold">Profit factor</th>
-            <th scope="col" className="px-2 py-2 text-right font-semibold">Net P&amp;L</th>
-            <th scope="col" className="w-[28%] px-2 py-2 font-semibold"><span className="sr-only">Share of P&amp;L</span></th>
+        <thead className="[&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+          <tr className="text-left">
+            <th scope="col" className="px-2 py-1.5">{groupLabel}</th>
+            <th scope="col" className="px-2 py-1.5 text-right">Trades</th>
+            <th scope="col" className="px-2 py-1.5 text-right">Win rate</th>
+            <th scope="col" className="px-2 py-1.5 text-right">Expectancy</th>
+            <th scope="col" className="px-2 py-1.5 text-right">Profit factor</th>
+            <th scope="col" className="px-2 py-1.5 text-right">Net P&amp;L</th>
+            <th scope="col" className="w-[28%] px-2 py-1.5"><span className="sr-only">Share of P&amp;L</span></th>
           </tr>
         </thead>
-        <tbody className="font-num tabular-nums">
+        <tbody className="zebra-rows font-num tabular-nums">
           {rows.map((r) => {
             const w = (Math.abs(r.net) / maxAbs) * 50;
             return (
-              <tr key={r.key} className="border-b border-border/70 last:border-0">
-                <th scope="row" className="px-2 py-2 text-left font-sans font-semibold text-foreground">
+              <tr key={r.key}>
+                <th scope="row" className="px-2 py-1.5 text-left font-sans font-semibold text-foreground">
                   {r.label}
-                  {r.hint ? <span className="block text-[11px] font-normal text-muted-foreground">{r.hint}</span> : null}
+                  {r.hint ? <span className="block text-body-sm font-normal text-muted-foreground">{r.hint}</span> : null}
                 </th>
-                <td className="px-2 py-2 text-right">{r.trades}</td>
-                <td className="px-2 py-2 text-right">{pct(r.winRate, 0)}</td>
-                <td className={cn("px-2 py-2 text-right", tone(r.expectancy))}>{signedINR(r.expectancy)}</td>
-                <td className="px-2 py-2 text-right">{ratio(r.profitFactor)}</td>
-                <td className={cn("px-2 py-2 text-right font-semibold", tone(r.net))}>{signedINR(r.net)}</td>
-                <td className="px-2 py-2" aria-hidden="true">
-                  <div className="relative h-2 rounded-pill bg-muted">
-                    <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
+                <td className="px-2 py-1.5 text-right">{r.trades}</td>
+                <td className="px-2 py-1.5 text-right">{pct(r.winRate, 0)}</td>
+                <td className={cn("px-2 py-1.5 text-right", tone(r.expectancy))}>{signedINR(r.expectancy)}</td>
+                <td className="px-2 py-1.5 text-right">{ratio(r.profitFactor)}</td>
+                <td className={cn("px-2 py-1.5 text-right font-semibold", tone(r.net))}>{signedINR(r.net)}</td>
+                <td className="px-2 py-1.5" aria-hidden="true">
+                  <div className="relative h-2 rounded-pill bg-control-track">
+                    <div className="absolute inset-y-0 left-1/2 w-px bg-separator-strong" />
                     <div
                       className={cn("absolute inset-y-0 rounded-pill", r.net >= 0 ? "left-1/2 bg-bullish/70" : "right-1/2 bg-bearish/70")}
                       style={{ width: `${w}%` }}

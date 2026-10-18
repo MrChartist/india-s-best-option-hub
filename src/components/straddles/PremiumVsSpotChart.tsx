@@ -56,7 +56,8 @@ export function PremiumVsSpotChart({ points, mult, unit, mode }: Props) {
         </EmptyState>
       ) : (
         <figure aria-label={`Premium of the ${pairText} against spot between ${formatNumberIN(range.lo)} and ${formatNumberIN(range.hi)}`}>
-          <div className="h-[280px] w-full">
+          {/* Recharts marks every scatter dot role="img" with no name; the figure's label describes the chart. */}
+          <div className="h-[280px] w-full" aria-hidden="true">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />

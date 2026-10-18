@@ -12,6 +12,11 @@ import { RING_CAPACITY, flowStore } from "@/lib/flow";
 export function FlowFeeder({ symbol, persist = true }: { symbol: string; persist?: boolean }) {
   const { data } = useLiveOptionChain(symbol);
 
+  // Hold the feed while this feeder is mounted: a stale after-hours chain keeps the same data
+  // reference, so updatedAt freezes and the idle pruner would otherwise drop a feed still in use.
+  // The release returned by retain() drops the feed once the last feeder for it unmounts.
+  useEffect(() => flowStore.retain(symbol), [symbol]);
+
   useEffect(() => {
     if (!data || !data.expiry || data.chain.length === 0) return;
     flowStore.ingest({

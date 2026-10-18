@@ -94,7 +94,6 @@ export type AlertRule = RuleBase & AlertRuleBody;
 export type NewAlertRule = Omit<RuleBase, "id" | "createdAt" | "enabled" | "cooldownMin"> &
   Partial<Pick<RuleBase, "enabled" | "cooldownMin">> &
   AlertRuleBody;
-export type RuleOfType<T extends AlertRuleType> = Extract<AlertRule, { type: T }>;
 
 // ── Evaluation context ──
 

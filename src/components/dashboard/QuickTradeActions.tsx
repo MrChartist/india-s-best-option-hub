@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { BarChart3, CalendarClock, Filter, Layers, Star, TableProperties, type LucideIcon } from "lucide-react";
 
 const actions: ReadonlyArray<{ label: string; to: string; icon: LucideIcon }> = [
@@ -23,9 +25,9 @@ export function QuickTradeActions() {
           <li key={a.to} className="snap-start">
             <Link
               to={a.to}
-              className="inline-flex h-7 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-wash-brand/50 focus-visible:shadow-ember focus-visible:outline-none"
+              className={cn(buttonVariants({ variant: "outline" }), "px-2.5")}
             >
-              <a.icon className="h-3.5 w-3.5 text-primary-ink" aria-hidden="true" />
+              <a.icon className="!size-3.5 text-primary-ink" aria-hidden="true" />
               {a.label}
             </Link>
           </li>
@@ -34,5 +36,3 @@ export function QuickTradeActions() {
     </nav>
   );
 }
-
-export default QuickTradeActions;

@@ -37,7 +37,7 @@ export function SpotSparkline({ data, domain, syncId, symbol, label: labelProp, 
   return (
     <figure className={cn("min-w-0", className)} aria-label={`${label} from ${formatNumberIN(first, 2)} to ${formatNumberIN(last, 2)}, range ${formatNumberIN(lo, 2)} to ${formatNumberIN(hi, 2)}`}>
       <figcaption className="mb-1 flex flex-wrap items-baseline gap-x-2 text-body-sm text-muted-foreground">
-        <span className="text-label uppercase">{label}</span>
+        <span className="text-label">{label}</span>
         <span className="font-num tabular-nums text-foreground">{formatNumberIN(last, 2)}</span>
         <span className={cn("font-num tabular-nums", signTone(chg))}>
           {chg >= 0 ? "+" : "−"}

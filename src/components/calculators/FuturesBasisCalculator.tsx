@@ -86,7 +86,7 @@ export default function FuturesBasisCalculator() {
         </Callout>
       </Panel>
 
-      <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 space-y-4 xl:sticky xl:top-3 xl:self-start">
         <Panel title="Result" actions={res.valid ? <Badge variant={res.state === "PREMIUM" ? "bullish" : res.state === "DISCOUNT" ? "bearish" : "neutral"}>{res.state === "PREMIUM" ? "Premium" : res.state === "DISCOUNT" ? "Discount" : "Flat"}</Badge> : null}>
           {!res.valid ? (
             <p className="text-body text-muted-foreground">Enter spot, futures price, expiry and rate.</p>
@@ -98,7 +98,7 @@ export default function FuturesBasisCalculator() {
                 <Stat label="Implied dividend yield" value={formatPct(res.impliedDivYieldPct, { decimals: 2 })} sub="r − ln(F/S)/T" />
                 <Stat label="vs fair value" value={`${formatSigned(res.mispricing, 2)} pts`} tone={Math.abs(res.mispricing) < 0.5 ? "default" : res.mispricing > 0 ? "warning" : "info"} sub={`Fair ${formatINR(res.fair)}`} />
               </div>
-              <div className="mt-4 divide-y divide-border">
+              <div className="mt-4 divide-y divide-separator">
                 <KV k="Basis per lot" v={Number.isFinite(lot) ? formatINR(res.basis * lot, { decimals: 0 }) : "—"} />
                 <KV k="Mispricing per lot" v={Number.isFinite(lot) ? formatINR(res.mispricing * lot, { decimals: 0 }) : "—"} />
                 <KV k="Lot size" v={Number.isFinite(lot) ? formatNumberIN(lot) : "—"} />

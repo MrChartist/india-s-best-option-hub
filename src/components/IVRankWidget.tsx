@@ -8,11 +8,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Gauge } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatNumberIN } from "@/lib/options";
-import { hvSnapshot, ivRegime, REGIME_LABEL } from "@/lib/volatility/history";
+import { hvSnapshot } from "@/lib/volatility/history";
 import { DerivedBadge, HelpTip, HintChip, SampleBadge } from "@/components/volatility/VolUi";
 import { fmtVol, fmtVolPts } from "@/lib/volatility/format";
 import { useDailyBars, useIvRank } from "@/components/volatility/useVolatility";
@@ -21,35 +19,6 @@ const rankTone = (v: number | null) => (v === null ? "text-muted-foreground" : v
 const barTone = (v: number) => (v > 50 ? "bg-bearish/70" : v < 20 ? "bg-bullish/70" : "bg-warning/70");
 const noHistoryHint = (n: number) =>
   `IV rank needs at least 20 days of IV history; ${n} ${n === 1 ? "day is" : "days are"} available. Open the Volatility page to build it from the NSE bhavcopy.`;
-
-/** Compact IV rank chip. Pass null when the rank is unknown. */
-export function IVRankBadge({ ivRank, ivPercentile, insufficientDays }: { ivRank: number | null; ivPercentile: number | null; insufficientDays?: number }) {
-  if (ivRank === null || !Number.isFinite(ivRank)) {
-    return (
-      <Badge variant="neutral" title="IV rank needs at least 20 days of history">
-        IVR —{insufficientDays !== undefined ? ` (${insufficientDays}d)` : ""}
-      </Badge>
-    );
-  }
-  const variant = ivRank > 50 ? "bearish" : ivRank < 20 ? "bullish" : "warning";
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
-          <Badge variant={variant} className="cursor-help tabular-nums">
-            IVR {Math.round(ivRank)}
-          </Badge>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
-        <p>
-          IV rank {Math.round(ivRank)} · IV percentile {ivPercentile === null ? "—" : Math.round(ivPercentile)}
-        </p>
-        <p className="text-muted-foreground">{REGIME_LABEL[ivRegime(ivRank)]} (educational label, not a signal)</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export interface IVRankCardProps {
   symbol: string;

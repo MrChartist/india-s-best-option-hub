@@ -51,7 +51,7 @@ export function CashFlowBars({ days, isSample }: Props) {
       </div>
 
       {!isSample && days.length < 5 ? (
-        <p role="note" className="flex items-start gap-2 rounded-tile border border-border bg-surface px-3 py-2 text-body-sm text-muted-foreground">
+        <p role="note" className="flex items-start gap-2 rounded-tile bg-muted/50 px-3 py-2 text-body-sm text-muted-foreground">
           <History className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           NSE publishes only the latest day of cash-market flows. This page saves each day in your browser, so the history and monthly totals fill in as you come back. {days.length} day{days.length === 1 ? "" : "s"} saved so far.
         </p>
@@ -59,21 +59,21 @@ export function CashFlowBars({ days, isSample }: Props) {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as View)} aria-label="Chart view">
-          <ToggleGroupItem value="daily" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="daily" size="sm">
             Daily net
           </ToggleGroupItem>
-          <ToggleGroupItem value="cumulative" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="cumulative" size="sm">
             Cumulative
           </ToggleGroupItem>
         </ToggleGroup>
         <ToggleGroup type="single" value={range} onValueChange={(v) => v && setRange(v as Range)} aria-label="Range">
-          <ToggleGroupItem value="20" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="20" size="sm">
             20D
           </ToggleGroupItem>
-          <ToggleGroupItem value="60" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="60" size="sm">
             60D
           </ToggleGroupItem>
-          <ToggleGroupItem value="all" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="all" size="sm">
             All
           </ToggleGroupItem>
         </ToggleGroup>
@@ -115,17 +115,17 @@ export function CashFlowBars({ days, isSample }: Props) {
       <p className="text-body-sm text-muted-foreground">Values in ₹ crore (provisional figures from NSE, cash market only).</p>
 
       <div>
-        <p className="mb-2 text-label uppercase text-muted-foreground">Monthly totals</p>
+        <p className="mb-2 text-label text-muted-foreground">Monthly totals</p>
         <div className="-mx-4 overflow-x-auto sm:mx-0">
-          <Table className="min-w-[420px] text-body">
+          <Table className="min-w-[420px]">
             <caption className="sr-only">FII and DII net cash flows by month, in rupees crore</caption>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-label uppercase">Month</TableHead>
-                <TableHead className="text-right text-label uppercase">FII net</TableHead>
-                <TableHead className="text-right text-label uppercase">DII net</TableHead>
-                <TableHead className="text-right text-label uppercase">Combined</TableHead>
-                <TableHead className="text-right text-label uppercase">Days</TableHead>
+                <TableHead>Month</TableHead>
+                <TableHead className="text-right">FII net</TableHead>
+                <TableHead className="text-right">DII net</TableHead>
+                <TableHead className="text-right">Combined</TableHead>
+                <TableHead className="text-right">Days</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

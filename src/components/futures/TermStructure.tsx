@@ -13,9 +13,9 @@ export function TermStructure({ view }: { view: FuturesView }) {
     <div className="space-y-3">
       <div className="grid gap-2 sm:grid-cols-3">
         {view.series.map((s, i) => (
-          <div key={s.expiry} className="min-w-0 rounded-tile border border-border bg-card p-3">
+          <div key={s.expiry} className="min-w-0 rounded-tile bg-muted/50 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+              <p className="flex items-center gap-1.5 text-label text-muted-foreground">
                 <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", DOT[i])} />
                 {s.label} · {formatDateIST(s.expiry)}
               </p>
@@ -53,9 +53,9 @@ export function TermStructure({ view }: { view: FuturesView }) {
       ) : null}
 
       {fair ? (
-        <div className="grid grid-cols-2 gap-2 rounded-tile border border-border bg-surface p-3 text-body-sm sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 rounded-tile bg-muted/50 p-3 text-body-sm sm:grid-cols-4">
           <div>
-            <p className="flex items-center gap-1 text-label uppercase text-muted-foreground">
+            <p className="flex items-center gap-1 text-label text-muted-foreground">
               Fair value
               <HelpTip
                 text="Spot × e^((r − q) × t), with r from your market settings and q from the dividend table. Same maths as the Futures basis calculator."
@@ -65,15 +65,15 @@ export function TermStructure({ view }: { view: FuturesView }) {
             <p className="font-num tabular-nums">{fmtPrice(fair.fair)}</p>
           </div>
           <div>
-            <p className="text-label uppercase text-muted-foreground">Near vs fair</p>
+            <p className="text-label text-muted-foreground">Near vs fair</p>
             <Signed value={fair.mispricing} suffix="" />
           </div>
           <div>
-            <p className="text-label uppercase text-muted-foreground">Implied dividend</p>
+            <p className="text-label text-muted-foreground">Implied dividend</p>
             <Signed value={fair.impliedDivYieldPct} />
           </div>
           <div>
-            <p className="text-label uppercase text-muted-foreground">Carry (cont.)</p>
+            <p className="text-label text-muted-foreground">Carry (cont.)</p>
             <Signed value={fair.continuousCarryPct} />
           </div>
         </div>

@@ -2,7 +2,8 @@
 
 /**
  * Lots that keep the worst-case loss within riskPct of capital.
- * riskPct is in percent (2 = 2%); maxLossPerLot is the rupee loss for one lot (sign ignored).
+ * riskPct is in percent (2 = 2%) and must be above 0 and at most 100 (no trade may risk more than
+ * the whole account); maxLossPerLot is the rupee loss for one lot (sign ignored).
  */
 export function positionSize(o: { capital: number; riskPct: number; maxLossPerLot: number; lotSize: number }): {
   lots: number;
@@ -12,7 +13,7 @@ export function positionSize(o: { capital: number; riskPct: number; maxLossPerLo
   const capital = Number(o?.capital);
   const riskPct = Number(o?.riskPct);
   const perLot = Math.abs(Number(o?.maxLossPerLot));
-  if (!Number.isFinite(capital) || !Number.isFinite(riskPct) || capital <= 0 || riskPct <= 0) return { lots: 0, riskAmount: 0, capitalAtRisk: 0 };
+  if (!Number.isFinite(capital) || !Number.isFinite(riskPct) || capital <= 0 || riskPct <= 0 || riskPct > 100) return { lots: 0, riskAmount: 0, capitalAtRisk: 0 };
   const riskAmount = (capital * riskPct) / 100;
   if (!Number.isFinite(perLot) || perLot <= 0) return { lots: 0, riskAmount, capitalAtRisk: 0 };
   const lots = Math.floor(riskAmount / perLot + 1e-9);

@@ -14,7 +14,16 @@ import { HedgePressureCard } from "@/components/flow/HedgePressureCard";
 import { HotChains, OiSpurts, TopContracts } from "@/components/flow/HotChains";
 import { PremiumTideChart } from "@/components/flow/PremiumTideChart";
 import { UnusualScanner } from "@/components/flow/UnusualScanner";
-import { DerivedBadge, HelpTip, ModeBadge, Panel, PanelSkeleton, Stat } from "@/components/flow/FlowUi";
+import {
+  DerivedBadge,
+  HelpTip,
+  ModeBadge,
+  Panel,
+  PanelSkeleton,
+  STRIP_CELL,
+  Stat,
+  StatStrip,
+} from "@/components/flow/FlowUi";
 import { fmtRs, signClass } from "@/components/flow/format";
 import { FLOW_UNIVERSE, useFlowState, useSampleFeeds } from "@/components/flow/useFlow";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -115,7 +124,6 @@ export default function Flow() {
 
       <PageHeader
         icon={Activity}
-        eyebrow="Positioning"
         title="Options Flow"
         description="Where premium is moving in NSE and BSE options: an interval tape, Premium Tide, writers' hedging pressure, unusual activity and the hottest chains, built from successive option-chain snapshots."
         source={
@@ -143,7 +151,7 @@ export default function Flow() {
           </>
         }
         actions={
-          <div className="flex items-center gap-2 rounded-capsule border border-border bg-card px-3 py-1">
+          <div className="flex items-center gap-2">
             <Switch id="flow-demo" checked={demo} onCheckedChange={setDemo} />
             <Label htmlFor="flow-demo" className="inline-flex items-center gap-1 text-body-sm">
               <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Sample session
@@ -153,7 +161,7 @@ export default function Flow() {
       />
 
       {noRealFlow ? (
-        <div className="flex flex-col gap-2 rounded-tile border border-border bg-surface px-3 py-3 text-body-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-tile bg-muted/50 px-3 py-3 text-body-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground">
             {anyLive
               ? "Watching the chains. The first prints appear after the next poll with trading (about 10 to 20 seconds)."
@@ -165,43 +173,53 @@ export default function Flow() {
         </div>
       ) : null}
 
-      <section aria-label="Premium summary" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <StatStrip label="Premium summary" className="grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <Stat
+          className={STRIP_CELL}
           label="Premium traded"
           value={loading ? "—" : fmtRs(summary.total)}
           hint={`${formatNumberIN(summary.prints)} prints${filters.symbol !== "ALL" ? ` · ${filters.symbol}` : ""}`}
         />
         <Stat
+          className={STRIP_CELL}
           label="Calls net"
           value={loading ? "—" : fmtRs(summary.netCe, true)}
           tone={signClass(summary.netCe)}
           hint={`Bought ${fmtRs(summary.ceBought)} · sold ${fmtRs(summary.ceSold)}`}
         />
         <Stat
+          className={STRIP_CELL}
           label="Puts net"
           value={loading ? "—" : fmtRs(summary.netPe, true)}
           tone={signClass(-summary.netPe)}
           hint={`Bought ${fmtRs(summary.peBought)} · sold ${fmtRs(summary.peSold)}`}
         />
         <Stat
+          className={STRIP_CELL}
           label="Net premium"
           value={loading ? "—" : fmtRs(summary.net, true)}
           tone={signClass(summary.net)}
           hint="Calls net − puts net"
         />
         <Stat
+          className={STRIP_CELL}
           label="At the ask"
           value={Number.isFinite(summary.askShare) ? formatPct(summary.askShare * 100, { decimals: 0 }) : "—"}
           hint="Share of premium bought"
         />
-        <Stat label="Mid / unclear" value={loading ? "—" : fmtRs(summary.mid)} hint="Left out of the tide" />
-      </section>
+        <Stat
+          className={STRIP_CELL}
+          label="Mid / unclear"
+          value={loading ? "—" : fmtRs(summary.mid)}
+          hint="Left out of the tide"
+        />
+      </StatStrip>
 
       <Tabs value={tab} onValueChange={setTab}>
         <div className="-mx-1.5 overflow-x-auto px-1.5 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+              <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
               </TabsTrigger>
             ))}
@@ -294,7 +312,7 @@ export default function Flow() {
         </TabsContent>
       </Tabs>
 
-      <p className="border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <p className="hairline-t pt-3 text-body-sm text-muted-foreground">
         Data for education and research. Not investment advice. Flow is derived in your browser from NSE/Dhan
         option-chain snapshots via your local proxy; snapshots stay on this device.
       </p>

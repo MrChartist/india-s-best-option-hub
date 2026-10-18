@@ -36,7 +36,6 @@ import {
   webhookPayload,
   type AlertEvent,
   type AlertRule,
-  type ChannelSettings,
   type DesktopPermission,
   type FeedStatus,
   type NewAlertRule,
@@ -47,9 +46,6 @@ import {
 
 export type { AlertTone, DesktopPermission, FeedStatus } from "@/lib/alerts";
 export { playAlertSound, desktopPermission, requestDesktopPermission } from "@/lib/alerts";
-
-/** Kept for older imports: the channel settings. */
-export type AlertSettings = ChannelSettings;
 
 /** Name the background runner records when it shows an alert. */
 export const RUNNER_SURFACE = "Alerts";
@@ -283,6 +279,15 @@ const positionsKey = (ps: TrackedPosition[]) => ps.map((p) => `${p.id}:${p.symbo
  * FlowFeeder for each). Only the first mounted runner in a tab, and only in the tab elected leader
  * across the browser, evaluates and delivers, so extra mounts and extra tabs never duplicate alerts.
  */
+/**
+ * Memo key for the IV-history queries. Keyed on when each query's data last changed, not on its
+ * length: the history is capped at 260 days, so a new day replaces the oldest without changing
+ * the length, and a re-written day keeps the length too.
+ */
+export function ivHistoryKey(queries: ReadonlyArray<{ data?: unknown; dataUpdatedAt: number }>): string {
+  return queries.map((q) => (q.data ? q.dataUpdatedAt : -1)).join(",");
+}
+
 export function useAlertRunner(): { feedSymbols: string[] } {
   const { rules } = useSyncExternalStore(alertStore.subscribe, alertStore.getState, alertStore.getState);
   const flowState = useSyncExternalStore(flowStore.subscribe, flowStore.getState, flowStore.getState);
@@ -359,14 +364,18 @@ export function useAlertRunner(): { feedSymbols: string[] } {
       retry: 0,
     })),
   });
-  const ivKey = ivQueries.map((q) => q.data?.length ?? -1).join(",");
-  const ivHistory = useMemo(() => {
+  const ivKey = ivHistoryKey(ivQueries);
+  const { ivHistory, ivStamps } = useMemo(() => {
     const m: Record<string, number[]> = {};
+    const stamps: Record<string, number> = {};
     ivpSymbols.forEach((s, i) => {
-      const d = ivQueries[i]?.data;
-      if (d) m[s] = d;
+      const q = ivQueries[i];
+      if (q?.data) {
+        m[s] = q.data;
+        stamps[s] = q.dataUpdatedAt;
+      }
     });
-    return m;
+    return { ivHistory: m, ivStamps: stamps };
     // ivQueries is a new array every render; ivKey tracks the data that matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ivpSymbols, ivKey]);
@@ -377,6 +386,7 @@ export function useAlertRunner(): { feedSymbols: string[] } {
     rules,
     banList,
     ivHistory,
+    ivStamps,
     flipSymbols,
     tideSymbols,
     positions,
@@ -389,6 +399,7 @@ export function useAlertRunner(): { feedSymbols: string[] } {
     rules,
     banList,
     ivHistory,
+    ivStamps,
     flipSymbols,
     tideSymbols,
     positions,
@@ -411,8 +422,8 @@ export function useAlertRunner(): { feedSymbols: string[] } {
     for (const f of Object.values(realFeeds)) {
       const withFlip = cur.flipSymbols.has(f.symbol);
       const withTide = cur.tideSymbols.has(f.symbol);
-      const ivLen = cur.ivHistory[f.symbol]?.length ?? 0;
-      const key = `${f.asOf}|${withFlip}|${withTide}|${ivLen}|${f.prints.length}`;
+      const ivStamp = cur.ivStamps[f.symbol] ?? 0;
+      const key = `${f.asOf}|${withFlip}|${withTide}|${ivStamp}|${f.prints.length}`;
       const cached = marketCache.current.get(f.symbol);
       let m: SymbolMarket | null;
       if (cached && cached.key === key) m = cached.m;

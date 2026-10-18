@@ -111,6 +111,14 @@ describe("reachability gate", () => {
     expect(c.getProxyStatus().status).toBe("offline");
   });
 
+  it("a 2xx with a malformed body is reported as invalid JSON, not as the proxy being unreachable", async () => {
+    const c = await freshClient();
+    c.markProxyOnline();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>bad gateway page</html>", { status: 200, headers: { "Content-Type": "text/html" } })));
+    await expect(c.proxyFetchJSON("/api/nse-proxy")).rejects.toThrow("Proxy returned invalid JSON");
+    expect(c.getProxyStatus().status).toBe("online");
+  });
+
   it("a forced probe ignores the backoff and a failed manual retry does not escalate", async () => {
     const c = await freshClient();
     c.markProxyOffline();

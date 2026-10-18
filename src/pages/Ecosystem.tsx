@@ -23,6 +23,7 @@ import { OutboundLink } from "@/components/brand/OutboundLink";
 import { SocialIcon } from "@/components/brand/SocialIcon";
 import { usePageMeta } from "@/hooks/useDocumentTitle";
 import { BRAND, ECOSYSTEM_PAGES, LEARN_LINKS, PRODUCTS, SOCIALS, type Product, type ProductId } from "@/lib/brand/links";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const PRODUCT_ICONS: Record<ProductId, ComponentType<LucideProps>> = {
@@ -50,26 +51,26 @@ const TOOL_PRODUCTS = PRODUCTS.filter((p) => p.id !== "nismExams" && p.id !== "b
 
 const CAMPAIGN = "ecosystem";
 
-const linkFocus = "focus-visible:shadow-ember focus-visible:outline-none";
+const linkFocus = "focus-visible:shadow-focus focus-visible:outline-none";
 
 function ProductCard({ p }: { p: Product }) {
   const Icon = PRODUCT_ICONS[p.id];
   const returning = p.status === "returning";
   return (
-    <li className={cn("flex min-w-0 flex-col rounded-card border border-border bg-card p-4 shadow-card", returning && "bg-surface/60 shadow-none")}>
+    <li className={cn("flex min-w-0 flex-col bg-card px-4 py-3", returning && "bg-surface")}>
       <div className="flex items-start gap-3">
         <span
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-tile border border-border bg-surface",
-            returning ? "text-muted-foreground" : "text-primary-ink",
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-pill",
+            returning ? "bg-control-track text-muted-foreground" : "bg-primary text-primary-foreground",
           )}
         >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+          <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="flex flex-wrap items-center gap-2 font-display text-lead font-bold text-foreground">
+          <h3 className="flex flex-wrap items-center gap-2 font-display text-headline text-foreground">
             {p.name}
-            {returning ? <span className="rounded-chip bg-muted px-1.5 py-0.5 text-micro uppercase text-muted-foreground">Returning soon</span> : null}
+            {returning ? <span className="rounded-chip bg-control-track px-1.5 py-0.5 text-micro font-medium text-muted-foreground">Returning soon</span> : null}
           </h3>
           <p className="mt-1 text-body-sm text-muted-foreground">{p.description}</p>
         </div>
@@ -80,14 +81,11 @@ function ProductCard({ p }: { p: Product }) {
             url={p.url}
             campaign={CAMPAIGN}
             label={`Open ${p.name}`}
-            className={cn(
-              "inline-flex h-8 items-center gap-1 rounded-pill border border-border bg-background px-3 text-body-sm font-semibold text-foreground transition-colors duration-fast hover:border-primary/50 hover:text-primary-ink",
-              linkFocus,
-            )}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
           >
-            Open <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+            Open <ArrowUpRight aria-hidden="true" />
           </OutboundLink>
-          <span className="ml-2 break-all text-micro font-medium normal-case tracking-normal text-muted-foreground-subtle">{new URL(p.url).host.replace(/^www\./, "")}</span>
+          <span className="ml-2 break-all text-body-sm text-muted-foreground-subtle">{new URL(p.url).host.replace(/^www\./, "")}</span>
         </div>
       )}
     </li>
@@ -97,10 +95,10 @@ function ProductCard({ p }: { p: Product }) {
 function SectionTitle({ id, children, sub }: { id: string; children: string; sub?: string }) {
   return (
     <div className="mb-3">
-      <h2 id={id} className="font-display text-title text-foreground">
+      <h2 id={id} className="font-display text-lead font-semibold text-foreground">
         {children}
       </h2>
-      {sub ? <p className="mt-1 text-body text-muted-foreground">{sub}</p> : null}
+      {sub ? <p className="mt-0.5 text-body-sm text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
@@ -112,7 +110,7 @@ export default function Ecosystem() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-8 px-1.5 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1100px] space-y-6 px-1.5 py-1 sm:px-0">
       <PageHeader
         icon={Blocks}
         eyebrow="Mr. Chartist ecosystem"
@@ -123,22 +121,16 @@ export default function Ecosystem() {
             <OutboundLink
               url={BRAND.repo}
               campaign="ecosystem-header"
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-pill border border-border bg-card px-3.5 text-body font-semibold text-foreground shadow-card transition-colors duration-fast hover:border-primary/50",
-                linkFocus,
-              )}
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
             >
-              <Star className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Star on GitHub
+              <Star className="text-primary-ink" aria-hidden="true" /> Star on GitHub
             </OutboundLink>
             <OutboundLink
               url={ECOSYSTEM_PAGES.ecosystem}
               campaign="ecosystem-header"
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-pill bg-primary px-3.5 text-body font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover",
-                linkFocus,
-              )}
+              className={buttonVariants({ size: "sm" })}
             >
-              mrchartist.com <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              mrchartist.com <ArrowUpRight aria-hidden="true" />
             </OutboundLink>
           </>
         }
@@ -149,7 +141,8 @@ export default function Ecosystem() {
         <SectionTitle id="eco-products" sub="Each opens on its own site in a new tab.">
           Products
         </SectionTitle>
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {/* One group box; cell hairlines come from each cell's outline, so a short last row stays clean. */}
+        <ul className="grid overflow-hidden rounded-tile border border-separator bg-card shadow-card sm:grid-cols-2 lg:grid-cols-3 [&>*]:shadow-[0_0_0_var(--hairline)_hsl(var(--separator))]">
           {TOOL_PRODUCTS.map((p) => (
             <ProductCard key={p.id} p={p} />
           ))}
@@ -161,7 +154,7 @@ export default function Ecosystem() {
         <SectionTitle id="eco-learn" sub="Courses, exam prep and books. The in-app Learn hub covers options basics to GEX.">
           Learn
         </SectionTitle>
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid overflow-hidden rounded-tile border border-separator bg-card shadow-card sm:grid-cols-2 [&>*]:shadow-[0_0_0_var(--hairline)_hsl(var(--separator))]">
           {LEARN_LINKS.map((l) => {
             const Icon = LEARN_ICONS[l.id] ?? BookMarked;
             return (
@@ -170,16 +163,15 @@ export default function Ecosystem() {
                   url={l.url}
                   campaign="ecosystem-learn"
                   className={cn(
-                    "group flex h-full min-w-0 items-start gap-3 rounded-tile border border-border bg-card px-3 py-2.5 transition-colors duration-fast hover:border-primary/40 hover:bg-surface",
-                    linkFocus,
+                    "group flex h-full min-w-0 items-start gap-3 px-3 py-2.5 transition-colors duration-fast hover:bg-control-track focus-visible:shadow-[inset_0_0_0_3px_hsl(var(--primary)/0.5)] focus-visible:outline-none",
                   )}
                 >
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" strokeWidth={1.75} aria-hidden="true" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-body font-semibold text-foreground">{l.name}</span>
+                    <span className="block text-headline text-foreground">{l.name}</span>
                     <span className="block text-body-sm text-muted-foreground">{l.description}</span>
                   </span>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary-ink" aria-hidden="true" />
+                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground-subtle" aria-hidden="true" />
                 </OutboundLink>
               </li>
             );
@@ -189,7 +181,7 @@ export default function Ecosystem() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Socials */}
-        <section aria-labelledby="eco-follow" className="rounded-card border border-border bg-card p-4 shadow-card sm:p-5">
+        <section aria-labelledby="eco-follow" className="rounded-card border border-separator bg-card p-4 shadow-card">
           <SectionTitle id="eco-follow" sub="Market views, charts and updates.">
             Follow for market views
           </SectionTitle>
@@ -200,8 +192,8 @@ export default function Ecosystem() {
                   url={s.url}
                   campaign="ecosystem-follow"
                   className={cn(
-                    "flex h-9 min-w-0 items-center gap-2 rounded-pill border border-border bg-background px-3 text-body-sm font-medium text-foreground transition-colors duration-fast hover:border-primary/40 hover:text-primary-ink",
-                    linkFocus,
+                    buttonVariants({ variant: "secondary" }),
+                    "w-full min-w-0 justify-start",
                   )}
                 >
                   <SocialIcon id={s.id} className="shrink-0" />
@@ -213,7 +205,7 @@ export default function Ecosystem() {
         </section>
 
         {/* GitHub */}
-        <section aria-labelledby="eco-github" className="flex flex-col rounded-card border border-border bg-card p-4 shadow-card sm:p-5">
+        <section aria-labelledby="eco-github" className="flex flex-col rounded-card border border-separator bg-card p-4 shadow-card">
           <SectionTitle id="eco-github" sub="Option Hub is free for personal use, and the source is on GitHub. A star helps other traders find it.">
             Star Option Hub on GitHub
           </SectionTitle>
@@ -221,35 +213,29 @@ export default function Ecosystem() {
             <OutboundLink
               url={BRAND.repo}
               campaign="ecosystem-github"
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-pill bg-foreground px-3.5 text-body font-semibold text-background transition-opacity duration-fast hover:opacity-90",
-                linkFocus,
-              )}
+              className={buttonVariants()}
             >
-              <Github className="h-4 w-4" aria-hidden="true" /> Star on GitHub
+              <Github aria-hidden="true" /> Star on GitHub
             </OutboundLink>
             <OutboundLink
               url={BRAND.projectPage}
               campaign="ecosystem-github"
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-pill border border-border bg-background px-3.5 text-body font-semibold text-foreground transition-colors duration-fast hover:border-primary/40",
-                linkFocus,
-              )}
+              className={buttonVariants({ variant: "secondary" })}
             >
-              Project page <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              Project page <ArrowUpRight aria-hidden="true" />
             </OutboundLink>
           </div>
         </section>
       </div>
 
       {/* About */}
-      <section aria-labelledby="eco-about" className="rounded-card border border-border bg-surface/60 p-4 sm:p-5">
+      <section aria-labelledby="eco-about" className="rounded-card border border-separator bg-surface p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-tile border border-border bg-card text-foreground shadow-card">
-            <MrChartistMark size={30} decorative />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-tile border border-separator bg-card text-foreground shadow-card">
+            <MrChartistMark size={24} decorative />
           </span>
           <div className="min-w-0 space-y-1.5">
-            <h2 id="eco-about" className="font-display text-lead font-bold text-foreground">
+            <h2 id="eco-about" className="font-display text-lead font-semibold text-foreground">
               About Mr. Chartist
             </h2>
             <p className="text-body text-foreground">
@@ -260,7 +246,7 @@ export default function Ecosystem() {
               <OutboundLink
                 url={BRAND.sebiVerifyUrl}
                 campaign="ecosystem-about"
-                className={cn("font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary", linkFocus)}
+                className={cn("font-semibold text-primary-ink underline-offset-4 hover:underline", linkFocus)}
               >
                 Verify on sebi.gov.in
               </OutboundLink>
@@ -270,7 +256,7 @@ export default function Ecosystem() {
               {BRAND.licenceSummary}{" "}
               <a
                 href={`mailto:${BRAND.licenceEmail}?subject=${encodeURIComponent("Option Hub commercial licence")}`}
-                className={cn("font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary", linkFocus)}
+                className={cn("font-semibold text-primary-ink underline-offset-4 hover:underline", linkFocus)}
               >
                 {BRAND.licenceEmail}
               </a>
@@ -279,7 +265,7 @@ export default function Ecosystem() {
                 href={BRAND.licenceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={cn("font-semibold text-foreground underline decoration-border underline-offset-4 hover:decoration-primary", linkFocus)}
+                className={cn("font-semibold text-primary-ink underline-offset-4 hover:underline", linkFocus)}
               >
                 Licence terms<span className="sr-only"> (opens in a new tab)</span>
               </a>

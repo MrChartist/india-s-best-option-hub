@@ -121,5 +121,3 @@ export const MiniChart = memo(function MiniChart({ symbol, width = 80, height = 
     />
   );
 });
-
-export default MiniChart;

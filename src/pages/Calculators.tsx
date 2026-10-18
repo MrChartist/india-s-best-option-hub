@@ -44,14 +44,13 @@ export default function Calculators() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1400px] space-y-4">
       <PageHeader
         icon={Calculator}
-        eyebrow="Tools"
         title="Calculators"
         description="F&O charges with the 2026 STT, SPAN-style margin, position sizing, option fair value and Greeks, implied volatility, exercise STT, futures basis and lot size lookup."
         source={
-          <span className="inline-flex items-center gap-1.5 rounded-chip border border-border bg-card px-2 py-0.5 text-body-sm text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-body-sm text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 text-bullish" aria-hidden="true" />
             Runs in your browser · rates from a dated table
           </span>
@@ -59,23 +58,23 @@ export default function Calculators() {
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <div className="-mx-1.5 overflow-x-auto px-1.5 pb-1 sm:mx-0 sm:px-0">
+        <div className="-mx-3 overflow-x-auto px-3 pb-1 scrollbar-hide sm:mx-0 sm:px-0">
           <TabsList className="w-max" aria-label="Calculators">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+              <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         {TABS.map(({ value, Comp }) => (
-          <TabsContent key={value} value={value} forceMount hidden={value !== tab} className="mt-4">
+          <TabsContent key={value} value={value} forceMount hidden={value !== tab} className="mt-3">
             <Comp />
           </TabsContent>
         ))}
       </Tabs>
 
-      <p className="border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <p className="hairline-t pt-3 text-body-sm text-muted-foreground">
         Data for education and research. Not investment advice. Charge rates, lot sizes and expiry rules come from a dated table marked for verification; margin is an estimate and actual exchange SPAN may differ. Confirm with your broker before trading.
       </p>
     </div>

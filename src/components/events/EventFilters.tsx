@@ -38,7 +38,7 @@ export function EventFilters({ value, onChange, onReset, counts, dirty }: EventF
     onChange({ kinds: EVENT_KINDS.filter((x) => next.includes(x)) });
   };
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-tile border border-border bg-card p-3 shadow-card lg:flex-row lg:items-center lg:justify-between" role="group" aria-label="Filter events">
+    <div className="flex min-w-0 flex-col gap-2.5 rounded-tile border border-separator bg-card px-3 py-2.5 shadow-card lg:flex-row lg:items-center lg:justify-between" role="group" aria-label="Filter events">
       <ul className="flex min-w-0 flex-wrap gap-1.5" aria-label="Event types">
         {EVENT_KINDS.map((k) => {
           const on = value.kinds.includes(k);
@@ -51,13 +51,13 @@ export function EventFilters({ value, onChange, onReset, counts, dirty }: EventF
                 aria-pressed={on}
                 onClick={() => toggle(k)}
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-capsule border px-2.5 text-body-sm font-medium transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                  on ? cn("border-transparent", s.chip) : "border-border bg-transparent text-muted-foreground hover:text-foreground",
+                  "inline-flex h-7 items-center gap-1.5 rounded-pill px-2.5 text-body font-medium transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-9",
+                  on ? s.chip : "bg-control-track text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {EVENT_KIND_LABEL[k]}
-                <span className="font-num tabular-nums">{counts[k] ?? 0}</span>
+                <span className="font-num text-body-sm tabular-nums">{counts[k] ?? 0}</span>
               </button>
             </li>
           );
@@ -65,7 +65,7 @@ export function EventFilters({ value, onChange, onReset, counts, dirty }: EventF
       </ul>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Select value={value.symbol || ALL} onValueChange={(v) => onChange({ symbol: v === ALL ? "" : v })}>
-          <SelectTrigger className="h-8 w-[160px]" aria-label="Symbol">
+          <SelectTrigger className="w-[160px]" aria-label="Symbol">
             <SelectValue placeholder="All symbols" />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -90,19 +90,19 @@ export function EventFilters({ value, onChange, onReset, counts, dirty }: EventF
         </Select>
         <div className="flex items-center gap-2">
           <Switch id={fnoId} checked={value.fnoOnly} onCheckedChange={(c) => onChange({ fnoOnly: c })} />
-          <Label htmlFor={fnoId} className="text-body-sm">
+          <Label htmlFor={fnoId} className="text-body">
             F&amp;O stocks only
           </Label>
         </div>
         <div className="flex items-center gap-2">
           <Switch id={highId} checked={value.highOnly} onCheckedChange={(c) => onChange({ highOnly: c })} />
-          <Label htmlFor={highId} className="text-body-sm">
+          <Label htmlFor={highId} className="text-body">
             High impact only
           </Label>
         </div>
         {dirty ? (
-          <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={onReset}>
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          <Button variant="ghost" onClick={onReset}>
+            <RotateCcw className="!size-3.5" aria-hidden="true" />
             Reset
           </Button>
         ) : null}

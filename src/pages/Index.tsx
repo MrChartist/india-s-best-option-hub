@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState, type ReactNode }
 import { useQueryClient } from "@tanstack/react-query";
 import { Activity, BarChart3, CalendarClock, Crosshair, Gauge, LayoutDashboard, Layers, Newspaper, Target, TrendingUp, Zap } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
 import { ExpectedMoveWidget } from "@/components/ExpectedMoveWidget";
 import { IVRankDashboard } from "@/components/IVRankWidget";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -169,10 +170,9 @@ export default function Index() {
 
   return (
     <DensityContext.Provider value={layout.density}>
-      <div className={cn("animate-fade-in", layout.density === "compact" ? "space-y-2" : "space-y-3")} data-density={layout.density}>
+      <div className={layout.density === "compact" ? "space-y-2" : "space-y-3"} data-density={layout.density}>
         <PageHeader
           icon={LayoutDashboard}
-          eyebrow="Overview"
           title="Market dashboard"
           description={<DashboardDate />}
           actions={
@@ -205,15 +205,11 @@ export default function Index() {
         <QuickTradeActions />
 
         {visible.length === 0 ? (
-          <div className="rounded-card border border-dashed border-border bg-card p-6 text-center">
+          <div className="rounded-card border border-dashed border-separator-strong bg-card p-6 text-center">
             <p className="text-body font-medium">All sections are hidden in this workspace.</p>
-            <button
-              type="button"
-              onClick={onReset}
-              className="mt-2 inline-flex h-8 items-center rounded-md bg-primary px-3 text-body-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:shadow-ember focus-visible:outline-none"
-            >
+            <Button type="button" onClick={onReset} className="mt-2">
               Restore default layout
-            </button>
+            </Button>
           </div>
         ) : null}
 
@@ -237,7 +233,7 @@ export default function Index() {
 
         <NeedsLiveStrip gaps={gaps} onRecovered={onRecovered} />
 
-        <p className="pt-4 text-center text-body-sm text-muted-foreground">
+        <p className="pt-3 text-center text-body-sm text-muted-foreground">
           Data for education and research. Not investment advice. Lot sizes and MCX dates should be verified with the exchange.
         </p>
       </div>

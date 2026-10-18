@@ -37,15 +37,9 @@ export function ConventionToggle({ value, onChange, className }: Props) {
         value={value}
         onValueChange={(v) => v && onChange(v as GexConvention)}
         aria-labelledby="gex-convention-label"
-        className="rounded-tab bg-muted p-0.5"
       >
         {OPTIONS.map((o) => (
-          <ToggleGroupItem
-            key={o.value}
-            value={o.value}
-            aria-label={o.label}
-            className="h-8 rounded-[7px] px-2.5 text-body-sm data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-card"
-          >
+          <ToggleGroupItem key={o.value} value={o.value} aria-label={o.label}>
             <span className="hidden sm:inline">{o.label}</span>
             <span className="sm:hidden">{o.short}</span>
           </ToggleGroupItem>
@@ -72,5 +66,3 @@ export function ConventionToggle({ value, onChange, className }: Props) {
     </div>
   );
 }
-
-export default ConventionToggle;

@@ -76,14 +76,14 @@ export default function OptionPriceCalculator() {
                   { t: "CE" as const, v: ce },
                   { t: "PE" as const, v: pe },
                 ].map(({ t, v }) => (
-                  <div key={t} className="rounded-tile border border-border bg-surface p-3">
+                  <div key={t} className="rounded-md bg-control-track px-3 py-2.5">
                     <div className="flex items-center justify-between">
                       <Badge variant={t === "CE" ? "bearish" : "bullish"}>
                         {formatStrike(state.strike)} {t}
                       </Badge>
                       <span className="text-body-sm text-muted-foreground">P(ITM) {formatPct(probITM({ F: v.forward, K: state.strike, T: state.T, sigma, type: t }) * 100, { decimals: 1 })}</span>
                     </div>
-                    <div className="mt-2 font-num text-num-hero font-bold tabular-nums">{formatINR(v.price * mult)}</div>
+                    <div className="mt-1 font-num text-num-hero tabular-nums">{formatINR(v.price * mult)}</div>
                     <div className="mt-1 flex gap-4 text-body-sm text-muted-foreground">
                       <span>Intrinsic {formatINR(v.intrinsic * mult)}</span>
                       <span>Time value {formatINR((v.price - v.intrinsic) * mult)}</span>
@@ -95,15 +95,15 @@ export default function OptionPriceCalculator() {
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[480px] text-body">
                   <caption className="sr-only">Greeks for call and put</caption>
-                  <thead>
-                    <tr className="border-b border-border text-left text-label uppercase text-muted-foreground">
-                      <th className="py-2 font-semibold">Greek</th>
-                      <th className="py-2 text-right font-semibold">Call</th>
-                      <th className="py-2 text-right font-semibold">Put</th>
-                      <th className="hidden py-2 pl-4 font-semibold md:table-cell">Meaning</th>
+                  <thead className="[&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                    <tr className="text-left">
+                      <th scope="col">Greek</th>
+                      <th scope="col" className="text-right">Call</th>
+                      <th scope="col" className="text-right">Put</th>
+                      <th scope="col" className="hidden py-2 pl-4 md:table-cell">Meaning</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="zebra-rows">
                     {GREEK_ROWS.map((row) => {
                       const m = row.perLot ? mult : 1;
                       return (
@@ -135,22 +135,22 @@ export default function OptionPriceCalculator() {
           <Panel title="Strike ladder" description="Same IV for every strike (no skew), so treat wing prices as a rough guide.">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[420px] text-body">
-                <thead>
-                  <tr className="border-b border-border text-label uppercase text-muted-foreground">
-                    <th className="py-2 text-right font-semibold">CE Δ</th>
-                    <th className="py-2 text-right font-semibold">CE</th>
-                    <th className="py-2 text-center font-semibold">Strike</th>
-                    <th className="py-2 text-left font-semibold">PE</th>
-                    <th className="py-2 text-left font-semibold">PE Δ</th>
+                <thead className="[&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                  <tr>
+                    <th scope="col" className="text-right">CE Δ</th>
+                    <th scope="col" className="text-right">CE</th>
+                    <th scope="col" className="text-center">Strike</th>
+                    <th scope="col" className="text-left">PE</th>
+                    <th scope="col" className="text-left">PE Δ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="zebra-rows">
                   {ladder.map((k) => {
                     const c = priceOption(state, sigma, "CE", k);
                     const p = priceOption(state, sigma, "PE", k);
                     const atm = k === state.strike;
                     return (
-                      <tr key={k} className={cn(atm && "bg-wash-brand/55")}>
+                      <tr key={k} className={cn(atm && "bg-wash-brand/60")}>
                         <td className="py-1.5 text-right tabular-nums text-muted-foreground">{formatGreek("delta", c.g.delta)}</td>
                         <td className="py-1.5 text-right tabular-nums">{formatINR(c.price * mult)}</td>
                         <td className="py-1.5 text-center font-semibold tabular-nums">{formatStrike(k)}</td>

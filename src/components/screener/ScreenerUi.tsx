@@ -17,12 +17,12 @@ export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; la
         <button
           type="button"
           aria-label={label}
-          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-capsule text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
         >
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[280px] text-xs leading-relaxed">{text}</TooltipContent>
+      <TooltipContent className="max-w-[280px] text-body-sm">{text}</TooltipContent>
     </Tooltip>
   );
 }
@@ -77,11 +77,11 @@ export function FeedBadge({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+          <span tabIndex={0} className="inline-flex rounded-chip focus-visible:shadow-focus focus-visible:outline-none">
             <SampleBadge title={label ? `${label}: sample` : "Sample data"} />
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-[260px] text-xs">
+        <TooltipContent className="max-w-[260px] text-body-sm">
           <p className="font-semibold">Sample data</p>
           {meta.reason ? <p className="text-muted-foreground">{meta.reason}</p> : null}
           <p className="mt-1 text-muted-foreground">Generated for illustration. Not market data.</p>
@@ -96,14 +96,14 @@ export function FeedBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+        <span tabIndex={0} className="inline-flex rounded-chip focus-visible:shadow-focus focus-visible:outline-none">
           <Badge variant={variant}>
             <Icon aria-hidden="true" />
             {text}
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[260px] text-xs">
+      <TooltipContent className="max-w-[260px] text-body-sm">
         <p className="font-semibold">{text}</p>
         <p className="text-muted-foreground">As of {formatTimeIST(meta.asOf)}</p>
         {meta.reason ? <p className="mt-1 text-muted-foreground">{meta.reason}</p> : null}
@@ -150,7 +150,7 @@ export function MwplMeter({
   return (
     <div className={cn("flex min-w-[96px] items-center gap-2", className)}>
       <div
-        className="relative h-1.5 w-14 overflow-hidden rounded-capsule bg-muted"
+        className="relative h-1.5 w-14 overflow-hidden rounded-capsule bg-control-track"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -181,7 +181,7 @@ export function EmptyState({ title, body, action }: { title: string; body?: Reac
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
       <SearchX className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
-      <p className="font-display text-lead">{title}</p>
+      <p className="text-headline text-foreground">{title}</p>
       {body ? <p className="max-w-md text-body-sm text-muted-foreground">{body}</p> : null}
       {action}
     </div>
@@ -200,8 +200,9 @@ export function PanelHeader({
   help?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-      <h2 className="flex items-center gap-2 font-display text-lead font-bold">
+    <div className="hairline-b flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+      {/* Same type as CardTitle so every card on the page reads alike. */}
+      <h2 className="flex items-center gap-2 font-display text-[14px] font-bold leading-snug [&>svg]:h-4 [&>svg]:w-4">
         {icon}
         {title}
         {help ? <HelpTip text={help} label={`About ${title}`} /> : null}

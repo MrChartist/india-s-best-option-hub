@@ -23,7 +23,7 @@ export function DailyBrief() {
     <Card className="overflow-hidden">
       <div className={cn("flex flex-wrap items-start gap-2", d.headPad)}>
         <Newspaper className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
-        <p className="min-w-0 flex-1 font-display text-lead font-bold leading-snug" aria-live="polite">
+        <p className="min-w-0 flex-1 font-display text-lead font-semibold" aria-live="polite">
           {b.isLoading ? "Preparing today's brief…" : b.headline}
         </p>
         {b.anySample ? <DataStatus status="sample" reason="Some lines use the labelled sample snapshot because the proxy is offline." /> : null}
@@ -32,7 +32,7 @@ export function DailyBrief() {
         <div className={cn("grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4", d.gap, d.pad, "pt-0")} aria-busy="true">
           <span className="sr-only">Loading the daily brief</span>
           {["sk-a", "sk-b", "sk-c", "sk-d"].map((id) => (
-            <Skeleton key={id} className="h-16 w-full rounded-tile" />
+            <Skeleton key={id} className="h-16 w-full rounded-md" />
           ))}
         </div>
       ) : (
@@ -41,16 +41,16 @@ export function DailyBrief() {
             <li key={item.key} className="min-w-0">
               <Link
                 to={item.to}
-                className="group flex h-full min-w-0 flex-col rounded-tile border border-border/70 bg-surface/60 px-3 py-2 transition-colors duration-150 hover:border-primary/40 hover:bg-wash-brand/40 focus-visible:shadow-ember focus-visible:outline-none"
+                className="group flex h-full min-w-0 flex-col rounded-md bg-surface px-3 py-2 transition-colors duration-fast hover:bg-wash-brand/50 focus-visible:shadow-focus focus-visible:outline-none"
               >
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-label uppercase text-muted-foreground">{item.label}</span>
+                  <span className="truncate text-label text-muted-foreground">{item.label}</span>
                   <span className="flex shrink-0 items-center gap-1">
-                    {item.sample ? <span className="rounded-chip bg-wash-warning px-1 text-micro font-semibold uppercase text-warning">Sample</span> : null}
+                    {item.sample ? <span className="rounded-chip bg-wash-warning px-1 text-micro font-semibold text-warning">Sample</span> : null}
                     <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground transition-colors group-hover:text-primary-ink" aria-hidden="true" />
                   </span>
                 </span>
-                <span className={cn("mt-0.5 font-num text-lead font-bold tabular-nums", TONE_TEXT[item.tone] === "text-muted-foreground" ? "text-foreground" : TONE_TEXT[item.tone])}>{item.value}</span>
+                <span className={cn("mt-0.5 font-num text-lead font-semibold tabular-nums", TONE_TEXT[item.tone] === "text-muted-foreground" ? "text-foreground" : TONE_TEXT[item.tone])}>{item.value}</span>
                 <span className="mt-0.5 text-body-sm leading-snug text-muted-foreground">{item.detail}</span>
               </Link>
             </li>
@@ -61,10 +61,8 @@ export function DailyBrief() {
         id="chartBook"
         campaign="dashboard-brief"
         blurb="280+ editions of premium visual chart analysis."
-        className={cn("border-t border-border/70 py-2", d.padX)}
+        className={cn("hairline-t py-2", d.padX)}
       />
     </Card>
   );
 }
-
-export default DailyBrief;

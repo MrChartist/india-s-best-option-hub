@@ -61,5 +61,3 @@ export function useLearnProgress() {
   const reset = useCallback(() => update(() => ({ v: 1, completed: {}, quiz: {} })), []);
   return useMemo(() => ({ progress, complete, uncomplete, visit, saveQuiz, reset }), [progress, complete, uncomplete, visit, saveQuiz, reset]);
 }
-
-export type LearnProgressApi = ReturnType<typeof useLearnProgress>;

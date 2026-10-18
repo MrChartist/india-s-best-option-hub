@@ -15,7 +15,6 @@ import {
   chargesForLegs,
   exerciseSTT,
   getLotSize as getContractLotSize,
-  getStrikeStep,
   intrinsic,
   isValidIsoDate,
   istDateString,
@@ -140,17 +139,8 @@ export const REFERENCE_SPOT_TABLE: ReadonlyArray<{ symbol: string; spot: number;
 /** Symbol → reference spot, built from REFERENCE_SPOT_TABLE. */
 export const SPOT_PRICE_MAP: Record<string, number> = Object.fromEntries(REFERENCE_SPOT_TABLE.map((r) => [r.symbol, r.spot]));
 
-/** Strike steps per symbol (delegates to the contract table; 50 when unknown). */
-export const STEP_SIZE_MAP: Record<string, number> = new Proxy({} as Record<string, number>, {
-  get: (_t, key) => (typeof key === "string" ? getStrikeStep(key) : undefined),
-});
-
 export function getSpotPrice(symbol: string): number {
   return SPOT_PRICE_MAP[symbol] || 2500;
-}
-
-export function getStepSize(symbol: string): number {
-  return getStrikeStep(symbol);
 }
 
 // ── Helpers ──
@@ -274,12 +264,6 @@ export function addPosition(pos: TrackedPosition): TrackedPosition[] {
   return all;
 }
 
-export function removePosition(id: string): TrackedPosition[] {
-  const all = getPositions().filter((p) => p.id !== id);
-  savePositions(all);
-  return all;
-}
-
 /** Apply updates and recompute P&L when price, entry or size changes. */
 export function applyPositionUpdate(p: TrackedPosition, updates: Partial<TrackedPosition>): TrackedPosition {
   const updated = upgrade({ ...p, ...updates });
@@ -288,16 +272,6 @@ export function applyPositionUpdate(p: TrackedPosition, updates: Partial<Tracked
     updated.pnlPercent = pnlPercentAt(updated, updated.currentPrice);
   }
   return updated;
-}
-
-export function updatePosition(id: string, updates: Partial<TrackedPosition>): TrackedPosition[] {
-  const all = getPositions().map((p) => (p.id === id ? applyPositionUpdate(p, updates) : p));
-  savePositions(all);
-  return all;
-}
-
-export function clearPositions(): void {
-  writeArray(STORAGE_KEY, []);
 }
 
 // ── Closed positions ──
@@ -378,9 +352,16 @@ export function isExpired(p: Pick<Position, "expiry">, now: Date = new Date()): 
   return Number.isFinite(at) && now.getTime() >= at;
 }
 
+/** Key for a settlement price that applies to one expiry of one underlying: `${symbol}|${yyyy-mm-dd}`. */
+export function positionSettlementKey(p: Pick<Position, "symbol" | "expiry">): string {
+  return `${p.symbol}|${positionExpiryIso(p)}`;
+}
+
 /**
  * Pure: split positions into those still open, those settled now, and expired ones that cannot be
- * settled yet because no settlement spot is known for the symbol.
+ * settled yet because no settlement spot is known. `spots` is keyed by positionSettlementKey
+ * (symbol and expiry), so two lapsed expiries of one underlying settle at their own prices; a plain
+ * symbol key is still accepted and applies to every expiry of that symbol without its own price.
  */
 export function settlePositions(
   positions: TrackedPosition[],
@@ -396,7 +377,8 @@ export function settlePositions(
       active.push(p);
       continue;
     }
-    const spot = spots[p.symbol];
+    const own = spots[positionSettlementKey(p)];
+    const spot = isNum(own) && own > 0 ? own : spots[p.symbol];
     if (!isNum(spot) || spot <= 0) {
       active.push(p);
       pending.push(p);
@@ -413,7 +395,8 @@ export function settlePositions(
 
 /**
  * Settle every expired active position at intrinsic value (STT on exercise for ITM longs) and persist.
- * `spots` maps symbol → settlement price; symbols without a price stay open and are returned as pending.
+ * `spots` maps positionSettlementKey (symbol|expiry), or a plain symbol, to the settlement price;
+ * positions without a price stay open and are returned as pending.
  */
 export function settleExpired(
   now: Date = new Date(),

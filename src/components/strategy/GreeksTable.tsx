@@ -31,31 +31,31 @@ export function GreeksTable({ rows, net, spot }: GreeksTableProps) {
   const deltaPer1Pct = net.gamma * spot * 0.01; // change in position delta for a 1% move
   return (
     <Card className="min-w-0">
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
           <Sigma className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Greeks
-          <span className="text-xs font-normal text-muted-foreground">position, signed (SELL = −)</span>
+          <span className="text-body-sm font-normal text-muted-foreground">position, signed (SELL = −)</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {rows.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No active legs.</p>
+          <p className="py-4 text-center text-body text-muted-foreground">No active legs.</p>
         ) : (
           <div className="overflow-x-auto">
-            <Table className="min-w-[400px] text-xs [&_td]:px-2 [&_th]:px-2 [&_th]:whitespace-nowrap">
+            <Table className="min-w-[400px] text-body-sm [&_td]:px-2 [&_th]:px-2 [&_th]:whitespace-nowrap">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="h-8">Leg</TableHead>
-                  <TableHead className="h-8 text-right">
+                  <TableHead>Leg</TableHead>
+                  <TableHead className="text-right">
                     <span className="inline-flex items-center gap-1">Delta <MetricTip label="Delta">Rupees gained per 1-point rise in the underlying, for the whole position.</MetricTip></span>
                   </TableHead>
-                  <TableHead className="h-8 text-right">
+                  <TableHead className="text-right">
                     <span className="inline-flex items-center gap-1">Gamma <MetricTip label="Gamma">Change in delta per 1-point move. Negative for option sellers.</MetricTip></span>
                   </TableHead>
-                  <TableHead className="h-8 text-right">
+                  <TableHead className="text-right">
                     <span className="inline-flex items-center gap-1">Theta ₹/day <MetricTip label="Theta">Rupees gained or lost per calendar day from time decay, other things equal.</MetricTip></span>
                   </TableHead>
-                  <TableHead className="h-8 text-right">
+                  <TableHead className="text-right">
                     <span className="inline-flex items-center gap-1">Vega ₹/pt <MetricTip label="Vega">Rupees gained per 1 percentage-point rise in implied volatility.</MetricTip></span>
                   </TableHead>
                 </TableRow>
@@ -68,7 +68,7 @@ export function GreeksTable({ rows, net, spot }: GreeksTableProps) {
                         <span className={cn("mr-1 font-semibold", leg.side === "BUY" ? "text-bullish" : "text-bearish")}>{leg.side === "BUY" ? "B" : "S"}</span>
                         {leg.lots}× {leg.type === "FUT" ? "FUT" : `${formatStrike(leg.strike)} ${leg.type}`}
                       </span>
-                      <span className="block whitespace-nowrap text-[10px] leading-tight text-muted-foreground">{formatDateIST(leg.expiry).replace(/ \d{4}$/, "")}</span>
+                      <span className="block whitespace-nowrap text-micro font-normal text-muted-foreground">{formatDateIST(leg.expiry).replace(/ \d{4}$/, "")}</span>
                     </TableCell>
                     <TableCell className={cn("py-1.5 text-right", tone(position.delta))}>{fmt(position.delta, 1)}</TableCell>
                     <TableCell className={cn("py-1.5 text-right", tone(position.gamma))}>{fmt(position.gamma, 3)}</TableCell>

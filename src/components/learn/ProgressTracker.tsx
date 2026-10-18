@@ -59,9 +59,9 @@ export default function ProgressTracker({
     const stats = completionStats(progress, lessons.map((l) => l.slug));
     const path = PATHS.find((p) => p.id === pathId);
     return (
-      <nav aria-label={`${path?.title ?? "Path"} lessons`} className={cn("rounded-card border border-border bg-card p-4 shadow-card", className)}>
+      <nav aria-label={`${path?.title ?? "Path"} lessons`} className={cn("rounded-card border border-separator bg-card p-4 shadow-card", className)}>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="font-display text-body font-bold text-foreground">{path?.title}</p>
+          <p className="font-display text-body font-semibold text-foreground">{path?.title}</p>
           <span className="font-num text-body-sm tabular-nums text-muted-foreground">
             {stats.done}/{stats.total}
           </span>
@@ -80,7 +80,7 @@ export default function ProgressTracker({
                   to={`/learn/${l.slug}`}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex items-start gap-2 rounded-tab px-2 py-1.5 text-body-sm transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
+                    "flex items-start gap-2 rounded-tab px-2 py-1.5 text-body-sm transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none",
                     current ? "bg-wash-brand font-semibold text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
@@ -98,14 +98,14 @@ export default function ProgressTracker({
 
   const overall = completionStats(progress, LESSONS.map((l) => l.slug));
   return (
-    <section aria-label="Your progress" className={cn("rounded-card border border-border bg-card p-4 shadow-card sm:p-5", className)}>
+    <section aria-label="Your progress" className={cn("rounded-card border border-separator bg-card p-4 shadow-card sm:p-5", className)}>
       <div className="flex items-center gap-4">
         <div className="relative grid place-items-center">
           <Ring pct={overall.pct} />
-          <span className="absolute font-num text-body font-bold tabular-nums text-foreground">{overall.pct}%</span>
+          <span className="absolute font-num text-body font-semibold tabular-nums text-foreground">{overall.pct}%</span>
         </div>
         <div className="min-w-0">
-          <p className="font-display text-lead font-bold text-foreground">Your progress</p>
+          <p className="font-display text-lead font-semibold text-foreground">Your progress</p>
           <p className="text-body-sm text-muted-foreground">
             {overall.done} of {overall.total} lessons complete. Saved in this browser only.
           </p>
@@ -117,7 +117,7 @@ export default function ProgressTracker({
           return (
             <li key={p.id}>
               <div className="mb-1 flex items-baseline justify-between gap-2 text-body-sm">
-                <a href={`#path-${p.id}`} className="truncate text-foreground hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none">
+                <a href={`#path-${p.id}`} className="truncate text-foreground hover:text-primary-ink focus-visible:shadow-focus focus-visible:outline-none">
                   {p.title}
                 </a>
                 <span className="font-num tabular-nums text-muted-foreground">
@@ -135,7 +135,7 @@ export default function ProgressTracker({
           onClick={() => {
             if (typeof window === "undefined" || window.confirm("Clear all Learn progress and quiz scores in this browser?")) onReset();
           }}
-          className="mt-4 text-body-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+          className="mt-4 text-body-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:shadow-focus focus-visible:outline-none"
         >
           Reset progress
         </button>

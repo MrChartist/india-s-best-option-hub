@@ -96,11 +96,11 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2">
             <Grid3x3 className="h-4 w-4 text-primary-ink" aria-hidden="true" /> P&L table
-            <span className="text-xs font-normal text-muted-foreground">spot × date{ivShift !== 0 ? `, IV ${ivShift > 0 ? "+" : "−"}${Math.abs(ivShift * 100).toFixed(1)} pts` : ""}</span>
+            <span className="text-body-sm font-normal text-muted-foreground">spot × date{ivShift !== 0 ? `, IV ${ivShift > 0 ? "+" : "−"}${Math.abs(ivShift * 100).toFixed(1)} pts` : ""}</span>
           </CardTitle>
           <div className="flex flex-wrap items-center gap-1.5">
             <Segmented ariaLabel="Rows" value={rowMode} onChange={setRowMode} options={[{ value: "sigma", label: "σ steps" }, { value: "strikes", label: "Strikes" }]} />
@@ -121,18 +121,18 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
       </CardHeader>
       <CardContent>
         {matrix.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Add legs to see P&L across prices and dates.</p>
+          <p className="py-6 text-center text-body text-muted-foreground">Add legs to see P&L across prices and dates.</p>
         ) : (
-          <div ref={scrollRef0} className="overflow-x-auto rounded-tile border border-border">
-            <table className="w-full min-w-[480px] border-collapse text-xs">
+          <div ref={scrollRef0} className="overflow-x-auto rounded-md border border-separator">
+            <table className="w-full min-w-[480px] border-collapse text-body-sm">
               <caption className="sr-only">Model P&L by underlying price (rows) and date (columns)</caption>
               <thead>
-                <tr className="bg-surface">
-                  <th scope="col" className="sticky left-0 z-10 w-[1%] bg-surface px-2 py-1.5 text-left text-label uppercase text-muted-foreground">
+                <tr className="bg-surface [&>th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                  <th scope="col" className="sticky left-0 z-10 w-[1%] bg-surface px-2 py-1.5 text-left text-label text-muted-foreground">
                     {symbol}
                   </th>
                   {columns.map((c, i) => (
-                    <th key={c.at.getTime()} scope="col" className={cn("px-1.5 py-1.5 text-right text-label uppercase text-muted-foreground", c.label === "At expiry" && "text-foreground")}>
+                    <th key={c.at.getTime()} scope="col" className={cn("px-1.5 py-1.5 text-right text-label text-muted-foreground", c.label === "At expiry" && "text-foreground")}>
                       {colLabel(i)}
                     </th>
                   ))}
@@ -140,10 +140,10 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
               </thead>
               <tbody>
                 {rows.map((row, ri) => (
-                  <tr key={`${row.spot}-${ri}`} className={cn("border-t border-border/60", row.atSpot && "outline outline-1 -outline-offset-1 outline-primary/45")}>
-                    <th scope="row" className={cn("sticky left-0 z-10 w-[1%] whitespace-nowrap bg-card px-2 py-1 text-left font-num font-medium normal-case tracking-normal", row.atSpot && "bg-wash-brand")}>
+                  <tr key={`${row.spot}-${ri}`} className={cn("border-t border-separator", row.atSpot && "outline outline-1 -outline-offset-1 outline-primary/45")}>
+                    <th scope="row" className={cn("sticky left-0 z-10 w-[1%] whitespace-nowrap bg-card px-2 py-1 text-left font-num font-medium", row.atSpot && "bg-wash-brand")}>
                       {formatStrike(Math.round(row.spot))}
-                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">{row.label}</span>
+                      <span className="ml-1 text-micro font-normal text-muted-foreground">{row.label}</span>
                     </th>
                     {(matrix[ri] ?? []).map((v, ci) => {
                       const a = Number.isFinite(v) ? Math.min(1, Math.pow(Math.abs(v) / maxAbs, 0.7)) * 0.55 : 0;
@@ -164,7 +164,7 @@ export function PnlHeatTable({ legs, symbol, spot, now, r, q, ivShift, frontExpi
             </table>
           </div>
         )}
-        <div className="mt-2 space-y-1 text-[11px] leading-relaxed text-muted-foreground">
+        <div className="mt-2 space-y-1 text-body-sm text-muted-foreground">
           <p>
             Model values (Black-76, current IV{ivShift !== 0 ? " with your shift" : ""}). {footnote.columns} {rowMode === "sigma" ? "σ = ATM IV × √time to expiry." : ""}
           </p>

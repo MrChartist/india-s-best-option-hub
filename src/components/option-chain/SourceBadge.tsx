@@ -23,14 +23,14 @@ export function SourceBadge({ source, asOf, stale, isLive, reason }: SourceBadge
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-focus focus-visible:outline-none">
           <Badge variant={variant}>
             <Icon aria-hidden="true" />
             {text}
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[260px] text-xs">
+      <TooltipContent className="max-w-[260px]">
         <p className="font-semibold">{text}</p>
         {asOf ? <p className="text-muted-foreground">As of {formatTimeIST(asOf, { seconds: true })}</p> : null}
         {reason ? <p className="mt-1 text-muted-foreground">{reason}</p> : null}

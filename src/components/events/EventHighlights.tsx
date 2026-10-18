@@ -20,9 +20,9 @@ const SESSION_TEXT: Record<string, string> = {
 
 function CardShell({ icon: Icon, title, aside, children, className }: { icon: typeof Flame; title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <Card className={cn("flex min-w-0 flex-col p-3.5", className)}>
+    <Card className={cn("flex min-w-0 flex-col px-4 py-3", className)}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+        <h2 className="flex items-center gap-1.5 text-headline text-muted-foreground">
           <Icon className="h-3.5 w-3.5" aria-hidden="true" />
           {title}
         </h2>
@@ -48,10 +48,9 @@ export function EventHighlights({ events, today, week, now }: { events: MarketEv
         icon={CalendarDays}
         title={`Today · ${dayLabel(today)}`}
         aside={<span className={cn("text-body-sm", isTradingDay(today) ? "text-bullish" : "text-muted-foreground")}>{SESSION_TEXT[session] ?? ""}</span>}
-        className="ring-1 ring-primary/30"
       >
         {todays.length ? (
-          <ul className="-my-1 divide-y divide-border">
+          <ul className="-my-1 divide-y divide-separator">
             {todays.slice(0, 4).map((e) => (
               <EventRow key={e.id} event={e} today={today} compact stacked />
             ))}
@@ -80,7 +79,7 @@ export function EventHighlights({ events, today, week, now }: { events: MarketEv
               const s = EVENT_KIND_STYLE[kind];
               const Icon = s.icon;
               return (
-                <li key={kind} className={cn("inline-flex h-6 items-center gap-1 rounded-chip px-2 text-body-sm font-medium", s.chip)}>
+                <li key={kind} className={cn("inline-flex h-6 items-center gap-1 rounded-pill px-2 text-body-sm font-medium", s.chip)}>
                   <Icon className="h-3 w-3" aria-hidden="true" />
                   {EVENT_KIND_LABEL[kind]} <span className="font-num font-semibold tabular-nums">{n}</span>
                 </li>

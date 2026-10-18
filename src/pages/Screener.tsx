@@ -64,11 +64,11 @@ function Kpi({
       onClick={onClick}
       aria-pressed={pressed}
       className={cn(
-        "flex flex-col items-start rounded-tile border bg-card px-3 py-2 text-left shadow-card transition-colors duration-fast hover:border-primary/40 focus-visible:shadow-ember focus-visible:outline-none",
-        pressed ? "border-primary/50" : "border-border",
+        "flex flex-col items-start rounded-tile border bg-card px-3 py-2 text-left shadow-card transition-[border-color,box-shadow] duration-fast hover:border-separator-strong focus-visible:shadow-focus focus-visible:outline-none",
+        pressed ? "border-primary/60 shadow-[inset_0_0_0_var(--hairline)_hsl(var(--primary)/0.6)]" : "border-separator",
       )}
     >
-      <span className="text-label uppercase text-muted-foreground">{label}</span>
+      <span className="text-body-sm font-medium text-muted-foreground">{label}</span>
       <span className={cn("font-num text-title tabular-nums", tone)}>{value}</span>
     </button>
   );
@@ -159,10 +159,9 @@ export default function Screener() {
   const banSample = data.ban.banMeta?.source === "sample" || data.ban.mwplMeta?.source === "sample";
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4 px-4 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1500px] space-y-4">
       <PageHeader
         icon={ScanSearch}
-        eyebrow="Markets"
         title="F&O Screener"
         description="Every NSE F&O stock and index with buildup, ATM IV, IV percentile, PCR, volume spikes, MWPL, ban list, basis and rollover in one sortable table. Open any row's menu for its chain, the Strategy Builder, the Optimizer or a suggested structure."
         source={
@@ -201,7 +200,7 @@ export default function Screener() {
       {danger.length > 0 ? (
         <div
           role="status"
-          className="flex flex-wrap items-start gap-2 rounded-tile border border-bearish/40 bg-wash-loss px-3 py-2 text-body-sm text-bearish"
+          className="flex flex-wrap items-start gap-2 rounded-tile bg-wash-loss px-3 py-2 text-body-sm text-bearish"
         >
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p className="min-w-0 flex-1">
@@ -215,7 +214,7 @@ export default function Screener() {
           </p>
           <button
             type="button"
-            className="rounded-chip font-semibold underline-offset-2 hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+            className="rounded-chip font-semibold underline-offset-2 hover:underline focus-visible:shadow-focus focus-visible:outline-none"
             onClick={() => setParam("tab", "ban")}
           >
             View ban list
@@ -249,10 +248,10 @@ export default function Screener() {
       </div>
 
       <Tabs value={tab} onValueChange={(t) => setParam("tab", t === "table" ? null : t)}>
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+              <TabsTrigger key={t.value} value={t.value} className="text-body">
                 {t.label}
               </TabsTrigger>
             ))}
@@ -309,7 +308,7 @@ export default function Screener() {
         onOpenChange={(o) => !o && setSuggestRow(null)}
       />
 
-      <p className="border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <p className="hairline-t pt-3 text-body-sm text-muted-foreground">
         Data for education and research. Not investment advice. Prices from NSE; futures OI, basis and rollover from the
         NSE F&amp;O bhavcopy (end of day); MWPL and ban list from NSE clearing files; IV and PCR from option chains via
         your local proxy; HV and volume averages from daily candles. IVs are solved with Black-76 on the put-call parity

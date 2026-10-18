@@ -145,7 +145,7 @@ export function TargetPriceChart({ spot, forward, sigma, T, target, onChange, st
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      className="w-full cursor-ew-resize touch-none select-none rounded-tile focus-visible:shadow-ember focus-visible:outline-none"
+      className="w-full cursor-ew-resize touch-none select-none rounded-tile focus-visible:shadow-focus focus-visible:outline-none"
     >
       <p id={descId} className="sr-only">
         Expected price distribution at the target date. {EM_METHOD_LABEL.iv} range {lowerText} to {upperText}, spot {formatStrike(Math.round(spot * 100) / 100)}. Arrow keys move one

@@ -26,9 +26,9 @@ export function SymbolPicker({ value, onChange }: { value: string; onChange: (s:
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" role="combobox" aria-expanded={open} aria-label={`Underlying: ${value}`} className="h-8 w-[150px] justify-between px-2.5 text-xs font-semibold">
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} aria-label={`Underlying: ${value}`} className="w-[150px] justify-between pl-2.5 pr-1.5 font-semibold">
           <span className="truncate">{value}</span>
-          <ChevronsUpDown className="h-3.5 w-3.5 opacity-60" />
+          <ChevronsUpDown className="!size-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[240px] p-0" align="start">
@@ -38,7 +38,7 @@ export function SymbolPicker({ value, onChange }: { value: string; onChange: (s:
             <CommandEmpty>No symbol found.</CommandEmpty>
             <CommandGroup heading="Indices">
               {indices.map((s) => (
-                <CommandItem key={s} value={s} onSelect={() => pick(s)} className="text-xs">
+                <CommandItem key={s} value={s} onSelect={() => pick(s)} className="text-body-sm">
                   <Check className={cn("mr-2 h-3.5 w-3.5", value === s ? "opacity-100" : "opacity-0")} />
                   {s}
                 </CommandItem>
@@ -46,10 +46,10 @@ export function SymbolPicker({ value, onChange }: { value: string; onChange: (s:
             </CommandGroup>
             <CommandGroup heading="F&O stocks">
               {stocks.map((s) => (
-                <CommandItem key={s} value={s} onSelect={() => pick(s)} className="text-xs">
+                <CommandItem key={s} value={s} onSelect={() => pick(s)} className="text-body-sm">
                   <Check className={cn("mr-2 h-3.5 w-3.5", value === s ? "opacity-100" : "opacity-0")} />
                   {s}
-                  {!CONTRACT_SPECS[s] && <span className="ml-auto text-[10px] text-muted-foreground">lot size unverified</span>}
+                  {!CONTRACT_SPECS[s] && <span className="ml-auto text-micro text-muted-foreground">lot size unverified</span>}
                 </CommandItem>
               ))}
             </CommandGroup>

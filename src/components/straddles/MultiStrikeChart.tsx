@@ -114,9 +114,9 @@ export function MultiStrikeChart({ snaps, mult, unit, mode, domain, highlight }:
                   <TableRow key={x.strike}>
                     <TableCell className="whitespace-nowrap font-num tabular-nums">
                       <span className="inline-flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorOf(i) }} aria-hidden="true" />
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-capsule" style={{ background: colorOf(i) }} aria-hidden="true" />
                         {formatStrike(x.strike)}
-                        {x.strike === centre ? <span className="text-label uppercase text-muted-foreground">ATM</span> : null}
+                        {x.strike === centre ? <span className="text-label text-muted-foreground">ATM</span> : null}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-num tabular-nums">{formatINR(x.first * mult, { decimals: dec })}</TableCell>

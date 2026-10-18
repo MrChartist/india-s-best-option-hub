@@ -256,8 +256,6 @@ export const columnDefs: ColumnDef[] = [
 const ORDER_INDEX = new Map<ColumnId, number>(COLUMN_ORDER.map((id, i) => [id, i]));
 columnDefs.sort((a, b) => (ORDER_INDEX.get(a.id) ?? 0) - (ORDER_INDEX.get(b.id) ?? 0));
 
-export const columnById: Record<ColumnId, ColumnDef> = Object.fromEntries(columnDefs.map((c) => [c.id, c])) as Record<ColumnId, ColumnDef>;
-
 export function visibleColumns(ids: readonly ColumnId[]): ColumnDef[] {
   const set = new Set(ids);
   return columnDefs.filter((c) => set.has(c.id));

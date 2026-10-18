@@ -449,8 +449,3 @@ export function startMarketWS(): void {
   });
   marketWS.connect();
 }
-
-/** True once startMarketWS() has run in this page session. */
-export function isMarketWSStarted(): boolean {
-  return started;
-}

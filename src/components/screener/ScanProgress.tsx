@@ -33,16 +33,15 @@ export function ScanProgress({ progress, enabled, onPause, onResume, onReset }: 
             : "Waiting";
 
   return (
-    <div className="flex w-full flex-col gap-1.5 rounded-tile border border-border bg-card px-3 py-2 sm:w-[360px]">
+    <div className="flex w-full flex-col gap-1.5 rounded-tile border border-separator bg-card px-3 py-2 shadow-card sm:w-[340px]">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-label uppercase text-muted-foreground">Per-stock scan</span>
+        <span className="text-headline">Per-stock scan</span>
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
                 onClick={paused ? onResume : onPause}
                 disabled={!enabled}
                 aria-label={paused ? "Resume scan" : "Pause scan"}
@@ -50,20 +49,20 @@ export function ScanProgress({ progress, enabled, onPause, onResume, onReset }: 
                 {paused ? <Play /> : <Pause />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs">{paused ? "Resume" : "Pause"} the rotating fetch</TooltipContent>
+            <TooltipContent className="text-body-sm">{paused ? "Resume" : "Pause"} the rotating fetch</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onReset} disabled={!enabled} aria-label="Clear cached scan and start again">
+              <Button variant="ghost" size="icon" onClick={onReset} disabled={!enabled} aria-label="Clear cached scan and start again">
                 <RotateCcw />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="text-xs">Clear the saved scan and start again</TooltipContent>
+            <TooltipContent className="text-body-sm">Clear the saved scan and start again</TooltipContent>
           </Tooltip>
         </div>
       </div>
       <div
-        className="relative h-1.5 overflow-hidden rounded-capsule bg-muted"
+        className="relative h-1 overflow-hidden rounded-capsule bg-control-track"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={total}
@@ -76,14 +75,14 @@ export function ScanProgress({ progress, enabled, onPause, onResume, onReset }: 
       </div>
       <div className="flex items-center justify-between gap-2 text-body-sm font-normal text-muted-foreground">
         <span className={cn("flex min-w-0 items-center gap-1 truncate", offlineReason && "text-warning")} aria-live="polite">
-          {offlineReason ? <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" /> : current && !paused ? <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary" aria-hidden="true" /> : null}
+          {offlineReason ? <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" /> : current && !paused ? <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-capsule bg-primary" aria-hidden="true" /> : null}
           <span className="truncate">{status}</span>
         </span>
         <span className="shrink-0 font-num tabular-nums">
           {fresh}/{done}/{total}
         </span>
       </div>
-      <p className="text-body-sm font-normal leading-snug text-muted-foreground">
+      <p className="text-micro font-normal text-muted-foreground">
         Fresh / scanned / total. One request every {SCAN_INTERVAL_MS / 1000} s, visible rows first. Older values show a clock.
       </p>
     </div>

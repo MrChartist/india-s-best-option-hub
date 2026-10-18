@@ -129,7 +129,7 @@ export function SmileChart({ symbol, smiles, chains, isSample, prev }: SmileChar
           <>
             {isSample ? <SampleBadge /> : <DerivedBadge title="IV solved with Black-76" />}
             <Select value={expiry} onValueChange={setExpiry}>
-              <SelectTrigger className="h-8 w-[180px]" aria-label="Expiry">
+              <SelectTrigger className="w-[180px]" aria-label="Expiry">
                 <SelectValue placeholder="Expiry" />
               </SelectTrigger>
               <SelectContent>

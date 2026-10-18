@@ -6,16 +6,8 @@ const token = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
 
 export default {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
-  prefix: "",
+  content: ["./src/**/*.{ts,tsx}"],
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
@@ -23,16 +15,17 @@ export default {
         display: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "SF Mono", "Menlo", "monospace"],
       },
+      // macOS text styles mapped to Inter (Body 13, Headline 13 semibold, Title 1 22).
       fontSize: {
-        "2xs": ["0.8125rem", { lineHeight: "1rem" }],
-        micro: ["10px", { lineHeight: "1.1", letterSpacing: "0.08em", fontWeight: "650" }],
-        label: ["11px", { lineHeight: "1.1", letterSpacing: "0.07em", fontWeight: "650" }],
-        "body-sm": ["12.5px", { lineHeight: "1.5" }],
-        body: ["13px", { lineHeight: "1.5" }],
-        lead: ["14px", { lineHeight: "1.5", fontWeight: "500" }],
-        title: ["20px", { lineHeight: "1.16", letterSpacing: "-0.005em", fontWeight: "700" }],
-        display: ["28px", { lineHeight: "1.1", letterSpacing: "-0.03em", fontWeight: "800" }],
-        "num-hero": ["34px", { lineHeight: "1", letterSpacing: "-0.02em", fontWeight: "700" }],
+        micro: ["10px", { lineHeight: "13px", letterSpacing: "0.01em", fontWeight: "500" }],
+        label: ["11px", { lineHeight: "14px", letterSpacing: "0", fontWeight: "600" }],
+        "body-sm": ["12px", { lineHeight: "16px" }],
+        body: ["13px", { lineHeight: "18px" }],
+        headline: ["13px", { lineHeight: "18px", fontWeight: "600" }],
+        lead: ["15px", { lineHeight: "20px", fontWeight: "500" }],
+        title: ["17px", { lineHeight: "22px", letterSpacing: "-0.005em", fontWeight: "600" }],
+        display: ["22px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "num-hero": ["28px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }],
       },
       colors: {
         border: token("border"),
@@ -40,10 +33,32 @@ export default {
         ring: token("ring"),
         background: token("background"),
         foreground: token("foreground"),
-        surface: {
-          DEFAULT: token("surface"),
-          foreground: token("surface-foreground"),
+        surface: token("surface"),
+        window: {
+          DEFAULT: token("window"),
+          backdrop: token("window-backdrop"),
         },
+        // Alpha is part of these tokens, so they take no <alpha-value>.
+        separator: {
+          DEFAULT: "hsl(var(--separator))",
+          strong: "hsl(var(--separator-strong))",
+        },
+        selection: {
+          DEFAULT: token("selection-focused"),
+          foreground: token("selection-focused-foreground"),
+          unfocused: "hsl(var(--selection-unfocused))",
+        },
+        control: {
+          DEFAULT: token("control"),
+          track: "hsl(var(--control-track))",
+        },
+        knob: token("knob"),
+        // Grouped (inset) lists: System Settings-style backdrop and the rows that sit on it.
+        grouped: {
+          DEFAULT: token("grouped"),
+          row: token("grouped-row"),
+        },
+        zebra: "hsl(var(--zebra))",
         primary: {
           DEFAULT: token("primary"),
           foreground: token("primary-foreground"),
@@ -78,8 +93,6 @@ export default {
         sidebar: {
           DEFAULT: token("sidebar-background"),
           foreground: token("sidebar-foreground"),
-          primary: token("sidebar-primary"),
-          "primary-foreground": token("sidebar-primary-foreground"),
           accent: token("sidebar-accent"),
           "accent-foreground": token("sidebar-accent-foreground"),
           border: token("sidebar-border"),
@@ -93,19 +106,11 @@ export default {
           DEFAULT: token("bearish"),
           foreground: token("bearish-foreground"),
         },
-        warning: {
-          DEFAULT: token("warning"),
-          foreground: token("warning-foreground"),
-        },
-        info: {
-          DEFAULT: token("info"),
-          foreground: token("info-foreground"),
-        },
+        warning: token("warning"),
+        info: token("info"),
         product: {
           DEFAULT: token("product"),
-          foreground: token("product-foreground"),
           wash: token("wash-info"),
-          ink: token("product-ink"),
         },
         wash: {
           profit: token("wash-profit"),
@@ -115,19 +120,9 @@ export default {
           info: token("wash-info"),
           itm: token("wash-itm"),
         },
-        sentiment: {
-          1: token("sentiment-1"),
-          2: token("sentiment-2"),
-          3: token("sentiment-3"),
-          4: token("sentiment-4"),
-          5: token("sentiment-5"),
-        },
         chart: {
-          grid: token("chart-grid"),
-          axis: token("chart-axis"),
           call: token("chart-call"),
           put: token("chart-put"),
-          fii: token("chart-fii"),
           1: token("chart-1"),
           2: token("chart-2"),
           3: token("chart-3"),
@@ -135,19 +130,19 @@ export default {
           5: token("chart-5"),
           "4-ink": token("chart-4-ink"),
           "5-ink": token("chart-5-ink"),
-          6: token("chart-6"),
         },
       },
+      // macOS radius scale: text fields 5px, push buttons and segments 6px, menus 8px, group boxes 10px, sheets 12px.
       borderRadius: {
         lg: "var(--radius)",
-        md: "10px",
-        sm: "8px",
-        chip: "6px",
-        pill: "7px",
-        tab: "8px",
+        md: "8px",
+        sm: "5px",
+        chip: "4px",
+        pill: "6px",
+        tab: "6px",
         tile: "10px",
-        card: "14px",
-        panel: "24px",
+        card: "10px",
+        panel: "12px",
         capsule: "999px",
       },
       boxShadow: {
@@ -155,23 +150,21 @@ export default {
         "card-hover": "var(--shadow-card-hover)",
         float: "var(--shadow-float)",
         ember: "var(--shadow-ember)",
-        // Legacy aliases: the old neon glows now resolve to the calm card shadow.
-        glow: "var(--shadow-card)",
-        "glow-sm": "var(--shadow-card)",
-        "glow-lg": "var(--shadow-card)",
+        focus: "var(--focus-ring)",
+        control: "var(--shadow-control)",
+        window: "var(--shadow-window)",
       },
       transitionTimingFunction: {
         expo: "cubic-bezier(0.16, 1, 0.3, 1)",
         press: "cubic-bezier(0.25, 1, 0.5, 1)",
-        spring: "cubic-bezier(0.3, 1.4, 0.5, 1)",
-        overlay: "cubic-bezier(0.32, 0.72, 0, 1)",
-        move: "cubic-bezier(0.65, 0, 0.35, 1)",
+        out: "var(--ease-out)",
+        spring: "var(--ease-spring)",
       },
       transitionDuration: {
-        press: "120ms",
-        fast: "150ms",
-        hover: "250ms",
-        page: "320ms",
+        fast: "120ms",
+        base: "200ms",
+        hover: "200ms",
+        sheet: "280ms",
         settle: "500ms",
       },
       keyframes: {
@@ -183,20 +176,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "fade-in": {
-          from: { opacity: "0", transform: "translateY(6px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-        "slide-up": {
-          from: { opacity: "0", transform: "translateY(12px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "fade-in": "fade-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
-        "slide-up": "slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

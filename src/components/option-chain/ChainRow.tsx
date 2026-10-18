@@ -35,8 +35,8 @@ const GAMMA_CLASS: Record<GammaBadge, string> = {
   FLIP: "bg-wash-warning text-warning",
 };
 
-/** Inline level badge next to the strike: 14px tall so the row keeps its fixed 32px height. */
-const LEVEL_BADGE = "inline-flex h-[14px] shrink-0 items-center rounded-chip px-1 text-[9px] font-bold leading-none";
+/** Inline level badge next to the strike: 14px tall so the row keeps its fixed 28px height. */
+const LEVEL_BADGE = "inline-flex h-[14px] shrink-0 items-center rounded-[3px] px-1 text-[9px] font-bold leading-none";
 
 function ChainRowInner({
   row,
@@ -62,10 +62,10 @@ function ChainRowInner({
 
   const sideCell = (itm: boolean, delta: DeltaMark | undefined, isFocusedSide: boolean) =>
     cn(
-      "h-8 px-2 py-0 tabular-nums whitespace-nowrap transition-colors duration-fast",
-      itm && !isATM && "bg-[hsl(var(--wash-itm))]",
+      "h-7 px-2 py-0 tabular-nums whitespace-nowrap transition-colors duration-fast",
+      itm && !isATM && "bg-wash-itm",
       delta && "bg-wash-info/80",
-      focused && isFocusedSide && "bg-primary/[0.07]",
+      focused && isFocusedSide && "bg-primary/[0.08]",
     );
   const lastPe = peCols.length - 1;
 
@@ -79,8 +79,8 @@ function ChainRowInner({
         onFocusRow(row.strike, side);
       }}
       className={cn(
-        "group/row h-8 border-b border-border/60 text-[12.5px] transition-colors duration-fast [contain-intrinsic-size:auto_32px] [content-visibility:auto] hover:bg-accent/50",
-        isATM && "bg-wash-brand/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.55)]",
+        "group/row h-7 text-body transition-colors duration-fast [contain-intrinsic-size:auto_28px] [content-visibility:auto] hover:bg-control-track",
+        isATM && "bg-wash-brand/40 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.5)]",
         focused && "shadow-[inset_0_0_0_2px_hsl(var(--primary)/0.7)]",
       )}
     >
@@ -90,14 +90,14 @@ function ChainRowInner({
         </td>
       ))}
 
-      <td data-side="CE" className={cn("h-8 w-[52px] px-0.5 py-0 [@media(pointer:coarse)]:w-[62px]", ceItm && !isATM && "bg-[hsl(var(--wash-itm))]")}>
+      <td data-side="CE" className={cn("h-7 w-[52px] px-0.5 py-0 [@media(pointer:coarse)]:w-[62px]", ceItm && !isATM && "bg-wash-itm")}>
         <TradeButtons strike={row.strike} side="CE" onTrade={onTrade} near={nearATM} />
       </td>
 
       <th
         scope="row"
         className={cn(
-          "sticky left-0 right-0 z-[1] h-8 whitespace-nowrap border-x border-border !px-2 !py-0 !text-center font-normal",
+          "sticky left-0 right-0 z-[1] h-7 whitespace-nowrap border-x border-separator !px-2 !py-0 !text-center font-normal",
           isATM ? "bg-wash-brand" : "bg-surface",
         )}
       >
@@ -107,7 +107,7 @@ function ChainRowInner({
               {ceDelta}
             </span>
           )}
-          <span className={cn("font-bold tabular-nums", isATM ? "text-primary-ink" : isMaxPain ? "text-warning" : "text-foreground")}>{formatStrike(row.strike)}</span>
+          <span className={cn("font-semibold tabular-nums", isATM ? "text-primary-ink" : isMaxPain ? "text-warning" : "text-foreground")}>{formatStrike(row.strike)}</span>
           {isATM && <span className={cn(LEVEL_BADGE, "bg-primary text-primary-foreground")}>ATM</span>}
           {isMaxPain && (
             <span className={cn(LEVEL_BADGE, "bg-wash-warning text-warning")} title="Max pain: settlement strike with the least writer payout">
@@ -127,7 +127,7 @@ function ChainRowInner({
         </div>
       </th>
 
-      <td data-side="PE" className={cn("h-8 w-[52px] px-0.5 py-0 [@media(pointer:coarse)]:w-[62px]", peItm && !isATM && "bg-[hsl(var(--wash-itm))]")}>
+      <td data-side="PE" className={cn("h-7 w-[52px] px-0.5 py-0 [@media(pointer:coarse)]:w-[62px]", peItm && !isATM && "bg-wash-itm")}>
         <TradeButtons strike={row.strike} side="PE" onTrade={onTrade} near={nearATM} />
       </td>
 

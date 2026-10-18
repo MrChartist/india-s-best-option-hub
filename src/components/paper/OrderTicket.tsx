@@ -154,7 +154,7 @@ export function OrderTicket({
         <div className="grid min-w-0 gap-1.5">
           <Label htmlFor={`${uid}-sym`}>Underlying</Label>
           <Select value={symbol} onValueChange={onSymbol}>
-            <SelectTrigger id={`${uid}-sym`} className="h-9 w-full min-w-0">
+            <SelectTrigger id={`${uid}-sym`} className="w-full min-w-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -169,7 +169,7 @@ export function OrderTicket({
         <div className="grid min-w-0 gap-1.5">
           <Label htmlFor={`${uid}-exp`}>Expiry</Label>
           <Select value={expiry} onValueChange={onExpiry}>
-            <SelectTrigger id={`${uid}-exp`} className="h-9 w-full min-w-0" title={expiry ? formatDateIST(expiry) : undefined}>
+            <SelectTrigger id={`${uid}-exp`} className="w-full min-w-0" title={expiry ? formatDateIST(expiry) : undefined}>
               <SelectValue placeholder="Expiry" />
             </SelectTrigger>
             <SelectContent>
@@ -197,25 +197,25 @@ export function OrderTicket({
           ))}
         </div>
       ) : !strikesView.length ? (
-        <p className="rounded-tile border border-dashed border-border px-3 py-4 text-center text-body-sm text-muted-foreground">{feed.expiryMatch ? "No strikes in this chain." : "The chain for this expiry is not available yet."}</p>
+        <p className="rounded-tile bg-control-track px-3 py-4 text-center text-body-sm text-muted-foreground">{feed.expiryMatch ? "No strikes in this chain." : "The chain for this expiry is not available yet."}</p>
       ) : (
-        <div className="max-h-[300px] overflow-auto rounded-tile border border-border">
+        <div className="max-h-[300px] overflow-auto rounded-tile border border-separator">
           <table className="w-full font-num text-body-sm tabular-nums">
             <caption className="sr-only">Mini option chain. Choose a CE or PE price to select that contract.</caption>
-            <thead className="sticky top-0 bg-surface">
-              <tr className="text-label uppercase text-muted-foreground">
-                <th scope="col" className="px-2 py-1.5 text-right">CE LTP</th>
-                <th scope="col" className="px-2 py-1.5 text-center">Strike</th>
-                <th scope="col" className="px-2 py-1.5 text-left">PE LTP</th>
+            <thead className="sticky top-0 z-10 bg-surface shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+              <tr className="text-label text-muted-foreground">
+                <th scope="col" className="px-2 py-1 text-right">CE LTP</th>
+                <th scope="col" className="px-2 py-1 text-center">Strike</th>
+                <th scope="col" className="px-2 py-1 text-left">PE LTP</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {strikesView.map((r) => {
                 const isAtm = r.strikePrice === atm;
                 const sel = (t: OptionType) => r.strikePrice === activeStrike && type === t;
                 return (
-                  <tr key={r.strikePrice} className={cn("border-t border-border/60", isAtm && "bg-wash-brand/55")}>
-                    <td className={cn("px-1 py-0.5 text-right", r.strikePrice < spot && "bg-muted/60")}>
+                  <tr key={r.strikePrice} className={cn(isAtm && "bg-wash-brand/55")}>
+                    <td className={cn("px-1 py-0.5 text-right", r.strikePrice < spot && "bg-control-track")}>
                       <button
                         type="button"
                         onClick={() => {
@@ -224,13 +224,13 @@ export function OrderTicket({
                         }}
                         aria-pressed={sel("CE")}
                         aria-label={`${r.ce.ltp > 0 ? formatNumberIN(r.ce.ltp, 2) : "No LTP"}: select ${r.strikePrice} CE`}
-                        className={cn("w-full rounded px-1.5 py-1 text-right hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none", sel("CE") && "bg-primary text-primary-foreground hover:bg-primary")}
+                        className={cn("w-full rounded-chip px-1.5 py-0.5 text-right hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none", sel("CE") && "bg-primary text-primary-foreground hover:bg-primary")}
                       >
                         {r.ce.ltp > 0 ? formatNumberIN(r.ce.ltp, 2) : <span aria-hidden="true">—</span>}
                       </button>
                     </td>
                     <td className={cn("px-2 py-0.5 text-center font-semibold", isAtm && "text-primary-ink")}>{formatNumberIN(r.strikePrice)}</td>
-                    <td className={cn("px-1 py-0.5 text-left", r.strikePrice > spot && "bg-muted/60")}>
+                    <td className={cn("px-1 py-0.5 text-left", r.strikePrice > spot && "bg-control-track")}>
                       <button
                         type="button"
                         onClick={() => {
@@ -239,7 +239,7 @@ export function OrderTicket({
                         }}
                         aria-pressed={sel("PE")}
                         aria-label={`${r.pe.ltp > 0 ? formatNumberIN(r.pe.ltp, 2) : "No LTP"}: select ${r.strikePrice} PE`}
-                        className={cn("w-full rounded px-1.5 py-1 text-left hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none", sel("PE") && "bg-primary text-primary-foreground hover:bg-primary")}
+                        className={cn("w-full rounded-chip px-1.5 py-0.5 text-left hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none", sel("PE") && "bg-primary text-primary-foreground hover:bg-primary")}
                       >
                         {r.pe.ltp > 0 ? formatNumberIN(r.pe.ltp, 2) : <span aria-hidden="true">—</span>}
                       </button>
@@ -252,12 +252,12 @@ export function OrderTicket({
         </div>
       )}
 
-      <div className="rounded-tile border border-border bg-surface/60 p-3">
+      <div className="rounded-tile border border-separator bg-surface p-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="font-display text-lead font-bold">
+          <p className="font-display text-lead font-semibold">
             {symbol} {Number.isFinite(activeStrike) ? formatNumberIN(activeStrike) : "—"} {type}
           </p>
-          <ToggleGroup type="single" value={type} onValueChange={(v) => v && setType(v as OptionType)} aria-label="Option type" size="sm" variant="outline">
+          <ToggleGroup type="single" value={type} onValueChange={(v) => v && setType(v as OptionType)} aria-label="Option type" size="sm">
             <ToggleGroupItem value="CE">CE</ToggleGroupItem>
             <ToggleGroupItem value="PE">PE</ToggleGroupItem>
           </ToggleGroup>
@@ -270,7 +270,7 @@ export function OrderTicket({
             ["Mid", mid],
           ].map(([k, v]) => (
             <div key={k as string}>
-              <dt className="text-label uppercase text-muted-foreground">{k as string}</dt>
+              <dt className="text-label text-muted-foreground">{k as string}</dt>
               <dd className="font-num tabular-nums">{typeof v === "number" && v > 0 ? formatNumberIN(v, 2) : "—"}</dd>
             </div>
           ))}
@@ -285,13 +285,13 @@ export function OrderTicket({
       <div className="grid grid-cols-2 gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor={`${uid}-lots`}>Lots</Label>
-          <Input id={`${uid}-lots`} type="number" inputMode="numeric" min={1} step={1} value={lotsText} onChange={(e) => setLotsText(e.target.value)} className="h-9" />
+          <Input id={`${uid}-lots`} type="number" inputMode="numeric" min={1} step={1} value={lotsText} onChange={(e) => setLotsText(e.target.value)} />
         </div>
         <div className="grid gap-1.5">
-          <span id={`${uid}-ot`} className="text-sm font-medium">
+          <span id={`${uid}-ot`} className="text-body font-medium">
             Order type
           </span>
-          <ToggleGroup type="single" value={orderType} onValueChange={(v) => v && setOrderType(v as OrderType)} aria-labelledby={`${uid}-ot`} size="sm" variant="outline" className="justify-start">
+          <ToggleGroup type="single" value={orderType} onValueChange={(v) => v && setOrderType(v as OrderType)} aria-labelledby={`${uid}-ot`} size="sm" className="justify-self-start">
             <ToggleGroupItem value="MARKET">Market</ToggleGroupItem>
             <ToggleGroupItem value="LIMIT">Limit</ToggleGroupItem>
           </ToggleGroup>
@@ -299,16 +299,16 @@ export function OrderTicket({
         {orderType === "LIMIT" ? (
           <div className="col-span-2 grid gap-1.5">
             <Label htmlFor={`${uid}-limit`}>Limit price (₹)</Label>
-            <Input id={`${uid}-limit`} type="number" inputMode="decimal" min={0.05} step="0.05" value={limitText} onChange={(e) => setLimitText(e.target.value)} placeholder={mid > 0 ? `Mid ${mid.toFixed(2)}` : undefined} className="h-9" />
+            <Input id={`${uid}-limit`} type="number" inputMode="decimal" min={0.05} step="0.05" value={limitText} onChange={(e) => setLimitText(e.target.value)} placeholder={mid > 0 ? `Mid ${mid.toFixed(2)}` : undefined} />
           </div>
         ) : null}
         <div className="grid gap-1.5">
           <Label htmlFor={`${uid}-sl`}>Stop-loss (₹, optional)</Label>
-          <Input id={`${uid}-sl`} type="number" inputMode="decimal" min={0.05} step="0.05" value={slText} onChange={(e) => setSlText(e.target.value)} className="h-9" />
+          <Input id={`${uid}-sl`} type="number" inputMode="decimal" min={0.05} step="0.05" value={slText} onChange={(e) => setSlText(e.target.value)} />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor={`${uid}-tg`}>Target (₹, optional)</Label>
-          <Input id={`${uid}-tg`} type="number" inputMode="decimal" min={0.05} step="0.05" value={tgText} onChange={(e) => setTgText(e.target.value)} className="h-9" />
+          <Input id={`${uid}-tg`} type="number" inputMode="decimal" min={0.05} step="0.05" value={tgText} onChange={(e) => setTgText(e.target.value)} />
         </div>
       </div>
       <p className="text-body-sm text-muted-foreground">SL and target are premium levels for this contract, checked on every quote update. For a short, the stop sits above the entry.</p>
@@ -320,7 +320,7 @@ export function OrderTicket({
         </p>
       ) : null}
 
-      <div className="space-y-1.5 rounded-tile border border-border p-3">
+      <div className="space-y-1.5 rounded-tile border border-separator p-3">
         <Label htmlFor={`${uid}-maxloss`} className="flex items-center gap-1.5">
           <ShieldAlert className="h-4 w-4 text-primary-ink" aria-hidden="true" />
           Max loss on this trade (₹) <span className="text-bearish" aria-hidden="true">*</span>
@@ -338,10 +338,9 @@ export function OrderTicket({
             value={maxLossText}
             onChange={(e) => setMaxLossText(e.target.value)}
             placeholder={suggested ? `e.g. ${suggested}` : "Required"}
-            className="h-9"
           />
           {suggested && !maxLossText ? (
-            <Button type="button" variant="outline" size="sm" className="h-9 shrink-0" onClick={() => setMaxLossText(String(suggested))}>
+            <Button type="button" variant="outline" className="shrink-0" onClick={() => setMaxLossText(String(suggested))}>
               Use {formatINR(suggested, { decimals: 0 })}
             </Button>
           ) : null}
@@ -365,12 +364,13 @@ export function OrderTicket({
           return (
             <div key={side} className="min-w-0 space-y-1.5">
               {hidden ? (
-                <div className="flex h-10 items-center justify-center gap-1.5 rounded-pill border border-dashed border-border px-2 text-center text-body-sm text-muted-foreground" role="note">
+                <div className="flex h-8 items-center justify-center gap-1.5 rounded-pill bg-control-track px-2 text-center text-body-sm text-muted-foreground" role="note">
                   <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Naked sell hidden
                 </div>
               ) : (
                 <Button
-                  className={cn("h-10 w-full font-semibold", side === "BUY" ? "bg-bullish text-bullish-foreground hover:bg-bullish/90" : "bg-bearish text-bearish-foreground hover:bg-bearish/90")}
+                  size="lg"
+                  className={cn("w-full font-semibold", side === "BUY" ? "bg-bullish text-bullish-foreground hover:bg-bullish/90" : "bg-bearish text-bearish-foreground hover:bg-bearish/90")}
                   disabled={!!err || blocked}
                   onClick={() => submit(side)}
                 >

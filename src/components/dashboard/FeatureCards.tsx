@@ -30,5 +30,3 @@ export function FeatureCards() {
     </div>
   );
 }
-
-export default FeatureCards;

@@ -35,9 +35,9 @@ function pickerStrikes(strikes: number[], atm: number, keep: number[]): number[]
 function StrikeSelect({ id, label, value, options, atm, onChange }: { id: string; label: string; value: number; options: number[]; atm: number; onChange: (k: number) => void }) {
   return (
     <div className="grid gap-1">
-      <Label htmlFor={id} className="text-label uppercase text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-label text-muted-foreground">{label}</Label>
       <Select value={Number.isFinite(value) ? String(value) : undefined} onValueChange={(v) => onChange(Number(v))} disabled={options.length === 0}>
-        <SelectTrigger id={id} className="h-9 w-full font-num tabular-nums sm:w-[140px]">
+        <SelectTrigger id={id} className="w-full font-num tabular-nums sm:w-[140px]">
           <SelectValue placeholder={options.length === 0 ? "No strikes" : "Strike"} />
         </SelectTrigger>
         <SelectContent className="max-h-[320px]">
@@ -68,17 +68,17 @@ export function StraddleControls({ symbol, onSymbol, expiries, expiry, onExpiry,
   };
 
   return (
-    <section aria-label="Contract and strikes" className="flex flex-col gap-3 rounded-card border border-border bg-card p-3 shadow-card lg:flex-row lg:flex-wrap lg:items-end">
+    <section aria-label="Contract and strikes" className="flex flex-col gap-3 rounded-tile border border-separator bg-card px-3 py-2.5 shadow-card lg:flex-row lg:flex-wrap lg:items-end">
       <div className="grid gap-1">
-        <span id="straddle-symbol-label" className="text-label uppercase text-muted-foreground">Symbol</span>
+        <span id="straddle-symbol-label" className="text-label text-muted-foreground">Symbol</span>
         <div aria-labelledby="straddle-symbol-label">
           <SymbolSearch value={symbol} onSelect={onSymbol} />
         </div>
       </div>
       <div className="grid gap-1">
-        <Label htmlFor="straddle-expiry" className="text-label uppercase text-muted-foreground">Expiry</Label>
+        <Label htmlFor="straddle-expiry" className="text-label text-muted-foreground">Expiry</Label>
         <Select value={expiry || undefined} onValueChange={onExpiry} disabled={expiries.length === 0}>
-          <SelectTrigger id="straddle-expiry" className="h-9 w-full sm:w-[230px]">
+          <SelectTrigger id="straddle-expiry" className="w-full sm:w-[230px]">
             <SelectValue placeholder="No expiry" />
           </SelectTrigger>
           <SelectContent>
@@ -91,7 +91,7 @@ export function StraddleControls({ symbol, onSymbol, expiries, expiry, onExpiry,
         </Select>
       </div>
       <div className="grid min-w-0 gap-1">
-        <span id="straddle-mode-label" className="text-label uppercase text-muted-foreground">Strikes</span>
+        <span id="straddle-mode-label" className="text-label text-muted-foreground">Strikes</span>
         <div className="-mx-1 overflow-x-auto px-1">
           <ToggleGroup type="single" size="sm" value={selection.kind} onValueChange={(v) => v && setMode(v as StrikeSelection["kind"])} aria-labelledby="straddle-mode-label" className="justify-start">
             <ToggleGroupItem value="atm" className="whitespace-nowrap">ATM (rolling)</ToggleGroupItem>
@@ -110,7 +110,7 @@ export function StraddleControls({ symbol, onSymbol, expiries, expiry, onExpiry,
           {hasAtm ? (
             <div className="flex flex-wrap gap-1" role="group" aria-label="Strangle presets">
               {[1, 2, 3].map((n) => (
-                <Button key={n} type="button" size="sm" variant="outline" className="h-9" onClick={() => onSelection({ kind: "pair", ce: at(n), pe: at(-n) })} aria-label={`Strangle ${n} strike${n === 1 ? "" : "s"} either side of ATM`}>
+                <Button key={n} type="button" variant="outline" onClick={() => onSelection({ kind: "pair", ce: at(n), pe: at(-n) })} aria-label={`Strangle ${n} strike${n === 1 ? "" : "s"} either side of ATM`}>
                   ±{n}
                 </Button>
               ))}

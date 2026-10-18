@@ -109,7 +109,7 @@ export interface ChargesBreakdown {
 const EMPTY: ChargesBreakdown = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, stamp: 0, gst: 0, total: 0 };
 
 function brokerageFor(turnover: number, broker: BrokerPreset): number {
-  if (broker.pctOfTurnover && broker.pctOfTurnover > 0) return Math.min(broker.pctOfTurnover * turnover, broker.cap ?? broker.perOrder);
+  if (broker.pctOfTurnover && broker.pctOfTurnover > 0) return Math.min(broker.pctOfTurnover * turnover, broker.cap ?? (broker.perOrder > 0 ? broker.perOrder : Infinity));
   return Math.max(0, broker.perOrder || 0);
 }
 

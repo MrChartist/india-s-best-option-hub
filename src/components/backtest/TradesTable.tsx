@@ -41,7 +41,7 @@ export function TradesTable({ trades, symbol, sample }: { trades: Trade[]; symbo
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Showing {visible.length} of {trades.length} trades{sort === "net" ? ", worst first" : ""}. Prices are per unit; P&amp;L is for the whole position.
         </p>
         <Button size="pill" variant="ghost" onClick={() => setSort((s) => (s === "id" ? "net" : "id"))} aria-pressed={sort === "net"}>
@@ -51,39 +51,39 @@ export function TradesTable({ trades, symbol, sample }: { trades: Trade[]; symbo
       <ScrollRegion label="Backtest trades">
         <table className="w-full min-w-[680px] text-body-sm">
           <caption className="sr-only">Backtest trades for {symbol}{sample ? " on the sample dataset" : ""}</caption>
-          <thead>
-            <tr className="border-b border-border text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-              <th scope="col" className="py-2 pl-1 pr-1 font-semibold">#</th>
-              <th scope="col" className="px-2 py-2 font-semibold">Entry → exit</th>
-              <th scope="col" className="px-2 py-2 font-semibold">Expiry</th>
-              <th scope="col" className="px-2 py-2 font-semibold">Legs (entry → exit)</th>
-              <th scope="col" className="px-2 py-2 text-right font-semibold">Spot</th>
-              <th scope="col" className="px-2 py-2 text-right font-semibold">Premium</th>
-              <th scope="col" className="px-2 py-2 text-right font-semibold">Net P&amp;L</th>
-              <th scope="col" className="px-2 py-2 font-semibold"><span className="sr-only">Actions</span></th>
+          <thead className="[&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+            <tr className="text-left">
+              <th scope="col" className="py-1.5 pl-1 pr-1">#</th>
+              <th scope="col" className="px-2 py-1.5">Entry → exit</th>
+              <th scope="col" className="px-2 py-1.5">Expiry</th>
+              <th scope="col" className="px-2 py-1.5">Legs (entry → exit)</th>
+              <th scope="col" className="px-2 py-1.5 text-right">Spot</th>
+              <th scope="col" className="px-2 py-1.5 text-right">Premium</th>
+              <th scope="col" className="px-2 py-1.5 text-right">Net P&amp;L</th>
+              <th scope="col" className="px-2 py-1.5"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
-          <tbody className="font-num tabular-nums">
+          <tbody className="zebra-rows font-num tabular-nums">
             {visible.map(({ t, cum }) => {
               const { legs, droppedFutures } = tradeToBasketLegs(t, symbol);
               return (
-                <tr key={t.id} className="border-b border-border/70 align-top last:border-0 hover:bg-surface/70">
-                  <td className="py-2 pl-1 pr-1 text-muted-foreground">{t.id}</td>
-                  <td className="whitespace-nowrap px-2 py-2">
+                <tr key={t.id} className="align-top transition-colors duration-fast hover:bg-control-track">
+                  <td className="py-1.5 pl-1 pr-1 text-muted-foreground">{t.id}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     <span className="font-semibold text-foreground">{dayMonth(t.entryDate)}</span>
                     <span className="text-muted-foreground"> {WEEKDAY_SHORT[t.weekday]}</span>
-                    <span className="block text-[11px] text-muted-foreground">
+                    <span className="block text-body-sm text-muted-foreground">
                       → {dayMonth(t.exitDate)} · {t.daysHeld} session{t.daysHeld === 1 ? "" : "s"}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2">
+                  <td className="whitespace-nowrap px-2 py-1.5">
                     {formatDateIST(t.expiry)}
-                    <span className="block text-[11px] text-muted-foreground">DTE {t.entryDte}{t.vix ? ` · VIX ${formatNumberIN(t.vix, 1)}` : ""}</span>
+                    <span className="block text-body-sm text-muted-foreground">DTE {t.entryDte}{t.vix ? ` · VIX ${formatNumberIN(t.vix, 1)}` : ""}</span>
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-1.5">
                     <ul className="space-y-0.5">
                       {t.legs.map((l) => (
-                        <li key={`${l.side}-${l.type}-${l.strike}-${l.expiry}`} className="whitespace-nowrap text-[12px]">
+                        <li key={`${l.side}-${l.type}-${l.strike}-${l.expiry}`} className="whitespace-nowrap text-body-sm">
                           <span className={cn("font-semibold", l.side === "BUY" ? "text-bullish" : "text-bearish")}>{l.side === "BUY" ? "B" : "S"}</span>{" "}
                           {l.lots}× {l.type === "FUT" ? "FUT" : `${formatNumberIN(l.strike)} ${l.type}`}
                           {l.expiry !== t.expiry ? <span className="text-muted-foreground"> · {dayMonth(l.expiry)}</span> : null}
@@ -101,19 +101,19 @@ export function TradesTable({ trades, symbol, sample }: { trades: Trade[]; symbo
                     </ul>
                     <span className="sr-only">{legsSummary(t)}</span>
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     {formatNumberIN(t.entrySpot, 0)}
-                    <span className="block text-[11px] text-muted-foreground">→ {formatNumberIN(t.exitSpot, 0)}</span>
+                    <span className="block text-body-sm text-muted-foreground">→ {formatNumberIN(t.exitSpot, 0)}</span>
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     <span className={t.netPremium >= 0 ? "text-bullish" : "text-foreground"} title={t.netPremium >= 0 ? "Net credit received" : "Net debit paid"}>
                       {signedINR(t.netPremium)}
                     </span>
-                    <span className="block text-[11px] text-muted-foreground">
+                    <span className="block text-body-sm text-muted-foreground">
                       {formatINR(t.charges, { decimals: 0 })} costs
                     </span>
                   </td>
-                  <td className={cn("whitespace-nowrap px-2 py-2 text-right font-semibold", tone(t.net))}>
+                  <td className={cn("whitespace-nowrap px-2 py-1.5 text-right font-semibold", tone(t.net))}>
                     <span title={`Running total ${signedINR(cum)}`}>{signedINR(t.net)}</span>
                     <span className="mt-0.5 flex justify-end">
                       <Badge variant={REASON_VARIANT[t.reason]} title={EXIT_REASON_LABEL[t.reason]}>
@@ -121,23 +121,23 @@ export function TradesTable({ trades, symbol, sample }: { trades: Trade[]; symbo
                       </Badge>
                     </span>
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-1.5">
                     {legs.length > 0 ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button asChild size="pill" variant="outline" className="px-2">
+                          <Button asChild size="pill" variant="secondary" className="px-2">
                             <Link to={strategyBuilderUrl(legs)} aria-label={`Open trade ${t.id} in the Strategy Builder`}>
                               <Layers aria-hidden="true" />
                             </Link>
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-[240px] text-xs">
+                        <TooltipContent className="max-w-[240px] text-body-sm">
                           Open in the Strategy Builder. Loads the entry legs at their {sample ? "sample " : ""}entry prices for {formatDateIST(t.entryDate)}.
                           {droppedFutures ? " Futures legs are not carried over." : ""}
                         </TooltipContent>
                       </Tooltip>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground" title="The builder basket carries options only">
+                      <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground" title="The builder basket carries options only">
                         <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Futures
                       </span>
                     )}
@@ -150,7 +150,7 @@ export function TradesTable({ trades, symbol, sample }: { trades: Trade[]; symbo
       </ScrollRegion>
       {shown < rows.length ? (
         <div className="flex justify-center">
-          <Button size="sm" variant="outline" onClick={() => setShown((n) => n + PAGE * 2)}>
+          <Button variant="secondary" onClick={() => setShown((n) => n + PAGE * 2)}>
             Show {Math.min(PAGE * 2, rows.length - shown)} more
           </Button>
         </div>

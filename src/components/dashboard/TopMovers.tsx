@@ -42,7 +42,7 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
     <Card className="overflow-hidden">
       <div className={cn("flex items-center gap-2", d.headPad)}>
         <Icon className={cn("h-4 w-4", up ? "text-bullish" : "text-bearish")} aria-hidden="true" />
-        <h3 className="font-display text-lead font-bold">{title}</h3>
+        <h3 className="font-display text-headline">{title}</h3>
         <div className="ml-auto">{chip}</div>
       </div>
       <DataState status={status !== "loading" && status !== "error" && rows.length === 0 ? "empty" : status} onRetry={onRetry} className={d.padX} emptyText={up ? "No gainers right now" : "No losers right now"} emptyHint="F&O stock prices load from NSE during market hours">
@@ -50,19 +50,19 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
           <table className="w-full text-body">
             <caption className="sr-only">{title} among F&O stocks</caption>
             <thead>
-              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
-                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Symbol</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>LTP</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Change</th>
-                {showSpark ? <th scope="col" className={cn("hidden px-2 text-center font-[650] sm:table-cell", d.cell)}>3M</th> : null}
-                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Volume</th>
+              <tr className="text-left text-label text-muted-foreground [&>th]:hairline-b">
+                <th scope="col" className={cn("px-4 font-semibold", d.cell)}>Symbol</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>LTP</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>Change</th>
+                {showSpark ? <th scope="col" className={cn("hidden px-2 text-center font-semibold sm:table-cell", d.cell)}>3M</th> : null}
+                <th scope="col" className={cn("px-4 text-right font-semibold", d.cell)}>Volume</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {rows.map((s) => (
-                <tr key={s.symbol} className="border-b border-border last:border-0 hover:bg-accent/40">
+                <tr key={s.symbol} className="hover:bg-control-track">
                   <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
-                    <Link to={`/option-chain?symbol=${encodeURIComponent(s.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none" aria-label={`${s.symbol}, open option chain`}>
+                    <Link to={`/option-chain?symbol=${encodeURIComponent(s.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-focus focus-visible:outline-none" aria-label={`${s.symbol}, open option chain`}>
                       {s.symbol}
                     </Link>
                   </th>
@@ -90,5 +90,3 @@ function MoversCard({ title, up, rows, status, chip, onRetry }: { title: string;
     </Card>
   );
 }
-
-export default TopMovers;

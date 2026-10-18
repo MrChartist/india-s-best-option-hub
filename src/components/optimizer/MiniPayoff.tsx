@@ -34,7 +34,7 @@ function MiniPayoffImpl({ candidate, symbol, spot, target, lower, upper, nowMs, 
   const offset = useMemo(() => zeroCrossOffset(data.map((d) => d.expiry)), [data]);
 
   if (data.length === 0) {
-    return <div className="flex items-center justify-center text-[11px] text-muted-foreground" style={{ height }}>No payoff to show</div>;
+    return <div className="flex items-center justify-center text-body-sm text-muted-foreground" style={{ height }}>No payoff to show</div>;
   }
 
   return (

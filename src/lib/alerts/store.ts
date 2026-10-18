@@ -112,7 +112,8 @@ function parseJSON(text: string | null): unknown {
 
 /** Rules from storage, with the legacy chain store merged in (ids already present win). */
 export function loadAllRules(): { rules: AlertRule[]; migratedLegacy: boolean } {
-  const rules = parseRulesJSON(readRaw(ALERT_RULES_STORAGE_KEY) ?? "[]").rules;
+  // No import cap here: these are the user's own rules, and a capped read would be saved back.
+  const rules = parseRulesJSON(readRaw(ALERT_RULES_STORAGE_KEY) ?? "[]", Date.now(), { limit: Infinity }).rules;
   const legacyRaw = parseJSON(readRaw(LEGACY_STRIKE_ALERTS_KEY));
   if (!Array.isArray(legacyRaw) || legacyRaw.length === 0) return { rules, migratedLegacy: legacyRaw !== null };
   const ids = new Set(rules.map((r) => r.id));
@@ -326,7 +327,6 @@ function createAlertStore() {
 }
 
 export const alertStore = createAlertStore();
-export type AlertStore = typeof alertStore;
 
 /** Most recent fire time per rule (from the log, test fires excluded). */
 export function lastFiredByRule(log: TriggerLogEntry[]): Record<string, number> {

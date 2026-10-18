@@ -66,13 +66,13 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsIsSampl
                   type="single"
                   value={basis}
                   onValueChange={(v) => v && onBasisChange(v as IvBasis)}
-                  className="rounded-tab bg-muted p-0.5"
+                 
                   aria-label="IV rank basis"
                 >
-                  <ToggleGroupItem value="vix" className="h-7 rounded-md px-2.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-card">
+                  <ToggleGroupItem value="vix">
                     India VIX
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="iv30" className="h-7 rounded-md px-2.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-card">
+                  <ToggleGroupItem value="iv30">
                     ATM IV30
                   </ToggleGroupItem>
                 </ToggleGroup>
@@ -143,7 +143,7 @@ export function IVOverview({ symbol, rank, iv30, iv30IsSample, bars, barsIsSampl
           </div>
 
           {basis === "iv30" && (stats.insufficient || counts.bhavcopy < 60) ? (
-            <div className="flex flex-col gap-2 rounded-tile border border-dashed border-border bg-surface/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 rounded-tile bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-body font-semibold">
                   <DatabaseZap className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Build IV history from NSE bhavcopy

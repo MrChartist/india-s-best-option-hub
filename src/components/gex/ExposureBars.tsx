@@ -126,7 +126,7 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
   const xTicks = useMemo(() => strikeAxisTicks(symbol, strikes, 11), [symbol, strikes]);
 
   return (
-    <Card className={cn("flex flex-col rounded-card", className)}>
+    <Card className={cn("flex flex-col", className)}>
       <CardHeader className="space-y-3 pb-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -139,7 +139,7 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
             </p>
           </div>
           <div className="text-right">
-            <p className="flex items-center justify-end gap-1 text-label uppercase text-muted-foreground">
+            <p className="flex items-center justify-end gap-1 text-label text-muted-foreground">
               Net {meta.label}
               {metric === "gex" ? <MetricHelp metric="gex" value={Number.isFinite(total) ? total : undefined} /> : null}
             </p>
@@ -154,7 +154,11 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
               ariaLabel="Exposure metric"
               value={metric}
               onChange={(v) => setMetric(v)}
-              options={(Object.keys(METRICS) as ExposureMetric[]).map((m) => ({ value: m, label: METRICS[m].label, title: METRICS[m].name }))}
+              options={(Object.keys(METRICS) as ExposureMetric[]).map((m) => ({
+                value: m,
+                label: METRICS[m].label,
+                title: METRICS[m].name,
+              }))}
             />
             <Badge
               variant={
@@ -170,7 +174,7 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
               ) : vixChange !== null && vixChange < 0 ? (
                 <TrendingDown aria-hidden />
               ) : null}
-              <span className="uppercase">India VIX</span>
+              <span>India VIX</span>
               <span className="font-num">
                 {vix
                   ? `${vix.value.toFixed(2)} (${vix.change >= 0 ? "+" : "−"}${Math.abs(vix.change).toFixed(2)})`
@@ -183,13 +187,11 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
             value={win}
             onValueChange={(v) => v && setWin(v as Window)}
             aria-label="Strike window"
-            className="rounded-tab bg-muted p-0.5"
           >
             {(["10", "20", "all"] as Window[]).map((w) => (
               <ToggleGroupItem
                 key={w}
                 value={w}
-                className="h-7 rounded-[7px] px-2 text-body-sm data-[state=on]:bg-card data-[state=on]:shadow-card"
                 aria-label={w === "all" ? "All strikes" : `${w} strikes either side of spot`}
               >
                 {w === "all" ? "All" : `±${w}`}
@@ -202,12 +204,12 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
         {loading ? (
           <Skeleton className="min-h-[320px] w-full flex-1 rounded-tile" />
         ) : data.length === 0 ? (
-          <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-tile border border-dashed border-border text-body text-muted-foreground">
+          <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-tile bg-muted/40 text-body text-muted-foreground">
             No strikes with open interest.
           </div>
         ) : (
           <>
-            <p className="mb-1 text-micro uppercase text-muted-foreground" aria-hidden>
+            <p className="mb-1 text-micro text-muted-foreground" aria-hidden>
               {meta.unit}
             </p>
             <div
@@ -218,7 +220,11 @@ export function ExposureBars({ rows, spot, levels, totals, vix, loading, symbol,
               <div className="absolute inset-0">
                 <ResponsiveContainer width="100%" height="100%">
                   {metric === "gex" ? (
-                    <ComposedChart data={data} margin={{ top: SPOT_PILL_SPACE, right: 8, bottom: 0, left: 0 }} stackOffset="sign">
+                    <ComposedChart
+                      data={data}
+                      margin={{ top: SPOT_PILL_SPACE, right: 8, bottom: 0, left: 0 }}
+                      stackOffset="sign"
+                    >
                       <CartesianGrid {...gridProps} />
                       <XAxis
                         {...axisProps}
@@ -361,12 +367,27 @@ function SpotPill({ viewBox }: { viewBox?: { x?: number; y?: number } }) {
   const h = 16;
   return (
     <g pointerEvents="none">
-      <rect x={x - w / 2} y={y - h - 3} width={w} height={h} rx={4} fill={chartColors.card} stroke={chartColors.spot} strokeWidth={1} />
-      <text x={x} y={y - 3 - h / 2} dy="0.35em" textAnchor="middle" fontSize={10} fontWeight={600} fill={chartColors.spot}>
+      <rect
+        x={x - w / 2}
+        y={y - h - 3}
+        width={w}
+        height={h}
+        rx={4}
+        fill={chartColors.card}
+        stroke={chartColors.spot}
+        strokeWidth={1}
+      />
+      <text
+        x={x}
+        y={y - 3 - h / 2}
+        dy="0.35em"
+        textAnchor="middle"
+        fontSize={10}
+        fontWeight={600}
+        fill={chartColors.spot}
+      >
         Spot
       </text>
     </g>
   );
 }
-
-export default ExposureBars;

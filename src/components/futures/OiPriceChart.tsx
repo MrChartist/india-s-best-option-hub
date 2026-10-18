@@ -43,7 +43,7 @@ export function OiPriceChart({ points }: { points: OiPricePoint[] }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-label uppercase text-muted-foreground">Futures OI by series (contracts)</p>
+        <p className="text-label text-muted-foreground">Futures OI by series (contracts)</p>
         <Legend />
       </div>
       <div
@@ -86,7 +86,7 @@ export function OiPriceChart({ points }: { points: OiPricePoint[] }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-label uppercase text-muted-foreground">Near-month futures price</p>
+      <p className="text-label text-muted-foreground">Near-month futures price</p>
       <div
         className="h-[150px]"
         role="img"

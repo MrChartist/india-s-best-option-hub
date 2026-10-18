@@ -62,7 +62,7 @@ export function SectorHeatmap() {
   return (
     <Card>
       <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
-        <h3 className="font-display text-lead font-bold">Sectors</h3>
+        <h3 className="font-display text-headline">Sectors</h3>
         {best && worst && best.change > 0 && worst.change < 0 ? (
           <p className="text-body-sm text-muted-foreground">
             Best <span className="font-medium text-bullish">{best.name}</span> · Worst <span className="font-medium text-bearish">{worst.name}</span>
@@ -101,16 +101,16 @@ export function SectorHeatmap() {
               return (
                 <li
                   key={s.name}
-                  className="rounded-tile border border-border/60 p-2 text-center"
+                  className="rounded-md p-2 text-center hairline"
                   style={{ backgroundColor: `hsl(var(--${up ? "bullish" : "bearish"}) / ${alpha.toFixed(3)})` }}
                   title={`${s.name}: ${formatPct(s.change, { signed: true })}${s.count ? ` (${s.count} stocks)` : ""}`}
                 >
                   <p className="truncate text-body-sm font-medium text-foreground">{s.name}</p>
-                  <p className={cn("font-num text-body font-bold tabular-nums", up ? "text-bullish" : "text-bearish")}>
+                  <p className={cn("font-num text-body font-semibold tabular-nums", up ? "text-bullish" : "text-bearish")}>
                     <span aria-hidden="true">{ARROW[s.change > 0 ? "up" : s.change < 0 ? "down" : "flat"]} </span>
                     {formatPct(s.change, { signed: true })}
                   </p>
-                  {s.count ? <p className="text-micro uppercase text-muted-foreground">{formatNumberIN(s.count)} stocks</p> : null}
+                  {s.count ? <p className="text-micro text-muted-foreground">{formatNumberIN(s.count)} stocks</p> : null}
                 </li>
               );
             })}
@@ -120,5 +120,3 @@ export function SectorHeatmap() {
     </Card>
   );
 }
-
-export default SectorHeatmap;

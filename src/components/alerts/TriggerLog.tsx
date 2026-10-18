@@ -65,7 +65,7 @@ function LogItem({ e, detailed }: { e: TriggerLogEntry; detailed: boolean }) {
     (k) => e.delivery?.[k] && e.delivery[k] !== "skipped",
   );
   return (
-    <li className="rounded-tile border border-border bg-card p-2.5">
+    <li className="rounded-tile border border-separator bg-card p-2.5">
       <div className="flex gap-2">
         <ToneDot tone={e.tone} className="mt-1.5" />
         <div className="min-w-0 flex-1">
@@ -78,7 +78,7 @@ function LogItem({ e, detailed }: { e: TriggerLogEntry; detailed: boolean }) {
             ) : null}
           </div>
           <p className="break-words text-body-sm text-muted-foreground">{e.message}</p>
-          <p className="mt-0.5 text-micro uppercase text-muted-foreground">
+          <p className="mt-0.5 text-micro text-muted-foreground">
             <time dateTime={new Date(e.ts).toISOString()}>
               {formatDateIST(e.ts)} · {formatTimeIST(e.ts, { seconds: true })}
             </time>
@@ -107,7 +107,7 @@ function LogItem({ e, detailed }: { e: TriggerLogEntry; detailed: boolean }) {
                     <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 rounded-chip bg-muted/50 p-2 text-body-sm sm:grid-cols-3">
                       {rows.map(([k, v]) => (
                         <div key={k} className="min-w-0">
-                          <dt className="text-micro uppercase text-muted-foreground">{k}</dt>
+                          <dt className="text-micro text-muted-foreground">{k}</dt>
                           <dd className="truncate tabular-nums">{v}</dd>
                         </div>
                       ))}
@@ -141,7 +141,7 @@ export function TriggerLog({ log, onClear, detailed = false, limit, ruleId }: Tr
 
   if (items.length === 0) {
     return (
-      <p className="rounded-tile border border-dashed border-border px-4 py-6 text-center text-body-sm text-muted-foreground">
+      <p className="rounded-tile px-4 py-6 text-center text-body-sm text-muted-foreground">
         No alerts have fired yet. Use “Test” to check your channels.
       </p>
     );

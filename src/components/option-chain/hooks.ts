@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import { alertStore, ruleToStrikeAlert, type AlertRule } from "@/lib/alerts";
 import { BASKET_KEY, readBasket, writeBasket, type BasketLeg } from "./basket";
-import { STRIKE_ALERTS_KEY, describeAlert, evaluateAlerts, readAlerts, writeAlerts, type StrikeAlert } from "./alerts";
+import { describeAlert, evaluateAlerts, writeAlerts, type StrikeAlert } from "./alerts";
 import type { RowView } from "./chainModel";
 
 /**
@@ -66,13 +67,29 @@ export function requestNotificationPermission() {
   }
 }
 
+const strikeAlertsOf = (rules: AlertRule[]): StrikeAlert[] =>
+  rules.map(ruleToStrikeAlert).filter((a): a is StrikeAlert => a !== null);
+const getRules = () => alertStore.getState().rules;
+
 /**
- * Strike alerts: persisted list plus evaluation on every poll (`version` changes per fetch).
+ * Strike alerts: read live from the unified alert store (so deletes, pauses and edits made in the
+ * Alerts sheet or page in this tab apply at once; the store itself follows other tabs through the
+ * storage event), plus evaluation on every poll (`version` changes per fetch).
  * An alert fires once, then re-arms when its condition turns false.
  */
 export function useStrikeAlerts(symbol: string, expiry: string, rows: RowView[], version: number) {
-  const [alerts, setAlerts] = usePersistedList<StrikeAlert>(readAlerts, writeAlerts, STRIKE_ALERTS_KEY);
+  const rules = useSyncExternalStore(alertStore.subscribe, getRules, getRules);
+  const alerts = useMemo(() => strikeAlertsOf(rules), [rules]);
   const armed = useRef<Set<string>>(new Set());
+
+  /** Apply a change to the store's current strike alerts (never a stale copy). */
+  const setAlerts = useCallback((fn: (prev: StrikeAlert[]) => StrikeAlert[]) => {
+    try {
+      writeAlerts(fn(strikeAlertsOf(getRules())));
+    } catch {
+      /* storage full or blocked: the store keeps the in-memory state */
+    }
+  }, []);
 
   const addAlert = useCallback(
     (a: StrikeAlert) => {

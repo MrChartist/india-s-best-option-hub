@@ -92,7 +92,7 @@ export function TemplateLibrary({ open, onOpenChange, ctx, onPick }: TemplateLib
           {!q && (
             <TabsList className="grid w-full grid-cols-4">
               {TEMPLATE_VIEWS.map((v) => (
-                <TabsTrigger key={v} value={v} className="gap-1 text-xs">
+                <TabsTrigger key={v} value={v} className="gap-1">
                   {VIEW_ICON[v]} <span className="hidden sm:inline">{v}</span>
                   <span className="sm:hidden">{v.slice(0, 4)}</span>
                 </TabsTrigger>
@@ -101,7 +101,7 @@ export function TemplateLibrary({ open, onOpenChange, ctx, onPick }: TemplateLib
           )}
           {(q ? ["search"] : TEMPLATE_VIEWS).map((v) => (
             <TabsContent key={v} value={v} className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-              <ul className="grid gap-2">
+              <ul className="divide-y divide-separator overflow-hidden rounded-md border border-separator">
                 {STRATEGY_TEMPLATES.filter((t) => (q ? matches(t) : t.view === v)).map((t) => {
                   const legs = resolved.get(t.id) ?? [];
                   const mpl = legs.length ? maxProfitLoss(legs) : null;
@@ -112,17 +112,17 @@ export function TemplateLibrary({ open, onOpenChange, ctx, onPick }: TemplateLib
                         type="button"
                         onClick={() => onPick(t, legs)}
                         disabled={legs.length === 0}
-                        className="flex w-full items-start gap-3 rounded-tile border border-border bg-card p-3 text-left transition-colors duration-fast hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:shadow-ember disabled:opacity-50"
+                        className="flex w-full items-start gap-3 bg-card px-3 py-2.5 text-left transition-colors duration-fast hover:bg-control-track focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--primary)/0.6)] disabled:opacity-40"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
                             {VIEW_ICON[t.view]}
-                            <span className="text-sm font-semibold">{t.name}</span>
+                            <span className="text-body font-semibold">{t.name}</span>
                             <Badge variant={t.risk === "Defined" ? "bullish" : "warning"}>{t.risk === "Defined" ? "Defined risk" : "Open risk"}</Badge>
                           </div>
-                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t.description}</p>
+                          <p className="mt-1 text-body-sm leading-relaxed text-muted-foreground">{t.description}</p>
                           {legs.length > 0 && (
-                            <p className="mt-1.5 font-num text-[11px] text-muted-foreground">
+                            <p className="mt-1 font-num text-body-sm text-muted-foreground">
                               {legs.map((l) => `${l.side === "BUY" ? "B" : "S"}${l.lots > 1 ? l.lots : ""} ${l.type === "FUT" ? "FUT" : `${l.strike}${l.type}`}`).join(" · ")}
                               {np && np.net !== 0 && <span className={np.type === "CREDIT" ? "text-bullish" : "text-bearish"}> · {np.type === "CREDIT" ? "Credit" : "Debit"} {formatCompactIN(Math.abs(np.net), { decimals: 1, symbol: true })}</span>}
                               {mpl && <span> · Max loss {mpl.unlimitedLoss ? "∞" : formatCompactIN(Math.abs(mpl.maxLoss), { decimals: 1, symbol: true })}</span>}

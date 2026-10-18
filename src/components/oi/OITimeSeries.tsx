@@ -73,7 +73,7 @@ export function OITimeSeries({ session, unit }: { session: OiSession; unit?: "co
       />
       <CardContent className="space-y-3 p-4">
         {loading && snaps.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground" role="status">
+          <div className="flex items-center justify-center gap-2 py-12 text-body text-muted-foreground" role="status">
             <Loader2 className="h-4 w-4 animate-spin" /> Reading snapshots…
           </div>
         ) : snaps.length < 2 ? (
@@ -82,7 +82,7 @@ export function OITimeSeries({ session, unit }: { session: OiSession; unit?: "co
           </EmptyState>
         ) : (
           <>
-            <div role="group" aria-label={`Strikes to chart (up to ${MAX_SERIES_STRIKES})`} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            <div role="group" aria-label={`Strikes to chart (up to ${MAX_SERIES_STRIKES})`} className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
               {chipStrikes.map((k) => {
                 const idx = selected.indexOf(k);
                 const on = idx >= 0;
@@ -93,11 +93,11 @@ export function OITimeSeries({ session, unit }: { session: OiSession; unit?: "co
                     aria-pressed={on}
                     onClick={() => toggle(k)}
                     className={cn(
-                      "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-capsule border px-2.5 py-1 font-num text-xs font-medium transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                      on ? "border-foreground/30 bg-muted text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
+                      "flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 font-num text-body-sm font-medium transition-[background-color,color,box-shadow] duration-fast focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-9",
+                      on ? "bg-control text-foreground shadow-control" : "text-foreground/80 hover:bg-control-track hover:text-foreground",
                     )}
                   >
-                    {on && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: seriesColor(idx) }} aria-hidden="true" />}
+                    {on && <span className="h-2 w-2 rounded-capsule" style={{ backgroundColor: seriesColor(idx) }} aria-hidden="true" />}
                     {fmtStrike(k)}
                   </button>
                 );

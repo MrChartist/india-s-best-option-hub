@@ -6,7 +6,7 @@ import { DIMENSION_LABEL, groupStats, type Annotation, type Dimension, type Roun
 import { formatINR, formatPct } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { signedClass, signedINR } from "@/components/positions/helpers";
-import { HelpTip } from "@/components/positions/ui";
+import { HelpTip, STICKY_CELL } from "@/components/positions/ui";
 
 const DIMS: Dimension[] = ["strategy", "dte", "weekday", "timeOfDay", "underlying", "tag"];
 
@@ -18,7 +18,7 @@ export function EdgeTable({ trips, notes }: { trips: RoundTrip[]; notes: Record<
   return (
     <div className="space-y-3">
       <div className="-mx-1 overflow-x-auto px-4 pt-3">
-        <ToggleGroup type="single" value={dim} onValueChange={(v) => v && setDim(v as Dimension)} aria-label="Split expectancy by" size="sm" variant="outline" className="justify-start">
+        <ToggleGroup type="single" value={dim} onValueChange={(v) => v && setDim(v as Dimension)} aria-label="Split expectancy by" size="sm" className="justify-start">
           {DIMS.map((d) => (
             <ToggleGroupItem key={d} value={d} className="whitespace-nowrap">
               {DIMENSION_LABEL[d]}
@@ -52,14 +52,14 @@ export function EdgeTable({ trips, notes }: { trips: RoundTrip[]; notes: Record<
             const w = Number.isFinite(r.expectancy) ? (Math.abs(r.expectancy) / maxAbs) * 100 : 0;
             return (
               <TableRow key={r.key}>
-                <TableCell className="sticky left-0 z-[1] bg-card font-semibold">{r.key}</TableCell>
+                <TableCell className={cn(STICKY_CELL, "font-semibold")}>{r.key}</TableCell>
                 <TableCell className="text-right tabular-nums">{r.trades}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatPct(r.winRate, { decimals: 0 })}</TableCell>
                 <TableCell className="min-w-[180px]">
                   <div className="flex items-center gap-2">
                     <span className={cn("w-20 shrink-0 text-right font-num font-semibold tabular-nums", signedClass(r.expectancy))}>{signedINR(r.expectancy)}</span>
-                    <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                      <span className={cn("absolute inset-y-0 left-0 rounded-full", r.expectancy >= 0 ? "bg-bullish" : "bg-bearish")} style={{ width: `${w}%` }} />
+                    <span className="relative h-2 flex-1 overflow-hidden rounded-capsule bg-muted" aria-hidden="true">
+                      <span className={cn("absolute inset-y-0 left-0 rounded-capsule", r.expectancy >= 0 ? "bg-bullish" : "bg-bearish")} style={{ width: `${w}%` }} />
                     </span>
                   </div>
                 </TableCell>
