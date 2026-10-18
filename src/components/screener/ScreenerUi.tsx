@@ -56,7 +56,6 @@ const SOURCE_NAME: Record<string, string> = {
   nse: "NSE",
   bse: "BSE",
   yahoo: "Yahoo",
-  tv: "TradingView",
   cache: "Cache",
   sample: "Sample",
   database: "Local DB",

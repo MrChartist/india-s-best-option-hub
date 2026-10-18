@@ -437,9 +437,8 @@ export function useFnOStocks() {
         try {
           const { data: stocks, stale, cachedAt } = await fetchLiveFnOStocks();
           if (stocks.length > 0) {
-            const hasOI = stocks.some((s) => (s.openInterest || 0) > 0);
-            const source = hasOI ? ("nse" as const) : ("tradingview" as const);
-            // `source` keeps its historical values ("nse" | "tradingview" | "database" | "none").
+            // Chain: NSE live → NSE saved copy (proxy last-good) → local database → none (callers show sample).
+            const source = "nse" as const;
             if (stale) {
               return { ...summariseStocks(stocks), allStocks: stocks, isLive: false, source, asOf: cachedAt ?? Date.now(), stale: true, reason: "Live sources unavailable. Showing the last saved copy." as string | undefined };
             }

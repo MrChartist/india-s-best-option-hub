@@ -47,7 +47,7 @@ npm run check               # typecheck → lint → unit tests → build
 ## Where things live
 
 ```
-proxy-server.mjs        Local Node proxy: Dhan, NSE, TradingView, Yahoo; caching; WebSocket relay
+proxy-server.mjs        Local Node proxy: Dhan, NSE, Yahoo; caching; WebSocket relay
 src/
 ├── lib/
 │   ├── options/        Pricing, Greeks, IV, IST time, expiry, lot sizes, payoff, POP, charges, formatting

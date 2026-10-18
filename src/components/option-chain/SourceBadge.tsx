@@ -11,7 +11,7 @@ export interface SourceBadgeProps {
   reason?: string;
 }
 
-const SOURCE_NAME: Record<string, string> = { dhan: "Dhan", nse: "NSE", bse: "BSE", yahoo: "Yahoo", tv: "TradingView", cache: "Cache", sample: "Sample", database: "Local DB", none: "Offline" };
+const SOURCE_NAME: Record<string, string> = { dhan: "Dhan", nse: "NSE", bse: "BSE", yahoo: "Yahoo", cache: "Cache", sample: "Sample", database: "Local DB", none: "Offline" };
 
 /** Where the chain came from, how fresh it is and why. Sample data is always labelled. */
 export function SourceBadge({ source, asOf, stale, isLive, reason }: SourceBadgeProps) {

@@ -321,7 +321,7 @@ export function useRotatingScan(order: readonly string[], enabled: boolean) {
 
 // ── Merged rows ──
 
-export type UniverseSource = "nse" | "tv" | "database" | "sample";
+export type UniverseSource = "nse" | "database" | "sample";
 
 export interface ScreenerData {
   rows: ScreenerRow[];
@@ -405,11 +405,9 @@ export function useScreenerData(priority: readonly string[]): ScreenerData {
   const src = fno.data?.source;
   const universeSource: UniverseSource = !liveMode
     ? "sample"
-    : src === "tradingview"
-      ? "tv"
-      : src === "database"
-        ? "database"
-        : "nse";
+    : src === "database"
+      ? "database"
+      : "nse";
 
   return {
     rows,

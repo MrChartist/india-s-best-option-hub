@@ -469,7 +469,7 @@ export default function DashboardLayout() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Source</span>
-                        <span className="font-medium">{isLiveData ? "Dhan / NSE / TradingView" : "None"}</span>
+                        <span className="font-medium">{isLiveData ? "Dhan / NSE" : "None"}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Last refresh</span>

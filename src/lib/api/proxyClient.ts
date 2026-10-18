@@ -13,7 +13,7 @@
 import { useSyncExternalStore } from "react";
 import { getDhanCredentials } from "@/lib/brokerConfig";
 
-export type ProxySource = "dhan" | "nse" | "bse" | "yahoo" | "tv" | "cache" | "sample";
+export type ProxySource = "dhan" | "nse" | "bse" | "yahoo" | "cache" | "sample";
 
 export interface ProxyMeta {
   source: ProxySource;
@@ -87,7 +87,7 @@ export function buildProxyUrl(path: string, params?: Record<string, string | num
   return `${base}${cleanPath}${qs ? `?${qs}` : ""}`;
 }
 
-const SOURCES: ReadonlySet<string> = new Set(["dhan", "nse", "bse", "yahoo", "tv", "cache", "sample"]);
+const SOURCES: ReadonlySet<string> = new Set(["dhan", "nse", "bse", "yahoo", "cache", "sample"]);
 
 function offlineMeta(reason: string): ProxyMeta {
   return { source: "cache", asOf: Date.now(), stale: true, reason };

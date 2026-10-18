@@ -195,7 +195,6 @@ Client hook: `useChainMulti(symbol, expiries)` in `src/hooks/useMarketData.ts` (
 | `GET /api/dhan-proxy?endpoint=historical&securityId=&exchangeSegment=&instrument=&interval=&fromDate=&toDate=` | Intraday ranges clamped to 90 days. |
 | `GET /api/nse-proxy?endpoint=option-chain&symbol=&expiry=` | option-chain-v3 for one expiry, normalised to the legacy `{ records: { expiryDates, data, underlyingValue }, filtered }` shape; legacy endpoint as fallback. Stale copies carry `stale: true, cachedAt`. |
 | `GET /api/nse-proxy?endpoint=indices\|market-status\|equity-derivatives\|market-data-pre-open\|fii-dii` | Raw NSE JSON. |
-| `GET /api/tv-scan?type=stocks\|indices` | TradingView scanner. |
 | `GET /api/yahoo-chart?symbol=&interval=&fromDate=&toDate=` | Yahoo candles; dates are IST calendar days. |
 | `GET /api/test-connection` | Checks the Dhan keys (expiry list for NIFTY). |
 | `GET /health` | See below. |
@@ -205,8 +204,8 @@ Client hook: `useChainMulti(symbol, expiries)` in `src/hooks/useMarketData.ts` (
 {
   status: "ok"; version: string; uptime: number;
   websocket: { dhanConnected: boolean; browserClients: number; instrumentsSubscribed: number; cachedTicks: number; lastDisconnectCode: number | null };
-  upstreams: Record<"dhan" | "nse" | "bse" | "yahoo" | "tv", { lastSuccess: number | null; lastFailure: number | null; lastError: string | null; blockedUntil: number | null }>;
-  sources: { dhan: boolean /* keys in .env */; nse: true; tradingview: true; yahoo: true };
+  upstreams: Record<"dhan" | "nse" | "bse" | "yahoo", { lastSuccess: number | null; lastFailure: number | null; lastError: string | null; blockedUntil: number | null }>;
+  sources: { dhan: boolean /* keys in .env */; nse: true; yahoo: true };
   cache: { entries: number; lastGood: number; inflight: number };
   security: { host: string; allowedOrigins: string[] };
 }

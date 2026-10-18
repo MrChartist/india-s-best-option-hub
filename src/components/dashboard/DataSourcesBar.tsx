@@ -3,7 +3,7 @@
  * the status and detail of each feed. Replaces the old always-visible row of pulsing chips.
  */
 import type { ReactNode } from "react";
-import { Activity, BarChart3, Globe, Radio, TrendingUp, Zap } from "lucide-react";
+import { Activity, Globe, Radio, TrendingUp, Zap } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAllIndices, useFnOStocks, useLiveOptionChain, useProxyHealth } from "@/hooks/useMarketData";
@@ -37,6 +37,12 @@ export function DataSourcesBar() {
   const fnoSource = fnoData?.source ?? "none";
   const ocSource = niftyOC?.source ?? "none";
   const nStocks = fnoData?.allStocks?.length ?? 0;
+  const fnoLive = fnoSource === "nse" && fnoData?.isLive === true;
+  const nseParts = [
+    allIndices?.isLive ? "Indices and sectors" : null,
+    fnoLive ? `${formatNumberIN(nStocks)} F&O stocks` : null,
+    ocSource === "nse" ? (allIndices?.isLive ? "option chain fallback" : "Option chain (Dhan unavailable)") : null,
+  ].filter((p): p is string => p !== null);
 
   const sources: SourceStatus[] = [
     {
@@ -64,14 +70,8 @@ export function DataSourcesBar() {
     {
       name: "NSE",
       icon: <Globe className="h-3.5 w-3.5" aria-hidden="true" />,
-      status: allIndices?.isLive || ocSource === "nse" ? "live" : "offline",
-      detail: allIndices?.isLive ? `Indices and sectors${ocSource === "nse" ? " · option chain fallback" : ""}` : ocSource === "nse" ? "Option chain (Dhan unavailable)" : "No response",
-    },
-    {
-      name: "TradingView",
-      icon: <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />,
-      status: fnoSource === "tradingview" ? "live" : fnoData?.isLive ? "degraded" : "offline",
-      detail: fnoSource === "tradingview" ? `${formatNumberIN(nStocks)} F&O stocks (no OI)` : fnoData?.isLive ? `Standby · NSE serving ${formatNumberIN(nStocks)} stocks` : "Standby",
+      status: allIndices?.isLive || ocSource === "nse" || fnoLive ? "live" : "offline",
+      detail: nseParts.length > 0 ? nseParts.join(" · ") : fnoSource === "nse" ? `Last saved copy · ${formatNumberIN(nStocks)} F&O stocks` : "No response",
     },
     {
       name: "India VIX",

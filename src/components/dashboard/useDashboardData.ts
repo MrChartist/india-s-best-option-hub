@@ -88,7 +88,7 @@ export interface DashFnoData {
   mostActive: Array<FnOStockData & { oi: number; oiChange: number; oiInterpretation: string }>;
   allStocks: FnOStockData[];
   isLive: boolean;
-  source: "nse" | "tradingview" | "database" | "none" | "sample";
+  source: "nse" | "database" | "none" | "sample";
   asOf: number;
   stale: boolean;
   reason?: string;

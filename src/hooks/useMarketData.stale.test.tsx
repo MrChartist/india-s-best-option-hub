@@ -32,7 +32,6 @@ describe("legacy proxy routes answering with a last saved copy", () => {
           return json({ data: [{ index: "NIFTY 50", last: 25000, variation: 10, percentChange: 0.04, advances: 30, declines: 20 }, { index: "INDIA VIX", last: 12 }], stale: true, cachedAt: SAVED_AT });
         }
         if (url.includes("endpoint=equity-derivatives")) return json({ data: [{ symbol: "SBIN", lastPrice: 800, pChange: 1, totalTradedVolume: 10, openInterest: 5 }], stale: true, cachedAt: SAVED_AT });
-        if (url.includes("/api/tv-scan")) return json({ error: "down" }, 502);
         if (url.includes("/api/dhan-proxy")) return json({ error: "No Dhan keys" }, 401);
         if (url.includes("endpoint=option-chain")) return json({ records: { expiryDates: ["20-Oct-2026", "27-Oct-2026"] } });
         return json({}, 404);

@@ -36,8 +36,6 @@ import type {
   OptionLegDataExt,
   ParsedOptionChain,
   ProxyHealthDTO,
-  TVScanDTO,
-  TVStockDTO,
 } from "@/lib/types/market";
 
 export { PROXY_BASE };
@@ -96,7 +94,7 @@ function fetchNSEProxy<T>(endpoint: string, params?: Record<string, string | und
 
 /**
  * A legacy-route result with the proxy's last-good flags. On an upstream failure /api/nse-proxy
- * and /api/tv-scan answer 200 with the last saved copy (up to 18 h old) marked
+ * answers 200 with the last saved copy (up to 18 h old) marked
  * `{ stale: true, cachedAt }`; callers must not label that copy live.
  */
 export interface Stamped<T> {
@@ -677,51 +675,14 @@ export function parseNSEFnOStocks(raw: NSEEquityDerivativesDTO | null | undefine
     });
 }
 
+/**
+ * F&O stock quotes from NSE (equity-derivatives). When NSE is down the proxy answers with its last
+ * saved copy marked stale. If that also fails this throws, and the caller falls back to the local
+ * database and then to labelled sample data (see useFnOStocks).
+ */
 export async function fetchLiveFnOStocks(): Promise<Stamped<FnOStockData[]>> {
-  let saved: Stamped<FnOStockData[]> | null = null;
-  try {
-    const raw = await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives");
-    const nse = { data: parseNSEFnOStocks(raw), ...legacyStamp(raw) };
-    if (nse.data.length > 0 && !nse.stale) return nse;
-    if (nse.data.length > 0) saved = nse;
-  } catch {
-    /* fall back to TradingView */
-  }
-  try {
-    const tv = await fetchTradingViewStocks();
-    if (tv.data.length > 0 && (!tv.stale || !saved)) return tv;
-    if (tv.data.length > 0 && saved && (tv.cachedAt ?? 0) > (saved.cachedAt ?? 0)) return tv;
-  } catch {
-    /* both failed */
-  }
-  return saved ?? { data: [], stale: false, cachedAt: null };
-}
-
-// ── TradingView scanner ──
-
-function tvToFnO(s: TVStockDTO): FnOStockData {
-  const ltp = num(s.ltp);
-  const chg = num(s.changeAbs);
-  return {
-    symbol: s.symbol || "",
-    ltp,
-    change: chg,
-    changePercent: num(s.changePercent),
-    open: num(s.open),
-    high: num(s.high),
-    low: num(s.low),
-    previousClose: ltp - chg,
-    volume: num(s.volume),
-    totalTradedVolume: num(s.volume),
-    openInterest: 0,
-    oiChange: 0,
-    sector: s.sector || "",
-  };
-}
-
-export async function fetchTradingViewStocks(): Promise<Stamped<FnOStockData[]>> {
-  const data = await proxyFetchJSON<TVScanDTO>("/api/tv-scan", { type: "stocks" }, { withDhan: false });
-  return { data: (data.stocks ?? []).map(tvToFnO), ...legacyStamp(data) };
+  const raw = await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives");
+  return { data: parseNSEFnOStocks(raw), ...legacyStamp(raw) };
 }
 
 // ── FII/DII cash activity ──
