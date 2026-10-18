@@ -1,0 +1,65 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/orders/book$",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "clientId": "AB1234",
+            "placedBy": "AB1234",
+            "brokerOrderId": "25071400112229",
+            "exchange": "NSE",
+            "exchangeOrderId": "",
+            "formattedInstrumentName": "ACC-EQ",
+            "tradingSymbol": "ACC",
+            "instrumentId": "22",
+            "transactionType": "BUY",
+            "quantity": 30,
+            "product": "LONGTERM",
+            "orderComplexity": "REGULAR",
+            "orderType": "LIMIT",
+            "price": 1120.15,
+            "averageTradedPrice": 0,
+            "slTriggerPrice": 0,
+            "validity": "DAY",
+            "disclosedQuantity": 0,
+            "orderTime": "",
+            "exchangeUpdateTime": "",
+            "rejectionReason": "ORA:Price 1120.15 is not a multiple of tick size 0.10 ",
+            "mainLegOrderId": "",
+            "cancelledQuantity": 0,
+            "pendingQuantity": 0,
+            "filledQuantity": 0,
+            "appKey": "",
+            "source": "API",
+            "orderTag": "",
+            "trailingSlAmount": 0,
+            "brokerUpdateTime": "",
+            "marketProtectionPercent": "",
+            "exchangeTimestamp": "",
+            "orderStatus": "REJECTED",
+            "lotsize": 1
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

@@ -1,192 +1,161 @@
 /**
- * mStock (Mirae Asset) — Type B authentication.
+ * mStock (Mirae Asset) Type B API: session login + the one authenticated request helper.
  *
- * mStock's "Type B" API is a near-identical clone of Angel One SmartAPI: the
- * master-contract endpoint is even literally named OpenAPIScripMaster, index
- * spot tokens match Angel's numbering (NIFTY 26000, BANKNIFTY 26009,
- * FINNIFTY 26037, MIDCPNIFTY 26074 on NSE — confirmed against mStock's own
- * docs at tradingapi.mstock.com/docs/v1/Annexure/), and auth uses the same
- * X-PrivateKey + Bearer-JWT shape. Login is TOTP-based (no paste-a-token
- * model) and is a two-call handshake per mStock's own SDK reference
- * (marketcalls/openalgo, broker/mstock/api/auth_api.py — no first-party
- * broker-api-docs mirror exists for this broker):
+ * Official docs (checked 2026-10): https://tradingapi.mstock.com/docs/v1/typeB/User/ and
+ * https://tradingapi.mstock.com/docs/v1/Introduction/ , error codes at .../typeB/error-codes/.
+ *  - Root: https://api.mstock.trade/openapi/typeb ; every call sends `X-Mirae-Version: 1`.
+ *  - Login step 1: POST /connect/login { clientcode, password, totp: "", state: "" }. With TOTP enabled
+ *    the reply's data.jwtToken (data.refreshToken is "") is the token step 2 needs.
+ *  - Login step 2: POST /session/verifytotp { refreshToken, totp } with header X-PrivateKey: <api key>
+ *    -> data { jwtToken, refreshToken, feedToken }.
+ *  - Data calls: `Authorization: Bearer <jwtToken>` + `X-PrivateKey: <api key>`.
+ *  - Token life: "valid till 12:00 AM of generated day" / "within 12 hours or on the same day, whichever
+ *    occurs first" (Introduction). expiresAt follows the earlier of the two.
+ *  - Errors: IA401 (HTTP 401) = missing/expired JWT -> SessionRequiredError; IA403 (HTTP 403) = API key
+ *    suspended/expired -> UPSTREAM_AUTH (a new login does not fix it); IA400/IA404/IA500 and MA<xxx>
+ *    (mStock OMS) -> UPSTREAM_ERROR with the broker's message.
+ *  - Rate limits (Introduction): orders 30/s, quotes 20/s, data APIs (historical) 1/s.
  *
- *   1. POST /connect/login       { clientcode, password, totp, state:"" } -> refreshToken
- *   2. POST /session/verifytotp  { refreshToken, totp }                  -> jwtToken, feedToken
+ * OpenAlgo (AGPL, facts only) sends the typed TOTP in step 1 as well; the official docs say `totp: ""`,
+ * which is followed here.
  *
- * Per mStock's public docs (mstock.com/trading-api), access tokens expire
- * "within 12 hours or on the same day, whichever occurs first" — the session
- * cache below expires at whichever of those comes first, so we don't
- * re-login (and burn a fresh TOTP) on every request.
- *
- * mStock's own quote endpoint is documented as a GET request carrying a JSON
- * body (mirrored from the openalgo reference, which calls it exactly that
- * way via httpx). Node's built-in fetch() throws a hard TypeError for any
- * GET/HEAD request with a body (WHATWG fetch spec), so that one call is sent
- * with node:https directly instead of fetch — everything else uses fetch.
+ * Several documented reads (quote, historical, trades) are GET requests that carry a JSON body. Node's
+ * fetch() refuses a body on GET, so those go through node:https (getWithBody below); everything else uses
+ * fetch(). The password and the code are never stored, cached, logged or echoed.
  */
 
 import { request as httpsRequest } from "node:https";
-import { generateTOTP } from "../lib/totp.mjs";
+import { BrokerError, brokerFetch, SessionRequiredError } from "./contract.mjs";
+import { readTotpCode, requireFields, sessionFromCreds, nextIstMidnightMs } from "./sessionLogin.mjs";
 
-const API_BASE = "https://api.mstock.trade/openapi/typeb";
-const LOGIN_PATH = "/connect/login";
-const VERIFY_PATH = "/session/verifytotp";
+export const API_BASE = "https://api.mstock.trade/openapi/typeb";
+const API_HOST = "api.mstock.trade";
 
-// In-memory only — never persisted to disk, never logged.
-const sessionCache = new Map();
+export const LOGIN_FIELDS = [
+  { key: "password", label: "mStock password", kind: "secret" },
+  { key: "totpCode", label: "6-digit TOTP code", kind: "totp" },
+];
+export const SESSION_FIELDS = ["sessionToken", "feedToken"];
 
-function baseHeaders(extra = {}) {
-  return { "X-Mirae-Version": "1", "Content-Type": "application/json", ...extra };
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+
+/** Access-token expiry: next IST midnight or 12 hours from now, whichever is earlier. */
+export function sessionExpiry(now = Date.now()) {
+  return Math.min(nextIstMidnightMs(now), now + TWELVE_HOURS_MS);
 }
 
-/** Cache key only — field VALUES never get logged anywhere in this module. */
-function credsKey(creds) {
-  return JSON.stringify({ c: creds?.clientId, p: creds?.password, t: creds?.totpSecret, a: creds?.apiKey });
+const isOk = (v) => v === true || v === "true";
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
-/** Access-token lifetime per mStock docs: 12h from issue, or same-day, whichever first. */
-function computeExpiry(now = Date.now()) {
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-  const istShifted = new Date(now + IST_OFFSET_MS);
-  istShifted.setUTCHours(0, 0, 0, 0);
-  const nextIstMidnight = istShifted.getTime() + 24 * 60 * 60 * 1000 - IST_OFFSET_MS;
-  const twelveHoursOut = now + 12 * 60 * 60 * 1000;
-  return Math.min(nextIstMidnight, twelveHoursOut);
+/** Map a non-success mStock reply to the contract error classes. Never includes request data. */
+export function classifyError(status, json, text, path) {
+  const code = String(json?.errorcode ?? json?.error_type ?? "").toUpperCase();
+  const msg = String(json?.message || text || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  if (status === 401 || code === "IA401") {
+    return new SessionRequiredError("mStock rejected the session. Log in again from Broker Settings.");
+  }
+  if (status === 403 || code === "IA403") {
+    return new BrokerError(`mStock refused the API key (${msg || "suspended or expired"}). Check your Trading API subscription.`, { code: "UPSTREAM_AUTH" });
+  }
+  if (status === 429) return new BrokerError(`mStock rate limit hit on ${path}.`, { code: "UPSTREAM_RATE_LIMIT" });
+  return new BrokerError(`mStock ${path} failed${status ? ` (HTTP ${status})` : ""}: ${msg || "unknown error"}${code ? ` [${code}]` : ""}`);
 }
 
-async function postJson(path, headers, body) {
-  const res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-  return { res, text, json };
-}
-
-function isSuccessStatus(v) {
-  return v === true || v === "true";
-}
-
-async function loginFresh(creds) {
-  const totp = generateTOTP(creds.totpSecret);
-
-  const step1 = await postJson(LOGIN_PATH, baseHeaders(), {
-    clientcode: creds.clientId,
-    password: creds.password,
-    totp,
-    state: "",
+async function postLogin(path, headers, body) {
+  const res = await brokerFetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "X-Mirae-Version": "1", "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
   });
-  if (!step1.res.ok || !isSuccessStatus(step1.json?.status) || !step1.json?.data) {
-    const msg = step1.json?.message || `HTTP ${step1.res.status}`;
-    console.log(`[mstock] connect/login failed (status ${step1.res.status})`);
-    throw new Error(`mStock login failed: ${msg}`);
+  const text = await res.text();
+  return { status: res.status, json: parseJson(text), text };
+}
+
+/** Session login with the user-typed password and current TOTP code. Returns only session tokens. */
+export async function login(creds) {
+  requireFields(creds, ["clientId", "apiKey", "password"], "mStock");
+  const totp = readTotpCode(creds);
+
+  const step1 = await postLogin("/connect/login", {}, { clientcode: creds.clientId, password: creds.password, totp: "", state: "" });
+  if (step1.status !== 200 || !isOk(step1.json?.status) || !step1.json?.data) {
+    throw new BrokerError(`mStock login failed: ${String(step1.json?.message || `HTTP ${step1.status}`).slice(0, 160)}`, { code: "UPSTREAM_AUTH" });
   }
   const refreshToken = step1.json.data.refreshToken || step1.json.data.jwtToken;
-  if (!refreshToken) throw new Error("mStock login: no refreshToken/jwtToken in response");
+  if (!refreshToken) throw new BrokerError("mStock login returned no token for the TOTP step.", { code: "UPSTREAM_AUTH" });
 
-  const step2 = await postJson(VERIFY_PATH, baseHeaders({ "X-PrivateKey": creds.apiKey }), {
-    refreshToken,
-    totp,
-  });
-  if (!step2.res.ok || !isSuccessStatus(step2.json?.status) || !step2.json?.data) {
-    const msg = step2.json?.message || `HTTP ${step2.res.status}`;
-    console.log(`[mstock] session/verifytotp failed (status ${step2.res.status})`);
-    throw new Error(`mStock TOTP verification failed: ${msg}`);
+  const step2 = await postLogin("/session/verifytotp", { "X-PrivateKey": creds.apiKey }, { refreshToken, totp });
+  if (step2.status !== 200 || !isOk(step2.json?.status) || !step2.json?.data?.jwtToken) {
+    throw new BrokerError(`mStock TOTP check failed: ${String(step2.json?.message || `HTTP ${step2.status}`).slice(0, 160)}`, { code: "UPSTREAM_AUTH" });
   }
-  const jwtToken = step2.json.data.jwtToken;
-  if (!jwtToken) throw new Error("mStock TOTP verification: no jwtToken in response");
-
-  const session = { jwtToken, feedToken: step2.json.data.feedToken || null, expiresAt: computeExpiry() };
-  sessionCache.set(credsKey(creds), session);
-  return session;
+  const session = { sessionToken: String(step2.json.data.jwtToken) };
+  if (step2.json.data.feedToken) session.feedToken = String(step2.json.data.feedToken);
+  return { session, expiresAt: sessionExpiry() };
 }
 
-/** Returns a valid cached session, logging in fresh (new TOTP) if missing/expired. */
-export async function getSession(creds) {
-  if (!creds?.clientId || !creds?.apiKey || !creds?.password || !creds?.totpSecret) {
-    throw new Error("mStock credentials incomplete — need clientId, apiKey, password, totpSecret");
-  }
-  const key = credsKey(creds);
-  const cached = sessionCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached;
-  return loginFresh(creds);
+/** The stored session. Throws SessionRequiredError (before any network call) when absent or expired. */
+export function getSession(creds) {
+  requireFields(creds, ["clientId", "apiKey"], "mStock");
+  const s = sessionFromCreds(creds, SESSION_FIELDS, "mStock");
+  return { jwtToken: s.sessionToken, feedToken: s.feedToken || null };
 }
 
-/** GET or POST against api.mstock.trade with a JSON body, authenticated. Retries once on auth rejection. */
-export async function authRequest(creds, path, { method = "GET", payload = null } = {}) {
-  let session = await getSession(creds);
-
-  const doCall = async (sess) => {
-    const headers = {
-      "X-Mirae-Version": "1",
-      "Authorization": `Bearer ${sess.jwtToken}`,
-      "X-PrivateKey": creds.apiKey,
-      "Accept": "application/json",
-    };
-    if (method === "GET" && payload) {
-      // fetch() cannot send a body on GET — use raw https instead (see file header).
-      return httpGetWithBody(`${API_BASE}${path}`, headers, payload);
-    }
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: payload ? { ...headers, "Content-Type": "application/json" } : headers,
-      body: payload ? JSON.stringify(payload) : undefined,
-    });
-    const text = await res.text();
-    let json = null;
-    try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-    return { status: res.status, text, json };
-  };
-
-  let { status, text, json } = await doCall(session);
-
-  if (status === 401 || status === 403) {
-    console.log(`[mstock] token rejected on ${path} (status ${status}) — re-logging in`);
-    sessionCache.delete(credsKey(creds));
-    session = await loginFresh(creds);
-    ({ status, text, json } = await doCall(session));
-  }
-
-  if (status < 200 || status >= 300) {
-    throw new Error(`mStock API error [${status}] on ${path}: ${json?.message || text.slice(0, 200)}`);
-  }
-  if (json && !isSuccessStatus(json.status) && json.status !== undefined) {
-    throw new Error(`mStock API error on ${path}: ${json.message || json.errorcode || "unknown"}`);
-  }
-  return json;
-}
-
-/**
- * Raw HTTPS GET carrying a JSON body — Node's fetch() refuses this (spec
- * disallows a body on GET/HEAD), but mStock's quote endpoint requires it
- * (confirmed via the openalgo reference implementation, which sends it this
- * way successfully through Python's httpx). node:https has no such
- * restriction, so we drop to it for this one call.
- */
-function httpGetWithBody(url, headers, payload) {
+/** GET with a JSON body over node:https (fetch() cannot send one). Resolves { status, text }. */
+export function getWithBody(url, headers, payload) {
+  const u = new URL(url);
+  if (u.hostname !== API_HOST) return Promise.reject(new Error(`mStock: refusing request to ${u.hostname}`));
+  const body = JSON.stringify(payload);
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const body = JSON.stringify(payload);
     const req = httpsRequest(
       {
         hostname: u.hostname,
         path: `${u.pathname}${u.search}`,
         method: "GET",
         headers: { ...headers, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+        timeout: 20_000,
       },
       (res) => {
         const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf-8");
-          let json = null;
-          try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-          resolve({ status: res.statusCode, text, json });
-        });
-      }
+        res.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+        res.on("end", () => resolve({ status: res.statusCode, text: Buffer.concat(chunks).toString("utf-8") }));
+        res.on("error", reject);
+      },
     );
+    req.on("timeout", () => req.destroy(new Error("mStock request timed out")));
     req.on("error", reject);
     req.write(body);
     req.end();
   });
+}
+
+/**
+ * Authenticated call. `body` on a GET goes through getWithBody(); on POST/PUT/DELETE it is JSON.
+ * Returns the parsed JSON (bare arrays are returned as-is); throws contract errors otherwise.
+ */
+export async function authRequest(creds, path, { method = "GET", body } = {}) {
+  const { jwtToken } = getSession(creds);
+  const headers = { "X-Mirae-Version": "1", Authorization: `Bearer ${jwtToken}`, "X-PrivateKey": creds.apiKey, Accept: "application/json" };
+  const url = `${API_BASE}${path}`;
+  let status;
+  let text;
+  if (method === "GET" && body !== undefined) {
+    ({ status, text } = await getWithBody(url, headers, body));
+  } else {
+    const init = { method, headers: body !== undefined ? { ...headers, "Content-Type": "application/json" } : headers };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    const res = await brokerFetch(url, init);
+    status = res.status;
+    text = await res.text();
+  }
+  const json = parseJson(text);
+  if (status < 200 || status >= 300) throw classifyError(status, json, text, path);
+  if (json === null) throw new BrokerError(`mStock ${path} returned a non-JSON reply (HTTP ${status}).`);
+  if (!Array.isArray(json) && json.status !== undefined && !isOk(json.status)) throw classifyError(status, json, "", path);
+  return json;
 }

@@ -1,0 +1,34 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsky.com/oapi/v1/user/trading_info?api_key=dummy-sky-api-key&client_id=DEMO1",
+      "status": 200,
+      "json": {
+        "data": {
+          "client_id": "DEMO1",
+          "ddpi": false,
+          "exchanges_subscribed": [
+            "NFO",
+            "NSE",
+            "BSE",
+            "CDS"
+          ],
+          "name": "DEMO",
+          "poa_enabled": true,
+          "products_enabled": [
+            "NRML",
+            "CNC",
+            "MIS"
+          ],
+          "status": "active"
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "args": [
+    [
+      {
+        "token": "500317",
+        "exchange": "BSE"
+      },
+      {
+        "token": "52826",
+        "exchange": "NFO"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/report/v3/getltpdata",
+      "expectBody": {
+        "exchange": "BSE",
+        "scripcode": 500317
+      },
+      "json": {
+        "status": "SUCCESS",
+        "message": "LTP DATA",
+        "errorcode": "",
+        "data": {
+          "exchange": "BSE",
+          "scripcode": 500317,
+          "open": 3131,
+          "high": 3249,
+          "low": 3131,
+          "close": 3189,
+          "ltp": 3224,
+          "volume": 7017,
+          "ask": 3239,
+          "bid": 3230
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/report/v3/getltpdata",
+      "expectBody": {
+        "exchange": "NSEFO",
+        "scripcode": 52826
+      },
+      "json": {
+        "status": "SUCCESS",
+        "message": "LTP DATA",
+        "errorcode": "",
+        "data": {
+          "exchange": "NSEFO",
+          "scripcode": 52826,
+          "open": 10095,
+          "high": 11095,
+          "low": 9595,
+          "close": 10295,
+          "ltp": 10495,
+          "volume": 543025,
+          "ask": 10485,
+          "bid": 10455
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

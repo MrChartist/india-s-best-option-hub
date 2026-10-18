@@ -1,0 +1,34 @@
+{
+  "args": [
+    "2190766863",
+    {
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "quantity": 150,
+      "price": 198.75
+    }
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/orders",
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 2190766863,
+          "OrderUniqueIdentifier": "mrchub",
+          "ClientID": "DUMMY1"
+        }
+      },
+      "expectBody": {
+        "appOrderID": 2190766863,
+        "modifiedOrderType": "Limit",
+        "modifiedProductType": "NRML",
+        "modifiedOrderQuantity": 150,
+        "modifiedLimitPrice": 198.75
+      }
+    }
+  ]
+}

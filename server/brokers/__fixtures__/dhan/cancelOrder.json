@@ -1,0 +1,16 @@
+{
+  "args": [
+    "112111182198"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://api.dhan.co/v2/orders/112111182198",
+      "status": 202,
+      "json": {
+        "orderId": "112111182198",
+        "orderStatus": "CANCELLED"
+      }
+    }
+  ]
+}

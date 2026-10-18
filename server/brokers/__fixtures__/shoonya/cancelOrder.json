@@ -1,0 +1,32 @@
+{
+  "args": [
+    "26101700000017"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/CancelOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\"}"
+      },
+      "json": {
+        "request_time": "14:14:10 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

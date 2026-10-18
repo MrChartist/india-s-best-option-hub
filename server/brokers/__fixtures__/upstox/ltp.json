@@ -1,0 +1,20 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.upstox.com/v3/market-quote/ltp?instrument_key=NSE_INDEX%7CNifty+50",
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE_INDEX:Nifty 50": {
+            "last_price": 25041.35,
+            "instrument_token": "NSE_INDEX|Nifty 50",
+            "ltq": 0,
+            "volume": 0,
+            "cp": 24936.15
+          }
+        }
+      }
+    }
+  ]
+}

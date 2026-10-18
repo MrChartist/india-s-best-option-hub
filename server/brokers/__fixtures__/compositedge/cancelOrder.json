@@ -1,0 +1,69 @@
+{
+  "args": [
+    "648468730"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey01",
+        "secretKey": "dummyIaSecret01",
+        "accessToken": "dummyRequestToken01"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "url": "https://xts.compositedge.com/interactive/orders?appOrderID=648468730&orderUniqueIdentifier=mrchub",
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 648468730,
+          "ClientID": "DUMMY1"
+        }
+      }
+    }
+  ]
+}

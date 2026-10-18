@@ -1,0 +1,62 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/sentinel/portfolio/positions",
+      "json": {
+        "message": "positions",
+        "portfolio": {
+          "clientCode": "XXXXXX",
+          "positionStats": {
+            "totalPnl": 41910,
+            "totalPnlChg": 6.5
+          },
+          "positions": [
+            {
+              "refId": 739119,
+              "symbol": "NIFTY26O2025000CE",
+              "exchange": "NSE",
+              "asset": "NIFTY",
+              "assetType": "INDEX_FO",
+              "deliveryType": "IDAY",
+              "orderSide": "BUY",
+              "netQuantity": 65,
+              "buyQuantity": 65,
+              "sellQuantity": 0,
+              "lastTradedPrice": 10495,
+              "avgPrice": 9850,
+              "avgBuyPrice": 9850,
+              "avgSellPrice": 0,
+              "pnl": 41925,
+              "pnlChg": 6.55
+            },
+            {
+              "refId": 847854,
+              "symbol": "YESBANK",
+              "exchange": "BSE",
+              "asset": "YESBANK",
+              "assetType": "STOCK",
+              "deliveryType": "CNC",
+              "orderSide": "BUY",
+              "netQuantity": 1,
+              "buyQuantity": 1,
+              "sellQuantity": 0,
+              "lastTradedPrice": 1853,
+              "avgPrice": 1868,
+              "avgBuyPrice": 1868,
+              "avgSellPrice": 0,
+              "pnl": -15,
+              "pnlChg": -0.8029979
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

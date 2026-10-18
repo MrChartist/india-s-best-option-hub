@@ -1,0 +1,22 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "args": [
+    "2400155AA020"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/trans/v2/cancelorder",
+      "expectBody": {
+        "uniqueorderid": "2400155AA020"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "message": "Cancel Order Request Sent",
+        "errorcode": ""
+      }
+    }
+  ]
+}

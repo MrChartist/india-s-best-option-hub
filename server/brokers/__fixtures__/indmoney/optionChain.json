@@ -1,0 +1,273 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/market/instruments?source=fno",
+      "text": "EXCH,SEGMENT,SECURITY_ID,INSTRUMENT_NAME,EXPIRY_CODE,TRADING_SYMBOL,LOT_UNITS,CUSTOM_SYMBOL,EXPIRY_DATE,STRIKE_PRICE,OPTION_TYPE,TICK_SIZE,EXPIRY_FLAG,SEM_EXCH_INSTRUMENT_TYPE,SERIES,SYMBOL_NAME\nNSE,D,61001,OPTIDX,3 Nov 2026,NIFTY-Nov2026-25000-CE,65,NIFTY 3 NOV 25000 CE,11/03/2026 14:00,25000.00000,CE,5,W,OPTIDX,,\nNSE,D,61002,OPTIDX,3 Nov 2026,NIFTY-Nov2026-25000-PE,65,NIFTY 3 NOV 25000 PE,11/03/2026 14:00,25000.00000,PE,5,W,OPTIDX,,\nNSE,D,61003,OPTIDX,3 Nov 2026,NIFTY-Nov2026-25050-CE,65,NIFTY 3 NOV 25050 CE,11/03/2026 14:00,25050.00000,CE,5,W,OPTIDX,,\nNSE,D,61004,OPTIDX,3 Nov 2026,NIFTY-Nov2026-25050-PE,65,NIFTY 3 NOV 25050 PE,11/03/2026 14:00,25050.00000,PE,5,W,OPTIDX,,\nNSE,D,73871,OPTIDX,27 Oct 2026,NIFTY-Oct2026-25000-CE,65,NIFTY 27 OCT 25000 CE,10/27/2026 14:00,25000.00000,CE,5,M,OPTIDX,,\nNSE,D,73872,OPTIDX,27 Oct 2026,NIFTY-Oct2026-25000-PE,65,NIFTY 27 OCT 25000 PE,10/27/2026 14:00,25000.00000,PE,5,M,OPTIDX,,\nNSE,D,48704,FUTIDX,27 Oct 2026,NIFTY-Oct2026-FUT,65,NIFTY 27 OCT -0.01 FUT,10/27/2026 14:00,-0.01000,XX,5,M,FUTIDX,,\nNSE,D,49445,OPTIDX,27 Oct 2026,BANKNIFTY-Oct2026-56000-PE,35,BANKNIFTY 27 OCT 56000 PE,10/27/2026 14:00,56000.00000,PE,5,M,OPTIDX,,\nNSE,D,50319,OPTIDX,27 Oct 2026,FINNIFTY-Oct2026-25000-CE,60,FINNIFTY 27 OCT 25000 CE,10/27/2026 14:00,25000.00000,CE,5,M,OPTIDX,,\nNSE,D,52001,OPTIDX,27 Oct 2026,MIDCPNIFTY-Oct2026-13000-CE,140,MIDCPNIFTY 27 OCT 13000 CE,10/27/2026 14:00,13000.00000,CE,5,M,OPTIDX,,\nBSE,D,823580,OPTIDX,22 Oct 2026,SENSEX-Oct2026-81000-CE,20,SENSEX 22 OCT 81000 CE,10/22/2026 14:00,81000.00000,CE,5,W,OPTIDX,,\nBSE,D,823581,OPTIDX,22 Oct 2026,SENSEX-Oct2026-81000-PE,20,SENSEX 22 OCT 81000 PE,10/22/2026 14:00,81000.00000,PE,5,W,OPTIDX,,\nBSE,D,824001,OPTIDX,27 Oct 2026,BANKEX-Oct2026-62000-CE,30,BANKEX 27 OCT 62000 CE,10/27/2026 14:00,62000.00000,CE,5,M,OPTIDX,,\nNSE,D,46263,OPTSTK,27 Oct 2026,RELIANCE-Oct2026-1400-CE,500,RELIANCE 27 OCT 1400 CE,10/27/2026 14:00,1400.00000,CE,5,M,OPTSTK,,\nNSE,D,46264,OPTSTK,27 Oct 2026,RELIANCE-Oct2026-1400-PE,500,RELIANCE 27 OCT 1400 PE,10/27/2026 14:00,1400.00000,PE,5,M,OPTSTK,,\nNSE,D,68772,FUTSTK,27 Oct 2026,PREMIERENE-Oct2026-FUT,650,PREMIERENE 27 OCT -0.01 FUT,10/27/2026 14:00,-0.01000,XX,5,M,FUTSTK,,\nNSE,D,65655,OPTIDX,27 Oct 2026,NIFTYNXT50-Oct2026-79900-CE,25,NIFTYNXT50 27 OCT 79900 CE,10/27/2026 14:00,79900.00000,CE,5,M,OPTIDX,,\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/market/instruments?source=index",
+      "text": "EXCH,SEGMENT,SECURITY_ID\nNSE,NIFTY IT,40000004\nBSE,SENSEX,40000006\nNSE,NIFTY 50,40000001\nNSE,BANK NIFTY,40000003\nBSE,BANKEX,40000033\nNSE,Nifty Midcap Sel,40000093\nNSE,Nifty Financial,40000100\nNSE,NiftyFinSrv25 50,40000076\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/market/instruments?source=equity",
+      "text": "EXCH,SEGMENT,SECURITY_ID,INSTRUMENT_NAME,EXPIRY_CODE,TRADING_SYMBOL,LOT_UNITS,CUSTOM_SYMBOL,EXPIRY_DATE,STRIKE_PRICE,OPTION_TYPE,TICK_SIZE,EXPIRY_FLAG,SEM_EXCH_INSTRUMENT_TYPE,SERIES,SYMBOL_NAME\nNSE,E,2885,EQUITY,,RELIANCE,1,RELIANCE INDUSTRIES LTD,,0.00000,,10,NA,ES,EQ,Reliance Industries Ltd\nBSE,E,512463,EQUITY,,LLOYDSENT,1,LLOYDS ENTERPRISES LIMITED,,0.00000,,1,NA,ES,A,Lloyds Enterprises Ltd\nBSE,E,810908,EQUITY,,774KA37,1,774KARSDL37,,0.00000,,5,NA,DBT,G,774KARSDL37\nNSE,E,17922,EQUITY,,GEEKAYWIRE,1,GEEKAY WIRES LIMITED,,0.00000,,1,NA,Other,EQ,Geekay Wires Ltd\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.indstocks\\.com/market/quotes/full\\?scrip-codes=NIDX_40000001%2CNFO_61001%2CNFO_61002%2CNFO_61003%2CNFO_61004$",
+      "json": {
+        "status": "success",
+        "data": {
+          "NIDX_40000001": {
+            "live_price": 25041.7,
+            "day_change": 34.6,
+            "day_change_percentage": 3.24,
+            "day_low": 24290.449,
+            "day_high": 25542.534,
+            "day_open": 24540.866,
+            "prev_close": 24791.283,
+            "52week_high": 37562.55,
+            "52week_low": 17529.19,
+            "upper_circuit": 30050.04,
+            "lower_circuit": 20033.36,
+            "market_depth": {
+              "NIDX_40000001": {
+                "aggregate": {
+                  "total_buy": "1,250",
+                  "total_sell": "1,281",
+                  "buy_percentage": 49,
+                  "sell_percentage": 51
+                },
+                "depth": [
+                  {
+                    "buy": {
+                      "quantity": "650",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "1,281",
+                      "price": "0.00"
+                    }
+                  },
+                  {
+                    "buy": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    }
+                  }
+                ]
+              }
+            },
+            "volume": 20994760
+          },
+          "NFO_61001": {
+            "live_price": 182.4,
+            "day_change": 34.6,
+            "day_change_percentage": 3.24,
+            "day_low": 176.928,
+            "day_high": 186.048,
+            "day_open": 178.752,
+            "prev_close": 180.576,
+            "52week_high": 273.6,
+            "52week_low": 127.67999999999999,
+            "upper_circuit": 218.88,
+            "lower_circuit": 145.92000000000002,
+            "market_depth": {
+              "NFO_61001": {
+                "aggregate": {
+                  "total_buy": "1,250",
+                  "total_sell": "1,281",
+                  "buy_percentage": 49,
+                  "sell_percentage": 51
+                },
+                "depth": [
+                  {
+                    "buy": {
+                      "quantity": "650",
+                      "price": "182.20"
+                    },
+                    "sell": {
+                      "quantity": "1,281",
+                      "price": "182.45"
+                    }
+                  },
+                  {
+                    "buy": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    }
+                  }
+                ]
+              }
+            },
+            "volume": 20994760
+          },
+          "NFO_61002": {
+            "live_price": 139.1,
+            "day_change": 34.6,
+            "day_change_percentage": 3.24,
+            "day_low": 134.927,
+            "day_high": 141.882,
+            "day_open": 136.31799999999998,
+            "prev_close": 137.709,
+            "52week_high": 208.64999999999998,
+            "52week_low": 97.36999999999999,
+            "upper_circuit": 166.92,
+            "lower_circuit": 111.28,
+            "market_depth": {
+              "NFO_61002": {
+                "aggregate": {
+                  "total_buy": "1,250",
+                  "total_sell": "1,281",
+                  "buy_percentage": 49,
+                  "sell_percentage": 51
+                },
+                "depth": [
+                  {
+                    "buy": {
+                      "quantity": "650",
+                      "price": "139.05"
+                    },
+                    "sell": {
+                      "quantity": "1,281",
+                      "price": "139.25"
+                    }
+                  },
+                  {
+                    "buy": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    }
+                  }
+                ]
+              }
+            },
+            "volume": 20994760
+          },
+          "NFO_61003": {
+            "live_price": 154.6,
+            "day_change": 34.6,
+            "day_change_percentage": 3.24,
+            "day_low": 149.962,
+            "day_high": 157.692,
+            "day_open": 151.50799999999998,
+            "prev_close": 153.054,
+            "52week_high": 231.89999999999998,
+            "52week_low": 108.21999999999998,
+            "upper_circuit": 185.51999999999998,
+            "lower_circuit": 123.68,
+            "market_depth": {
+              "NFO_61003": {
+                "aggregate": {
+                  "total_buy": "1,250",
+                  "total_sell": "1,281",
+                  "buy_percentage": 49,
+                  "sell_percentage": 51
+                },
+                "depth": [
+                  {
+                    "buy": {
+                      "quantity": "650",
+                      "price": "154.50"
+                    },
+                    "sell": {
+                      "quantity": "1,281",
+                      "price": "154.80"
+                    }
+                  },
+                  {
+                    "buy": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    }
+                  }
+                ]
+              }
+            },
+            "volume": 20994760
+          },
+          "NFO_61004": {
+            "live_price": 161.3,
+            "day_change": 34.6,
+            "day_change_percentage": 3.24,
+            "day_low": 156.461,
+            "day_high": 164.526,
+            "day_open": 158.074,
+            "prev_close": 159.687,
+            "52week_high": 241.95000000000002,
+            "52week_low": 112.91,
+            "upper_circuit": 193.56,
+            "lower_circuit": 129.04000000000002,
+            "market_depth": {
+              "NFO_61004": {
+                "aggregate": {
+                  "total_buy": "1,250",
+                  "total_sell": "1,281",
+                  "buy_percentage": 49,
+                  "sell_percentage": 51
+                },
+                "depth": [
+                  {
+                    "buy": {
+                      "quantity": "650",
+                      "price": "161.10"
+                    },
+                    "sell": {
+                      "quantity": "1,281",
+                      "price": "161.40"
+                    }
+                  },
+                  {
+                    "buy": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    },
+                    "sell": {
+                      "quantity": "0.00",
+                      "price": "0.00"
+                    }
+                  }
+                ]
+              }
+            },
+            "volume": 20994760
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 2
+  }
+}

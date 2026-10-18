@@ -1,0 +1,362 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/masterscrip/file-paths",
+      "json": {
+        "filesPaths": [
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/bse_cm.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/cde_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/mcx_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_cm.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/bse_fo.csv"
+        ],
+        "baseFolder": "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_fo.csv",
+      "text": "pSymbol,pGroup,pExchSeg,pInstType,pSymbolName,pTrdSymbol,pOptionType,pScripRefKey,pISIN,pAssetCode,pSubGroup,pCombinedSymbol,pDesc,pAmcCode,pContractId,dTickSize ,lLotSize,lExpiryDate ,lMultiplier ,lPrecision,dStrikePrice;\n40001,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025000CE,CE,NIFTY26O2025000CE,,26000,,,,,,5,65,1476973800,-1,2,2500000\n40002,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025000PE,PE,NIFTY26O2025000PE,,26000,,,,,,5,65,1476973800,-1,2,2500000\n40003,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025050CE,CE,NIFTY26O2025050CE,,26000,,,,,,5,65,1476973800,-1,2,2.505e+06\n40004,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025050PE,PE,NIFTY26O2025050PE,,26000,,,,,,5,65,1476973800,-1,2,2.505e+06\n40005,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2024950CE,CE,NIFTY26O2024950CE,,26000,,,,,,5,65,1476973800,-1,2,2495000\n40006,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2024950PE,PE,NIFTY26O2024950PE,,26000,,,,,,5,65,1476973800,-1,2,2495000\n41001,XX,nse_fo,OPTIDX,NIFTY,NIFTY26OCT25000CE,CE,NIFTY26OCT25000CE,,26000,,,,,,5,65,1477578600,-1,2,2500000\n41002,XX,nse_fo,FUTIDX,NIFTY,NIFTY26OCTFUT,XX,NIFTY26OCTFUT,,26000,,,,,,10,65,1477578600,-1,2,-1\n42001,XX,nse_fo,OPTIDX,BANKNIFTY,BANKNIFTY26OCT56000CE,CE,BANKNIFTY26OCT56000CE,,26009,,,,,,5,30,1477578600,-1,2,5600000\n43001,XX,nse_fo,OPTSTK,RELIANCE,RELIANCE26OCT1460CE,CE,RELIANCE26OCT1460CE,,2885,,,,,,5,500,1477578600,-1,2,146000\n44001,XX,nse_fo,OPTIDX,NIFTYNXT50,NIFTYNXT5026OCT70000CE,CE,NIFTYNXT5026OCT70000CE,,26013,,,,,,5,25,1477578600,-1,2,7000000\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/quotes/neosymbol/nse_cm%7CNifty%2050/all",
+      "json": [
+        {
+          "exchange_token": "Nifty 50",
+          "display_symbol": "Nifty 50",
+          "exchange": "nse_cm",
+          "lstup_time": "1792471500",
+          "ltp": "25012.15",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "0",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "0",
+          "ohlc": {
+            "open": "25008.15",
+            "high": "25018.15",
+            "low": "25003.15",
+            "close": "25010.15"
+          },
+          "depth": {
+            "buy": [],
+            "sell": []
+          }
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://cis\\.kotaksecurities\\.com/script-details/1\\.0/quotes/neosymbol/nse_fo%7C4000[1-6](%2Cnse_fo%7C4000[1-6]){5}/all$",
+      "json": [
+        {
+          "exchange_token": "40001",
+          "display_symbol": "NIFTY 20 OCT 2026 CE 25000.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "104.95",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "543025",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "165900",
+          "ohlc": {
+            "open": "100.95",
+            "high": "110.95",
+            "low": "95.95",
+            "close": "102.95"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "104.55",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "104.5",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "104.85",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "104.89999999999999",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40002",
+          "display_symbol": "NIFTY 20 OCT 2026 PE 25000.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "86.4",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "498120",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "201300",
+          "ohlc": {
+            "open": "82.4",
+            "high": "92.4",
+            "low": "77.4",
+            "close": "84.4"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "86.2",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "86.15",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "86.5",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "86.55",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40003",
+          "display_symbol": "NIFTY 20 OCT 2026 CE 25050.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "79.2",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "312040",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "120500",
+          "ohlc": {
+            "open": "75.2",
+            "high": "85.2",
+            "low": "70.2",
+            "close": "77.2"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "79",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "78.95",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "79.3",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "79.35",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40004",
+          "display_symbol": "NIFTY 20 OCT 2026 PE 25050.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "111.6",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "210400",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "99800",
+          "ohlc": {
+            "open": "107.6",
+            "high": "117.6",
+            "low": "102.6",
+            "close": "109.6"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "111.4",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "111.35000000000001",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "111.8",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "111.85",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40005",
+          "display_symbol": "NIFTY 20 OCT 2026 CE 24950.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "135.1",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "190330",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "87000",
+          "ohlc": {
+            "open": "131.1",
+            "high": "141.1",
+            "low": "126.1",
+            "close": "133.1"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "134.9",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "134.85",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "135.3",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "135.35000000000002",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40006",
+          "display_symbol": "NIFTY 20 OCT 2026 PE 24950.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "66.3",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "260090",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "143000",
+          "ohlc": {
+            "open": "62.3",
+            "high": "72.3",
+            "low": "57.3",
+            "close": "64.3"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "66.1",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "66.05",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "66.5",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "66.55",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V4/OrderBook",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "ClientCode": "55512345"
+        }
+      },
+      "json": {
+        "body": {
+          "Message": "Success",
+          "OrderBookDetail": [
+            {
+              "AHProcess": "N",
+              "AfterHours": "N",
+              "AtMarket": "N",
+              "AveragePrice": 0,
+              "BrokerOrderId": 182747604,
+              "BrokerOrderTime": "/Date(1792471500000+0530)/",
+              "BuySell": "B",
+              "DelvIntra": "D",
+              "DisClosedQty": 0,
+              "Exch": "N",
+              "ExchOrderID": "1500000035029169",
+              "ExchOrderTime": "/Date(1792471501000+0530)/",
+              "ExchType": "D",
+              "MarketLot": 65,
+              "OldorderQty": 0,
+              "OrderRequesterCode": "55512345",
+              "OrderStatus": "Pending",
+              "OrderValidUpto": "20 Oct 2026",
+              "OrderValidity": 0,
+              "PendingQty": 130,
+              "Qty": 130,
+              "Rate": 104.5,
+              "Reason": "",
+              "RemoteOrderID": "MRCTEST01",
+              "RequestType": "P",
+              "SLTriggerRate": 0,
+              "SLTriggered": "N",
+              "SMOProfitRate": 0,
+              "SMOSLLimitRate": 0,
+              "SMOSLTriggerRate": 0,
+              "SMOTrailingSL": 0,
+              "ScripCode": 51401,
+              "ScripName": "NIFTY 20 Oct 2026 CE 25000.00",
+              "TerminalId": 46188,
+              "TradedQty": 0,
+              "WithSL": "N",
+              "MtfFlag": "N"
+            },
+            {
+              "AHProcess": "N",
+              "AfterHours": "N",
+              "AtMarket": "N",
+              "AveragePrice": 5.2,
+              "BrokerOrderId": 182747605,
+              "BrokerOrderTime": "/Date(1792471500000+0530)/",
+              "BuySell": "S",
+              "DelvIntra": "D",
+              "DisClosedQty": 0,
+              "Exch": "N",
+              "ExchOrderID": "1500000035029170",
+              "ExchOrderTime": "/Date(1792471501000+0530)/",
+              "ExchType": "D",
+              "MarketLot": 165,
+              "OldorderQty": 0,
+              "OrderRequesterCode": "55512345",
+              "OrderStatus": "Fully Executed",
+              "OrderValidUpto": "20 Oct 2026",
+              "OrderValidity": 0,
+              "PendingQty": 0,
+              "Qty": 165,
+              "Rate": 4.55,
+              "Reason": "",
+              "RemoteOrderID": "MAE",
+              "RequestType": "P",
+              "SLTriggerRate": 0,
+              "SLTriggered": "N",
+              "SMOProfitRate": 0,
+              "SMOSLLimitRate": 0,
+              "SMOSLTriggerRate": 0,
+              "SMOTrailingSL": 0,
+              "ScripCode": 43899,
+              "ScripName": "BANKNIFTY 27 Oct 2026 CE 56000.00",
+              "TerminalId": 46188,
+              "TradedQty": 165,
+              "WithSL": "N",
+              "MtfFlag": "N"
+            }
+          ],
+          "Status": 0
+        },
+        "head": {
+          "responseCode": "5POrdBkV3",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

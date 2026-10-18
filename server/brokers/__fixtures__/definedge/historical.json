@@ -1,0 +1,32 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "43210",
+        "exchange": "NFO"
+      },
+      "interval": "1m",
+      "from": "2026-10-16T03:45:00Z",
+      "to": "2026-10-16T03:48:00Z"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://data.definedgesecurities.com/sds/history/NFO/43210/minute/161020260915/161020260918",
+      "headers": {
+        "content-type": "text/csv"
+      },
+      "text": "161020260916,101.95,102.95,100.90,102.20,9367,2150000\n161020260915,100.00,102.00,99.50,101.95,12650,2140000\n161020260917,102.20,103.10,101.80,102.85,7150,2155000\n"
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

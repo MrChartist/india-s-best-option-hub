@@ -1,141 +1,148 @@
 /**
- * mStock instrument/scrip master — daily JSON download + option-chain parsing.
+ * mStock (Mirae Asset) Type B scrip master + index spot tokens.
  *
- * mStock has no dedicated option-chain or expiry-list endpoint (per
- * broker/mstock/api/data.py in marketcalls/openalgo — only quote/historical/
- * intraday/depth calls exist), so both are derived by filtering this master,
- * exactly like the Angel One module. The master's JSON schema is Angel's
- * OpenAPIScripMaster schema with the symbol/name columns swapped (confirmed
- * via openalgo's broker/mstock/mapping/*.py, which renames the raw API
- * `symbol` field to the DB `name` column and vice versa): a raw row's
- * `symbol` field is the short underlying name ("NIFTY", "SENSEX", ...) and
- * its `name` field is the full tradingsymbol ("NIFTY28MAR2420800CE").
+ * Official docs (checked 2026-10):
+ *  - https://tradingapi.mstock.com/docs/v1/typeB/market-quote-and-instrument/ :
+ *    GET /instruments/OpenAPIScripMaster (Bearer JWT + X-PrivateKey) returns a bare JSON array of
+ *    { token, symbol, name, expiry, strike, lotsize, instrumenttype, exch_seg, tick_size }. In the documented
+ *    sample `symbol` is the underlying ("SENSEX") and `name` the trading symbol ("SENSEX25O2382700CE"),
+ *    expiry is "23Oct2025", strike is in rupees ("82700") and tick_size in rupees ("0.05").
+ *  - https://tradingapi.mstock.com/docs/v1/Annexure/ : index tokens are not in the master. NSE: Nifty 50
+ *    26000, Nifty Bank 26009, Nifty Fin Service 26037, NIFTY MID SELECT 26074. BSE: SENSEX 51, BANKEX 69.
+ *  - https://tradingapi.mstock.com/docs/v1/typeB/option-chain-apis/ documents GetOptionChain, which
+ *    returns contract tokens only (no prices) and its master endpoint is marked "coming soon", so the chain
+ *    is built from this master instead.
  *
- * Unlike Angel, mStock's master download requires an authenticated session
- * (it's served from the same api.mstock.trade/openapi/typeb host as every
- * other call), so getInstrumentMaster takes creds and reuses mstockAuth's
- * session/retry logic rather than a bare fetch().
+ * The master is the same for every user, so it is cached once a day under a fixed key; it can only be
+ * downloaded with a logged-in session.
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
-import { authRequest } from "./mstockAuth.mjs";
+import { CANONICAL_UNDERLYINGS } from "./contract.mjs";
+import { authRequest, getSession } from "./mstockAuth.mjs";
 
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
+const EXCHANGES = new Set(["NSE", "BSE", "NFO", "BFO", "MCX", "CDS"]);
+const INSTRUMENT_TYPES = new Set(["EQ", "FUTIDX", "FUTSTK", "OPTIDX", "OPTSTK"]);
 
-// NSE index-spot tokens per mStock's own docs (tradingapi.mstock.com/docs/v1/Annexure/) —
-// these are NOT present in the OpenAPIScripMaster download (same limitation openalgo notes
-// for Angel-family masters), so they're hardcoded from the documented Annexure table rather
-// than resolved dynamically. They also match Angel One's own numbering exactly, which is
-// further evidence of a shared backend/data vendor between the two brokers.
-export const INDEX_SPOT_TOKENS = {
-  NIFTY: { token: "26000", exch: "NSE" },
-  BANKNIFTY: { token: "26009", exch: "NSE" },
-  FINNIFTY: { token: "26037", exch: "NSE" },
-  MIDCPNIFTY: { token: "26074", exch: "NSE" },
-  SENSEX: { token: "51", exch: "BSE" },
-};
+/** Annexure index tokens (exchange tokens, not in the scrip master). */
+export const INDEX_SPOT = Object.freeze({
+  NIFTY: { exchange: "NSE", token: "26000" },
+  BANKNIFTY: { exchange: "NSE", token: "26009" },
+  FINNIFTY: { exchange: "NSE", token: "26037" },
+  MIDCPNIFTY: { exchange: "NSE", token: "26074" },
+  SENSEX: { exchange: "BSE", token: "51" },
+  BANKEX: { exchange: "BSE", token: "69" },
+});
 
-// OPTIDX underlying `symbol` spellings to try, per underlying. MIDCPNIFTY's exact spelling
-// in the live master is unconfirmed (Angel's own equivalent file flags the same uncertainty
-// for its clone of this schema) so multiple candidates are checked defensively.
-const OPTIDX_NAME_ALIASES = {
-  NIFTY: ["NIFTY"],
-  BANKNIFTY: ["BANKNIFTY"],
-  FINNIFTY: ["FINNIFTY"],
-  MIDCPNIFTY: ["MIDCPNIFTY", "NIFTYMIDCAPSELECT", "NIFTY MIDCAP SELECT"],
-  SENSEX: ["SENSEX"],
-};
+// Underlying spellings seen for index derivatives -> canonical name.
+const UNDERLYING_ALIASES = { NIFTY50: "NIFTY", "NIFTY 50": "NIFTY", NIFTYBANK: "BANKNIFTY", NIFTYFINSERVICE: "FINNIFTY", NIFTYMIDSELECT: "MIDCPNIFTY", "NIFTY MID SELECT": "MIDCPNIFTY" };
 
-// exch_seg candidates to check (in order) for OPTIDX rows of each underlying.
-const OPTIDX_EXCH_SEG = {
-  NIFTY: ["NFO"],
-  BANKNIFTY: ["NFO"],
-  FINNIFTY: ["NFO"],
-  MIDCPNIFTY: ["NFO"],
-  SENSEX: ["BFO", "NFO"],
-};
+export function canonicalUnderlying(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  return UNDERLYING_ALIASES[s] || s;
+}
 
-/** Best-effort parse of mStock's various observed expiry-string formats into ISO "YYYY-MM-DD". */
-function parseExpiryToIso(raw) {
-  if (!raw) return null;
-  const s = String(raw).trim().toUpperCase();
-
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+/** "23Oct2025" | "2024-Nov-28" | "07-Nov-2024" | "2026-10-20" -> ISO date, or null. */
+export function parseExpiry(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  if (!s) return null;
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-
-  m = s.match(/^(\d{2})-([A-Z]{3})-(\d{2}|\d{4})$/); // 19-MAR-24 or 19-MAR-2024
-  if (m) return fromParts(m[1], m[2], m[3]);
-
-  m = s.match(/^(\d{2})([A-Z]{3})(\d{4}|\d{2})$/); // 19MAR2024 or 19MAR24
-  if (m) return fromParts(m[1], m[2], m[3]);
-
+  m = /^(\d{1,2})-?([A-Z]{3})-?(\d{4}|\d{2})$/.exec(s);
+  if (m && MONTHS[m[2]]) return `${m[3].length === 2 ? `20${m[3]}` : m[3]}-${MONTHS[m[2]]}-${m[1].padStart(2, "0")}`;
+  m = /^(\d{4})-([A-Z]{3})-(\d{1,2})$/.exec(s);
+  if (m && MONTHS[m[2]]) return `${m[1]}-${MONTHS[m[2]]}-${m[3].padStart(2, "0")}`;
   return null;
 }
 
-function fromParts(dd, mon, yy) {
-  const mi = MONTHS.indexOf(mon);
-  if (mi === -1) return null;
-  const year = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
-  return `${year}-${String(mi + 1).padStart(2, "0")}-${dd}`;
+const toNum = (v) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+/** One master row -> contract Instrument, or null for rows the contract does not cover. */
+export function toInstrument(row) {
+  const exchange = String(row?.exch_seg ?? "").toUpperCase();
+  const instrumentType = String(row?.instrumenttype ?? "").toUpperCase();
+  if (!EXCHANGES.has(exchange) || !INSTRUMENT_TYPES.has(instrumentType)) return null;
+  const tradingSymbol = String(row?.name ?? "").trim();
+  const token = String(row?.token ?? "").trim();
+  if (!tradingSymbol || !token) return null;
+  const underlying = canonicalUnderlying(row?.symbol);
+  const isOpt = instrumentType.startsWith("OPT");
+  const isDeriv = isOpt || instrumentType.startsWith("FUT");
+  const expiry = isDeriv ? parseExpiry(row?.expiry) : null;
+  if (isDeriv && !expiry) return null;
+  if (instrumentType.endsWith("IDX") && !CANONICAL_UNDERLYINGS.includes(underlying)) return null;
+  const optionType = isOpt ? (/CE$/i.test(tradingSymbol) ? "CE" : /PE$/i.test(tradingSymbol) ? "PE" : null) : null;
+  const strike = isOpt ? toNum(row?.strike) : null;
+  if (isOpt && (!optionType || !(strike > 0))) return null;
+  const lotSize = toNum(row?.lotsize);
+  const tick = toNum(row?.tick_size);
+  return {
+    token,
+    exchange,
+    tradingSymbol,
+    underlying,
+    instrumentType,
+    expiry,
+    strike,
+    optionType,
+    lotSize: lotSize > 0 ? lotSize : 1,
+    tickSize: tick > 0 ? tick : 0.05,
+  };
 }
 
-export async function getInstrumentMaster(creds) {
+/** Raw master rows (cached daily). Requires a logged-in session. */
+export async function getMasterRows(creds) {
+  getSession(creds); // refuse before any download when not logged in
   return getCachedOrFetch(
-    "mstock:instrument-master",
+    "mstock:scrip-master:v2",
     async () => {
-      console.log("[mstock] downloading instrument master (OpenAPIScripMaster)");
-      const json = await authRequest(creds, "/instruments/OpenAPIScripMaster", { method: "GET" });
-      // mStock's Type B master returns a bare JSON array of rows (unlike Angel's, which
-      // wraps nothing either) — but defend against a {status,data:[...]} envelope too.
+      const json = await authRequest(creds, "/instruments/OpenAPIScripMaster");
       const rows = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : null;
-      if (!rows) throw new Error("mStock instrument master: unexpected response shape");
+      if (!rows) throw new Error("mStock scrip master: unexpected response shape");
       return rows;
     },
-    ONE_DAY_MS
+    ONE_DAY_MS,
   );
 }
 
-function legType(row) {
-  const name = String(row.name || "").toUpperCase();
-  if (name.endsWith("CE")) return "ce";
-  if (name.endsWith("PE")) return "pe";
-  return null;
-}
-
-function matchesUnderlying(row, symbol) {
-  const aliases = OPTIDX_NAME_ALIASES[symbol] || [];
-  const base = String(row.symbol || "").toUpperCase();
-  return aliases.some((a) => a === base);
-}
-
-/** Distinct ascending ISO expiry dates for an underlying, derived from OPTIDX rows. */
-export function listExpiries(master, symbol) {
-  const segs = OPTIDX_EXCH_SEG[symbol] || ["NFO"];
-  const set = new Set();
-  for (const row of master) {
-    if (row.instrumenttype !== "OPTIDX") continue;
-    if (!segs.includes(row.exch_seg)) continue;
-    if (!matchesUnderlying(row, symbol)) continue;
-    const iso = parseExpiryToIso(row.expiry);
-    if (iso) set.add(iso);
+/** All contract instruments from the master. */
+export async function getInstruments(creds) {
+  const rows = await getMasterRows(creds);
+  const out = [];
+  for (const r of rows) {
+    const i = toInstrument(r);
+    if (i) out.push(i);
   }
+  return out;
+}
+
+function isOptionOf(inst, symbol) {
+  return inst && (inst.instrumentType === "OPTIDX" || inst.instrumentType === "OPTSTK") && inst.underlying === symbol;
+}
+
+/** Ascending ISO expiries for an index or stock's options. */
+export function listExpiries(instruments, symbol) {
+  const want = canonicalUnderlying(symbol);
+  const set = new Set();
+  for (const i of instruments) if (isOptionOf(i, want)) set.add(i.expiry);
   return [...set].sort();
 }
 
-/** OPTIDX rows (one per strike+leg) for symbol+expiry. Strikes are already in rupees. */
-export function optionRowsForExpiry(master, symbol, expiryIso) {
-  const segs = OPTIDX_EXCH_SEG[symbol] || ["NFO"];
-  const rows = [];
-  for (const row of master) {
-    if (row.instrumenttype !== "OPTIDX") continue;
-    if (!segs.includes(row.exch_seg)) continue;
-    if (!matchesUnderlying(row, symbol)) continue;
-    if (parseExpiryToIso(row.expiry) !== expiryIso) continue;
-    const type = legType(row);
-    if (!type) continue;
-    const strike = Number(row.strike);
-    if (!(strike > 0)) continue;
-    rows.push({ token: String(row.token), strike, type, exch: row.exch_seg });
-  }
-  return rows;
+/** Option contracts for one underlying + expiry. */
+export function optionContracts(instruments, symbol, expiry) {
+  const want = canonicalUnderlying(symbol);
+  return instruments.filter((i) => isOptionOf(i, want) && i.expiry === expiry);
+}
+
+/** Spot quote ref: Annexure token for an index, the NSE (else BSE) equity row for a stock. */
+export function spotRef(instruments, symbol) {
+  const want = canonicalUnderlying(symbol);
+  if (INDEX_SPOT[want]) return INDEX_SPOT[want];
+  const eq = instruments.find((i) => i.instrumentType === "EQ" && i.exchange === "NSE" && i.underlying === want)
+    || instruments.find((i) => i.instrumentType === "EQ" && i.exchange === "BSE" && i.underlying === want);
+  return eq ? { exchange: eq.exchange, token: eq.token } : null;
 }

@@ -8,17 +8,23 @@
  * emitted in ascending order, so exchSeg (the smallest id, 26) always decodes
  * before any price field that needs its divisor.
  *
- * Field ids, types, and the exchSeg divisor table are transcribed from
- * marketcalls/openalgo's production broker/tradejini/api/nxtradstream.py
- * (DEFAULT_PKT_INFO) — the only available reference for this broker. Only L1
- * touchline (pktType 10) and Greeks (pktType 17) are decoded; L5 depth/OHLC/
- * market-status/events/ping are unused since this app's Leg schema only needs
- * top-of-book bid/ask, which L1 already carries.
+ * Field ids, types and the exchSeg divisor table follow Tradejini's official streaming SDK
+ * (https://developer.tradejini.com/docs/websocket-sdks -> TypeScript SDK, lib/BinaryDefaultSpec.js and
+ * BinaryParser.js, downloaded 2026-10). Only L1 touchline (pktType 10) and
+ * Greeks (pktType 17) are decoded; L5 depth/OHLC/market-status/events/ping are unused since this app's leg schema
+ * only needs top-of-book bid/ask, which L1 already carries. Packet length is an unsigned little-endian int16 and
+ * the packet type an unsigned byte (SDK decodePKT).
+ *
+ * One fact here is NOT from the SDK: field 45 (id 45, type i32, key "OIChngPer", divisor 100). The SDK's table leaves
+ * it out, and its id, type, key name and divisor were taken from OpenAlgo (AGPL, used for facts only). It is kept so
+ * a packet that carries it still decodes past it, and it NEEDS LIVE VERIFICATION against a real Tradejini stream.
  */
 
 import { inflateSync } from "node:zlib";
 
 const CURRENT_PROTOCOL_VERSION = 1;
+// A stream frame holds a few hundred ticks at most; anything inflating past this is dropped, not decoded.
+const MAX_FRAME_INFLATED_BYTES = 4 * 1024 * 1024;
 
 // exchSeg id -> { name, divisor } — divisor converts the wire's scaled integer
 // price fields back to rupees (paise-style fixed point).
@@ -57,8 +63,7 @@ const L1_SPEC = {
   39: { key: "ltq", type: "u32" },
   40: { key: "vol", type: "u32" },
   // Field 41 ("ttv" = total traded value, an 8-byte double) is part of the
-  // wire spec between vol(40) and ucl(42) — confirmed against openalgo's
-  // production broker/tradejini/api/nxtradstream.py DEFAULT_PKT_INFO table.
+  // wire spec between vol(40) and ucl(42) (official SDK BinaryDefaultSpec).
   // Decoding here is REQUIRED even though this app never reads ttv: fields
   // are read sequentially off the wire with no fixed offsets, so omitting a
   // real field id from the spec previously made decodePacket() treat it as
@@ -69,7 +74,7 @@ const L1_SPEC = {
   42: { key: "ucl", type: "i32", scaled: true },
   43: { key: "lcl", type: "i32", scaled: true },
   44: { key: "OI", type: "u32" },
-  45: { key: "OIChngPer", type: "i32", scaled: true, fixedDivisor: 100 },
+  45: { key: "OIChngPer", type: "i32", scaled: true, fixedDivisor: 100 }, // from OpenAlgo, not the SDK: verify live
   46: { key: "ltt", type: "i32" },
   49: { key: "bidPrice", type: "i32", scaled: true },
   50: { key: "bidQty", type: "u32" },
@@ -154,14 +159,14 @@ function decodePacket(buf, pktType) {
 /** One WS frame may contain multiple sub-packets, back to back, optionally zlib-compressed as a whole. */
 export function parseFrame(buffer) {
   if (buffer.length < 6) return [];
-  const version = buffer.readInt8(4);
+  const version = buffer.readUInt8(4);
   if (version !== CURRENT_PROTOCOL_VERSION) return [];
-  const compressionAlgo = buffer.readInt8(5);
+  const compressionAlgo = buffer.readUInt8(5);
 
   let payload = buffer.subarray(6);
   if (compressionAlgo === 100) {
-    try { payload = inflateSync(payload); } catch (e) {
-      console.warn(`[tradejini] WS zlib inflate failed: ${e.message}`);
+    try { payload = inflateSync(payload, { maxOutputLength: MAX_FRAME_INFLATED_BYTES }); } catch (e) {
+      console.warn(`[tradejini] stream zlib inflate failed: ${e.message}`);
       return [];
     }
   }
@@ -169,9 +174,9 @@ export function parseFrame(buffer) {
   const packets = [];
   let offset = 0;
   while (offset + 2 <= payload.length) {
-    const pktLen = payload.readInt16LE(offset);
+    const pktLen = payload.readUInt16LE(offset);
     if (pktLen <= 0 || offset + pktLen > payload.length) break;
-    const pktType = payload.readInt8(offset + 2);
+    const pktType = payload.readUInt8(offset + 2);
     if (pktType === 10 || pktType === 17) {
       const decoded = decodePacket(payload.subarray(offset, offset + pktLen), pktType);
       if (decoded?.symbol) packets.push(decoded);

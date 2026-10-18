@@ -1,0 +1,78 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    [
+      {
+        "token": "70115",
+        "exchange": "NSE"
+      },
+      {
+        "token": "739119",
+        "exchange": "NFO"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/orderbooks/70115?levels=1",
+      "json": {
+        "orderBook": {
+          "inst_id": 3045,
+          "ref_id": 70115,
+          "ts": 1749714670835214187,
+          "bid": [
+            {
+              "p": 136810,
+              "q": 142,
+              "o": 3
+            }
+          ],
+          "ask": [
+            {
+              "p": 136820,
+              "q": 79,
+              "o": 2
+            }
+          ],
+          "ltp": 136820,
+          "ltq": 9,
+          "volume": 6565771
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/orderbooks/739119?levels=1",
+      "json": {
+        "orderBook": {
+          "inst_id": 62205,
+          "ref_id": 739119,
+          "ts": 1792213200000000000,
+          "bid": [
+            {
+              "p": 10490,
+              "q": 975,
+              "o": 3
+            }
+          ],
+          "ask": [
+            {
+              "p": 10500,
+              "q": 1300,
+              "o": 4
+            }
+          ],
+          "ltp": 10495,
+          "ltq": 65,
+          "volume": 12070630
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "args": [
+    {
+      "transactionType": "BUY",
+      "exchangeSegment": "NSE_FNO",
+      "productType": "INTRADAY",
+      "orderType": "LIMIT",
+      "validity": "DAY",
+      "securityId": "40001",
+      "lots": 1,
+      "price": 180.5
+    },
+    75
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.dhan.co/v2/orders",
+      "expectBody": {
+        "dhanClientId": "1000000001",
+        "transactionType": "BUY",
+        "securityId": "40001",
+        "quantity": 75,
+        "price": 180.5
+      },
+      "status": 200,
+      "json": {
+        "orderId": "112111182198",
+        "orderStatus": "PENDING"
+      }
+    }
+  ]
+}

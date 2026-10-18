@@ -1,0 +1,36 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/quote/ltp",
+      "expectBody": {
+        "exchange": "INDEX",
+        "symbol": "NIFTY"
+      },
+      "json": {
+        "data": {
+          "close": 2496080,
+          "ltp": 2501215,
+          "token": 26000
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

@@ -1,119 +1,77 @@
 /**
- * Fyers API v3 Order Management — real order placement/status/cancel.
+ * Fyers API v3 orders (real money) + order book / trade book (read-only).
  *
- * VERIFICATION TIER for this file (2026-09-06), stated explicitly given the
- * real-money stakes of getting an order payload wrong:
+ * Every field and enum below is from Fyers' official v3 docs (checked 2026-10):
+ *  - Place:  POST   /api/v3/orders/sync  { symbol, qty, type, side, productType, limitPrice, stopPrice,
+ *            disclosedQty, validity, offlineOrder, stopLoss?, takeProfit?, orderTag?, isSliceOrder? } -> { s, code, message, id }
+ *            https://fyers.in/api-docs/v3/api/trading/order-placement/sync/single-order/
+ *  - Modify: PATCH  /api/v3/orders/sync  { id, type, limitPrice?, stopPrice?, qty?, disclosedQty? }
+ *  - Cancel: DELETE /api/v3/orders/sync  { id }   (code 1103 "Successfully cancelled order")
+ *  - Orders: GET /api/v3/orders -> orderBook[];  Trades: GET /api/v3/tradebook -> tradeBook[]
+ *  - Appendix: type 1 Limit, 2 Market, 3 Stop (SL-M), 4 Stoplimit (SL-L); side 1 Buy, -1 Sell;
+ *    productType CNC (equity only), INTRADAY, MARGIN (derivatives), MTF; validity DAY or IOC;
+ *    order status 1 Cancelled, 2 Traded/Filled, 4 Transit, 5 Rejected, 6 Pending, 7 Expired (3 unused).
+ *  - A response code of 201 means "request made but not acknowledged": check the order book before retrying.
+ *  - Placing + modifying + cancelling together: at most 10 orders per second.
  *
- *  1. Routes CONFIRMED LIVE by unauthenticated probing of api-t1.fyers.in
- *     (harmless — no credentials sent, no order can be placed without a real
- *     token): POST /api/v3/orders/sync, DELETE /api/v3/orders/sync,
- *     GET /api/v3/orders, GET /api/v3/orders?id=..., and PATCH /api/v3/orders/sync
- *     all returned Fyers' own `{"s":"error","code":-16,"message":"Could not
- *     authenticate the user"}` rather than a 404/405 — i.e. every route this
- *     file calls exists and reaches Fyers' auth middleware. The `{s, code,
- *     message}` envelope matches fyers.mjs's existing `json.s !== "ok"` check.
- *  2. Request/response FIELD NAMES cross-referenced across three independent
- *     sources that agree on every field with no contradictions: FyersDev's own
- *     sample_v2/apiCalls.py (github.com/FyersDev/fyers-api-sample-code), the
- *     published @extra-fyers/http TypeScript definitions (npm — which enumerate
- *     PlaceOrderRequest/ModifyOrderRequest/CancelOrderRequest/Order field-by-
- *     field with doc comments), and multiple Fyers community-forum threads.
- *  3. NOT independently confirmed against Fyers' own interactive docs site
- *     (myapi.fyers.in/docsv3) — it is a JS-rendered SPA this tool could not
- *     render (repeated fetches 404'd). The numeric `type`/`side` enums below
- *     come from consistent secondary-source agreement, not a primary enum
- *     table screenshot.
- *
- * NEEDS VERIFICATION before the first real order (tracked here, not guessed
- * away — see capabilities below, which are deliberately conservative until
- * each is confirmed):
- *  - The exact numeric `type`/`side` enum against Fyers' own docs table.
- *  - Whether `validity: "IOC"` is honoured — only "DAY" appears in a
- *    Fyers-authored example; third-party guides assert IOC but no primary
- *    source was found. buildOrderBody() rejects anything but "DAY" so a bad
- *    value can't silently reach the exchange.
- *  - Whether "MTF" is a valid `productType` for F&O orders — a live 2026
- *    community bug report enumerates the accepted set as exactly
- *    CNC/INTRADAY/MARGIN (and shows BO/CO being rejected outright under v3).
- *  - Whether Fyers has any field equivalent to Kite's `tag`/`market_protection`
- *    — none appeared in any of the three cross-referenced sources, so no such
- *    field is sent, and `capabilities.nativeMarketProtection` is false.
+ * Real-money calls are wrapped with withOrderGate(): without a fresh gate minted by the proxy's trade route
+ * after validateOrder() and live arming, they throw OrderGateError before any network call. No route mints
+ * Fyers gates today, so live Fyers orders stay blocked pending owner review.
  */
 
-const FYERS_ORDERS_BASE = "https://api-t1.fyers.in/api/v3";
+import { BrokerInputError, withOrderGate } from "./contract.mjs";
+import { contractExchange, contractProduct, fyersRequest, fyersTimeToIso, num, tradingSymbolOf } from "./fyersClient.mjs";
 
-// Fyers' own vocabulary (Limit / Market / Stop (SL-M) / Stoplimit (SL-L)),
-// kept broker-native like Dhan's STOP_LOSS/STOP_LOSS_MARKET naming — do not
-// rename to another broker's terms, that's how a mapping bug hides.
 const ORDER_TYPE_CODE = { LIMIT: 1, MARKET: 2, STOP: 3, STOPLIMIT: 4 };
+const ORDER_TYPE_NAME = { 1: "LIMIT", 2: "MARKET", 3: "SL-M", 4: "SL" };
 const ORDER_SIDE_CODE = { BUY: 1, SELL: -1 };
-
-// MTF intentionally excluded — see file header "NEEDS VERIFICATION". BO/CO
-// intentionally excluded — confirmed rejected by Fyers API v3 (see capabilities).
+// MTF is a documented productType but it is an equity-delivery facility; this terminal trades F&O, so it
+// stays out until there is an equity order flow. BO/CO are not in the v3 product table.
 const VALID_PRODUCT_TYPES = new Set(["CNC", "INTRADAY", "MARGIN"]);
-// IOC intentionally excluded — see file header "NEEDS VERIFICATION".
-const VALID_VALIDITY = new Set(["DAY"]);
+const VALID_VALIDITY = new Set(["DAY", "IOC"]);
 
-/**
- * Capabilities descriptor — the UI must never offer a control this object
- * doesn't declare. Anything not independently confirmed defaults to the
- * SAFE/false/null value rather than an optimistic guess; see file header for
- * exactly what backs each `true`/populated value.
- */
-export const capabilities = {
-  bracket: false, // BO productType rejected by Fyers API v3 (community-confirmed error: only CNC/INTRADAY/MARGIN accepted).
-  cover: false, // CO productType rejected alongside BO under v3 — same source.
-  ioc: false, // NEEDS VERIFICATION — see file header.
-  mtf: false, // NEEDS VERIFICATION — see file header.
-  nativeMarketProtection: false, // NEEDS VERIFICATION — no equivalent field found in any cross-referenced source.
-  maxLegQty: null, // NEEDS VERIFICATION — no Fyers-specific per-order qty cap found; do not read null as "unlimited". The NSE exchange-wide freeze quantity (spec §8 slicing) is the only confirmed ceiling.
+/** Legacy order-feature descriptor (the UI must never offer a control this does not declare). */
+export const ORDER_FEATURES = {
+  bracket: false, // BO is not in Fyers' v3 product-type table.
+  cover: false, // CO is not in Fyers' v3 product-type table.
+  ioc: true, // validity "IOC" is documented on the single-order page and in the appendix.
+  mtf: false, // documented, but equity-only; not offered in this F&O terminal.
+  nativeMarketProtection: false, // no market-protection field in the v3 order request.
+  maxLegQty: null, // no Fyers per-order cap documented; exchange freeze limits apply (isSliceOrder is not used).
   products: ["CNC", "INTRADAY", "MARGIN"],
 };
 
+function bad(message) {
+  return new BrokerInputError(message);
+}
+
 /**
- * Pure request-body builder, separated from placeOrder() so the payload
- * construction is directly unit-testable without a network call — same
- * separation dhanOrders.mjs uses and for the same reason.
- *
- * `resolvedLotSize` is a SEPARATE, REQUIRED parameter, never a field on
- * `order` — see dhanOrders.mjs's header for why trusting a client-supplied
- * lot size is a real-money bug (B1 in the spec). Unlike Dhan's payload, Fyers'
- * order body carries no client-id field — the account is identified entirely
- * by the Authorization header, so buildOrderBody() here takes no clientId arg.
+ * Pure body builder. `resolvedLotSize` comes from the exchange instrument master, never from the client:
+ * a lotSize field on `order` is ignored.
  */
 export function buildOrderBody(order, resolvedLotSize) {
   const {
     symbol, side, orderType, productType = "INTRADAY", validity = "DAY",
     lots, limitPrice, stopPrice, disclosedQty = 0, offlineOrder = false,
   } = order || {};
-
-  if (typeof symbol !== "string" || !symbol.includes(":")) {
-    throw new Error(`Invalid Fyers symbol: ${symbol} (expected "EXCH:TRADINGSYMBOL", e.g. "NSE:NIFTY25SEP25000CE")`);
+  if (typeof symbol !== "string" || !/^(NSE|BSE|MCX):[A-Z0-9&_.-]+$/.test(symbol)) {
+    throw bad(`Invalid Fyers symbol: ${symbol} (expected "EXCH:TRADINGSYMBOL", e.g. "NSE:NIFTY26OCT25000CE")`);
   }
-  if (!ORDER_SIDE_CODE[side]) throw new Error(`Invalid side: ${side}`);
+  if (!ORDER_SIDE_CODE[side]) throw bad(`Invalid side: ${side}`);
   if (!VALID_PRODUCT_TYPES.has(productType)) {
-    throw new Error(
-      `Unsupported Fyers productType: ${productType} (supported: ${[...VALID_PRODUCT_TYPES].join(", ")} — ` +
-      `BO/CO are rejected by Fyers API v3, MTF is unverified for F&O orders)`,
-    );
+    throw bad(`Unsupported Fyers productType: ${productType} (supported: ${[...VALID_PRODUCT_TYPES].join(", ")})`);
   }
-  if (!VALID_VALIDITY.has(validity)) {
-    throw new Error(`Unsupported Fyers validity: ${validity} (only "DAY" is verified — IOC needs confirmation against live docs first)`);
-  }
+  if (!VALID_VALIDITY.has(validity)) throw bad(`Unsupported Fyers validity: ${validity} (DAY or IOC)`);
   const typeCode = ORDER_TYPE_CODE[orderType];
-  if (!typeCode) throw new Error(`Invalid orderType: ${orderType} (expected LIMIT, MARKET, STOP, or STOPLIMIT)`);
+  if (!typeCode) throw bad(`Invalid orderType: ${orderType} (expected LIMIT, MARKET, STOP, or STOPLIMIT)`);
   if (!Number.isFinite(resolvedLotSize) || resolvedLotSize <= 0) {
-    throw new Error(
-      "Missing resolved lot size — it must come from the exchange instrument master, not from the client",
-    );
+    throw bad("Missing resolved lot size — it must come from the exchange instrument master, not from the client");
   }
-  if (!Number.isFinite(lots) || lots <= 0) throw new Error("Invalid lots");
-
+  if (!Number.isFinite(lots) || lots <= 0 || !Number.isInteger(lots)) throw bad("Invalid lots");
   const needsLimit = orderType === "LIMIT" || orderType === "STOPLIMIT";
   const needsStop = orderType === "STOP" || orderType === "STOPLIMIT";
-  if (needsLimit && !Number.isFinite(limitPrice)) throw new Error(`limitPrice required for ${orderType}`);
-  if (needsStop && !Number.isFinite(stopPrice)) throw new Error(`stopPrice required for ${orderType}`);
-
+  if (needsLimit && !(Number.isFinite(limitPrice) && limitPrice > 0)) throw bad(`limitPrice required for ${orderType}`);
+  if (needsStop && !(Number.isFinite(stopPrice) && stopPrice > 0)) throw bad(`stopPrice required for ${orderType}`);
   return {
     symbol,
     qty: Math.round(lots * resolvedLotSize),
@@ -122,78 +80,140 @@ export function buildOrderBody(order, resolvedLotSize) {
     productType,
     limitPrice: needsLimit ? limitPrice : 0,
     stopPrice: needsStop ? stopPrice : 0,
-    disclosedQty,
+    disclosedQty: Number.isInteger(disclosedQty) && disclosedQty >= 0 ? disclosedQty : 0,
     validity,
     offlineOrder: offlineOrder === true,
   };
 }
 
-function authHeader(creds) {
-  const appId = creds?.appId;
-  const accessToken = creds?.accessToken;
-  if (!appId || !accessToken) {
-    throw new Error("Fyers appId/accessToken missing — add credentials in Broker Settings.");
+/** Pure modify body: `type` is always required by Fyers; prices only for the order types that use them. */
+export function buildModifyBody(orderId, changes) {
+  const id = String(orderId ?? "").trim();
+  if (!/^[A-Za-z0-9-]{1,40}$/.test(id)) throw bad("Invalid Fyers order id");
+  const { orderType, limitPrice, stopPrice, qty } = changes || {};
+  const type = ORDER_TYPE_CODE[orderType];
+  if (!type) throw bad(`Invalid orderType: ${orderType} (expected LIMIT, MARKET, STOP, or STOPLIMIT)`);
+  const body = { id, type };
+  if (type === 1 || type === 4) {
+    if (!(Number.isFinite(limitPrice) && limitPrice > 0)) throw bad(`limitPrice required for ${orderType}`);
+    body.limitPrice = limitPrice;
   }
-  return `${appId}:${accessToken}`;
+  if (type === 3 || type === 4) {
+    if (!(Number.isFinite(stopPrice) && stopPrice > 0)) throw bad(`stopPrice required for ${orderType}`);
+    body.stopPrice = stopPrice;
+  }
+  if (qty !== undefined) {
+    if (!Number.isInteger(qty) || qty <= 0) throw bad("qty must be a positive whole number of units (a multiple of the lot size)");
+    body.qty = qty;
+  }
+  return body;
 }
 
-async function fyersOrdersFetch(path, creds, { method = "GET", body } = {}) {
-  const res = await fetch(`${FYERS_ORDERS_BASE}${path}`, {
-    method,
-    headers: { Authorization: authHeader(creds), "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {
-    /* fall through to the !json check below */
-  }
-
-  if (!res.ok || !json) {
-    throw new Error(`Fyers order API error [${res.status}] on ${path.split("?")[0]}`);
-  }
-  if (json.s !== "ok") {
-    const msg = json.message || `Fyers order API error (code ${json.code ?? "unknown"})`;
-    if (/token|auth|expire/i.test(msg)) {
-      throw new Error(`Fyers session token expired or invalid — re-paste a fresh accessToken from Fyers login. (${msg})`);
-    }
-    throw new Error(`Fyers order API error: ${msg}`);
-  }
-  return json;
+function ackStatus(json, fallback) {
+  // 201 = request made but not acknowledged by the exchange yet; the caller must re-read the order book.
+  return Number(json?.code) === 201 ? "UNKNOWN" : fallback;
 }
 
-/**
- * Places a real order via Fyers' synchronous order endpoint. See
- * buildOrderBody() for payload construction/validation.
- */
-export async function placeOrder(creds, order, resolvedLotSize) {
+async function placeOrderImpl(creds, order, resolvedLotSize) {
   const body = buildOrderBody(order, resolvedLotSize);
-  const json = await fyersOrdersFetch("/orders/sync", creds, { method: "POST", body });
-  // Fyers' OrderResponse carries no status field on placement (only
-  // {s, code, message, id} per the cross-referenced TS definitions) — this
-  // orderStatus is a LOCAL placeholder, not a broker-native value. Callers
-  // must call getOrderStatus()/getOrders() for the real, current state.
-  return { orderId: json.id, orderStatus: "PENDING_CONFIRMATION", raw: json };
+  const json = await fyersRequest(creds, "/api/v3/orders/sync", { method: "POST", body });
+  // Placement returns no order state, so this is UNKNOWN until the order book is read.
+  return { orderId: String(json.id ?? ""), orderStatus: ackStatus(json, "UNKNOWN") };
 }
 
-export async function getOrders(creds) {
-  const json = await fyersOrdersFetch("/orders", creds);
-  return json.orderBook || [];
+async function modifyOrderImpl(creds, orderId, changes) {
+  const body = buildModifyBody(orderId, changes);
+  const json = await fyersRequest(creds, "/api/v3/orders/sync", { method: "PATCH", body });
+  return { orderId: String(json.id ?? body.id), orderStatus: ackStatus(json, "UNKNOWN") };
 }
 
+async function cancelOrderImpl(creds, orderId) {
+  const id = String(orderId ?? "").trim();
+  if (!/^[A-Za-z0-9-]{1,40}$/.test(id)) throw bad("Invalid Fyers order id");
+  const json = await fyersRequest(creds, "/api/v3/orders/sync", { method: "DELETE", body: { id } });
+  const confirmed = Number(json.code) === 1103;
+  return { orderId: String(json.id ?? id), orderStatus: ackStatus(json, confirmed ? "CANCELLED" : "UNKNOWN") };
+}
+
+export const placeOrder = withOrderGate("placeOrder", placeOrderImpl, { brokerId: "fyers" });
+export const modifyOrder = withOrderGate("modifyOrder", modifyOrderImpl, { brokerId: "fyers" });
+export const cancelOrder = withOrderGate("cancelOrder", cancelOrderImpl, { brokerId: "fyers" });
+
+// ── read-only books ──
+
+/** Fyers numeric status (+ fills) -> contract OrderStatus. */
+export function mapOrderStatus(row) {
+  const status = Number(row?.status);
+  const filled = num(row?.filledQty);
+  const remaining = num(row?.remainingQuantity);
+  switch (status) {
+    case 1: return "CANCELLED";
+    case 2: return "COMPLETE";
+    case 5: return "REJECTED";
+    case 7: return "EXPIRED";
+    case 4:
+    case 6:
+      if (filled > 0 && remaining > 0) return "PARTIALLY_FILLED";
+      return Number(row?.type) === 3 || Number(row?.type) === 4 ? "TRIGGER_PENDING" : "OPEN";
+    default: return "UNKNOWN";
+  }
+}
+
+export function mapOrder(row) {
+  const ticker = String(row?.symbol ?? "");
+  const qty = num(row?.qty);
+  const filledQty = num(row?.filledQty);
+  return {
+    orderId: String(row?.id ?? ""),
+    tradingSymbol: tradingSymbolOf(ticker),
+    exchange: contractExchange(ticker, row?.segment),
+    token: ticker,
+    side: Number(row?.side) === -1 ? "SELL" : "BUY",
+    qty,
+    filledQty,
+    pendingQty: row?.remainingQuantity != null ? num(row.remainingQuantity) : Math.max(0, qty - filledQty),
+    price: num(row?.limitPrice),
+    triggerPrice: num(row?.stopPrice),
+    avgPrice: num(row?.tradedPrice),
+    orderType: ORDER_TYPE_NAME[Number(row?.type)] || "UNKNOWN",
+    product: contractProduct(row?.productType),
+    status: mapOrderStatus(row),
+    statusMessage: row?.message ? String(row.message) : null,
+    placedAt: fyersTimeToIso(row?.orderDateTime),
+  };
+}
+
+export async function fetchOrderBook(creds) {
+  const json = await fyersRequest(creds, "/api/v3/orders");
+  return { status: "success", data: (json.orderBook || []).map(mapOrder) };
+}
+
+/** One order by id (GET /api/v3/orders?id=...), normalised. */
 export async function getOrderStatus(creds, orderId) {
-  if (!orderId) throw new Error("Missing orderId");
-  const json = await fyersOrdersFetch(`/orders?id=${encodeURIComponent(orderId)}`, creds);
-  const rows = json.orderBook || [];
-  const row = rows.find((r) => String(r.id) === String(orderId)) || rows[0];
-  if (!row) throw new Error(`Fyers returned no order matching id ${orderId}`);
-  return row;
+  const id = String(orderId ?? "").trim();
+  if (!/^[A-Za-z0-9-]{1,40}$/.test(id)) throw bad("Invalid Fyers order id");
+  const json = await fyersRequest(creds, "/api/v3/orders", { query: { id } });
+  const row = (json.orderBook || []).find((r) => String(r.id) === id);
+  if (!row) throw bad(`Fyers returned no order matching id ${id}`);
+  return mapOrder(row);
 }
 
-export async function cancelOrder(creds, orderId) {
-  if (!orderId) throw new Error("Missing orderId");
-  const json = await fyersOrdersFetch("/orders/sync", creds, { method: "DELETE", body: { id: String(orderId) } });
-  return { orderId: json.id, orderStatus: "CANCELLED", raw: json };
+export function mapTrade(row) {
+  const ticker = String(row?.symbol ?? "");
+  return {
+    tradeId: String(row?.tradeNumber ?? row?.row ?? ""),
+    orderId: String(row?.orderNumber ?? ""),
+    tradingSymbol: tradingSymbolOf(ticker),
+    exchange: contractExchange(ticker, row?.segment),
+    token: ticker,
+    side: Number(row?.side) === -1 ? "SELL" : "BUY",
+    qty: num(row?.tradedQty),
+    price: num(row?.tradePrice),
+    tradedAt: fyersTimeToIso(row?.orderDateTime),
+  };
+}
+
+export async function fetchTradeBook(creds) {
+  const json = await fyersRequest(creds, "/api/v3/tradebook");
+  return { status: "success", data: (json.tradeBook || []).map(mapTrade) };
 }

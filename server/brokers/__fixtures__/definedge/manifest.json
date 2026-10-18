@@ -1,0 +1,19 @@
+{
+  "brokerId": "definedge",
+  "creds": {
+    "apiToken": "DUMMYTOKEN1",
+    "apiSecret": "dummy-api-secret"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://github.com/Definedge-Securities/pyintegrate (official Definedge client, MIT): integrate/connect.py, data.py, orders.py",
+    "https://github.com/Definedge-Securities/pyintegrate/tree/main/tests/mock_responses (login_step_1/2, quotes, orders, trades, positions, holdings, limits, place/modify/cancel_order, historical.csv)",
+    "https://pyintegrate.readthedocs.io/en/latest/integrate.html",
+    "https://www.definedgesecurities.com/api-documentation/ (Cloudflare-protected; not readable from this environment)",
+    "https://app.definedgesecurities.com/public/nsefno.zip",
+    "https://app.definedgesecurities.com/public/bsefno.zip",
+    "https://app.definedgesecurities.com/public/nsecash.zip"
+  ],
+  "notes": "Payloads are Definedge's own mock responses from pyintegrate's test suite, re-keyed to NIFTY/SENSEX October 2026 contracts. Masters are served as plain CSV text (the adapter accepts a ZIP or a CSV body; the ZIP path is unit-tested separately). Session fields are added per fixture so manifest.creds stays logged out. Every token, id and name is a dummy."
+}

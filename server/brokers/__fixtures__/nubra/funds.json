@@ -1,0 +1,45 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/sentinel/portfolio/user_funds_and_margin",
+      "json": {
+        "message": "portfolio and funds values fetched successfully",
+        "portFundsAndMargin": {
+          "clientCode": "XXXXX",
+          "startOfDayFunds": 2888888,
+          "payInCredit": 0,
+          "payOutDebit": 0,
+          "netDerivativePremBuy": 5612625,
+          "netDerivativePremSell": 5538000,
+          "netDerivativePrem": -74625,
+          "cashBlockedCncTraded": 1868,
+          "cashBlockedCncOpen": 0,
+          "cashBlockedDerivOpen": 0,
+          "cashCncTradedAndOpen": 1868,
+          "mtmDeriv": -74625,
+          "mtmEqIdayCnc": -555,
+          "mtmEqDelivery": -222027,
+          "netTradingAmount": 28680916,
+          "netWithdrawalAmount": 23115099,
+          "totalPayinCash": 0,
+          "startOfDayCollateral": 0,
+          "idayCollateralPledge": 0,
+          "idayCollateralPledgeSell": 0,
+          "totalCollateral": 0,
+          "marginUsedDerivTraded": 0,
+          "marginBlockDerivOpenOrder": 0,
+          "marginUsedEqIday": 27817,
+          "marginBlockedEqIdayOpen": 0,
+          "netMarginAvailable": 28653099,
+          "totalMarginBlocked": 27817,
+          "derivativeMarginBlocked": 0,
+          "brokerage": 18788
+        }
+      }
+    }
+  ]
+}

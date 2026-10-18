@@ -1,0 +1,43 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsec.com/oapi/v1/trades?api_key=dummy-ir-api-key",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "client_id": "1000001",
+            "trade_id": "429366220",
+            "order_id": "24043000528594",
+            "exchange": "NSE",
+            "product": "OVERNIGHT",
+            "average_price": 146.35,
+            "filled_quantity": 15,
+            "pending_quantity": 0,
+            "exchange_order_id": "1600000331304144",
+            "transaction_type": "SELL",
+            "fill_timestamp": "30/04/2024 14:27:49",
+            "security_id": "BANKNIFTY",
+            "company_name": "BANKNIFTY",
+            "underlying_symbol": "BANKNIFTY",
+            "instrument_segment": "OPTIDX",
+            "expiry_date": "30 APR 2024",
+            "strike_price": 49900.0,
+            "option_type": "Call",
+            "isin": "",
+            "status": "Traded",
+            "validity": "DAY",
+            "total_traded_value": 2195.25,
+            "order_source": "C",
+            "order_type": "MARKET"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

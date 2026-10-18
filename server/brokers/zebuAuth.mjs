@@ -1,167 +1,172 @@
 /**
- * Zebu (Mynt) OAuth 2.0-style authentication + authenticated request helper.
+ * Zebu (MYNT) OAuth session + the authenticated Noren request helper.
  *
- * Zebu runs the same Noren OMS family as Flattrade/Shoonya/Tradesmart (same
- * `jData=<json>` POST body shape, same `stat`/`emsg` response envelope), but
- * unlike Flattrade its Noren layer sits behind a real OAuth authorize/token
- * exchange rather than a bare request_code:
+ * Official docs (https://zebumyntapi.web.app/OAuth/Authentication/, checked 2026-10):
+ *  1. The user opens https://go.mynt.in/OAuthlogin/authorize/oauth?client_id=<Client ID>, logs in, and is
+ *     redirected to the app's registered URL with ?code=<authorisation code>.
+ *  2. POST https://go.mynt.in/NorenWClientAPI/GenAcsTok, body `jData={"code","checksum"}` (text/plain),
+ *     checksum = SHA-256(client_id + secret_key + code) -> { stat: "Ok", access_token, refresh_token,
+ *     expires_in (seconds, "3600" in the sample) }.
+ *  3. POST .../RefreshToken `jData={"refresh_token"}` -> { stat, access_token, expires_in } renews the
+ *     access token without a new login.
+ *  4. Every API call: POST https://go.mynt.in/NorenWClientAPI/<Endpoint>, `Authorization: Bearer
+ *     <access_token>`, body `jData=<json>` with uid (and actid where documented).
+ * Failures are HTTP 200 { stat: "Not_Ok", emsg }; "Session Expired : Invalid Session Key" means the token is
+ * dead. Documented rate limit: 10 requests/second per user (OpenAlgo's figure; Zebu's OAuth pages do not
+ * state one).
  *
- *   1. User logs in at https://mynt.zebuetrade.com/login, then from
- *      Profile -> (Client Code, top right) -> Settings -> "OAuth Key" screen
- *      registers an app and receives a Client ID + Secret Code (confirmed via
- *      openalgo's zebu.md setup guide — https://docs.openalgo.in/connect-brokers/brokers/zebu).
- *   2. Visiting https://go.mynt.in/OAuthlogin/authorize/oauth?client_id=<clientId>
- *      and logging in redirects to the app's registered callback URL with a
- *      one-time `?code=...` (confirmed via Zebu's own hosted API docs,
- *      https://zebumyntapi.web.app/OAuth/Authentication/).
- *   3. That `code` is exchanged for `access_token` by POSTing
- *      jData={"code","checksum"} (checksum = SHA256(clientId + secretKey + code))
- *      to https://go.mynt.in/NorenWClientAPI/GenAcsTok — confirmed against
- *      openalgo's broker/zebu/api/auth_api.py, byte-for-byte checksum formula.
- *
- * Since this app has no OAuth redirect server, the user completes steps 1-2
- * themselves and pastes clientId + apiSecret (Secret Code) + the resulting
- * one-time authCode into Broker Settings; this module performs step 3 and
- * caches the resulting access_token — never re-exchanging the same authCode
- * (it's single-use, like Flattrade's request_code). Zebu's token response
- * includes `expires_in` (seconds), so the cache TTL is read from the live
- * response rather than a guessed constant.
- *
- * NEVER log apiSecret, authCode, or the access_token itself — field names /
- * broker status codes only.
+ * The code is single-use. This module exchanges it once per credential set, keeps the access and refresh
+ * tokens in process memory only (keyed by a hash of the credentials, never logged), refreshes before
+ * expiry, and de-duplicates concurrent exchanges so parallel chain requests cannot burn the code twice
+ * (the earlier version could fire one exchange per parallel quote). When the code is spent and no refresh
+ * is possible, calls throw SessionRequiredError asking for a fresh code.
  */
 
 import { createHash } from "node:crypto";
+import { BrokerError, brokerFetch, BrokerInputError, SessionRequiredError } from "./contract.mjs";
+import { createSessionCache } from "../lib/boundedCache.mjs";
 
-export const API_BASE = "https://go.mynt.in/NorenWClientAPI";
-const TOKEN_EXCHANGE_URL = `${API_BASE}/GenAcsTok`;
-const LOGIN_HELP =
-  "log in at https://mynt.zebuetrade.com/login, open Profile > Settings > OAuth Key, redo the authorize step at " +
-  "https://go.mynt.in/OAuthlogin/authorize/oauth?client_id=<your clientId>, and paste the fresh one-time code " +
-  "into Broker Settings";
+export const HOST = "https://go.mynt.in";
+export const API_BASE = `${HOST}/NorenWClientAPI`;
+export const OAUTH_LOGIN_URL = `${HOST}/OAuthlogin/authorize/oauth`;
+const REQUIRED = ["userId", "clientId", "apiSecret", "authCode"];
+const EXPIRY_MARGIN_MS = 60_000;
+const FALLBACK_TTL_MS = 60 * 60 * 1000; // the documented sample's expires_in is 3600 s
 
-// key -> { token, expiresAt }
-const sessionCache = new Map();
+const LOGIN_HELP = "Open go.mynt.in/OAuthlogin/authorize/oauth?client_id=<your Client ID>, log in, and paste the new ?code= value into Broker Settings.";
 
-// Fallback only — Zebu's GenAcsTok response documents `expires_in` (seconds)
-// on every successful exchange, so this is rarely used in practice.
-const FALLBACK_TTL_MS = 24 * 60 * 60 * 1000;
-const EXPIRY_SAFETY_MARGIN_MS = 60 * 1000;
+// credential hash -> { accessToken, refreshToken, expiresAt } | { dead: true }. Size-bounded only: an expired entry
+// still holds the refresh token, so it must not be dropped on expiry.
+const sessions = createSessionCache({ expiryOf: () => null });
+const inflight = new Map(); // credential hash -> Promise<session>
 
-function sha256Hex(str) {
-  return createHash("sha256").update(str).digest("hex");
+export function sha256Hex(text) {
+  return createHash("sha256").update(String(text), "utf8").digest("hex");
 }
 
-/** In-process cache key only — never persisted, never logged. */
-function credsKey(creds) {
-  return JSON.stringify({
-    u: creds?.userId,
-    c: creds?.clientId,
-    s: creds?.apiSecret,
-    a: creds?.authCode,
-  });
+/** jData value. "&" is sent as the JSON escape & so symbols like M&M-EQ cannot cut the form body. */
+export function encodeJData(data) {
+  return JSON.stringify(data).replace(/&/g, "\\u0026");
 }
 
-function requireFields(creds) {
-  const missing = ["userId", "clientId", "apiSecret", "authCode"].filter((f) => !creds?.[f]);
-  if (missing.length) {
-    throw new Error(`Zebu credentials missing required field(s): ${missing.join(", ")}`);
+const credKey = (creds) => sha256Hex(REQUIRED.map((k) => String(creds?.[k] ?? "")).join("\u0000"));
+
+function requireCreds(creds) {
+  const missing = REQUIRED.filter((k) => !String(creds?.[k] ?? "").trim());
+  if (missing.length) throw new BrokerInputError(`Zebu: missing ${missing.join(", ")}.`);
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }
 
-async function exchangeAuthCode(creds) {
-  requireFields(creds);
+async function postForm(path, data, headers = {}) {
+  const res = await brokerFetch(`${API_BASE}${path}`, { method: "POST", headers: { "Content-Type": "text/plain", ...headers }, body: `jData=${encodeJData(data)}` });
+  const text = await res.text();
+  return { status: res.status, json: parseJson(text), text };
+}
 
+function toSession(json, refreshToken) {
+  const ttlSec = Number(json.expires_in);
+  const ttl = Number.isFinite(ttlSec) && ttlSec > 0 ? ttlSec * 1000 : FALLBACK_TTL_MS;
+  return { accessToken: String(json.access_token), refreshToken: json.refresh_token ? String(json.refresh_token) : refreshToken || null, expiresAt: Date.now() + Math.max(ttl - EXPIRY_MARGIN_MS, 30_000) };
+}
+
+async function exchangeCode(creds) {
   const checksum = sha256Hex(`${creds.clientId}${creds.apiSecret}${creds.authCode}`);
-  const body = "jData=" + JSON.stringify({ code: creds.authCode, checksum });
-
-  const res = await fetch(TOKEN_EXCHANGE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body,
-  });
-
-  const json = await res.json().catch(() => null);
-  if (!res.ok || json?.stat !== "Ok" || !json?.access_token) {
-    const emsg = json?.emsg || `HTTP ${res.status}`;
-    console.log(`[zebu] auth code exchange failed: ${emsg}`);
-    throw new Error(
-      `Zebu login failed: ${emsg}. The authorization code is one-time-use and expires within minutes of ` +
-        `generating it — ${LOGIN_HELP}.`
-    );
+  const r = await postForm("/GenAcsTok", { code: String(creds.authCode), checksum });
+  if (r.json?.stat !== "Ok" || !r.json?.access_token) {
+    const why = String(r.json?.emsg || `HTTP ${r.status}`).slice(0, 120);
+    throw new SessionRequiredError(`Zebu could not exchange the authorisation code (${why}). Codes are single-use and short-lived. ${LOGIN_HELP}`);
   }
-
-  const expiresInSec = Number(json.expires_in);
-  const ttlMs = Number.isFinite(expiresInSec) && expiresInSec > 0 ? expiresInSec * 1000 : FALLBACK_TTL_MS;
-  const session = {
-    token: json.access_token,
-    expiresAt: Date.now() + Math.max(ttlMs - EXPIRY_SAFETY_MARGIN_MS, 60_000),
-  };
-  sessionCache.set(credsKey(creds), session);
-  return session;
+  return toSession(r.json);
 }
 
-/** Returns a cached, still-valid access_token session or performs the authCode exchange. */
+async function refresh(session) {
+  const r = await postForm("/RefreshToken", { refresh_token: session.refreshToken });
+  if (r.json?.stat !== "Ok" || !r.json?.access_token) {
+    throw new SessionRequiredError(`Zebu could not renew the session (${String(r.json?.emsg || `HTTP ${r.status}`).slice(0, 120)}). ${LOGIN_HELP}`);
+  }
+  return toSession(r.json, session.refreshToken);
+}
+
+async function obtain(key, creds, { forceRefresh = false } = {}) {
+  const cached = sessions.get(key);
+  if (cached?.dead) throw new SessionRequiredError(`Zebu session has ended. ${LOGIN_HELP}`);
+  if (cached && !forceRefresh && Date.now() < cached.expiresAt) return cached;
+  if (inflight.has(key)) return inflight.get(key);
+  const p = (async () => {
+    try {
+      let next;
+      if (cached?.refreshToken) next = await refresh(cached);
+      else if (cached) throw new SessionRequiredError(`Zebu session expired. ${LOGIN_HELP}`);
+      else next = await exchangeCode(creds);
+      sessions.set(key, next);
+      return next;
+    } catch (e) {
+      // The code is single-use: remember that this credential set is spent instead of re-trying the
+      // exchange on every request. Pasting a new code creates a new credential set.
+      if (e instanceof SessionRequiredError) sessions.set(key, { dead: true });
+      else sessions.delete(key);
+      throw e;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, p);
+  return p;
+}
+
+/** A valid access token for these credentials (exchanging the code or refreshing as needed). */
 export async function ensureSession(creds) {
-  const key = credsKey(creds);
-  const cached = sessionCache.get(key);
-  if (cached && Date.now() < cached.expiresAt) return cached;
-  return exchangeAuthCode(creds);
+  requireCreds(creds);
+  return obtain(credKey(creds), creds);
 }
 
-function looksLikeSessionError(emsg) {
-  const lowered = (emsg || "").toLowerCase();
-  return (
-    lowered.includes("session") ||
-    lowered.includes("not authoris") ||
-    lowered.includes("not authenticated") ||
-    lowered.includes("invalid token") ||
-    lowered.includes("login") ||
-    lowered.includes("token expired")
-  );
+/** Forget every cached session (tests). */
+export function resetSessions() {
+  sessions.clear();
+  inflight.clear();
 }
+
+const isSessionMessage = (emsg) => /session expired|invalid session|invalid access token|token expired|unauthori[sz]ed/i.test(String(emsg ?? ""));
 
 /**
- * POSTs `jData=<json>` (text/plain, `Authorization: Bearer <access_token>`) to a
- * NorenWClientAPI endpoint, injecting uid/actid (Zebu trading user ID) from
- * creds — matches openalgo's verified-working adapter (get_api_response /
- * funds.py both send uid+actid this way). Returns the parsed JSON body as-is
- * (callers check `stat`).
+ * POST jData to a NorenWClientAPI endpoint with the Bearer token. `uid` (and `actid` unless the endpoint
+ * is given `{ actid: false }`) are filled from creds.userId. Returns the parsed JSON (bare arrays as-is,
+ * Not_Ok objects included so callers can read "no data"); throws on session, rate-limit and HTTP failures.
  */
-export async function postJData(creds, endpoint, payload = {}) {
-  const session = await ensureSession(creds);
-
-  const data = { ...payload, uid: creds.userId, actid: creds.userId };
-  const body = "jData=" + JSON.stringify(data);
-
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain",
-      Authorization: `Bearer ${session.token}`,
-    },
-    body,
-  });
-
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Zebu API [${endpoint}] returned a non-JSON response (HTTP ${res.status})`);
+export async function postJData(creds, endpoint, payload = {}, { actid = true } = {}) {
+  requireCreds(creds);
+  const key = credKey(creds);
+  const data = { uid: String(creds.userId), ...(actid ? { actid: String(creds.userId) } : {}), ...payload };
+  const send = (session) => postForm(endpoint, data, { Authorization: `Bearer ${session.accessToken}` });
+  let session = await obtain(key, creds);
+  let r = await send(session);
+  const sessionDead = (x) => x.status === 401 || (x.json && !Array.isArray(x.json) && x.json.stat === "Not_Ok" && isSessionMessage(x.json.emsg));
+  if (sessionDead(r) && session.refreshToken) {
+    session = await obtain(key, creds, { forceRefresh: true });
+    r = await send(session);
   }
-
-  if (json && json.stat !== "Ok" && looksLikeSessionError(json.emsg)) {
-    sessionCache.delete(credsKey(creds));
-    const err = new Error(`Zebu session expired or invalid on ${endpoint} (${json.emsg}). Please ${LOGIN_HELP}.`);
-    // Flags this as unrecoverable within the current request: authCode is
-    // single-use, so re-deriving a session here would just re-exchange the
-    // same already-consumed code and fail again. Batch-quote callers use this
-    // to stop hammering the (doomed) re-auth endpoint for every remaining
-    // contract instead of retrying it per-contract.
-    err.isSessionError = true;
-    throw err;
+  if (sessionDead(r)) {
+    sessions.set(key, { dead: true });
+    throw new SessionRequiredError(`Zebu rejected the session. ${LOGIN_HELP}`);
   }
+  if (r.status === 429 || /rate limit|too many/i.test(String(r.json?.emsg ?? ""))) throw new BrokerError(`Zebu rate limit hit on ${endpoint}.`, { code: "UPSTREAM_RATE_LIMIT" });
+  if (r.json === null) throw new BrokerError(`Zebu ${endpoint} returned a non-JSON reply (HTTP ${r.status}).`);
+  if (r.status < 200 || r.status >= 300) throw new BrokerError(`Zebu ${endpoint} failed (HTTP ${r.status}): ${String(r.json?.emsg ?? "").slice(0, 160)}`);
+  return r.json;
+}
 
+/** True for Noren's "no data" reply (empty books). */
+export const isNoData = (json) => json && !Array.isArray(json) && json.stat === "Not_Ok" && /no data/i.test(String(json.emsg ?? ""));
+
+/** Throw a BrokerError for a Not_Ok reply; return the JSON otherwise. */
+export function expectOk(json, what) {
+  if (json && !Array.isArray(json) && json.stat === "Not_Ok") throw new BrokerError(`Zebu ${what} failed: ${String(json.emsg || "unknown error").slice(0, 160)}`);
   return json;
 }

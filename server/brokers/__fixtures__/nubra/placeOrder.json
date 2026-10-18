@@ -1,0 +1,79 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    {
+      "tradingSymbol": "NIFTY26O2025000CE",
+      "token": "739119",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "INTRADAY",
+      "lots": 2,
+      "price": 98.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/sentinel/orders/create",
+      "status": 201,
+      "expectBody": {
+        "orders": [
+          {
+            "refId": 739119,
+            "qty": 130,
+            "side": "BUY",
+            "deliveryType": "IDAY",
+            "priceType": "LIMIT",
+            "validityType": "DAY",
+            "isMultiLeg": false,
+            "executionMode": "ENTRY",
+            "entryPrice": 9850
+          }
+        ]
+      },
+      "json": {
+        "message": "order creation request pushed successfully",
+        "orders": [
+          {
+            "intentOrderId": 11305,
+            "exchange": "NSE",
+            "status": "OPEN",
+            "isMulti": false,
+            "legs": null,
+            "refId": 739119,
+            "refData": {
+              "displayName": "NIFTY 20 OCT 26 25000 CE",
+              "asset": "NIFTY",
+              "exchange": "NSE",
+              "derivativeType": "OPT",
+              "optionType": "CE",
+              "lotSize": 65,
+              "tickSize": 5
+            },
+            "filledQty": 0,
+            "orderQty": 130,
+            "deliveryType": "IDAY",
+            "priceType": "LIMIT",
+            "validityType": "DAY",
+            "executionMode": "ENTRY",
+            "stratTags": [
+              "momentum-breakout"
+            ],
+            "ltp": 10495,
+            "orderPrice": 9850,
+            "timestamps": {
+              "intentCreatedAt": "2026-10-16T05:00:45.054721358Z",
+              "sentToColoAt": "2026-10-16T05:00:45.060222428Z"
+            },
+            "intentOrderType": "REGULAR",
+            "side": "BUY"
+          }
+        ]
+      }
+    }
+  ]
+}

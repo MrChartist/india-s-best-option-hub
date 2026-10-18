@@ -1,0 +1,29 @@
+{
+  "brokerId": "hdfcsecurities",
+  "creds": {
+    "apiKey": "dummy-ir-api-key",
+    "accessToken": "dummy.ir.access.token"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-27",
+  "sources": [
+    "https://developer.hdfcsec.com/ir-docs/docs/intro",
+    "https://developer.hdfcsec.com/ir-docs/docs/token_id_fe",
+    "https://developer.hdfcsec.com/ir-docs/docs/fetch_access_token_via_api/access_token",
+    "https://developer.hdfcsec.com/ir-docs/docs/error_structure",
+    "https://developer.hdfcsec.com/ir-docs/docs/response",
+    "https://developer.hdfcsec.com/ir-docs/docs/fetchltp",
+    "https://developer.hdfcsec.com/ir-docs/docs/security_master",
+    "https://developer.hdfcsec.com/ir-docs/docs/market_data_websocket",
+    "https://developer.hdfcsec.com/ir-docs/docs/overall_position",
+    "https://developer.hdfcsec.com/ir-docs/docs/holdings",
+    "https://developer.hdfcsec.com/ir-docs/docs/funds_and_margins",
+    "https://developer.hdfcsec.com/ir-docs/docs/order_status",
+    "https://developer.hdfcsec.com/ir-docs/docs/trade_book",
+    "https://developer.hdfcsec.com/ir-docs/docs/place_order",
+    "https://developer.hdfcsec.com/ir-docs/docs/modify_order",
+    "https://developer.hdfcsec.com/ir-docs/docs/cancel_order",
+    "https://developer.hdfcsec.com/ir-docs/docs/user_profile"
+  ],
+  "notes": "JSON payload shapes are the official InvestRight docs samples (fetchltp, overall_position, holdings, funds_and_margins, order_status, trade_book, place_order, modify_order, cancel_order) with prices, ids and names replaced by dummy values; two invalid-JSON typos in the docs samples (a missing quote after OPTIDX in order_status, a trailing comma in overall_position) are fixed. The docs do not describe the security-master columns, so the CSV header is copied from the live file (October 2026) and the rows are dummies in that format. OI/volume/depth come from the WebSocket and are stubbed in hdfcsecurities.test.mjs."
+}

@@ -1,0 +1,69 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/holdings",
+      "json": {
+        "status": "SUCCESS",
+        "data": [
+          {
+            "dp_qty": "0",
+            "t1_qty": "25",
+            "holding_used": "0",
+            "avg_buy_price": "197.30",
+            "sell_amt": "0.000000",
+            "trade_qty": "0",
+            "tradingsymbol": [
+              {
+                "exchange": "NSE",
+                "tradingsymbol": "CUB-EQ",
+                "token": "5701",
+                "price_precision": "2",
+                "ticksize": "0.05",
+                "lotsize": "1",
+                "isin": "INE491A01021"
+              },
+              {
+                "exchange": "BSE",
+                "tradingsymbol": "CUB",
+                "token": "532210",
+                "price_precision": "2",
+                "ticksize": "0.05",
+                "lotsize": "1",
+                "isin": "INE491A01021"
+              }
+            ]
+          },
+          {
+            "dp_qty": "10",
+            "t1_qty": "0",
+            "holding_used": "0",
+            "avg_buy_price": "21.80",
+            "sell_amt": "0.000000",
+            "trade_qty": "0",
+            "tradingsymbol": [
+              {
+                "exchange": "NSE",
+                "tradingsymbol": "IOB-EQ",
+                "token": "9348",
+                "price_precision": "2",
+                "ticksize": "0.05",
+                "lotsize": "1",
+                "isin": "INE565A01014"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

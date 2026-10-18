@@ -1,0 +1,39 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/account/details",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "userId": "DUMMY01",
+          "userName": "DUMMY USER",
+          "mobile": "",
+          "email": "",
+          "pan": "",
+          "dpId": "",
+          "bankDetails": [],
+          "dpIds": [],
+          "products": [
+            "delivery",
+            "intraday",
+            "normal"
+          ],
+          "segments": [
+            "NSE",
+            "BSE",
+            "NFO",
+            "BFO"
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

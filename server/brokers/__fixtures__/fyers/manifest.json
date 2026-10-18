@@ -1,0 +1,31 @@
+{
+  "brokerId": "fyers",
+  "creds": {
+    "appId": "XC4XXXXM-100",
+    "secretKey": "dummy-secret",
+    "accessToken": "dummy.fyers.access.token"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://fyers.in/api-docs/v3/api/api-standards/",
+    "https://fyers.in/api-docs/v3/api/authentication/individual-app/validate-auth-code/",
+    "https://fyers.in/api-docs/v3/api/account/profile/",
+    "https://fyers.in/api-docs/v3/api/account/funds/",
+    "https://fyers.in/api-docs/v3/api/account/holdings/",
+    "https://fyers.in/api-docs/v3/api/trading/positions/get-positions/",
+    "https://fyers.in/api-docs/v3/api/trading/order-book/get-orders/",
+    "https://fyers.in/api-docs/v3/api/trading/trade-book/get-trades/",
+    "https://fyers.in/api-docs/v3/api/trading/order-placement/sync/single-order/",
+    "https://fyers.in/api-docs/v3/api/trading/order-management/sync/modify-single-order/",
+    "https://fyers.in/api-docs/v3/api/trading/order-management/sync/cancel-single-order/",
+    "https://fyers.in/api-docs/v3/api/market-data/option-chain/",
+    "https://fyers.in/api-docs/v3/api/market-data/quotes/",
+    "https://fyers.in/api-docs/v3/api/market-data/market-depth/",
+    "https://fyers.in/api-docs/v3/api/market-data/historical-data/",
+    "https://fyers.in/api-docs/v3/api/market-information/symbol-master/symbol-master-file/",
+    "https://fyers.in/api-docs/v3/api/appendix/symbology-format/",
+    "https://fyers.in/api-docs/v3/getting-started/plans-and-limits/"
+  ],
+  "notes": "Payloads follow the samples on Fyers' official v3 docs pages listed in sources (field names and envelope verbatim). The docs' option-chain sample is for NSE:TCS-EQ; here the same structure carries NIFTY weekly tickers in the documented symbology. Symbol-master rows use the documented column order (rows mirror the public NSE_FO/BSE_FO files). Every token, id and name is a dummy."
+}

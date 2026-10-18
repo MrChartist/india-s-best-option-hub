@@ -1,57 +1,84 @@
 /**
- * Pocketful session helper — resolves the trading client_id that the
- * WebSocket feed URL requires, from a user-pasted OAuth2 access token.
+ * Pocketful — REST client and client-id resolution.
  *
- * Pocketful's auth is a full OAuth2 authorization-code flow (browser consent
- * screen + a registered redirect_uri + a client_secret exchange — see
- * OpenAlgo's broker/pocketful/api/auth_api.py). This server has no redirect
- * endpoint to receive that callback, so — same pattern as Upstox/Fyers in
- * this codebase — the user completes that flow themselves (Pocketful's
- * developer console / Postman) and pastes the resulting long-lived
- * `access_token` here. Every REST/WS call then only needs
- * `Authorization: Bearer <accessToken>`; client_id is auto-derived from the
- * token via /api/v1/user/trading_info (auth_api.py's own flow) and cached
- * in-memory for the life of the process — this call costs nothing to redo,
- * but there is no documented reason to repeat it every request.
+ * Official docs (checked 2026-10): https://api.pocketful.in/docs/curl/login and the official JavaScript SDK
+ * (github.com/pocketful-tech/pocketfulapi-javascript, PocketfulAPI/pocketful.js):
+ *  - Base URL https://algo.pocketful.in (OpenAlgo still uses trade.pocketful.in; the official base is followed).
+ *  - Every call sends `x-authorization-token: <access_token>` and `x-device-type: WEB`. The historical-data guide shows
+ *    `Authorization: Bearer <token>` instead, so both headers are sent.
+ *  - The user generates the access token on the Pocketful API portal (Create App -> "Click here to generate", or the
+ *    Refresh button with the default redirect URL). "Access tokens remain valid until 12:00 AM (midnight)".
+ *  - Most account calls take `client_id` as a query parameter (the SDK sets it from the user's client code). It is a
+ *    saved, non-secret field here; when it is left blank it is looked up once from GET /api/v1/user/trading_info
+ *    (not in the docs; OpenAlgo's auth flow uses it) and cached per token.
+ *  - Errors: HTTP 401 "Invalid, expired, or missing access token"; bodies { status: "error", error_code, message } or
+ *    { error: { code, message }, result }. 429 = rate limited (orders 10/s, data 10/s, others 20/s).
  *
- * NEVER log accessToken — only field names / presence / HTTP status codes.
+ * NEVER log the access token — only field names / presence / HTTP status codes.
  */
 
-const TRADE_BASE = "https://trade.pocketful.in";
+import { createHash } from "node:crypto";
+import { BrokerError, brokerFetch, BrokerInputError } from "./contract.mjs";
 
-const clientIdCache = new Map(); // credKey -> clientId
+export const BASE_URL = "https://algo.pocketful.in";
+const clientIds = new Map(); // sha256(token) -> client id
 
-function credKey(creds) {
-  return JSON.stringify(creds || {});
+/** Test hook. */
+export function __resetPocketfulAuth() {
+  clientIds.clear();
 }
 
-/** Throws with a clear message on missing/invalid/expired tokens. Never logs the token itself. */
-export async function resolveClientId(creds) {
-  const accessToken = creds?.accessToken;
-  if (!accessToken) throw new Error("Pocketful accessToken is not configured — paste it in Broker Settings.");
+function token(creds) {
+  const t = String(creds?.accessToken ?? "").trim();
+  if (!t) throw new BrokerInputError("Pocketful: paste today's access token in Broker Settings.");
+  return t;
+}
 
-  const key = credKey(creds);
-  const cached = clientIdCache.get(key);
-  if (cached) return cached;
+export function credHash(creds) {
+  return createHash("sha256").update(token(creds)).digest("hex");
+}
 
-  const res = await fetch(`${TRADE_BASE}/api/v1/user/trading_info`, {
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-  });
+function headers(creds, json) {
+  const t = token(creds);
+  const h = { "x-authorization-token": t, Authorization: `Bearer ${t}`, "x-device-type": "WEB", Accept: "application/json" };
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
 
+function errorText(json) {
+  return String(json?.message || json?.error?.message || json?.msg || "").slice(0, 200);
+}
+
+/**
+ * Authenticated call. Returns the parsed body. Throws BrokerError (502): "Pocketful error [<http>] <error_code?>: <msg>".
+ * Bodies that report failure (status "error" / false, or a non-zero error.code) also throw.
+ */
+export async function pfRequest(creds, path, { method = "GET", query, body } = {}) {
+  const url = new URL(path, BASE_URL);
+  for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+  const res = await brokerFetch(url.toString(), { method, headers: headers(creds, body !== undefined), body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* handled below */ }
+  const code = json?.error_code ? ` ${json.error_code}` : json?.error?.code ? ` ${json.error.code}` : "";
   if (res.status === 401 || res.status === 403) {
-    throw new Error("Pocketful accessToken is invalid or expired — generate a fresh one and paste it in Broker Settings.");
+    throw new BrokerError(`Pocketful error [${res.status}]${code}: access token invalid or expired — generate a new one on the Pocketful API portal`, { code: "UPSTREAM_AUTH" });
   }
-
-  const body = await res.json().catch(() => null);
-  if (!res.ok || !body || body.status !== "success") {
-    throw new Error(`Pocketful trading_info error [${res.status}]: ${body?.message || "unknown error"}`);
-  }
-
-  const clientId = body.data?.client_id;
-  if (!clientId) throw new Error("Pocketful trading_info response did not include a client_id.");
-
-  clientIdCache.set(key, clientId);
-  return clientId;
+  if (!res.ok || !json) throw new BrokerError(`Pocketful error [${res.status}]${code}: ${errorText(json) || "unexpected response"}`);
+  const failed = json.status === "error" || json.status === false || (json.error && Number(json.error.code) !== 0);
+  if (failed) throw new BrokerError(`Pocketful error [${res.status}]${code}: ${errorText(json) || "request failed"}`);
+  return json;
 }
 
-export { credKey };
+/** The trading client id: the saved one, or looked up once per token. */
+export async function resolveClientId(creds) {
+  const saved = String(creds?.clientId ?? "").trim();
+  if (saved) return saved;
+  const key = credHash(creds);
+  if (clientIds.has(key)) return clientIds.get(key);
+  const json = await pfRequest(creds, "/api/v1/user/trading_info");
+  const id = String(json?.data?.client_id ?? "").trim();
+  if (!id) throw new BrokerError("Pocketful: could not find your client id; enter it in Broker Settings.");
+  clientIds.set(key, id);
+  return id;
+}

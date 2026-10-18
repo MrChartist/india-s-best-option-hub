@@ -1,0 +1,43 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.upstox.com/v2/user/profile",
+      "json": {
+        "status": "success",
+        "data": {
+          "email": "******",
+          "exchanges": [
+            "NSE",
+            "NFO",
+            "BSE",
+            "CDS",
+            "BFO",
+            "BCD"
+          ],
+          "products": [
+            "D",
+            "CO",
+            "I"
+          ],
+          "broker": "UPSTOX",
+          "user_id": "******",
+          "user_name": "******",
+          "order_types": [
+            "MARKET",
+            "LIMIT",
+            "SL",
+            "SL-M"
+          ],
+          "user_type": "individual",
+          "poa": false,
+          "ddpi": false,
+          "is_active": true
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

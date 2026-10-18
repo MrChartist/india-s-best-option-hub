@@ -1,0 +1,66 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/portfolio/positions",
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "exchange": "NSE",
+            "symboltoken": "40003",
+            "producttype": "INTRADAY",
+            "tradingsymbol": "",
+            "symbolname": "NIFTY-20Oct2026-25000-CE",
+            "instrumenttype": "OPTIDX",
+            "multiplier": "1",
+            "buyqty": "130",
+            "sellqty": "65",
+            "buyamount": "96.8",
+            "sellamount": "99.2",
+            "strikeprice": "25000",
+            "optiontype": "CE",
+            "expirydate": "20-Oct-2026",
+            "lotsize": "65",
+            "cfbuyqty": "0",
+            "cfsellqty": "0",
+            "buyavgprice": "96.8",
+            "sellavgprice": "99.2",
+            "avgnetprice": "96.8",
+            "netvalue": "-6292",
+            "netqty": "65",
+            "totalbuyvalue": "12584",
+            "totalsellvalue": "6448",
+            "netprice": "96.8"
+          },
+          {
+            "exchange": "NSE",
+            "symboltoken": "40020",
+            "producttype": "CARRYFORWARD",
+            "tradingsymbol": "",
+            "symbolname": "NIFTY-27Oct2026-FUT",
+            "instrumenttype": "FUTIDX",
+            "buyqty": "65",
+            "sellqty": "65",
+            "buyavgprice": "25010",
+            "sellavgprice": "25040",
+            "avgnetprice": "0",
+            "netqty": "0",
+            "totalbuyvalue": "1625650",
+            "totalsellvalue": "1627600",
+            "netprice": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT2625000CE",
+      "token": "40003",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 95
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.mstock.trade/openapi/typeb/orders/regular",
+      "expectBody": {
+        "variety": "NORMAL",
+        "tradingsymbol": "NIFTY20OCT2625000CE",
+        "symboltoken": "40003",
+        "exchange": "NFO",
+        "transactiontype": "BUY",
+        "ordertype": "LIMIT",
+        "quantity": "130",
+        "producttype": "CARRYFORWARD",
+        "price": "95",
+        "duration": "DAY"
+      },
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "script": "NIFTY20OCT2625000CE",
+          "orderid": "1132261016107",
+          "uniqueorderid": ""
+        }
+      }
+    }
+  ]
+}

@@ -1,108 +1,155 @@
 /**
- * 5paisa instrument (scrip) master — daily CSV download, parse, and lookups for
- * resolving strike/expiry -> ScripCode. 5paisa has no reliable native option-chain
- * endpoint, so the app builds the chain itself from this master + batched quotes.
+ * 5paisa scrip master: daily CSV download, a compact parsed form, and lookups for chains, quotes and orders.
  *
- * CSV column names below (Exch, ExchType, ScripCode, Series, ScripType, StrikeRate,
- * SymbolRoot, Expiry) are verified against marketcalls/openalgo's production 5paisa
- * adapter. Note: 5paisa's real column carrying CE/PE is `ScripType` (Series is "XX"
- * for all F&O rows and does not itself distinguish CE/PE) — this differs from an
- * earlier "CPType" assumption and was confirmed against openalgo's live parsing logic.
+ * Official doc: https://xstream.5paisa.com/dev-docs/docFundamentals/scrip-master
+ *   GET https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/{segment}
+ *   segment: all | nse_eq | bse_eq | nse_fo | bse_fo | ncd_fo | mcx_fo
+ *   Columns used: Exch (N/B/M), ExchType (C cash, D derivatives, U currency), ScripCode, Name, Expiry,
+ *   ScripType (CE / PE / EQ "for NSE indices" / XX other), StrikeRate, LotSize, TickSize ("in rupees"),
+ *   SymbolRoot (underlying for derivatives), Series (EQ for equity, XX for derivatives).
+ *
+ * Index cash rows carry ScripCodes above 999900 (e.g. NIFTY 999920000, SENSEX 999901) and their SymbolRoot is
+ * the exchange's display name ("NIFTY 50", "BSE BANKEX"), so it is normalised onto the canonical underlyings.
+ * The "all" segment is used because index rows and both F&O segments are needed together; 5paisa documents
+ * an occasional transient "Cache not available" reply for it, absorbed by a short retry.
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
 import { sleep } from "../lib/batch.mjs";
+import { brokerFetch, BrokerInputError, CANONICAL_UNDERLYINGS } from "./contract.mjs";
 
-const SCRIP_MASTER_URL = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/All";
+export const SCRIP_MASTER_URL = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all";
 
-// Exchange each index's derivatives/spot trade on. NIFTY-family -> NSE ("N"), SENSEX -> BSE ("B").
-export const INDEX_ROOTS = {
-  NIFTY: "N",
-  BANKNIFTY: "N",
-  FINNIFTY: "N",
-  MIDCPNIFTY: "N",
-  SENSEX: "B",
+const CANONICAL = new Set(CANONICAL_UNDERLYINGS);
+// Index display names (upper-cased, spaces and hyphens removed) -> canonical underlying.
+const INDEX_ALIASES = {
+  NIFTY: "NIFTY", NIFTY50: "NIFTY",
+  BANKNIFTY: "BANKNIFTY", NIFTYBANK: "BANKNIFTY",
+  FINNIFTY: "FINNIFTY", NIFTYFINSERVICE: "FINNIFTY", NIFTYFINANCIALSERVICES: "FINNIFTY", NIFTYFIN: "FINNIFTY",
+  MIDCPNIFTY: "MIDCPNIFTY", NIFTYMIDSELECT: "MIDCPNIFTY", NIFTYMIDCAPSELECT: "MIDCPNIFTY",
+  SENSEX: "SENSEX", BSESENSEX: "SENSEX",
+  BANKEX: "BANKEX", BSEBANKEX: "BANKEX",
 };
+// Index derivative roots that are not canonical underlyings (dropped from the instrument list).
+const OTHER_INDEX_ROOTS = new Set(["NIFTYNXT50", "SENSEX50", "BSESENSEX50", "NIFTYIT", "NIFTYPSE"]);
+const EXCHANGE_OF = { "N|C": "NSE", "B|C": "BSE", "N|D": "NFO", "B|D": "BFO" };
+const STOCK_RE = /^[A-Z0-9&-]{1,20}$/;
 
-const KNOWN_ROOTS = new Set(Object.keys(INDEX_ROOTS));
+const squash = (s) => String(s ?? "").toUpperCase().replace(/[\s-]+/g, "");
 
-/** Quote-aware CSV line splitter (handles quoted fields that may contain commas). */
-function splitCsvLine(line) {
-  const fields = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else cur += c;
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      fields.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
-  }
-  fields.push(cur);
-  return fields;
+/** The canonical underlying for an index display name, or null. */
+export function canonicalIndexName(raw) {
+  return INDEX_ALIASES[squash(raw)] ?? null;
 }
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) return [];
+/** Validate an app symbol: a canonical index or an NSE/BSE stock symbol. */
+export function assertSymbol(symbol) {
+  const s = String(symbol ?? "").toUpperCase();
+  if (!CANONICAL.has(s) && !STOCK_RE.test(s)) throw new BrokerInputError(`Unknown symbol for 5paisa: ${symbol}`);
+  return s;
+}
+
+/** Quote-aware CSV line splitter. */
+function splitCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+export function parseCsv(text) {
+  const lines = String(text).split(/\r?\n/).filter((l) => l.length > 0);
+  if (!lines.length) return [];
   const header = splitCsvLine(lines[0]).map((h) => h.trim());
-  const rows = new Array(lines.length - 1);
+  const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const fields = splitCsvLine(lines[i]);
+    const f = splitCsvLine(lines[i]);
     const row = {};
-    for (let j = 0; j < header.length; j++) row[header[j]] = fields[j];
-    rows[i - 1] = row;
+    for (let j = 0; j < header.length; j++) row[header[j]] = f[j] === undefined ? "" : f[j].trim();
+    rows.push(row);
   }
   return rows;
 }
 
-/** ISO "YYYY-MM-DD" from either a plain date-ish string or a .NET "/Date(ms)/" wire format. */
-function normalizeExpiryToIso(raw) {
-  if (!raw) return null;
-  const trimmed = String(raw).trim();
-  const dotNet = /\/Date\((\d+)/.exec(trimmed);
-  if (dotNet) return new Date(Number(dotNet[1])).toISOString().slice(0, 10);
-  const isoPrefix = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
-  if (isoPrefix) return `${isoPrefix[1]}-${isoPrefix[2]}-${isoPrefix[3]}`;
-  // Last-resort fallback for an unexpected format (e.g. "25-Jan-2024") — unverified
-  // against a live CSV sample since 5paisa's ScripMaster endpoint is currently
-  // returning a transient "cache not available" error at implementation time.
-  // Read back the LOCAL calendar fields Date() assigned it (not .toISOString(),
-  // which would re-express those same fields in UTC and can shift the day by one
-  // whenever the host server's timezone offset is non-zero).
-  const parsed = new Date(trimmed);
-  if (!isNaN(parsed.getTime())) {
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, "0");
-    const d = String(parsed.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+/** ISO date from "2026-10-20 14:30:00", "/Date(1792486800000+0530)/" or "20 Oct 2026" (IST calendar date). */
+export function expiryToIso(raw) {
+  const t = String(raw ?? "").trim();
+  if (!t) return null;
+  const dotNet = /\/Date\((\d+)/.exec(t);
+  if (dotNet) return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(Number(dotNet[1])));
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const dmy = /^(\d{1,2})[\s-]([A-Za-z]{3})[a-z]*[\s-](\d{4})/.exec(t);
+  if (dmy) {
+    const m = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(dmy[2].toUpperCase());
+    if (m >= 0) return `${dmy[3]}-${String(m + 1).padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
   }
-  return null; // unparseable — caller filters these out
+  return null;
 }
 
-function normalizeStrike(raw) {
-  const n = Number(raw);
-  return Number.isFinite(n) ? String(n) : null;
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * Reduce raw CSV rows to the compact master: { indices, equities, derivatives }.
+ *  - indices:     canonical index cash rows (spot quotes)
+ *  - equities:    NSE EQ rows for stocks that have derivatives (stock spot)
+ *  - derivatives: NSE/BSE F&O options and futures
+ */
+export function compactMaster(rows) {
+  const indices = [];
+  const derivatives = [];
+  const fnoRoots = new Set();
+  const eqRows = [];
+  for (const r of rows) {
+    const exch = r.Exch;
+    const exchType = r.ExchType;
+    if ((exch !== "N" && exch !== "B") || (exchType !== "C" && exchType !== "D")) continue;
+    const scripCode = String(r.ScripCode ?? "").trim();
+    if (!/^\d+$/.test(scripCode)) continue;
+    if (exchType === "C") {
+      if (Number(scripCode) > 999900) {
+        const underlying = canonicalIndexName(r.SymbolRoot) || canonicalIndexName(r.Name);
+        if (underlying && !indices.some((i) => i.underlying === underlying)) indices.push({ underlying, exch, scripCode, name: r.Name || r.SymbolRoot });
+      } else if (exch === "N" && (r.Series === "EQ" || r.Series === "BE")) {
+        eqRows.push({ root: String(r.SymbolRoot || "").toUpperCase(), scripCode, tickSize: num(r.TickSize) || 0.05 });
+      }
+      continue;
+    }
+    const type = r.ScripType === "CE" || r.ScripType === "PE" ? r.ScripType : r.ScripType === "XX" ? "FUT" : null;
+    if (!type) continue;
+    const root = String(r.SymbolRoot || "").trim().toUpperCase();
+    const expiry = expiryToIso(r.Expiry);
+    if (!root || !expiry) continue;
+    const strike = type === "FUT" ? null : num(r.StrikeRate);
+    if (type !== "FUT" && !(strike > 0)) continue;
+    derivatives.push({
+      exch, scripCode, root, type, expiry, strike,
+      lotSize: num(r.LotSize) || 1, tickSize: num(r.TickSize) || 0.05, name: r.Name || "",
+    });
+    fnoRoots.add(root);
+  }
+  const equities = eqRows.filter((e) => fnoRoots.has(e.root));
+  return { indices, equities, derivatives };
 }
 
-async function downloadScripMasterCsv() {
-  // The "segment/All" endpoint is documented as occasionally returning a transient
-  // "Cache not available for segment 'all'. Retry after some time." 404 on 5paisa's
-  // side (unrelated to our request) — a short retry loop absorbs that.
+async function downloadScripMaster() {
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(SCRIP_MASTER_URL);
+      const res = await brokerFetch(SCRIP_MASTER_URL, { redirect: "follow" }, { kind: "master" });
       const text = await res.text();
-      if (!res.ok) throw new Error(`5paisa ScripMaster download failed (HTTP ${res.status}): ${text.slice(0, 200)}`);
+      if (!res.ok) throw new Error(`5paisa ScripMaster download failed (HTTP ${res.status}): ${text.slice(0, 160)}`);
       return text;
     } catch (e) {
       lastErr = e;
@@ -112,67 +159,89 @@ async function downloadScripMasterCsv() {
   throw lastErr;
 }
 
-async function fetchAndFilterScripMaster() {
-  const csvText = await downloadScripMasterCsv();
-  const rows = parseCsv(csvText);
-  const filtered = [];
-  for (const row of rows) {
-    const root = (row.SymbolRoot || "").trim();
-    if (!KNOWN_ROOTS.has(root)) continue;
-    const exch = row.Exch;
-    const exchType = row.ExchType;
-    // Keep index-cash rows (ExchType "C", for spot LTP) and derivatives rows (ExchType "D", for CE/PE legs).
-    if (exchType !== "C" && exchType !== "D") continue;
-    if (exch !== INDEX_ROOTS[root]) continue;
-    filtered.push({
-      Exch: exch,
-      ExchType: exchType,
-      ScripCode: row.ScripCode,
-      SymbolRoot: root,
-      StrikeRate: row.StrikeRate,
-      ScripType: row.ScripType,
-      Expiry: row.Expiry,
-    });
-  }
-  return filtered;
-}
-
-/** Cached once/day — this CSV covers the full exchange and is otherwise far too large/slow to fetch per request. */
+/** Cached once a day and shared by every user (the master is public; callers check the session first). */
 export async function getInstrumentMaster() {
-  return getCachedOrFetch("fivepaisa:scripmaster", fetchAndFilterScripMaster, ONE_DAY_MS);
+  return getCachedOrFetch("fivepaisa:scripmaster:v2", async () => compactMaster(parseCsv(await downloadScripMaster())), ONE_DAY_MS);
 }
 
-/** Distinct, ascending ISO expiry dates for a symbol's option contracts. */
+const isIndexRoot = (root) => CANONICAL.has(root);
+
+/** Distinct ascending ISO expiries of a symbol's options. */
 export function listExpiries(master, symbol) {
-  const dates = new Set();
-  for (const row of master) {
-    if (row.SymbolRoot !== symbol || row.ExchType !== "D") continue;
-    if (row.ScripType !== "CE" && row.ScripType !== "PE") continue;
-    const iso = normalizeExpiryToIso(row.Expiry);
-    if (iso) dates.add(iso);
-  }
-  return Array.from(dates).sort();
+  const set = new Set();
+  for (const d of master.derivatives) if (d.root === symbol && d.type !== "FUT") set.add(d.expiry);
+  return [...set].sort();
 }
 
-/** Map of strike (string) -> { ce?: {scripCode, exch, exchType}, pe?: {...} } for one symbol+expiry. */
+/** Map strike (string) -> { ce?, pe? } of { scripCode, exch } for one symbol + expiry. */
 export function strikeMapForExpiry(master, symbol, expiryIso) {
   const map = new Map();
-  for (const row of master) {
-    if (row.SymbolRoot !== symbol || row.ExchType !== "D") continue;
-    const side = row.ScripType === "CE" ? "ce" : row.ScripType === "PE" ? "pe" : null;
-    if (!side) continue;
-    if (normalizeExpiryToIso(row.Expiry) !== expiryIso) continue;
-    const strike = normalizeStrike(row.StrikeRate);
-    if (!strike) continue;
-    if (!map.has(strike)) map.set(strike, {});
-    map.get(strike)[side] = { scripCode: row.ScripCode, exch: row.Exch, exchType: row.ExchType };
+  for (const d of master.derivatives) {
+    if (d.root !== symbol || d.expiry !== expiryIso || d.type === "FUT") continue;
+    const key = String(d.strike);
+    if (!map.has(key)) map.set(key, {});
+    map.get(key)[d.type === "CE" ? "ce" : "pe"] = { scripCode: d.scripCode, exch: d.exch, exchType: "D", lotSize: d.lotSize };
   }
   return map;
 }
 
-/** The index-cash (spot) instrument for a symbol, or null if not found in the cached master. */
-export function indexScripInfo(master, symbol) {
-  const row = master.find((r) => r.SymbolRoot === symbol && r.ExchType === "C");
-  if (!row) return null;
-  return { scripCode: row.ScripCode, exch: row.Exch, exchType: row.ExchType };
+/** The spot instrument (index or NSE stock) for a symbol, as a MarketSnapshot item, or null. */
+export function spotScripInfo(master, symbol) {
+  if (isIndexRoot(symbol)) {
+    const row = master.indices.find((i) => i.underlying === symbol);
+    return row ? { scripCode: row.scripCode, exch: row.exch, exchType: "C" } : null;
+  }
+  const eq = master.equities.find((e) => e.root === symbol);
+  return eq ? { scripCode: eq.scripCode, exch: "N", exchType: "C" } : null;
+}
+
+/** Contract Instrument for one compact derivative row, or null for a non-canonical index derivative. */
+export function toInstrument(d) {
+  const index = isIndexRoot(d.root);
+  if (!index && (OTHER_INDEX_ROOTS.has(d.root) || canonicalIndexName(d.root))) return null;
+  const opt = d.type !== "FUT";
+  return {
+    token: d.scripCode,
+    exchange: EXCHANGE_OF[`${d.exch}|D`],
+    tradingSymbol: d.name || `${d.root} ${d.expiry} ${opt ? `${d.type} ${d.strike}` : "FUT"}`,
+    underlying: d.root,
+    instrumentType: opt ? (index ? "OPTIDX" : "OPTSTK") : (index ? "FUTIDX" : "FUTSTK"),
+    expiry: d.expiry,
+    strike: opt ? d.strike : null,
+    optionType: opt ? d.type : null,
+    lotSize: d.lotSize,
+    tickSize: d.tickSize,
+  };
+}
+
+export function indexInstrument(i) {
+  return {
+    token: i.scripCode, exchange: EXCHANGE_OF[`${i.exch}|C`], tradingSymbol: i.underlying, underlying: i.underlying,
+    instrumentType: "INDEX", expiry: null, strike: null, optionType: null, lotSize: 1, tickSize: 0.05,
+  };
+}
+
+/** Find a derivative by ScripCode (for resolving lot size from the master, never from the client). */
+export function findDerivative(master, scripCode) {
+  return master.derivatives.find((d) => d.scripCode === String(scripCode)) || null;
+}
+
+/** Contract exchange -> 5paisa { Exch, ExchType }. */
+export function brokerSegment(exchange) {
+  switch (exchange) {
+    case "NSE": return { exch: "N", exchType: "C" };
+    case "BSE": return { exch: "B", exchType: "C" };
+    case "NFO": return { exch: "N", exchType: "D" };
+    case "BFO": return { exch: "B", exchType: "D" };
+    case "MCX": return { exch: "M", exchType: "D" };
+    case "CDS": return { exch: "N", exchType: "U" };
+    default: throw new BrokerInputError(`Unsupported exchange for 5paisa: ${exchange}`);
+  }
+}
+
+/** 5paisa Exch + ExchType -> contract exchange. */
+export function contractExchange(exch, exchType) {
+  if (exch === "M") return "MCX";
+  if (exchType === "U") return "CDS";
+  return EXCHANGE_OF[`${exch}|${exchType}`] || (exch === "B" ? "BSE" : "NSE");
 }

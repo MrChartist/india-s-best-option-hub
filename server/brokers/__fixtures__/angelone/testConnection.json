@@ -1,0 +1,43 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/user/v1/getProfile$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "clientcode": "A123456",
+          "name": "DUMMY",
+          "email": "",
+          "mobileno": "",
+          "exchanges": [
+            "NSE",
+            "BSE",
+            "NFO",
+            "BFO"
+          ],
+          "products": [
+            "MARGIN",
+            "MIS",
+            "NRML",
+            "CNC",
+            "CO",
+            "BO"
+          ],
+          "lastlogintime": "",
+          "brokerid": "B2C"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

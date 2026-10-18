@@ -1,0 +1,23 @@
+{
+  "secrets": {
+    "password": "9753",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.tradejini.com/v2/api-gw/oauth/individual-token-v2",
+      "expectBody": {
+        "password": "9753",
+        "twoFa": "123456",
+        "twoFaTyp": "totp"
+      },
+      "status": 200,
+      "json": {
+        "access_token": "dummy-access-token",
+        "token_type": "Bearer",
+        "expires_in": 86400
+      }
+    }
+  ]
+}

@@ -1,183 +1,197 @@
 /**
- * Firstock instrument (symbol) master + index resolution.
+ * Firstock symbol masters + index spot resolution.
  *
- * Firstock has no native option-chain endpoint — this module supplies the
- * strike/expiry -> tradingSymbol resolution that firstock.mjs joins with
- * batched /getMultiQuotes calls to build one.
+ * Official docs (https://firstock.in/api/docs/downloaders/, checked 2026-10) link five public CSV files:
+ *   https://api.firstock.in/V1/symbols/{NSE|BSE|NFO|BFO|Indices}?ref=firstock.in
+ * Headers (read from the published files):
+ *   Indices: Exchange,Token,LotSize,Symbol,TradingSymbol,Expiry,Instrument,OptionType,StrikePrice,TickSize
+ *            (NFO and BFO index futures/options: NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY, SENSEX, BANKEX, ...)
+ *   NFO/BFO: Exchange,Token,LotSize,Symbol,TradingSymbol,CompanyName,Expiry,Instrument,OptionType,StrikePrice,
+ *            TickSize,FreezeQty (stock F&O lives here; CompanyName may be quoted)
+ *   NSE/BSE: Exchange,Token,LotSize,TradingSymbol,CompanyName,ISIN,TickSize,FreezeQty
+ * Expiry is "DD-MON-YYYY"; OptionType is CE / PE / FUT. Index options use the index name in Symbol
+ * (SENSEX and BANKEX as well), so no product-code mapping is needed.
  *
- * Two independent data sources, both cached once/day via instrumentCache.mjs:
- *  - NFO/BFO symbol master CSVs (`GET /V1/symbols/<seg>`) — public, no auth,
- *    documented in openalgo's firstock adapter. Columns:
- *    Exchange, Token, LotSize, Symbol, TradingSymbol, CompanyName, Expiry,
- *    Instrument, OptionType, StrikePrice, TickSize, FreezeQty
- *  - `/indexList` (POST, requires jKey) — as of Firstock's V1 API, index spot
- *    instruments (NIFTY, SENSEX, ...) are no longer in the symbol CSVs at
- *    all and must be resolved via this authenticated endpoint instead.
+ * Index spot quotes need the index's own tradingSymbol: POST /indexList (authenticated, docs index-list/)
+ * returns { exchange, token, tradingSymbol, symbol, idxname } (NIFTY / BANKNIFTY on NSE, SENSEX on BSE in
+ * the documented sample). It is cached for a day; the documented names are the fallback.
+ *
+ * This module previously downloaded the full NFO + BFO files for index options; the smaller Indices file
+ * carries all index derivatives (BANKEX included), and NFO is now only downloaded for stock options.
  */
 
-import { callApi } from "./firstockAuth.mjs";
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
+import { brokerFetch, CANONICAL_UNDERLYINGS } from "./contract.mjs";
+import { callApi } from "./firstockAuth.mjs";
 
-const SYMBOL_BASE = "https://api.firstock.in/V1/symbols";
+export const SYMBOL_BASE = "https://api.firstock.in/V1/symbols";
+const INDEX_EXCHANGE = { NIFTY: "NFO", BANKNIFTY: "NFO", FINNIFTY: "NFO", MIDCPNIFTY: "NFO", SENSEX: "BFO", BANKEX: "BFO" };
+const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
+const MONTH_NAMES = Object.keys(MONTHS);
 
-// Underlying name (as it appears in the NFO/BFO "Symbol" column) -> segment.
-const UNDERLYING_SEGMENT = {
-  NIFTY: "NFO",
-  BANKNIFTY: "NFO",
-  FINNIFTY: "NFO",
-  MIDCPNIFTY: "NFO",
-  SENSEX: "BFO",
+/** Documented spot names (index-list sample) used when /indexList does not list an index. */
+const SPOT_FALLBACK = {
+  NIFTY: { exchange: "NSE", tradingSymbol: "NIFTY", token: "26000" },
+  BANKNIFTY: { exchange: "NSE", tradingSymbol: "BANKNIFTY", token: "26009" },
+  SENSEX: { exchange: "BSE", tradingSymbol: "SENSEX", token: "1" },
 };
-
-// Tolerant matching for /indexList's raw broker names (e.g. "Nifty 50",
-// "Nifty Bank", "Nifty Fin Service", "SENSEX") -> our canonical symbol.
 const INDEX_ALIASES = {
   NIFTY: ["NIFTY", "NIFTY50"],
   BANKNIFTY: ["BANKNIFTY", "NIFTYBANK"],
   FINNIFTY: ["FINNIFTY", "NIFTYFINSERVICE", "NIFTYFINSERV", "NIFTYFINANCIALSERVICES"],
   MIDCPNIFTY: ["MIDCPNIFTY", "NIFTYMIDSELECT", "NIFTYMIDCAPSELECT"],
   SENSEX: ["SENSEX", "SPBSESENSEX", "BSESENSEX"],
+  BANKEX: ["BANKEX", "SPBSEBANKEX", "BSEBANKEX"],
 };
-const INDEX_ALIAS_LOOKUP = new Map();
-for (const [symbol, aliases] of Object.entries(INDEX_ALIASES)) {
-  for (const alias of aliases) INDEX_ALIAS_LOOKUP.set(alias, symbol);
-}
+const ALIAS_LOOKUP = new Map();
+for (const [sym, aliases] of Object.entries(INDEX_ALIASES)) for (const a of aliases) ALIAS_LOOKUP.set(a, sym);
+const squash = (v) => String(v ?? "").toUpperCase().replace(/[\s_&.-]/g, "");
 
-function normalizeIndexKey(value) {
-  if (!value) return "";
-  return String(value).toUpperCase().replace(/[\s_&-]/g, "");
-}
+export const isIndex = (symbol) => Object.prototype.hasOwnProperty.call(INDEX_EXCHANGE, String(symbol ?? "").toUpperCase());
 
 /** Quote-aware CSV line splitter (CompanyName can contain commas). */
-function splitCsvLine(line) {
-  const fields = [];
+export function splitCsvLine(line) {
+  const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else cur += c;
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      fields.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
-  fields.push(cur);
-  return fields;
+  out.push(cur);
+  return out;
 }
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) return [];
+export function parseCsv(text) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (!lines.length) return [];
   const header = splitCsvLine(lines[0]).map((h) => h.trim());
-  const rows = new Array(lines.length - 1);
-  for (let i = 1; i < lines.length; i++) {
-    const fields = splitCsvLine(lines[i]);
+  return lines.slice(1).map((line) => {
+    const f = splitCsvLine(line);
     const row = {};
-    for (let j = 0; j < header.length; j++) row[header[j]] = fields[j];
-    rows[i - 1] = row;
-  }
-  return rows;
+    header.forEach((h, j) => { if (h) row[h] = (f[j] ?? "").trim(); });
+    return row;
+  });
 }
 
-/** "28-Sep-2023" -> "2023-09-28". Returns null on an unparseable value. */
-function expiryToIso(raw) {
-  if (!raw) return null;
-  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(raw).trim());
+/** "28-Sep-2023" | "08MAY2025" -> ISO date, or null. */
+export function expiryToIso(raw) {
+  const s = String(raw ?? "").trim().toUpperCase();
+  const m = /^(\d{1,2})-?([A-Z]{3})-?(\d{4})$/.exec(s);
+  if (!m || !MONTHS[m[2]]) return null;
+  return `${m[3]}-${MONTHS[m[2]]}-${m[1].padStart(2, "0")}`;
+}
+
+/** ISO date -> Firstock's option-chain expiry "DDMONYY" (e.g. 2026-10-20 -> 20OCT26). */
+export function isoToDdMonYy(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ""));
   if (!m) return null;
-  const months = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
-  const mm = months[m[2].toUpperCase()];
-  if (!mm) return null;
-  return `${m[3]}-${mm}-${m[1].padStart(2, "0")}`;
+  return `${m[3]}${MONTH_NAMES[Number(m[2]) - 1]}${m[1].slice(2)}`;
 }
 
-function normalizeStrike(raw) {
-  const n = Number(raw);
-  return Number.isFinite(n) ? String(n) : null;
+const toNum = (v) => {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+/** One master row -> contract Instrument, or null. `fileExchange` covers equity files. */
+export function toInstrument(r) {
+  const exchange = String(r.Exchange ?? "").toUpperCase();
+  const token = String(r.Token ?? "").trim();
+  const tradingSymbol = String(r.TradingSymbol ?? "").trim();
+  if (!token || !tradingSymbol || !["NSE", "BSE", "NFO", "BFO"].includes(exchange)) return null;
+  const lotSize = toNum(r.LotSize);
+  const tick = toNum(r.TickSize);
+  const base = { token, exchange, tradingSymbol, lotSize: lotSize > 0 ? lotSize : 1, tickSize: tick > 0 ? tick : 0.05 };
+  if (exchange === "NSE" || exchange === "BSE") {
+    const underlying = exchange === "NSE" ? tradingSymbol.replace(/-(EQ|BE|BZ|SM|ST)$/i, "") : tradingSymbol;
+    return { ...base, underlying, instrumentType: "EQ", expiry: null, strike: null, optionType: null };
+  }
+  const instrumentType = String(r.Instrument ?? "").toUpperCase();
+  if (!["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"].includes(instrumentType)) return null;
+  const underlying = String(r.Symbol ?? "").trim().toUpperCase();
+  if (instrumentType.endsWith("IDX") && !CANONICAL_UNDERLYINGS.includes(underlying)) return null;
+  const expiry = expiryToIso(r.Expiry);
+  if (!expiry) return null;
+  const isOpt = instrumentType.startsWith("OPT");
+  const optionType = isOpt ? String(r.OptionType ?? "").toUpperCase() : null;
+  const strike = isOpt ? toNum(r.StrikePrice) : null;
+  if (isOpt && ((optionType !== "CE" && optionType !== "PE") || !(strike > 0))) return null;
+  return { ...base, underlying, instrumentType, expiry, strike, optionType };
 }
 
-async function downloadSegmentCsv(segment) {
-  const res = await fetch(`${SYMBOL_BASE}/${segment}?ref=firstock.in`);
+async function download(file) {
+  const res = await brokerFetch(`${SYMBOL_BASE}/${file}?ref=firstock.in`, { redirect: "follow" }, { kind: "master" });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Firstock symbol download for ${segment} failed (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(`Firstock symbol download for ${file} failed (HTTP ${res.status})`);
   return text;
 }
 
-async function fetchOptionMaster() {
-  const rows = [];
-  for (const segment of ["NFO", "BFO"]) {
-    const csv = await downloadSegmentCsv(segment);
-    for (const r of parseCsv(csv)) {
-      const optionType = (r.OptionType || "").trim().toUpperCase();
-      if (optionType !== "CE" && optionType !== "PE") continue; // skip futures ("XX") and anything else
-      const name = (r.Symbol || "").trim().toUpperCase();
-      if (!UNDERLYING_SEGMENT[name]) continue; // only the 5 indices this app cares about
-      const expiryIso = expiryToIso(r.Expiry);
-      const strike = normalizeStrike(r.StrikePrice);
-      if (!expiryIso || !strike || !r.TradingSymbol) continue;
-      rows.push({
-        name,
-        segment,
-        expiry: expiryIso,
-        strike,
-        type: optionType === "CE" ? "ce" : "pe",
-        tradingSymbol: r.TradingSymbol.trim(),
-      });
+/** Parsed instruments of one published file (cached daily; the files are public and the same for all users). */
+export async function getFile(file) {
+  return getCachedOrFetch(`firstock:symbols:${file}:v2`, async () => {
+    const out = [];
+    for (const r of parseCsv(await download(file))) {
+      const i = toInstrument(r);
+      if (!i) continue;
+      // The NFO/BFO files repeat the index derivatives already in the Indices file; keep stock F&O only.
+      if ((file === "NFO" || file === "BFO") && i.instrumentType.endsWith("IDX")) continue;
+      out.push(i);
     }
-  }
-  return rows;
+    return out;
+  }, ONE_DAY_MS);
 }
 
-/** Cached once/day — two CSV downloads, filtered to just this app's 5 underlyings. */
-export async function getOptionMaster() {
-  return getCachedOrFetch("firstock:optionMaster", fetchOptionMaster, ONE_DAY_MS);
+/** Instruments that can hold `symbol`'s options: the Indices file for indices, NFO for stocks. */
+export async function derivativesFor(symbol) {
+  return getFile(isIndex(symbol) ? "Indices" : "NFO");
 }
 
-/** Distinct, ascending ISO expiry dates for a symbol's option contracts. */
-export function listExpiries(master, symbol) {
-  const dates = new Set();
-  for (const row of master) {
-    if (row.name === symbol) dates.add(row.expiry);
-  }
-  return Array.from(dates).sort();
+const isOptionOf = (i, symbol) => (i.instrumentType === "OPTIDX" || i.instrumentType === "OPTSTK") && i.underlying === symbol;
+
+export function listExpiries(instruments, symbol) {
+  const want = String(symbol ?? "").toUpperCase();
+  const set = new Set();
+  for (const i of instruments) if (isOptionOf(i, want)) set.add(i.expiry);
+  return [...set].sort();
 }
 
-/** Rows for one symbol+expiry: [{ strike, type: 'ce'|'pe', tradingSymbol, exchange }]. */
-export function optionRowsForExpiry(master, symbol, expiryIso) {
-  const exchange = UNDERLYING_SEGMENT[symbol];
-  const out = [];
-  for (const row of master) {
-    if (row.name === symbol && row.expiry === expiryIso) {
-      out.push({ strike: row.strike, type: row.type, tradingSymbol: row.tradingSymbol, exchange });
-    }
-  }
-  return out;
+export function optionContracts(instruments, symbol, expiry) {
+  const want = String(symbol ?? "").toUpperCase();
+  return instruments.filter((i) => isOptionOf(i, want) && i.expiry === expiry);
+}
+
+/** Option-chain exchange for an underlying (index map, else the contracts' own exchange, else NFO). */
+export function chainExchange(symbol, contracts = []) {
+  return INDEX_EXCHANGE[String(symbol ?? "").toUpperCase()] || contracts[0]?.exchange || "NFO";
 }
 
 async function fetchIndexList(creds) {
   const json = await callApi(creds, "/indexList", {});
   const map = {};
-  for (const item of json?.data || []) {
-    const brExchange = (item.exchange || "").trim().toUpperCase();
-    if (brExchange !== "NSE" && brExchange !== "BSE") continue;
-    const candidates = [item.tradingSymbol, item.idxname];
-    for (const candidate of candidates) {
-      const resolved = INDEX_ALIAS_LOOKUP.get(normalizeIndexKey(candidate));
-      if (resolved && !map[resolved]) {
-        map[resolved] = { exchange: brExchange, tradingSymbol: item.tradingSymbol };
-      }
+  for (const item of Array.isArray(json?.data) ? json.data : []) {
+    const exchange = String(item?.exchange ?? "").trim().toUpperCase();
+    if (exchange !== "NSE" && exchange !== "BSE") continue;
+    for (const candidate of [item.symbol, item.tradingSymbol, item.idxname]) {
+      const sym = ALIAS_LOOKUP.get(squash(candidate));
+      if (sym && !map[sym]) map[sym] = { exchange, tradingSymbol: String(item.tradingSymbol), token: String(item.token ?? "") };
     }
   }
   return map;
 }
 
-/** Cached once/day: canonical symbol -> { exchange: "NSE"|"BSE", tradingSymbol }. Requires one authenticated call to seed. */
+/** canonical index -> { exchange, tradingSymbol, token } (cached daily after one authenticated call). */
 export async function getIndexMap(creds) {
-  return getCachedOrFetch("firstock:indexList", () => fetchIndexList(creds), ONE_DAY_MS);
+  const map = await getCachedOrFetch("firstock:indexList:v2", () => fetchIndexList(creds), ONE_DAY_MS);
+  return { ...SPOT_FALLBACK, ...map };
+}
+
+/** Spot quote target for an index or a stock ("<SYMBOL>-EQ" on NSE). */
+export async function spotTarget(creds, symbol) {
+  const want = String(symbol ?? "").toUpperCase();
+  if (isIndex(want)) return (await getIndexMap(creds))[want] || null;
+  return { exchange: "NSE", tradingSymbol: `${want}-EQ` };
 }

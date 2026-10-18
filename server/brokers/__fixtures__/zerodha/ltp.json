@@ -1,0 +1,18 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/quote/ltp?i=NSE%3ANIFTY+50",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE:NIFTY 50": {
+            "instrument_token": 256265,
+            "last_price": 25041.35
+          }
+        }
+      }
+    }
+  ]
+}

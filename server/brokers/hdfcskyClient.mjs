@@ -1,136 +1,131 @@
 /**
- * HDFC Sky (HDFC Securities Open API) — HTTP client + auth-header plumbing.
+ * HDFC Sky Open API: REST transport, auth headers, client id and the LTP batch call.
  *
- * Auth model: paste-token, same UX as Dhan/Zerodha. HDFC Sky's real login is a
- * multi-step browser-redirect flow (GET /oapi/v1/login -> HDFC's own login +
- * OTP + PIN + consent screens -> redirect with a one-shot request_token ->
- * POST /oapi/v1/access-token with apiSecret to mint the final accessToken).
- * That flow needs a live human to clear the OTP/PIN screens, so it cannot be
- * driven headlessly from this server — the user completes it once externally
- * (HDFC Sky developer portal / Postman) and pastes the resulting apiKey +
- * accessToken into Broker Settings, exactly like Zerodha's Kite Connect token.
- *
- * Every authenticated call needs:
- *   - `Authorization: <accessToken>` header — NOT "Bearer <token>".
- *   - `User-Agent` header — HDFC Sky rejects requests without one.
- *   - `api_key` as a QUERY param (not a header) on every call.
- *   - `client_id` as a query param on account-scoped calls (not on
- *     /fetch-ltp). It is not a separate secret: HDFC Sky encodes it in the
- *     accessToken's JWT `sub` claim, so it is derived here rather than
- *     collected as its own credential field.
+ * Official docs: https://developer.hdfcsky.com/sky-docs/docs/intro (pages cited below).
+ *  - Login (fetch_access_token_via_api/*, token_id_fe): GET /oapi/v1/login?api_key -> HDFC Sky login,
+ *    OTP and PIN screens -> redirect with a request token -> POST /oapi/v1/access-token?api_key&
+ *    request_token with {"apiSecret"} -> {"accessToken": "<JWT>"}. The OTP is sent only after the
+ *    password step, so a one-shot session login is not possible; auth.kind is apiKeyToken (the user
+ *    pastes today's access token).
+ *  - Every call: `Authorization: <access_token>` (no "Bearer"), the docs' sample `User-Agent` and `api_key`
+ *    as a query parameter. Account-scoped calls also take `client_id` (profile, funds, positions,
+ *    holdings, orders, trades). The client id is the access token's JWT `sub` claim, read here so the
+ *    user does not have to type it (the docs' sample token carries "sub":"S0190007").
+ *  - Error body: {"status":"error","message","error_code":40000|44000|45010,"data":{}} (profile,
+ *    positions, orders pages). HTTP codes per error_structure: 400, 401, 403, 404, 422, 5xx.
+ *  - fetchltp: PUT /oapi/v1/fetch-ltp, body {"data":[{"exchange","token"}]}, response {"data":[{"prev_close",
+ *    "ltp","exchange","token"}]}. Indices are addressed as NSE_INDEX / BSE_INDEX and derivatives as
+ *    NFO / BFO (the security master's own exchange codes). OpenAlgo reports a hard cap of 10
+ *    instruments per call (HTTP 400 above that), so batches stay at 10.
+ * Never log the token or api key; the URL carries the api key, so it never goes into an error message.
  */
 
-import { batchWithDelay } from "../lib/batch.mjs";
+import { BrokerError, brokerFetch, BrokerInputError, SessionRequiredError } from "./contract.mjs";
+import { decodeJwtPayload } from "../lib/jwt.mjs";
 
-const PROD_BASE = "https://developer.hdfcsky.com";
+export const BASE_URL = "https://developer.hdfcsky.com";
+export const WS_URL = "wss://developer.hdfcsky.com/wsapi/v1/session";
+export const LTP_BATCH_SIZE = 10;
+export const LTP_BATCH_DELAY_MS = 200;
 
-// PUT /oapi/v1/fetch-ltp is the ONLY REST quote endpoint HDFC Sky exposes —
-// there is no full-quote/market-depth/OI REST call; those are WebSocket-only
-// (protobuf feed). The server hard-caps this endpoint at 10 instruments per
-// request — anything larger is rejected wholesale with HTTP 400 "maximum 10
-// items allowed" (openalgo's HDFC Sky plugin verified this live against a
-// 94-symbol option-chain request), so batches are kept well under that.
-const LTP_BATCH_SIZE = 10;
-const LTP_BATCH_DELAY_MS = 200;
-
-// HDFC Sky's own docs sample User-Agent — required on every request.
+// Every request sample on the HDFC Sky docs (e.g. https://developer.hdfcsky.com/sky-docs/docs/fetchltp, "Headers" and
+// "Request Curl") carries this browser User-Agent, so the proxy sends the same string on each call.
 export const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
 
-function base64UrlDecode(segment) {
-  const padded = segment.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (segment.length % 4)) % 4);
-  return Buffer.from(padded, "base64").toString("utf8");
+const LABEL = "HDFC Sky";
+
+export function requireCreds(creds) {
+  const apiKey = String(creds?.apiKey ?? "").trim();
+  const accessToken = String(creds?.accessToken ?? "").trim();
+  if (!apiKey || !accessToken) {
+    throw new SessionRequiredError(`${LABEL}: the API key or today's access token is missing. Complete the HDFC Sky login and paste the access token in Broker Settings.`);
+  }
+  return { apiKey, accessToken };
 }
 
-/** Reads the HDFC Sky client (account) id out of the accessToken's JWT `sub` claim, never logging the token itself. */
+const CLIENT_ID_RE = /^[A-Za-z0-9@._-]{1,64}$/;
+
+/**
+ * Account id for the account-scoped endpoints. HDFC Sky does not return it at login, but the access token is a JWT
+ * and the docs' sample token names the account in `sub`, so it is read from there. "" when it cannot be read.
+ */
 export function getClientId(creds) {
-  const token = creds?.accessToken;
-  if (!token) return "";
-  try {
-    const parts = String(token).split(".");
-    if (parts.length < 2) return "";
-    const claims = JSON.parse(base64UrlDecode(parts[1]));
-    return String(claims.sub || claims.client_id || "");
-  } catch {
-    return ""; // not a JWT / unparseable — account-scoped calls simply omit client_id
-  }
+  const sub = decodeJwtPayload(creds?.accessToken)?.sub;
+  return typeof sub === "string" && CLIENT_ID_RE.test(sub) ? sub : "";
 }
 
-function authHeaders(creds, withJson) {
-  if (!creds?.accessToken) {
-    throw new Error("HDFC Sky credentials missing accessToken — paste it in Broker Settings.");
-  }
-  const headers = {
-    Authorization: creds.accessToken, // no "Bearer " prefix
-    "User-Agent": USER_AGENT,
+export function requireClientId(creds) {
+  requireCreds(creds);
+  const id = getClientId(creds);
+  if (!id) throw new BrokerInputError(`${LABEL}: could not read the client id from the access token. Paste the accessToken exactly as HDFC Sky returned it.`);
+  return id;
+}
+
+export function wsUrl(creds) {
+  const { apiKey, accessToken } = requireCreds(creds);
+  const url = new URL(WS_URL);
+  url.searchParams.set("token", accessToken);
+  url.searchParams.set("api_key", apiKey);
+  return url.toString();
+}
+
+function messageOf(json, text) {
+  const m = json?.message ?? json?.error ?? json?.meta?.displayMessage ?? json?.meta?.statusMsg;
+  const code = json?.error_code ? ` (${json.error_code})` : "";
+  return `${String(m || text || "").replace(/\s+/g, " ").slice(0, 200)}${code}`;
+}
+
+/** Header set the docs' samples use: the raw access token (no "Bearer"), the sample User-Agent, JSON in and out. */
+function skyHeaders(accessToken, withBody) {
+  return {
     Accept: "application/json",
+    "User-Agent": USER_AGENT,
+    Authorization: accessToken,
+    ...(withBody ? { "Content-Type": "application/json" } : {}),
   };
-  if (withJson) headers["Content-Type"] = "application/json";
-  return headers;
 }
 
-function buildUrl(path, creds, params) {
-  if (!creds?.apiKey) {
-    throw new Error("HDFC Sky credentials missing apiKey — paste it in Broker Settings.");
-  }
-  const url = new URL(`${PROD_BASE}${path}`);
-  url.searchParams.set("api_key", creds.apiKey);
-  for (const [key, value] of Object.entries(params || {})) {
-    if (value != null && value !== "") url.searchParams.set(key, value);
-  }
-  return url;
-}
+/** One authenticated HDFC Sky call; returns the parsed JSON body. */
+export async function skyRequest(creds, method, path, { params = {}, body } = {}) {
+  const { apiKey, accessToken } = requireCreds(creds);
+  const url = new URL(`${BASE_URL}${path}`);
+  url.searchParams.set("api_key", apiKey);
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+  const hasBody = body !== undefined;
 
-async function handleResponse(res, path) {
-  const text = await res.text();
+  let res;
+  try {
+    res = await brokerFetch(url.toString(), { method, headers: skyHeaders(accessToken, hasBody), body: hasBody ? JSON.stringify(body) : undefined });
+  } catch (e) {
+    throw new BrokerError(`${LABEL}: network error on ${path} (${e?.message || e})`);
+  }
+  const text = await res.text().catch(() => "");
   let json = null;
-  try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
+  try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON error page */ }
 
   if (res.status === 401 || res.status === 403) {
-    throw new Error("HDFC Sky access token expired or invalid — regenerate it and paste a fresh accessToken in Broker Settings.");
+    throw new SessionRequiredError(`${LABEL} rejected the access token [${res.status}]. Log in on HDFC Sky again and paste a fresh access token in Broker Settings.`);
   }
-  if (!res.ok) {
-    throw new Error(`HDFC Sky API error [${res.status}] on ${path}: ${(json?.message || text || "").slice(0, 300)}`);
-  }
-  if (json?.status === "error") {
-    throw new Error(`HDFC Sky API error on ${path}: ${json.message || json.error_code || "unknown"}`);
+  if (res.status === 429) throw new BrokerError(`${LABEL} rate limit hit [429] on ${path}`, { code: "UPSTREAM_RATE_LIMIT" });
+  if (!res.ok) throw new BrokerError(`${LABEL} API error [${res.status}] on ${path}: ${messageOf(json, text)}`);
+  if (json && json.status === "error") {
+    // 40000 "Request forbidden" / "Request Unauthorised" is the docs' token-rejection answer.
+    if (Number(json.error_code) === 40000) throw new SessionRequiredError(`${LABEL} refused the request (${messageOf(json, "")}). Paste a fresh access token in Broker Settings.`);
+    throw new BrokerError(`${LABEL} API error on ${path}: ${messageOf(json, "")}`);
   }
   return json;
 }
 
-export async function hdfcskyGet(creds, path, params) {
-  const url = buildUrl(path, creds, params);
-  const res = await fetch(url, { method: "GET", headers: authHeaders(creds, false) });
-  return handleResponse(res, path);
-}
-
-export async function hdfcskyPut(creds, path, body, params) {
-  const url = buildUrl(path, creds, params);
-  const res = await fetch(url, { method: "PUT", headers: authHeaders(creds, true), body: JSON.stringify(body) });
-  return handleResponse(res, path);
-}
-
-/**
- * Batched LTP fetch, respecting the 10-instruments-per-call cap.
- * `instruments`: [{ exchange, token }] using HDFC Sky's REST exchange codes
- * (NFO/BFO for derivatives, NSE_INDEX/BSE_INDEX for index spot quotes — see
- * hdfcskyInstruments.mjs). Returns Map<"EXCHANGE:token", { ltp, prevClose }>.
- */
+/** PUT /oapi/v1/fetch-ltp for up to 10 instruments. Returns Map<"EXCH:token", { ltp, prevClose }>. */
 export async function fetchLtpBatch(creds, instruments) {
-  const map = new Map();
-  if (!instruments.length) return map;
-
-  const chunkResults = await batchWithDelay(instruments, LTP_BATCH_SIZE, LTP_BATCH_DELAY_MS, async (chunk) => {
-    // client_id is not accepted/needed on fetch-ltp — only api_key.
-    const json = await hdfcskyPut(creds, "/oapi/v1/fetch-ltp", { data: chunk }, {});
-    return json?.data || [];
-  });
-
-  for (const rows of chunkResults) {
-    for (const row of rows) {
-      const key = `${String(row.exchange || "").toUpperCase()}:${String(row.token)}`;
-      map.set(key, { ltp: Number(row.ltp) || 0, prevClose: Number(row.prev_close) || 0 });
-    }
+  const out = new Map();
+  if (!instruments.length) return out;
+  if (instruments.length > LTP_BATCH_SIZE) throw new Error(`fetchLtpBatch takes at most ${LTP_BATCH_SIZE} instruments`);
+  const json = await skyRequest(creds, "PUT", "/oapi/v1/fetch-ltp", { body: { data: instruments.map((i) => ({ exchange: i.exchange, token: String(i.token) })) } });
+  for (const row of Array.isArray(json?.data) ? json.data : []) {
+    const ltp = Number(row?.ltp);
+    out.set(`${String(row?.exchange ?? "").toUpperCase()}:${String(row?.token ?? "")}`, { ltp: Number.isFinite(ltp) ? ltp : 0, prevClose: Number(row?.prev_close) || 0 });
   }
-  return map;
+  return out;
 }

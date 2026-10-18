@@ -1,142 +1,152 @@
 /**
- * Pocketful live quotes — persistent authenticated WebSocket feed.
+ * Pocketful live feed — authenticated WebSocket with binary "detailed marketdata" packets.
  *
- * Pocketful's REST API has no multi-symbol quote or option-chain endpoint at
- * all (confirmed against OpenAlgo's production adapter, broker/pocketful/api/data.py
- * — its own get_quotes()/get_multiquotes() go through this exact WebSocket,
- * with no REST fallback). Same shape as Alice Blue's integration in this
- * codebase (aliceblueAuth.mjs) — subscribe to the tokens we need and collect
- * whatever ticks arrive within a short window — except Pocketful's feed is a
- * binary protocol (pocketfulPacketDecoder.mjs) authenticated via query-string
- * params rather than a post-connect login frame.
+ * Official sources (checked 2026-10): https://api.pocketful.in/docs/curl/connecting-websockets and
+ * /docs/curl/detailed-marketdata, plus the official JavaScript SDK (PocketfulAPI/wsclient.js, pocketfulwebsocket.js).
+ *  - URL: wss://algo.pocketful.in/ws/v1/feeds?login_id=<client id>&access_token=<token> (SDK socketConnect). The docs
+ *    page says "wss://algo.pocketful.in/api/v1/ws" without saying how the token is passed; the SDK's working path is used.
+ *  - Subscribe: { a: "subscribe", v: [[exchangeCode, token], ...], m: "marketdata" }; unsubscribe with a: "unsubscribe".
+ *    Subscriptions add up (the SDK subscribes instrument by instrument), so only new instruments are sent, 50 per frame.
+ *  - Heartbeat: { a: "h", v: [], m: "" } (SDK).
+ *  - Detailed packets (mode 1) are decoded by pocketfulPacketDecoder.mjs; prices are integer paise.
  *
- * Connection is cached per credential set (module-level Map) and reused
- * across calls; Pocketful's documented per-message subscribe batch size is 50
- * instruments (OpenAlgo's own BATCH_SIZE constant for this broker), which we
- * mirror via batchWithDelay.
- *
- * NEVER log accessToken — only field names / presence / status codes.
+ * One connection per (token, client id), kept in memory and bounded by upstreamFeedLimits.mjs: closed after two idle
+ * minutes with no snapshot request and no live listener, at most FEED_LIMITS.maxConnections sockets (least recently
+ * used closed first) and FEED_LIMITS.maxSubscriptions instruments each (oldest unsubscribed first). The WebSocket class
+ * is read from globalThis at connect time so tests can install a fake one and nothing reaches the network.
  */
 
-import { resolveClientId, credKey } from "./pocketfulAuth.mjs";
+import { createHash } from "node:crypto";
+import { BrokerError } from "./contract.mjs";
+import { resolveClientId } from "./pocketfulAuth.mjs";
 import { decodeDetailedMarketData } from "./pocketfulPacketDecoder.mjs";
-import { batchWithDelay, sleep } from "../lib/batch.mjs";
+import { chunkArray, sleep } from "../lib/batch.mjs";
+import { createFeedPoolGuard, trimSubscriptions } from "./upstreamFeedLimits.mjs";
 
-const WS_BASE = "wss://trade.pocketful.in/ws/v1/feeds";
+const WS_URL = "wss://algo.pocketful.in/ws/v1/feeds";
 const HEARTBEAT_MS = 15_000;
 const SUBSCRIBE_CHUNK = 50;
-const SUBSCRIBE_CHUNK_DELAY_MS = 150;
-const TICK_WAIT_MS = 4_000;
-const TICK_POLL_MS = 200;
+const SUBSCRIBE_GAP_MS = 100;
+const TICK_WAIT_MS = 4000;
+const TICK_POLL_MS = 100;
+const OPEN = 1;
 
-const wsCache = new Map(); // credKey -> connection entry
+const connections = new Map();
 
-function cleanupEntry(entry) {
-  entry.authenticated = false;
-  if (entry.heartbeatTimer) { clearInterval(entry.heartbeatTimer); entry.heartbeatTimer = null; }
+function closeEntry(_key, entry) {
+  if (entry.heartbeat) { clearInterval(entry.heartbeat); entry.heartbeat = null; }
+  entry.connected = false;
+  try { entry.ws?.close(); } catch { /* ignore */ }
 }
 
-// `entry` is created and cached by getConnection *before* this function's first
-// await, and mutated in place throughout the handshake, so a second caller
-// arriving mid-connect joins the same in-flight connection instead of opening
-// a duplicate socket (same pattern as aliceblueAuth.mjs's openWsConnection).
-async function openConnection(creds, key, entry) {
-  const clientId = await resolveClientId(creds);
-  const url = `${WS_BASE}?login_id=${encodeURIComponent(clientId)}&access_token=${encodeURIComponent(creds.accessToken)}`;
+export const pocketfulFeedGuard = createFeedPoolGuard(connections, {
+  label: "Pocketful",
+  closeEntry,
+  isBusy: (entry) => entry.tickListeners.size > 0,
+});
 
-  await new Promise((resolve, reject) => {
+/** Close every Pocketful socket (session expired, logout, tests). */
+export function closePocketfulStreams() {
+  pocketfulFeedGuard.closeAll();
+}
+
+/** Test hook. */
+export function __resetPocketfulStreams() {
+  closePocketfulStreams();
+  connections.clear();
+}
+
+export const tickKey = (exchangeCode, token) => `${exchangeCode}|${token}`;
+
+function send(entry, msg) {
+  if (entry.ws && entry.ws.readyState === OPEN) entry.ws.send(JSON.stringify(msg));
+}
+
+function open(creds, clientId, key, entry) {
+  const WS = globalThis.WebSocket;
+  if (typeof WS !== "function") throw new BrokerError("Pocketful: this Node.js build has no WebSocket client");
+  const url = `${WS_URL}?login_id=${encodeURIComponent(clientId)}&access_token=${encodeURIComponent(creds.accessToken)}`;
+  return new Promise((resolve, reject) => {
     let settled = false;
-    const ws = new WebSocket(url);
+    const ws = new WS(url);
     ws.binaryType = "arraybuffer";
     entry.ws = ws;
-
-    const timeout = setTimeout(() => {
-      if (!settled) { settled = true; reject(new Error("Pocketful WebSocket connection timed out")); }
-    }, 10_000);
-
+    const timer = setTimeout(() => { if (!settled) { settled = true; reject(new BrokerError("Pocketful feed connection timed out")); } }, 10_000);
     ws.addEventListener("open", () => {
-      clearTimeout(timeout);
-      entry.authenticated = true;
-      entry.heartbeatTimer = setInterval(() => {
-        try { ws.send(JSON.stringify({ a: "h" })); } catch { /* next poll reconnects */ }
-      }, HEARTBEAT_MS);
-      if (!settled) { settled = true; resolve(); }
+      clearTimeout(timer);
+      entry.connected = true;
+      entry.heartbeat = setInterval(() => send(entry, { a: "h", v: [], m: "" }), HEARTBEAT_MS);
+      entry.heartbeat.unref?.();
+      for (const fn of entry.statusListeners) fn({ connected: true });
+      if (!settled) { settled = true; resolve(entry); }
     });
-
-    ws.addEventListener("message", (event) => {
-      if (!(event.data instanceof ArrayBuffer)) return; // ignore any JSON control frames
-      const buf = Buffer.from(event.data);
-      const tick = decodeDetailedMarketData(buf);
+    ws.addEventListener("message", (ev) => {
+      if (typeof ev.data === "string") return; // JSON control frames
+      const tick = decodeDetailedMarketData(Buffer.from(ev.data));
       if (!tick) return;
-      entry.latestTicks.set(`${tick.exchangeCode}|${tick.instrumentToken}`, tick);
+      const k = tickKey(tick.exchangeCode, tick.instrumentToken);
+      entry.latest.set(k, tick);
+      for (const fn of entry.tickListeners) fn(k, tick);
     });
-
-    ws.addEventListener("error", () => {
-      clearTimeout(timeout);
-      cleanupEntry(entry);
-      if (wsCache.get(key) === entry) wsCache.delete(key);
-      if (!settled) { settled = true; reject(new Error("Pocketful WebSocket connection error")); }
-    });
-
-    ws.addEventListener("close", () => {
-      clearTimeout(timeout);
-      cleanupEntry(entry);
-      if (wsCache.get(key) === entry) wsCache.delete(key);
-      if (!settled) { settled = true; reject(new Error("Pocketful WebSocket closed before it opened")); }
-    });
+    const end = (reason) => {
+      clearTimeout(timer);
+      entry.connected = false;
+      if (entry.heartbeat) { clearInterval(entry.heartbeat); entry.heartbeat = null; }
+      if (connections.get(key) === entry) connections.delete(key);
+      for (const fn of entry.statusListeners) fn({ connected: false, reason });
+      if (!settled) { settled = true; reject(new BrokerError(`Pocketful feed ${reason}`)); }
+    };
+    ws.addEventListener("error", () => end("connection error"));
+    ws.addEventListener("close", () => end("closed"));
   });
-
-  return entry;
 }
 
-async function getConnection(creds) {
-  const key = credKey(creds);
-  const existing = wsCache.get(key);
-  if (existing && existing.ws && existing.ws.readyState === WebSocket.OPEN && existing.authenticated) {
-    return existing;
+export async function getConnection(creds) {
+  const clientId = await resolveClientId(creds);
+  const key = createHash("sha256").update(`${clientId}|${creds.accessToken}`).digest("hex");
+  const existing = connections.get(key);
+  if (existing?.connected && existing.ws?.readyState === OPEN) return pocketfulFeedGuard.touch(existing);
+  if (existing?.connecting) return existing.connecting;
+  if (existing) connections.delete(key);
+  pocketfulFeedGuard.beforeOpen();
+  const entry = { ws: null, connected: false, latest: new Map(), subscribed: new Set(), tickListeners: new Set(), statusListeners: new Set(), heartbeat: null, connecting: null };
+  pocketfulFeedGuard.touch(entry);
+  connections.set(key, entry);
+  entry.connecting = open(creds, clientId, key, entry).finally(() => { entry.connecting = null; });
+  return entry.connecting;
+}
+
+/** Subscribe "exchangeCode|token" keys not yet subscribed (50 per frame). */
+export async function subscribe(entry, keys) {
+  const fresh = keys.filter((k) => !entry.subscribed.has(k));
+  // Stay under the per-socket cap: unsubscribe the oldest instruments this request does not need.
+  const room = new Set([...entry.subscribed, ...fresh]);
+  const dropped = trimSubscriptions(room, new Set(keys), pocketfulFeedGuard.limits.maxSubscriptions).filter((k) => entry.subscribed.has(k));
+  if (dropped.length) unsubscribe(entry, dropped);
+  const chunks = chunkArray(fresh, SUBSCRIBE_CHUNK);
+  for (let i = 0; i < chunks.length; i++) {
+    send(entry, { a: "subscribe", v: chunks[i].map((k) => k.split("|").map(Number)), m: "marketdata" });
+    chunks[i].forEach((k) => entry.subscribed.add(k));
+    if (i < chunks.length - 1) await sleep(SUBSCRIBE_GAP_MS);
   }
-  if (existing?.connectingPromise) return existing.connectingPromise;
-
-  const entry = {
-    ws: null,
-    authenticated: false,
-    latestTicks: new Map(), // "exchangeCode|instrumentToken" -> decoded tick
-    subscribedKeys: new Set(),
-    heartbeatTimer: null,
-    connectingPromise: null,
-  };
-  entry.connectingPromise = openConnection(creds, key, entry);
-  wsCache.set(key, entry);
-
-  const resolved = await entry.connectingPromise;
-  resolved.connectingPromise = null;
-  return resolved;
 }
 
-/**
- * Subscribe to a batch of "exchangeCode|instrumentToken" keys and wait up to
- * `windowMs` (or until every key has reported at least once) for ticks to
- * arrive. Leaves the socket subscribed + open for reuse by the next call.
- */
-export async function subscribeAndCollect(creds, tickKeys, windowMs = TICK_WAIT_MS) {
+export function unsubscribe(entry, keys) {
+  const gone = keys.filter((k) => entry.subscribed.delete(k));
+  for (const k of gone) entry.latest.delete(k);
+  for (const chunk of chunkArray(gone, SUBSCRIBE_CHUNK)) send(entry, { a: "unsubscribe", v: chunk.map((k) => k.split("|").map(Number)), m: "marketdata" });
+}
+
+/** Subscribe and wait up to `windowMs` (or until every key has a tick). Leaves the socket open for reuse. */
+export async function subscribeAndCollect(creds, keys, windowMs = TICK_WAIT_MS) {
   const entry = await getConnection(creds);
-  const newKeys = tickKeys.filter((k) => !entry.subscribedKeys.has(k));
-
-  if (newKeys.length) {
-    await batchWithDelay(newKeys, SUBSCRIBE_CHUNK, SUBSCRIBE_CHUNK_DELAY_MS, async (chunk) => {
-      const v = chunk.map((k) => k.split("|").map(Number));
-      entry.ws.send(JSON.stringify({ a: "subscribe", v, m: "marketdata" }));
-      chunk.forEach((k) => entry.subscribedKeys.add(k));
-    });
-  }
-
+  await subscribe(entry, keys);
   const start = Date.now();
   while (Date.now() - start < windowMs) {
-    if (tickKeys.every((k) => entry.latestTicks.has(k))) break;
+    if (keys.every((k) => entry.latest.has(k))) break;
     await sleep(TICK_POLL_MS);
   }
-
-  const result = new Map();
-  for (const k of tickKeys) result.set(k, entry.latestTicks.get(k));
-  return result;
+  const out = new Map();
+  for (const k of keys) out.set(k, entry.latest.get(k));
+  return out;
 }

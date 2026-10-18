@@ -1,0 +1,34 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    "11305",
+    {
+      "exchange": "NFO",
+      "orderType": "LIMIT",
+      "product": "INTRADAY",
+      "price": 99,
+      "qty": 130
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/sentinel/orders/modify",
+      "expectBody": {
+        "orders": [
+          {
+            "orderId": 11305,
+            "qty": 130,
+            "deliveryType": "IDAY",
+            "entryPrice": 9900
+          }
+        ]
+      },
+      "json": {
+        "message": "order modify request pushed successfully"
+      }
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "args": [
+    "GMK39038RDT490CCVRO",
+    {
+      "orderType": "LIMIT",
+      "price": 2510
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.groww\\.in/v1/order/list\\?segment=CASH&page=0&page_size=100$",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "order_list": [
+            {
+              "groww_order_id": "GMK39038RDT490CCVRO",
+              "trading_symbol": "WIPRO",
+              "order_status": "OPEN",
+              "remark": "Order placed successfully",
+              "quantity": 100,
+              "price": 2500,
+              "trigger_price": 2450,
+              "filled_quantity": 100,
+              "remaining_quantity": 10,
+              "average_fill_price": 2500,
+              "deliverable_quantity": 10,
+              "amo_status": "PENDING",
+              "validity": "DAY",
+              "exchange": "NSE",
+              "order_type": "MARKET",
+              "transaction_type": "BUY",
+              "segment": "CASH",
+              "product": "CNC",
+              "created_at": "2023-10-01T10:15:30",
+              "exchange_time": "2023-10-01T10:15:30",
+              "trade_date": "2019-08-24T14:15:22Z",
+              "order_reference_id": "Ab-654321234-1628190"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.groww\\.in/v1/order/list\\?segment=FNO&page=0&page_size=100$",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "order_list": [
+            {
+              "groww_order_id": "GMK39038RDT490CCVRP",
+              "trading_symbol": "NIFTY26OCT25000CE",
+              "order_status": "EXECUTED",
+              "remark": "Order placed successfully",
+              "quantity": 130,
+              "price": 95,
+              "trigger_price": 0,
+              "filled_quantity": 130,
+              "remaining_quantity": 0,
+              "average_fill_price": 94.5,
+              "deliverable_quantity": 10,
+              "amo_status": "PENDING",
+              "validity": "DAY",
+              "exchange": "NSE",
+              "order_type": "LIMIT",
+              "transaction_type": "BUY",
+              "segment": "FNO",
+              "product": "NRML",
+              "created_at": "2023-10-01T10:15:30",
+              "exchange_time": "2023-10-01T10:15:30",
+              "trade_date": "2019-08-24T14:15:22Z",
+              "order_reference_id": "Ab-654321234-1628190"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/order/modify",
+      "expectBody": {
+        "quantity": 100,
+        "price": 2510,
+        "trigger_price": 0,
+        "order_type": "LIMIT",
+        "segment": "CASH",
+        "groww_order_id": "GMK39038RDT490CCVRO"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "groww_order_id": "GMK39038RDT490CCVRO",
+          "order_status": "OPEN"
+        }
+      }
+    }
+  ]
+}

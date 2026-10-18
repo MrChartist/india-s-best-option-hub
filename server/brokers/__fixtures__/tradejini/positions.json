@@ -1,0 +1,100 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/oms/positions?symDetails=true",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": [
+          {
+            "symId": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+            "product": "normal",
+            "buyQty": 0,
+            "buyValue": 0,
+            "buyAvgPrice": 0,
+            "sellQty": 65,
+            "sellValue": 7800,
+            "sellAvgPrice": 120,
+            "cfQty": 0,
+            "cfValue": 0,
+            "cfAvgPrice": 0,
+            "netQty": -65,
+            "netAvgPrice": 120,
+            "netValue": 7800,
+            "realizedPnl": 0,
+            "priceFactor": 1,
+            "multiplier": 1,
+            "sym": {
+              "id": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+              "symbol": "NIFTY",
+              "tradSymbol": "NIFTY 20OCT 25000 CE",
+              "exchange": "NFO",
+              "lot": "65",
+              "instrument": "OPTIDX",
+              "companyName": "",
+              "expiry": "",
+              "dispSymbol": "NIFTY 20OCT 25000 CE",
+              "asset": "option",
+              "empty": false
+            },
+            "dayPos": {
+              "dayQty": -65,
+              "dayAvg": 120,
+              "dayRealizedPnl": 0,
+              "dayNetValue": 7800,
+              "convertPos": true,
+              "dayPremium": 7800
+            },
+            "convertPos": true,
+            "netPremium": 7800,
+            "transHistory": false,
+            "createTSL": false
+          },
+          {
+            "symId": "EQT_RELIANCE_EQ_NSE",
+            "product": "intraday",
+            "buyQty": 10,
+            "buyValue": 12000,
+            "buyAvgPrice": 1200,
+            "sellQty": 10,
+            "sellValue": 12100,
+            "sellAvgPrice": 1210,
+            "cfQty": 0,
+            "cfValue": 0,
+            "cfAvgPrice": 0,
+            "netQty": 0,
+            "netAvgPrice": 0,
+            "netValue": 0,
+            "realizedPnl": 100,
+            "priceFactor": 1,
+            "multiplier": 1,
+            "sym": {
+              "id": "EQT_RELIANCE_EQ_NSE",
+              "symbol": "RELIANCE-EQ",
+              "tradSymbol": "RELIANCE-EQ",
+              "exchange": "NSE",
+              "lot": "1",
+              "instrument": "EQT",
+              "companyName": "",
+              "expiry": "",
+              "dispSymbol": "RELIANCE-EQ",
+              "asset": "equity",
+              "empty": false
+            },
+            "convertPos": false,
+            "netPremium": 0,
+            "transHistory": false,
+            "createTSL": false
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

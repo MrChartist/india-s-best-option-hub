@@ -1,0 +1,96 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/positions",
+      "json": {
+        "status": "SUCCESS",
+        "positions": [
+          {
+            "exchange": "NFO",
+            "tradingsymbol": "NIFTY20OCT26C25000",
+            "product_type": "NORMAL",
+            "token": "43210",
+            "price_precision": "2",
+            "lotsize": "65",
+            "ticksize": "0.05",
+            "multiplier": "1",
+            "price_factor": "1.000000",
+            "day_buy_qty": "65",
+            "day_sell_qty": "0",
+            "day_buy_amt": "6402.50",
+            "day_buy_avg": "98.50",
+            "day_sell_amt": "0.00",
+            "day_sell_avg": "0.00",
+            "carry_buy_qty": "0",
+            "carry_sell_qty": "0",
+            "open_buy_quantity": "0",
+            "open_sell_quantity": "0",
+            "open_buy_amount": "0.00",
+            "open_buy_averageprice": "0.00",
+            "open_sell_amount": "0.00",
+            "open_sell_averageprice": "0.00",
+            "day_averageprice": "98.50",
+            "net_quantity": "65",
+            "net_averageprice": "98.50",
+            "upload_price": "0.00",
+            "net_uploadprice": "98.50",
+            "lastPrice": "104.95",
+            "unrealized_pnl": "419.25",
+            "break_even_point": "98.50",
+            "realized_pnl": "-0.00",
+            "total_buy_amt": "6402.50",
+            "total_sell_amt": "0.00",
+            "total_buy_avg": "98.50"
+          },
+          {
+            "exchange": "NSE",
+            "tradingsymbol": "TCS-EQ",
+            "product_type": "INTRADAY",
+            "token": "11536",
+            "price_precision": "2",
+            "lotsize": "1",
+            "ticksize": "0.05",
+            "multiplier": "1",
+            "price_factor": "1.000000",
+            "day_buy_qty": "1",
+            "day_sell_qty": "0",
+            "day_buy_amt": "3221.00",
+            "day_buy_avg": "3221.00",
+            "day_sell_amt": "0.00",
+            "day_sell_avg": "0.00",
+            "carry_buy_qty": "0",
+            "carry_sell_qty": "0",
+            "open_buy_quantity": "0",
+            "open_sell_quantity": "0",
+            "open_buy_amount": "0.00",
+            "open_buy_averageprice": "0.00",
+            "open_sell_amount": "0.00",
+            "open_sell_averageprice": "0.00",
+            "day_averageprice": "3221.00",
+            "net_quantity": "1",
+            "net_averageprice": "3221.00",
+            "upload_price": "0.00",
+            "net_uploadprice": "3221.00",
+            "lastPrice": "3225.40",
+            "unrealized_pnl": "4.40",
+            "break_even_point": "3221.00",
+            "realized_pnl": "-0.00",
+            "total_buy_amt": "3221.00",
+            "total_sell_amt": "0.00",
+            "total_buy_avg": "3221.00"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "args": [
+    "240108010445130"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://api-hft.upstox.com/v3/order/cancel?order_id=240108010445130",
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "240108010445130"
+        },
+        "metadata": {
+          "latency": 30
+        }
+      }
+    }
+  ]
+}

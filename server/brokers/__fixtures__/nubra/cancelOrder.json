@@ -1,0 +1,24 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    "11305"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/sentinel/orders/cancel",
+      "expectBody": {
+        "orders": [
+          {
+            "orderId": 11305
+          }
+        ]
+      },
+      "json": {
+        "message": "order cancellation request pushed successfully"
+      }
+    }
+  ]
+}

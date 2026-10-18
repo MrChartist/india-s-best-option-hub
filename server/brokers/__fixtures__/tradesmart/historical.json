@@ -1,0 +1,79 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "22",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2020-06-02",
+      "to": "2020-06-02"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/TPSeries",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NSE\",\"token\":\"22\",\"st\":\"1591036200\",\"et\":\"1591122599\",\"intrv\":\"1\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:46:23",
+          "into": "0.00",
+          "inth": "0.00",
+          "intl": "0.00",
+          "intc": "0.00",
+          "intvwap": "0.00",
+          "intv": "0",
+          "intoi": "0",
+          "v": "980515",
+          "oi": "128702"
+        },
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:44:23",
+          "into": "1286.50",
+          "inth": "1288.00",
+          "intl": "1286.00",
+          "intc": "1287.50",
+          "intvwap": "1287.10",
+          "intv": "6",
+          "intoi": "0",
+          "v": "980515",
+          "oi": "128702"
+        },
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:43:23",
+          "into": "1287.00",
+          "inth": "1287.00",
+          "intl": "0.00",
+          "intc": "1287.00",
+          "intvwap": "128702.00",
+          "intv": "4",
+          "intoi": "128702",
+          "v": "980511",
+          "oi": "128702"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

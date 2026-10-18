@@ -1,0 +1,93 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://tradeapi.samco.in/trade/tradeBook",
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Request successful",
+        "tradeBookDetails": [
+          {
+            "orderNumber": "261016000000079",
+            "exchange": "NFO",
+            "tradingSymbol": "NIFTY20OCT2625000CE",
+            "symbolDescription": "NIFTY 20 OCT 25000 CE",
+            "transactionType": "BUY",
+            "productCode": "NRML",
+            "orderType": "L",
+            "orderPrice": "118.00",
+            "quantity": "130",
+            "disclosedQuantity": "0",
+            "triggerPrice": "0.00",
+            "marketProtection": "3",
+            "orderValidity": "DAY",
+            "orderStatus": "Complete",
+            "orderValue": "15340.00",
+            "instrumentName": "OPTIDX",
+            "orderTime": "16-Oct-2026 10:47:04",
+            "userId": "DV99999",
+            "filledQuantity": "130",
+            "unfilledQuantity": "0",
+            "exchangeConfirmationTime": "10:47:05",
+            "coverOrderPercentage": "%",
+            "exchangeOrderNumber": "1100000000000001",
+            "tradeNumber": "195300",
+            "tradePrice": "118.00",
+            "tradeDate": "16OCT2026",
+            "tradeTime": "10:47:05 AM",
+            "strikePrice": "25000.00",
+            "optionType": "CE",
+            "lastTradePrice": "120.50",
+            "expiry": "20 Oct 26"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

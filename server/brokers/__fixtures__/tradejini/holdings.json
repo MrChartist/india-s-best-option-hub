@@ -1,0 +1,56 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/oms/holdings?symDetails=true",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "holdings": [
+            {
+              "symId": "EQT_RELIANCE_EQ_NSE",
+              "sym": {
+                "id": "EQT_RELIANCE_EQ_NSE",
+                "symbol": "RELIANCE-EQ",
+                "tradSymbol": "RELIANCE-EQ",
+                "exchange": "NSE",
+                "lot": "1",
+                "instrument": "EQT",
+                "companyName": "",
+                "expiry": "",
+                "dispSymbol": "RELIANCE-EQ",
+                "asset": "equity",
+                "empty": false
+              },
+              "qty": 3,
+              "avgPrice": 1160.15,
+              "t1Qty": 0,
+              "saleableQty": 3,
+              "pledgeQty": 0,
+              "nonPoaQty": 0,
+              "dpQty": 3,
+              "benQty": 0,
+              "unpledgedQty": 0,
+              "brokerColQty": 0,
+              "btstColqty": 0,
+              "usedQty": 0,
+              "tradedQty": 0,
+              "realizedPnl": 0,
+              "totalQty": 3,
+              "transHistory": false,
+              "dayQty": 0
+            }
+          ],
+          "hasNonPoaRecord": false
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

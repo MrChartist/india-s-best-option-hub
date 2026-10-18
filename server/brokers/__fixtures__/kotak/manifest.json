@@ -1,0 +1,28 @@
+{
+  "brokerId": "kotak",
+  "creds": {
+    "accessToken": "dummy-app-access-token",
+    "mobileNumber": "9999999999",
+    "ucc": "ABC12"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2 (official SDK; neo_api_client/settings.py PROD_URL, rest.py jData encoding)",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Totp_login.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Totp_validate.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Scrip_Master.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/neo_api_client/api/nse_fo.csv (scrip-master columns and lExpiryDate epoch)",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Quotes.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Place_Order.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Modify_Order.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Cancel_Order.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Order_report.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Trade_report.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Positions.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Holdings.md",
+    "https://github.com/Kotak-Neo/Kotak-neo-api-v2/blob/main/docs/Limits.md",
+    "https://www.kotakneo.com/uploads/Migration_guide_client_PDF_1_141c1e7b53.pdf"
+  ],
+  "notes": "Order/trade/positions/holdings/limits/place/modify/cancel payloads copy the field names of the SDK docs' samples (IDEA cash examples) re-pointed at dummy NIFTY October 2026 contracts. The positions sample in Positions.md lacks the cfBuyQty/flBuyQty/... fields its own 'Positions Calculations' section uses, so those documented fields are added. Kotak publishes no quotes response sample: the quote rows use the field names this repo's earlier reviewed module and OpenAlgo read (exchange, exchange_token, ltp, last_volume, open_int, ohlc, depth). Session fields are added per fixture so manifest.creds stays logged out. Every token, id and name is a dummy."
+}

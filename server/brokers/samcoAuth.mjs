@@ -1,129 +1,129 @@
 /**
- * Samco Securities (StockNote Trade API v3.2) authentication.
+ * Samco Trade API v3.2 — session + HTTP client.
  *
- * Server-to-server flow: POST /session/token with the OAuth app's apiKey +
- * apiSecret (issued in the Samco Web Dashboard, tradeapi.samco.in/app/login)
- * returns a JWT sessionToken that is sent as the `x-session-token` header on
- * every subsequent call. Samco documents this token as valid until 08:00 IST
- * the next day, so it is cached in memory keyed by the raw creds and only
- * regenerated when missing/expired, or when the broker rejects it with a 403.
+ * Official docs (checked 2026-10): https://docs-tradeapi.samco.in/session/generate-token.html and
+ * https://docs-tradeapi.samco.in/overview.html.
+ *  - POST https://tradeapi.samco.in/session/token { apiKey, apiSecret } (JSON) ->
+ *    { status: "Success", sessionToken, accountID, ... }. Failures carry status "Failure", a statusMessage
+ *    and sometimes errorCode EOAUTH001 (bad key) / EOAUTH008 (bad secret).
+ *  - Every later call sends the token as the `x-session-token` header.
+ *  - "The sessionToken is valid until 08:00 IST the next day" (all tokens expire at the next 08:00 IST).
+ *  - Order-related calls from a host that is not a registered static IP fail with HTTP 403 and
+ *    "The IP is not the registered static IP" (EOAUTH009).
  *
- * The legacy 4-step OTP flow and password-based IP-registration endpoints
- * that older Samco integrations use are deprecated in v3.2 and intentionally
- * not implemented here.
+ * The apiKey/apiSecret pair is saved in Broker Settings (contract auth.kind "apiKeyToken": the adapter swaps
+ * the pair for a session server-side). Sessions live only in this process's memory, keyed by a SHA-256 of the
+ * pair, so the secret itself is never a map key, a log line or part of an error message.
+ *
+ * Retry policy: a read (GET, or POST to a read endpoint flagged `read: true`) that comes back 401/403 drops the
+ * cached session and tries exactly once more with a fresh one. State-changing calls (orders) are NEVER retried:
+ * a retried order could be placed twice.
  */
 
-const BASE_URL = "https://tradeapi.samco.in";
+import { createHash } from "node:crypto";
+import { BrokerError, brokerFetch, BrokerInputError } from "./contract.mjs";
+import { createSessionCache } from "../lib/boundedCache.mjs";
 
-// In-memory only — never persisted to disk, never logged.
-// key -> { sessionToken, expiresAt }
-const SESSION_CACHE = new Map();
+export const BASE_URL = "https://tradeapi.samco.in";
+const SESSIONS = createSessionCache(); // sha256(apiKey|apiSecret) -> { sessionToken, expiresAt }
 
-function credsKey(creds) {
-  return JSON.stringify({ k: creds?.apiKey, s: creds?.apiSecret });
+/** Test hook: forget every cached session. */
+export function __resetSamcoSessions() {
+  SESSIONS.clear();
 }
 
-/**
- * Epoch ms of 08:00 IST on the calendar day *after* `now`'s IST day —
- * matches Samco's documented "valid until 08:00 IST the next day" cutoff.
- */
-function next8AmIstNextDay(now = Date.now()) {
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-  const istShifted = new Date(now + IST_OFFSET_MS);
-  const todayMidnightShifted = new Date(istShifted);
-  todayMidnightShifted.setUTCHours(0, 0, 0, 0);
-  const tomorrowAt8Shifted = todayMidnightShifted.getTime() + 24 * 60 * 60 * 1000 + 8 * 60 * 60 * 1000;
-  return tomorrowAt8Shifted - IST_OFFSET_MS;
+function sessionKey(creds) {
+  return createHash("sha256").update(`${creds.apiKey}\u0000${creds.apiSecret}`).digest("hex");
+}
+
+/** Epoch ms of the next 08:00 IST strictly after `now` (Samco's documented session cut-off). */
+export function nextIst8AmMs(now = Date.now()) {
+  const IST = 5.5 * 3600_000;
+  const d = new Date(now + IST);
+  d.setUTCHours(8, 0, 0, 0);
+  let t = d.getTime() - IST;
+  if (t <= now) t += 24 * 3600_000;
+  return t;
 }
 
 function requireCreds(creds) {
-  if (!creds?.apiKey || !creds?.apiSecret) {
-    throw new Error("Samco credentials missing apiKey/apiSecret — paste both in Broker Settings.");
+  if (!String(creds?.apiKey ?? "").trim() || !String(creds?.apiSecret ?? "").trim()) {
+    throw new BrokerInputError("Samco: enter both the API key and the API secret in Broker Settings.");
   }
 }
 
-async function loginFresh(creds) {
-  requireCreds(creds);
-  console.log("[samco] generating session token");
-  const res = await fetch(`${BASE_URL}/session/token`, {
+function upstreamError(status, json, fallback) {
+  const msg = String(json?.statusMessage || json?.message || fallback || `HTTP ${status}`).slice(0, 200);
+  const code = json?.errorCode ? ` ${json.errorCode}` : "";
+  return new BrokerError(`Samco error [${status}]${code}: ${msg}`);
+}
+
+async function readJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function login(creds) {
+  const res = await brokerFetch(`${BASE_URL}/session/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ apiKey: creds.apiKey, apiSecret: creds.apiSecret }),
   });
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Samco session/token returned a non-JSON response (HTTP ${res.status})`);
+  const json = await readJson(res);
+  if (!res.ok || json?.status !== "Success" || !json?.sessionToken) {
+    throw upstreamError(res.status, json, "session/token was refused");
   }
-  if (json?.status !== "Success" || !json?.sessionToken) {
-    const msg = json?.statusMessage || `HTTP ${res.status}`;
-    console.log(`[samco] login failed: ${msg}`);
-    throw new Error(`Samco login failed: ${msg}`);
-  }
-  const session = { sessionToken: json.sessionToken, expiresAt: next8AmIstNextDay() };
-  SESSION_CACHE.set(credsKey(creds), session);
+  const session = { sessionToken: String(json.sessionToken), expiresAt: nextIst8AmMs() - 60_000 };
+  SESSIONS.set(sessionKey(creds), session);
   return session;
 }
 
-/** Returns a cached, still-valid session or performs a fresh login. Throws on any auth failure. */
+/** A cached, unexpired session or a fresh login. */
 export async function getSession(creds) {
   requireCreds(creds);
-  const key = credsKey(creds);
-  const cached = SESSION_CACHE.get(key);
+  const cached = SESSIONS.get(sessionKey(creds));
   if (cached && cached.expiresAt > Date.now()) return cached;
-  return loginFresh(creds);
+  return login(creds);
+}
+
+function buildUrl(path, query) {
+  const url = new URL(path, BASE_URL);
+  for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+  return url.toString();
 }
 
 /**
- * Authenticated call against tradeapi.samco.in. On HTTP 403 (session token
- * rejected — order-placement endpoints also use 403 for unregistered-IP
- * errors, but that does not apply to the read-only quote/session endpoints
- * used by this module) forces a fresh login and retries exactly once.
+ * Authenticated call. Returns the parsed JSON body (status "Success"). Throws BrokerError (502) otherwise.
+ * `read: true` allows one re-login on 401/403; it is implied for GET.
  */
-export async function samcoRequest(creds, path, { method = "GET", body } = {}) {
+export async function samcoRequest(creds, path, { method = "GET", body, query, read, emptyOk = false } = {}) {
+  const canRetry = read ?? method === "GET";
   let session = await getSession(creds);
-
-  const doCall = async (sess) => {
-    const res = await fetch(`${BASE_URL}${path}`, {
+  const call = async (s) => {
+    const res = await brokerFetch(buildUrl(path, query), {
       method,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "x-session-token": sess.sessionToken,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: { Accept: "application/json", "Content-Type": "application/json", "x-session-token": s.sessionToken },
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const text = await res.text();
-    let json = null;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      /* non-JSON error body — handled below via res.ok */
-    }
-    return { res, text, json };
+    return { res, json: await readJson(res) };
   };
-
-  let { res, text, json } = await doCall(session);
-
-  if (res.status === 403) {
-    console.log(`[samco] session rejected on ${path} (HTTP 403) — re-logging in`);
-    SESSION_CACHE.delete(credsKey(creds));
-    session = await loginFresh(creds);
-    ({ res, text, json } = await doCall(session));
+  let { res, json } = await call(session);
+  if ((res.status === 401 || res.status === 403) && canRetry && !/registered static IP/i.test(String(json?.statusMessage))) {
+    SESSIONS.delete(sessionKey(creds));
+    session = await login(creds);
+    ({ res, json } = await call(session));
   }
-
-  if (res.status === 429) {
-    throw new Error(`Samco API rate limit exceeded on ${path}`);
-  }
-  if (!res.ok) {
-    throw new Error(`Samco API error [${res.status}] on ${path}: ${json?.statusMessage || text.slice(0, 200)}`);
-  }
-  if (json?.status && json.status !== "Success") {
-    throw new Error(`Samco API error on ${path}: ${json.statusMessage || "unknown error"}`);
+  if (!res.ok) throw upstreamError(res.status, json);
+  if (!json) throw new BrokerError(`Samco error [${res.status}]: response was not JSON`);
+  if (json.status && json.status !== "Success") {
+    // List endpoints answer an empty book with a Failure + "No ... found" message; callers that pass
+    // emptyOk get null for that instead of an error.
+    if (emptyOk && /\bno\b.*\b(found|available|exists?)\b|no data/i.test(String(json.statusMessage))) return null;
+    throw upstreamError(res.status, json);
   }
   return json;
 }
-
-export { BASE_URL };

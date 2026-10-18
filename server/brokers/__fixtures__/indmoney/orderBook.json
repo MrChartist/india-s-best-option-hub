@@ -1,0 +1,75 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/order-book",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "created_at": "2026-10-16T09:18:40.446948+05:30",
+            "updated_at": "2026-10-16T09:18:40.498595+05:30",
+            "user_id": "710354",
+            "security_id": "73871",
+            "isin": "",
+            "name": "NIFTY 27 OCT 25000 CE",
+            "id": "DRV-28131451",
+            "exch_order_id": "1300000002340881",
+            "txn_type": "BUY",
+            "exchange": "NSE",
+            "segment": "DERIVATIVE",
+            "product": "MARGIN",
+            "order_type": "MARKET",
+            "validity": "DAY",
+            "mkt_type": "NL",
+            "off_mkt_flag": "false",
+            "traded_qty": 65,
+            "requested_qty": 65,
+            "requested_price": "43.55",
+            "traded_price": "43.55",
+            "sl_trigger_price": "",
+            "sl_limit_price": "",
+            "tgt_trigger_price": "",
+            "tgt_limit_price": "",
+            "status": "SUCCESS",
+            "extra_info": ""
+          },
+          {
+            "created_at": "2026-10-16T09:18:40.446948+05:30",
+            "updated_at": "2026-10-16T09:18:40.498595+05:30",
+            "user_id": "710354",
+            "security_id": "11915",
+            "isin": "INE528G01035",
+            "name": "Yes Bank Ltd",
+            "id": "EQ-93842477",
+            "exch_order_id": "1000000048655764",
+            "txn_type": "BUY",
+            "exchange": "NSE",
+            "segment": "EQUITY",
+            "product": "CNC",
+            "order_type": "LIMIT",
+            "validity": "",
+            "mkt_type": "NL",
+            "off_mkt_flag": "true",
+            "traded_qty": 0,
+            "requested_qty": 1,
+            "requested_price": "23.60",
+            "traded_price": "0.00",
+            "sl_trigger_price": "",
+            "sl_limit_price": "",
+            "tgt_trigger_price": "",
+            "tgt_limit_price": "",
+            "status": "PENDING",
+            "extra_info": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

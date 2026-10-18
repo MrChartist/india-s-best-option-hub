@@ -1,177 +1,144 @@
 /**
- * IIFL Capital contract (instrument) master — daily CSV downloads + lookups.
+ * IIFL Capital contract files (instrument master).
  *
- * IIFL has no native option-chain endpoint (confirmed against openalgo's
- * production adapter: broker/iiflcapital/api/data.py builds chains itself
- * from batched /marketdata/marketquotes + per-leg /marketdata/openinterest
- * calls). Strike/expiry/instrumentId resolution comes from IIFL's own daily
- * contract CSVs, served unauthenticated from
- * `${BASE_URL}/contractfiles/<SEGMENT>.csv` (openalgo's downloader sends no
- * Authorization header for these — they're public reference data, same
- * pattern as Zerodha's/Dhan's instrument dumps).
- *
- * Column names below (Exchange, Underlying Instrument Symbol, Instrument ID,
- * Instrument Type, Option Type, Strike Price, Underlying Instrument Name,
- * Trading Symbol, Expiry) are verified against openalgo's production
- * broker/iiflcapital/database/master_contract_db.py column map.
+ * Official docs (https://developers.iiflcapital.com/apidocs/annexure, "Instrument Details") list one CSV and
+ * one JSON per segment at https://api.iiflcapital.com/v1/contractfiles/<SEGMENT>.csv for NSEEQ, NSEFO, NSECOMM,
+ * MCXCOMM, INDICES, NSECURR, BSEEQ, BSEFO, BSECURR (2 requests/s). They download without auth.
+ * The docs do not print the columns; the published files carry this header (read by name, not position):
+ *   Exchange, Underlying Instrument Symbol, Instrument ID, Instrument Type, Option Type, Strike Price,
+ *   Underlying Instrument Name, Formatted Ins Name, Trading Symbol, qtyLimit, Expiry ("29-Dec-2026 23:59"),
+ *   Lot Size, Tick Size
+ * Instrument Type: OPTIDX, OPTSTK, FUTIDX, FUTSTK, INDEX (the published BSEFO file also spells some stock
+ * options "OTPSTK"; they are read as OPTSTK). INDICES rows sit on NSEEQ / BSEEQ with the index name in
+ * "Underlying Instrument Name" (NIFTY 50, NIFTY BANK, NIFTY FIN SERVICE, NIFTY MIDCAP SELECT, SENSEX, BANKEX).
+ * The `exchange` sent to /marketdata/* is the file's Exchange value (NSEFO, BSEFO, NSEEQ, BSEEQ).
  */
 
+import { brokerFetch, CANONICAL_UNDERLYINGS } from "./contract.mjs";
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
-import { sleep } from "../lib/batch.mjs";
 import { BASE_URL } from "./iiflcapitalAuth.mjs";
 
-// Which contract-file segment (and the exact `exchange` string IIFL expects
-// on every /marketdata/* request) each app symbol's option contracts live in.
-export const SYMBOL_SEGMENT = {
-  NIFTY: "NSEFO",
-  BANKNIFTY: "NSEFO",
-  FINNIFTY: "NSEFO",
-  MIDCPNIFTY: "NSEFO",
-  SENSEX: "BSEFO",
-};
+export const CONTRACT_EXCHANGE = { NSEEQ: "NSE", BSEEQ: "BSE", NSEFO: "NFO", BSEFO: "BFO" };
+export const IIFL_EXCHANGE = { NSE: "NSEEQ", BSE: "BSEEQ", NFO: "NSEFO", BFO: "BSEFO" };
+/** INDICES.csv "Underlying Instrument Name" (spaces removed, upper-case) -> canonical underlying. */
+const INDEX_NAME = { NIFTY50: "NIFTY", NIFTYBANK: "BANKNIFTY", NIFTYFINSERVICE: "FINNIFTY", NIFTYMIDCAPSELECT: "MIDCPNIFTY", SENSEX: "SENSEX", BANKEX: "BANKEX" };
+export const INDEX_EXCHANGE = { NIFTY: "NSE", BANKNIFTY: "NSE", FINNIFTY: "NSE", MIDCPNIFTY: "NSE", SENSEX: "BSE", BANKEX: "BSE" };
+const CANONICAL = new Set(CANONICAL_UNDERLYINGS);
+const OTHER_INDEX_UNDERLYING = /^(NIFTY|SENSEX|BANKEX|FINNIFTY|MIDCPNIFTY|FOCIT)/;
+const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
 
-// IIFL's INDICES.csv "Underlying Instrument Name" column, uppercased with
-// spaces stripped, mapped to our app's symbol names — mirrors openalgo's
-// NSE_INDEX_MAP (BSE's SENSEX needs no mapping: "SENSEX" already matches).
-const NSE_INDEX_NAME_MAP = {
-  NIFTY50: "NIFTY",
-  NIFTYBANK: "BANKNIFTY",
-  NIFTYFINSERVICE: "FINNIFTY",
-  NIFTYMIDCAPSELECT: "MIDCPNIFTY",
-};
-
-const MONTHS = {
-  JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
-  JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
-};
-
-/** Quote-aware CSV line splitter (handles quoted fields that may contain commas). */
-function splitCsvLine(line) {
-  const fields = [];
+export function splitCsvLine(line) {
+  const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else cur += c;
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      fields.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
-  fields.push(cur);
-  return fields;
+  out.push(cur);
+  return out;
 }
 
-/** "30-Apr-2026" or "24-Apr-2026 23:59" -> "2026-04-30". Returns null if unparseable. */
-export function parseExpiryToIso(raw) {
-  if (!raw) return null;
-  const trimmed = String(raw).trim();
-  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})/.exec(trimmed);
-  if (m) {
-    const day = m[1].padStart(2, "0");
-    const mon = MONTHS[m[2].toUpperCase()];
-    if (!mon) return null;
-    return `${m[3]}-${mon}-${day}`;
+export function parseCsv(text) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const head = splitCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const cols = splitCsvLine(line);
+    const row = {};
+    head.forEach((h, i) => { row[h] = (cols[i] ?? "").trim(); });
+    return row;
+  });
+}
+
+/** "29-Dec-2026 23:59" / "29-Dec-2026" -> "2026-12-29"; null otherwise. */
+export function expiryIso(raw) {
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})/.exec(String(raw ?? "").trim());
+  if (!m || !MONTHS[m[2].toUpperCase()]) return null;
+  return `${m[3]}-${MONTHS[m[2].toUpperCase()]}-${m[1].padStart(2, "0")}`;
+}
+
+/** One contract-file row -> compact master row (contract fields + iiflExchange), or null. */
+export function toMasterRow(r) {
+  const iiflExchange = r["Exchange"];
+  const exchange = CONTRACT_EXCHANGE[iiflExchange];
+  const token = r["Instrument ID"];
+  if (!exchange || !/^\d+$/.test(String(token ?? ""))) return null;
+  let type = String(r["Instrument Type"] ?? "").toUpperCase();
+  if (type === "OTPSTK") type = "OPTSTK";
+  const lot = Number(r["Lot Size"]);
+  const tick = Number(r["Tick Size"]);
+  const base = { token, iiflExchange, exchange, tradingSymbol: r["Trading Symbol"] || r["Formatted Ins Name"] };
+  if (type === "INDEX") {
+    const name = String(r["Underlying Instrument Name"] || r["Underlying Instrument Symbol"] || "").toUpperCase().replace(/\s+/g, "");
+    const underlying = INDEX_NAME[name] ?? r["Underlying Instrument Name"];
+    return { ...base, underlying, instrumentType: "INDEX", expiry: null, strike: null, optionType: null, lotSize: 1, tickSize: 0.05 };
   }
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const d = new Date(trimmed);
-  if (!isNaN(d.getTime())) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (iiflExchange === "NSEEQ" || iiflExchange === "BSEEQ") {
+    if (!base.tradingSymbol) return null;
+    return { ...base, underlying: r["Underlying Instrument Symbol"] || base.tradingSymbol, instrumentType: "EQ", expiry: null, strike: null, optionType: null,
+      lotSize: lot > 0 ? lot : 1, tickSize: tick > 0 ? tick : 0.05 };
   }
-  return null;
+  if (!["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"].includes(type)) return null;
+  const underlying = String(r["Underlying Instrument Symbol"] ?? "").toUpperCase();
+  if (type.endsWith("IDX") && !CANONICAL.has(underlying)) return null; // NIFTYNXT50, SENSEX50, ... not mapped
+  if (type.endsWith("STK") && OTHER_INDEX_UNDERLYING.test(underlying)) return null;
+  const expiry = expiryIso(r["Expiry"]);
+  if (!underlying || !expiry || !(lot > 0)) return null;
+  const isOpt = type.startsWith("OPT");
+  const strike = Number(r["Strike Price"]);
+  const optionType = r["Option Type"] === "CE" || r["Option Type"] === "PE" ? r["Option Type"] : null;
+  if (isOpt && (!(strike > 0) || !optionType)) return null;
+  return { ...base, underlying, instrumentType: type, expiry, strike: isOpt ? strike : null, optionType: isOpt ? optionType : null, lotSize: lot, tickSize: tick > 0 ? tick : 0.05 };
 }
 
-async function downloadSegmentCsv(segment) {
-  const url = `${BASE_URL}/contractfiles/${segment}.csv`;
-  let lastErr;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`IIFL Capital contract file download failed for ${segment} (HTTP ${res.status})`);
-      const text = await res.text();
-      if (!text || text.trim().length < 10) throw new Error(`IIFL Capital contract file for ${segment} was empty`);
-      return text;
-    } catch (e) {
-      lastErr = e;
-      if (attempt < 3) await sleep(1500 * attempt);
-    }
+async function download(segment) {
+  const res = await brokerFetch(`${BASE_URL}/contractfiles/${segment}.csv`, { redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`IIFL Capital contract file ${segment} download failed (HTTP ${res.status})`);
+  return parseCsv(await res.text()).map(toMasterRow).filter(Boolean);
+}
+
+/** Daily-cached contract file rows (public reference data shared by every user). */
+export function getSegment(segment) {
+  return getCachedOrFetch(`iiflcapital:contract:${segment}:v2`, () => download(segment), ONE_DAY_MS);
+}
+
+/** The F&O file a symbol's options live in. */
+export async function fnoFor(symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  if (INDEX_EXCHANGE[u] === "BSE") return getSegment("BSEFO");
+  const nse = await getSegment("NSEFO");
+  if (INDEX_EXCHANGE[u] || nse.some((m) => m.underlying === u)) return nse;
+  return getSegment("BSEFO");
+}
+
+export function optionRows(fno, symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  return fno.filter((m) => m.underlying === u && m.strike !== null);
+}
+
+export function listExpiries(fno, symbol) {
+  return [...new Set(optionRows(fno, symbol).map((m) => m.expiry))].sort();
+}
+
+/** Spot instrument { exchange: IIFL code, instrumentId } for an index or an NSE stock, or null. */
+export async function spotInstrument(symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  if (INDEX_EXCHANGE[u]) {
+    const row = (await getSegment("INDICES")).find((m) => m.underlying === u && m.exchange === INDEX_EXCHANGE[u]);
+    return row ? { exchange: row.iiflExchange, instrumentId: row.token } : null;
   }
-  throw lastErr;
+  const row = (await getSegment("NSEEQ")).find((m) => m.underlying === u || m.tradingSymbol === `${u}-EQ` || m.tradingSymbol === u);
+  return row ? { exchange: row.iiflExchange, instrumentId: row.token } : null;
 }
 
-function parseSegmentCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) return [];
-  const header = splitCsvLine(lines[0]).map((h) => h.trim());
-  const col = {};
-  header.forEach((h, i) => { col[h] = i; });
-
-  const rows = new Array(lines.length - 1);
-  for (let i = 1; i < lines.length; i++) {
-    const f = splitCsvLine(lines[i]);
-    rows[i - 1] = {
-      exchange: (f[col["Exchange"]] || "").trim(),
-      underlying: (f[col["Underlying Instrument Symbol"]] || "").trim(),
-      name: (f[col["Underlying Instrument Name"]] || "").trim(),
-      token: (f[col["Instrument ID"]] || "").trim(),
-      optionType: (f[col["Option Type"]] || "").trim().toUpperCase(),
-      strike: (f[col["Strike Price"]] || "").trim(),
-      expiry: (f[col["Expiry"]] || "").trim(),
-    };
-  }
-  return rows;
-}
-
-/** Cached once/day per segment, shared across all users' credentials — same TTL contract as Zerodha's instrument master. */
-async function getSegmentRows(segment) {
-  return getCachedOrFetch(
-    `iiflcapital:contract:${segment}`,
-    () => downloadSegmentCsv(segment).then(parseSegmentCsv),
-    ONE_DAY_MS
-  );
-}
-
-/** All CE/PE contract rows for an app symbol, across every expiry. */
-export async function getOptionRows(symbol) {
-  const segment = SYMBOL_SEGMENT[symbol];
-  if (!segment) throw new Error(`Unknown symbol: ${symbol}`);
-  const rows = await getSegmentRows(segment);
-  return rows.filter(
-    (r) => r.underlying === symbol && r.token && (r.optionType === "CE" || r.optionType === "PE")
-  );
-}
-
-/** Distinct, ascending ISO expiry dates. */
-export function distinctExpiriesAscending(rows) {
-  const set = new Set();
-  for (const r of rows) {
-    const iso = parseExpiryToIso(r.expiry);
-    if (iso) set.add(iso);
-  }
-  return Array.from(set).sort();
-}
-
-/** Rows belonging to one specific ISO expiry. */
-export function filterRowsByExpiryIso(rows, iso) {
-  return rows.filter((r) => parseExpiryToIso(r.expiry) === iso);
-}
-
-/** The index-spot instrument `{ exchange, instrumentId }` for an app symbol, from INDICES.csv, or null. */
-export async function resolveIndexInfo(symbol) {
-  const rows = await getSegmentRows("INDICES");
-  for (const r of rows) {
-    if (!r.token) continue;
-    const compact = r.name.toUpperCase().replace(/\s+/g, "");
-    const mapped = r.exchange === "NSEEQ" ? NSE_INDEX_NAME_MAP[compact] || compact : compact;
-    if (mapped === symbol) return { exchange: r.exchange, instrumentId: r.token };
-  }
-  return null;
+/** Contract InstrumentRef -> IIFL { exchange, instrumentId } (index tokens sit on NSEEQ/BSEEQ, so no lookup needed). */
+export function iiflInstrument(ref) {
+  const exchange = IIFL_EXCHANGE[ref?.exchange];
+  const instrumentId = String(ref?.token ?? "");
+  if (!exchange || !/^\d+$/.test(instrumentId)) return null;
+  return { exchange, instrumentId };
 }

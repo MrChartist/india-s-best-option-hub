@@ -1,174 +1,163 @@
 /**
- * IndMoney (INDstocks) instrument master + strike/expiry/index resolution.
+ * IndMoney (INDstocks) instrument master. Official docs: "Get Instrument List (CSV)" in the official Postman
+ * collection (https://documenter.getpostman.com/view/56363899/2sBY4LShyj), checked 2026-10.
  *
- * INDstocks has no native option-chain endpoint (confirmed against docs
- * indstocks-api-docs/05-instruments.md + 06-market-quotes.md, and against
- * marketcalls/openalgo's production broker/indmoney adapter, which builds quotes purely
- * from /market/instruments + /market/quotes/*). Two CSV dumps resolve everything this app
- * needs:
- *   source=fno   -> every option/future contract (strike, expiry, SECURITY_ID)
- *   source=index -> the index spot instruments (NIFTY 50, SENSEX, ...)
- * Both are cached once/day via instrumentCache, shared across every user's credentials —
- * they only change on expiry days, and are public reference data once downloaded.
+ * GET /market/instruments?source=equity|fno|index (authenticated, Data bucket 5/s) returns CSV:
+ *  - fno / equity: EXCH, SEGMENT (D | E), SECURITY_ID, INSTRUMENT_NAME (OPTIDX | OPTSTK | FUTIDX | FUTSTK |
+ *    EQUITY), EXPIRY_CODE ("29 Sep 2026"), TRADING_SYMBOL ("NIFTY-Sep2026-22150-CE"), LOT_UNITS,
+ *    CUSTOM_SYMBOL ("NIFTY 29 SEP 22150 CE"), EXPIRY_DATE ("09/29/2026 14:00", month first), STRIKE_PRICE,
+ *    OPTION_TYPE (CE | PE | XX for futures), TICK_SIZE, EXPIRY_FLAG, SEM_EXCH_INSTRUMENT_TYPE, SERIES,
+ *    SYMBOL_NAME (blank on derivatives in the sample).
+ *  - index: EXCH, SEGMENT (the index name, e.g. "NIFTY 50", "BANK NIFTY"), SECURITY_ID.
+ * TICK_SIZE is in paise in the sample (5 for a NIFTY option = Rs 0.05; 1 for SUZLON = Rs 0.01), so it is
+ * divided by 100.
+ *
+ * Fixed here (vs the earlier adapter): it matched options on SYMBOL_NAME, which is blank on derivatives, so
+ * no option was ever found; it read EXPIRY_DATE as day-first ("09/29/2026" is 29 Sep); the index names did
+ * not match the documented index file. The underlying now comes from TRADING_SYMBOL before the first "-".
+ *
+ * REST scrip codes are SEGMENT_TOKEN: NSE_ / BSE_ (equity), NFO_ / BFO_ (derivatives), NIDX_ / BIDX_ (index;
+ * prefixes from the WebSocket section, which lists NIDX/BIDX for indices).
  */
 
+import { CANONICAL_UNDERLYINGS } from "./contract.mjs";
+import { indRequest } from "./indmoneyAuth.mjs";
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
-import { apiGetRaw } from "./indmoneyAuth.mjs";
 
-export const SYMBOL_EXCHANGE = {
-  NIFTY: "NSE",
-  BANKNIFTY: "NSE",
-  FINNIFTY: "NSE",
-  MIDCPNIFTY: "NSE",
-  SENSEX: "BSE",
+/** Documented index-file names for the six canonical underlyings. */
+export const INDEX_NAME = {
+  NIFTY: { exch: "NSE", name: "NIFTY 50" },
+  BANKNIFTY: { exch: "NSE", name: "BANK NIFTY" },
+  FINNIFTY: { exch: "NSE", name: "Nifty Financial" },
+  MIDCPNIFTY: { exch: "NSE", name: "Nifty Midcap Sel" },
+  SENSEX: { exch: "BSE", name: "SENSEX" },
+  BANKEX: { exch: "BSE", name: "BANKEX" },
 };
+const CANONICAL = new Set(CANONICAL_UNDERLYINGS);
+const OTHER_INDEX_UNDERLYING = /^(NIFTY|SENSEX|BANKEX|FINNIFTY|MIDCPNIFTY)/;
+const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
 
-// Candidate index-instrument names to match against the source=index dump's
-// SYMBOL_NAME / TRADING_SYMBOL / CUSTOM_SYMBOL columns. Unverified against a live response
-// (no sandbox access) — best-effort, same caveat as zerodha.mjs's SPOT_TICKER map.
-export const INDEX_ALIASES = {
-  NIFTY: ["NIFTY 50", "NIFTY50", "NIFTY"],
-  BANKNIFTY: ["NIFTY BANK", "BANKNIFTY", "NIFTY BANK INDEX"],
-  FINNIFTY: ["NIFTY FIN SERVICE", "FINNIFTY", "NIFTY FINANCIAL SERVICES"],
-  MIDCPNIFTY: ["NIFTY MIDCAP SELECT", "MIDCPNIFTY", "NIFTY MID SELECT"],
-  SENSEX: ["SENSEX", "BSE SENSEX", "S&P BSE SENSEX"],
-};
-
-// REST scrip-code segment prefixes (indstocks-api-docs/03-conventions.md: "NSE_3045",
-// "NFO_51011", "NIDX:26000"). The instrument-master CSV's own EXCH column is only ever
-// NSE/BSE, so the FNO/index prefix is derived from which CSV `source` a row came from
-// rather than trusting a SEGMENT value the docs don't fully enumerate.
-function buildScripCode(exch, kind, securityId) {
-  const prefix = kind === "index" ? (exch === "BSE" ? "BIDX" : "NIDX") : (exch === "BSE" ? "BFO" : "NFO");
-  return `${prefix}_${securityId}`;
-}
-
-function splitCSVLine(line) {
+export function splitCsvLine(line) {
   const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') { inQuotes = !inQuotes; continue; }
-    if (ch === "," && !inQuotes) { out.push(cur.trim()); cur = ""; continue; }
-    cur += ch;
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
-  out.push(cur.trim());
+  out.push(cur);
   return out;
 }
 
-/** CSV parser tolerant of quoted fields — INDstocks columns are plain, this is cheap insurance. */
-function parseCSV(text) {
-  const rows = [];
-  const lines = String(text || "").split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (!lines.length) return rows;
-  const headers = splitCSVLine(lines[0]);
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCSVLine(lines[i]);
-    if (cols.length < headers.length) continue;
+export function parseCsv(text) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const head = splitCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const cols = splitCsvLine(line);
     const row = {};
-    for (let c = 0; c < headers.length; c++) row[headers[c]] = cols[c];
-    rows.push(row);
-  }
-  return rows;
+    head.forEach((h, i) => { row[h] = (cols[i] ?? "").trim(); });
+    return row;
+  });
 }
 
-const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
+/** "09/29/2026 14:00" (MM/DD/YYYY) or EXPIRY_CODE "29 Sep 2026" -> "2026-09-29"; null if neither parses. */
+export function expiryIso(expiryDate, expiryCode) {
+  const a = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(String(expiryDate ?? "").trim());
+  if (a && +a[1] >= 1 && +a[1] <= 12) return `${a[3]}-${a[1].padStart(2, "0")}-${a[2].padStart(2, "0")}`;
+  const b = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/.exec(String(expiryCode ?? "").trim());
+  if (b && MONTHS[b[2].toUpperCase()]) return `${b[3]}-${MONTHS[b[2].toUpperCase()]}-${b[1].padStart(2, "0")}`;
+  return null;
+}
 
-function istDateString(date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+/** TICK_SIZE (paise) -> rupees. */
+export function tickRupees(v) {
+  const t = Number(v);
+  return Number.isFinite(t) && t > 0 ? Math.round(t) / 100 : 0.05;
+}
+
+export function scripPrefix(exchange, isIndex = false) {
+  if (isIndex) return exchange === "BSE" ? "BIDX" : "NIDX";
+  return { NSE: "NSE", BSE: "BSE", NFO: "NFO", BFO: "BFO" }[exchange] ?? null;
+}
+
+/** fno/equity CSV row -> compact master row (contract fields + scripCode), or null. */
+export function toMasterRow(r) {
+  const exch = r.EXCH;
+  if (exch !== "NSE" && exch !== "BSE") return null;
+  const token = r.SECURITY_ID;
+  if (!/^\d+$/.test(String(token ?? ""))) return null;
+  const kind = r.INSTRUMENT_NAME;
+  const lot = Number(r.LOT_UNITS);
+  if (r.SEGMENT === "E" && kind === "EQUITY") {
+    if (r.SEM_EXCH_INSTRUMENT_TYPE === "DBT") return null;
+    return { token, exchange: exch, tradingSymbol: r.TRADING_SYMBOL, underlying: r.TRADING_SYMBOL, instrumentType: "EQ",
+      expiry: null, strike: null, optionType: null, lotSize: lot > 0 ? lot : 1, tickSize: tickRupees(r.TICK_SIZE), scripCode: `${exch}_${token}` };
+  }
+  if (r.SEGMENT !== "D" || !["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"].includes(kind)) return null;
+  const underlying = String(r.TRADING_SYMBOL ?? "").split("-")[0].trim().toUpperCase();
+  const isIndexKind = kind.endsWith("IDX");
+  if (isIndexKind && !CANONICAL.has(underlying)) return null; // NIFTYNXT50, SENSEX50 ... not mapped
+  if (!isIndexKind && OTHER_INDEX_UNDERLYING.test(underlying)) return null; // an index labelled as a stock
+  const expiry = expiryIso(r.EXPIRY_DATE, r.EXPIRY_CODE);
+  if (!underlying || !expiry || !(lot > 0)) return null;
+  const isOpt = kind.startsWith("OPT");
+  const strike = Number(r.STRIKE_PRICE);
+  const optionType = r.OPTION_TYPE === "CE" || r.OPTION_TYPE === "PE" ? r.OPTION_TYPE : null;
+  if (isOpt && (!(strike > 0) || !optionType)) return null;
+  const exchange = exch === "NSE" ? "NFO" : "BFO";
+  return { token, exchange, tradingSymbol: r.TRADING_SYMBOL, underlying, instrumentType: kind, expiry,
+    strike: isOpt ? strike : null, optionType: isOpt ? optionType : null, lotSize: lot, tickSize: tickRupees(r.TICK_SIZE), scripCode: `${exchange}_${token}` };
+}
+
+/** index CSV row -> master row. Canonical names map to NIFTY ... BANKEX; others keep the index name. */
+export function toIndexRow(r) {
+  const exch = r.EXCH;
+  if ((exch !== "NSE" && exch !== "BSE") || !/^\d+$/.test(String(r.SECURITY_ID ?? ""))) return null;
+  const canonical = Object.entries(INDEX_NAME).find(([, v]) => v.exch === exch && v.name.toUpperCase() === String(r.SEGMENT).toUpperCase())?.[0];
+  const name = canonical ?? r.SEGMENT;
+  return { token: r.SECURITY_ID, exchange: exch, tradingSymbol: name, underlying: name, instrumentType: "INDEX",
+    expiry: null, strike: null, optionType: null, lotSize: 1, tickSize: 0.05, scripCode: `${scripPrefix(exch, true)}_${r.SECURITY_ID}` };
+}
+
+async function download(creds, source, mapRow) {
+  const text = await indRequest(creds, "/market/instruments", { params: { source }, raw: true });
+  return parseCsv(text).map(mapRow).filter(Boolean);
 }
 
 /**
- * Normalize INDstocks' EXPIRY_DATE column to "YYYY-MM-DD". The docs (05-instruments.md)
- * don't pin down the exact format, so this accepts epoch ms/seconds, "YYYY-MM-DD",
- * "DD-MM-YYYY"/"DD/MM/YYYY", and "DD-MMM-YYYY" (e.g. "30-JAN-2025"), falling back to
- * Date.parse for anything else.
+ * Daily-cached master files. The cache is shared by every user (public reference data); `creds` are only
+ * used to authenticate the download when the cache is empty. Callers check the session first.
  */
-export function parseExpiryToIso(raw) {
-  if (!raw) return null;
-  const s = String(raw).trim();
+export const getFno = (creds) => getCachedOrFetch("indmoney:fno:v2", () => download(creds, "fno", toMasterRow), ONE_DAY_MS);
+export const getEquity = (creds) => getCachedOrFetch("indmoney:equity:v2", () => download(creds, "equity", toMasterRow), ONE_DAY_MS);
+export const getIndices = (creds) => getCachedOrFetch("indmoney:index:v2", () => download(creds, "index", toIndexRow), ONE_DAY_MS);
 
-  if (/^\d+$/.test(s)) {
-    const num = Number(s);
-    const ms = s.length >= 13 ? num : num * 1000;
-    const d = new Date(ms);
-    if (!isNaN(d.getTime())) return istDateString(d);
-  }
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-
-  let m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-
-  m = s.match(/^(\d{1,2})[-\s]([A-Za-z]{3})[-\s](\d{4})$/);
-  if (m && MONTHS[m[2].toUpperCase()]) return `${m[3]}-${MONTHS[m[2].toUpperCase()]}-${m[1].padStart(2, "0")}`;
-
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : istDateString(d);
+export function optionRows(fno, symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  return fno.filter((m) => m.underlying === u && m.strike !== null);
 }
 
-async function downloadInstruments(creds, source) {
-  const text = await apiGetRaw(creds, "/market/instruments", { source });
-  return parseCSV(text);
+export function listExpiries(fno, symbol) {
+  return [...new Set(optionRows(fno, symbol).map((m) => m.expiry))].sort();
 }
 
-/** Cached once/day, shared across all users' credentials — creds are only needed to prime an empty cache. */
-export async function getFnoMaster(creds) {
-  return getCachedOrFetch("indmoney:instruments:fno", () => downloadInstruments(creds, "fno"), ONE_DAY_MS);
+/** Spot row: the canonical index, or the NSE equity of a stock underlying. */
+export function spotRow(indices, equity, symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  if (INDEX_NAME[u]) return indices.find((m) => m.underlying === u) ?? null;
+  return equity?.find((m) => m.exchange === "NSE" && m.tradingSymbol === u) ?? null;
 }
 
-export async function getIndexMaster(creds) {
-  return getCachedOrFetch("indmoney:instruments:index", () => downloadInstruments(creds, "index"), ONE_DAY_MS);
-}
-
-/** All CE/PE rows for `symbol` across every expiry, normalized. */
-function optionRowsForSymbol(fnoMaster, symbol) {
-  const exch = SYMBOL_EXCHANGE[symbol];
-  if (!exch) return [];
-  const out = [];
-  for (const r of fnoMaster) {
-    if ((r.SYMBOL_NAME || "").toUpperCase() !== symbol) continue;
-    if ((r.EXCH || "").toUpperCase() !== exch) continue;
-    const type = (r.OPTION_TYPE || "").toUpperCase();
-    if (type !== "CE" && type !== "PE") continue;
-    const strike = Number(r.STRIKE_PRICE);
-    const securityId = r.SECURITY_ID;
-    const expiryIso = parseExpiryToIso(r.EXPIRY_DATE);
-    if (!strike || !securityId || !expiryIso) continue;
-    out.push({ strike, type: type.toLowerCase(), expiryIso, scripCode: buildScripCode(exch, "fno", securityId) });
-  }
-  return out;
-}
-
-/** Distinct expiry dates ("YYYY-MM-DD"), ascending. */
-export function listExpiries(fnoMaster, symbol) {
-  const set = new Set(optionRowsForSymbol(fnoMaster, symbol).map((r) => r.expiryIso));
-  return Array.from(set).sort();
-}
-
-export function optionRowsForExpiry(fnoMaster, symbol, expiryIso) {
-  return optionRowsForSymbol(fnoMaster, symbol).filter((r) => r.expiryIso === expiryIso);
-}
-
-/** Resolve the index-spot scrip code for `symbol` from the source=index dump, or null. */
-export function resolveIndexScrip(indexMaster, symbol) {
-  const exch = SYMBOL_EXCHANGE[symbol];
-  const aliases = (INDEX_ALIASES[symbol] || []).map((a) => a.toUpperCase());
-  if (!exch || !aliases.length) return null;
-
-  const rowsForExchange = indexMaster.filter((r) => (r.EXCH || "").toUpperCase() === exch);
-
-  const exact = rowsForExchange.find((r) => {
-    const candidates = [r.SYMBOL_NAME, r.TRADING_SYMBOL, r.CUSTOM_SYMBOL].map((v) => (v || "").toUpperCase());
-    return candidates.some((c) => aliases.includes(c));
-  });
-  if (exact) return { scripCode: buildScripCode(exch, "index", exact.SECURITY_ID) };
-
-  // Fallback: substring match, in case live column values carry extra suffixes
-  // (e.g. "NIFTY 50 INDEX") the exact alias list didn't anticipate.
-  const fuzzy = rowsForExchange.find((r) => {
-    const candidates = [r.SYMBOL_NAME, r.TRADING_SYMBOL, r.CUSTOM_SYMBOL].map((v) => (v || "").toUpperCase());
-    return candidates.some((c) => c && aliases.some((a) => c.includes(a) || a.includes(c)));
-  });
-  return fuzzy ? { scripCode: buildScripCode(exch, "index", fuzzy.SECURITY_ID) } : null;
+/** REST scrip code for a contract InstrumentRef; index tokens are recognised from the index file. */
+export function scripCodeOf(ref, indices = []) {
+  const token = String(ref?.token ?? "");
+  if (!/^\d+$/.test(token)) return null;
+  const idx = indices.find((m) => m.token === token && m.exchange === ref?.exchange);
+  if (idx) return idx.scripCode;
+  const p = scripPrefix(ref?.exchange);
+  return p ? `${p}_${token}` : null;
 }

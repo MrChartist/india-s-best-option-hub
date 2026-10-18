@@ -1,162 +1,215 @@
 /**
- * Definedge Securities (INTEGRATE API) — authenticated REST calls.
+ * Definedge Securities (Integrate API) market data: quotes, depth, OI backfill, historical candles and the
+ * option chain built from them.
  *
- * Auth model: paste-a-session-key, NOT an automatable TOTP/handshake login.
- * Definedge's 2-step login (see docs 02-authentication.md) sends a REAL OTP
- * to the user's registered mobile/email each time — it is not a TOTP-app
- * seed the server can compute on its own like Angel One/5paisa/Alice Blue.
- * So this module never logs in: the user completes both steps themselves
- * (GET /login/{api_token} with header api_secret to trigger the OTP, then
- * POST /token with {otp_token, otp, ac: sha256(otp_token+otp+api_secret)})
- * and pastes the resulting `api_session_key` into Broker Settings. There is
- * no documented session lifetime — treat it like Zerodha's ~1-trading-day
- * token and re-paste a fresh one whenever calls start 401ing.
- *
- * No bulk-quote endpoint exists at all — every quote is one
- * GET /quotes/{exchange}/{token} call. The quotes response also carries NO
- * open-interest field (confirmed against both the docs and openalgo's
- * production adapter); OI is backfilled from the last 1-minute candle's OI
- * column via the separate historical-data host. Trading calls
- * (integrate.definedgesecurities.com) and historical-data calls
- * (data.definedgesecurities.com) are different hosts with independent
- * throttles, so quote and OI batches run concurrently without contention.
- *
- * Rate limit is not officially published — openalgo's production adapter
- * empirically paces at ~10 req/sec per host with 1s/2s/4s backoff on 429
- * (honoring Retry-After when present). Mirrored here.
+ * Official sources (checked 2026-10): pyintegrate 3.0.0 (Definedge, MIT) integrate/data.py and
+ * tests/mock_responses/quotes.json + historical.csv.
+ *  - GET https://integrate.definedgesecurities.com/dart/v1/quotes/{exchange}/{token}
+ *    -> { status: "SUCCESS", ltp, day_open, day_high, day_low, volume, best_bid_price1..5, best_ask_price1..5,
+ *    best_bid_qty1..5, best_ask_qty1..5, best_bid_orders1..5, best_ask_orders1..5, lotsize, ticksize, ... }
+ *    Prices are rupee strings. One instrument per call (no bulk quote), and the payload has no open interest
+ *    and no previous close.
+ *  - GET https://data.definedgesecurities.com/sds/history/{exchange}/{token}/{minute|day|tick}/{DDMMYYYYHHMM}/{DDMMYYYYHHMM}
+ *    -> text/csv rows "DDMMYYYYHHMM,open,high,low,close,volume[,oi]" (IST wall clock).
+ *  - Rate limits are not published. Calls are paced at 10 a second per host (OpenAlgo paces the same way),
+ *    with 429 backoff in definedgeFetch.
+ * OI for the chain comes from the last 1-minute candle's OI column; IV and Greeks from this app's
+ * Black-Scholes (Definedge publishes no Greeks over REST).
  */
 
-import { batchWithDelay, sleep } from "../lib/batch.mjs";
+import { BrokerError, BrokerInputError, SessionRequiredError } from "./contract.mjs";
+import { DATA_BASE, definedgeFetch, getSession } from "./definedgeAuth.mjs";
+import { distinctExpiriesAscending, getOptionRows, spotRef } from "./definedgeInstruments.mjs";
+import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 
-const TRADE_BASE = "https://integrate.definedgesecurities.com/dart/v1";
-const DATA_BASE = "https://data.definedgesecurities.com/sds";
-
-const QUOTE_BATCH_SIZE = 10;
-const QUOTE_BATCH_DELAY_MS = 1000;
-const OI_BATCH_SIZE = 10;
-const OI_BATCH_DELAY_MS = 1000;
-
+const BATCH_SIZE = 10;
+const BATCH_DELAY_MS = 1000;
+const STRIKE_HALF_WIDTH = 20; // ~41 strikes / 82 legs: every leg is its own quote call
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-const MAX_RETRIES = 2;
+const EXCHANGES = new Set(["NSE", "BSE", "NFO", "BFO", "CDS", "MCX"]);
 
-function authHeaders(creds) {
-  if (!creds?.apiSessionKey) {
-    throw new Error(
-      "Definedge credentials missing apiSessionKey — complete the 2-step OTP login " +
-        "(see Broker Settings help text) and paste the resulting api_session_key."
-    );
-  }
-  return { Authorization: creds.apiSessionKey };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+const numOrNull = (v) => (v === undefined || v === null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+
+function checkRef(ref, what) {
+  if (!ref || !/^\d{1,12}$/.test(String(ref.token ?? "")) || !EXCHANGES.has(ref.exchange)) throw new BrokerInputError(`Definedge ${what} needs { token, exchange }`);
 }
 
-/** GET with 429 retry (Retry-After honored, else 1/2/4s backoff). Never logs credential values. */
-async function definedgeGet(base, path, creds) {
-  const headers = authHeaders(creds);
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${base}${path}`, { headers });
-    if (res.status === 429 && attempt < MAX_RETRIES) {
-      const retryAfter = Number(res.headers.get("retry-after"));
-      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt);
-      continue;
-    }
-    const text = await res.text();
-    if (res.status === 401) {
-      throw new Error("Definedge session key expired or invalid — generate a fresh api_session_key and paste it in Broker Settings.");
-    }
-    if (!res.ok) {
-      throw new Error(`Definedge API error [${res.status}] on ${path}: ${text.slice(0, 200)}`);
-    }
-    return text;
+/** Run `fn` over items, BATCH_SIZE at a time in parallel with BATCH_DELAY_MS between batches. A session error stops everything. */
+async function paced(items, fn) {
+  const out = new Array(items.length);
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    if (i > 0) await sleep(BATCH_DELAY_MS);
+    const chunk = items.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(chunk.map((it) => fn(it)));
+    settled.forEach((s, j) => {
+      if (s.status === "rejected" && s.reason instanceof SessionRequiredError) throw s.reason;
+      out[i + j] = s.status === "fulfilled" ? s.value : undefined;
+    });
   }
+  return out;
 }
 
-function parseJson(text, context) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Definedge ${context} returned non-JSON response`);
-  }
-}
-
-/** GET /quotes/{exchange}/{token} — single-instrument quote (no OI, no greeks). */
+/** GET /quotes/{exchange}/{token}. */
 export async function fetchQuoteRaw(creds, exchange, token) {
-  const text = await definedgeGet(TRADE_BASE, `/quotes/${exchange}/${token}`, creds);
-  return parseJson(text, `quotes [${exchange}/${token}]`);
+  return definedgeFetch(creds, `/quotes/${exchange}/${token}`, { what: "quote" });
 }
 
-/** GET /limits — used by testConnection as a lightweight authenticated ping. */
+/** GET /limits (cheap authenticated ping and the funds call). */
 export async function getLimits(creds) {
-  const text = await definedgeGet(TRADE_BASE, "/limits", creds);
-  return parseJson(text, "limits");
+  return definedgeFetch(creds, "/limits", { what: "limits" });
 }
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+// ── dates ──
+
+const pad2 = (n) => String(n).padStart(2, "0");
+/** epoch ms -> "DDMMYYYYHHMM" in IST. */
+export function toDefinedgeDateTime(ms) {
+  const d = new Date(ms + IST_OFFSET_MS);
+  return `${pad2(d.getUTCDate())}${pad2(d.getUTCMonth() + 1)}${d.getUTCFullYear()}${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}`;
+}
+/** "DDMMYYYYHHMM" (IST) -> epoch seconds. */
+export function parseDefinedgeDateTime(s) {
+  const m = /^(\d{2})(\d{2})(\d{4})(\d{2})(\d{2})$/.exec(String(s ?? "").trim());
+  if (!m) return NaN;
+  return Math.floor((Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]) - IST_OFFSET_MS) / 1000);
+}
+function rangeMs(v, endOfDay) {
+  const s = String(v ?? "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(`${s}T${endOfDay ? "15:30" : "09:15"}:00+05:30`);
+  const ms = Date.parse(s);
+  return Number.isFinite(ms) ? ms : NaN;
 }
 
-/** `d` must already be IST-wall-clock-shifted (see istNow()) — reads UTC getters as IST fields. */
-function formatDateIST(d) {
-  return `${pad2(d.getUTCDate())}${pad2(d.getUTCMonth() + 1)}${d.getUTCFullYear()}`;
-}
-function formatDateTimeIST(d) {
-  return `${formatDateIST(d)}${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}`;
-}
-function istNow() {
-  return new Date(Date.now() + IST_OFFSET_MS);
-}
-
-/**
- * Backfills OI for one derivative token from the last row of its 1-minute
- * history (CSV: Dateandtime,Open,High,Low,Close,Volume,OpenInterest). Best-
- * effort — returns 0 (not a throw) on any failure so one bad leg's OI lookup
- * never fails the whole chain.
- */
-async function fetchLatestOI(creds, exchange, token) {
-  try {
-    const now = istNow();
-    const from = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000); // 4 days survives weekends/holidays
-    const fromStr = `${formatDateIST(from)}0915`;
-    const toStr = formatDateTimeIST(now);
-    const text = await definedgeGet(DATA_BASE, `/history/${exchange}/${token}/minute/${fromStr}/${toStr}`, creds);
-    const trimmed = text.trim();
-    if (!trimmed) return 0;
-    const lastLine = trimmed.split("\n").pop();
-    const fields = lastLine.split(",");
-    if (fields.length < 7) return 0;
-    const oi = Number(fields[6]);
-    return Number.isFinite(oi) ? oi : 0;
-  } catch {
-    return 0;
+/** CSV history -> candles (ascending, de-duplicated). */
+export function parseHistoryCsv(text) {
+  const seen = new Set();
+  const out = [];
+  for (const line of String(text ?? "").split(/\r?\n/)) {
+    const f = line.trim().split(",");
+    if (f.length < 6) continue;
+    const time = parseDefinedgeDateTime(f[0]);
+    if (!Number.isFinite(time) || seen.has(time)) continue;
+    seen.add(time);
+    const c = { time, open: num(f[1]), high: num(f[2]), low: num(f[3]), close: num(f[4]), volume: num(f[5]) };
+    if (f.length >= 7) c.oi = num(f[6]);
+    out.push(c);
   }
+  return out.sort((a, b) => a.time - b.time);
 }
 
-/** legs: [{ exchange, token, ... }] -> Map<token, rawQuoteJson> (SUCCESS quotes only). */
-export async function fetchQuotesBatched(creds, legs) {
-  const map = new Map();
-  await batchWithDelay(legs, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    await Promise.all(
-      chunk.map(async (leg) => {
-        try {
-          const json = await fetchQuoteRaw(creds, leg.exchange, leg.token);
-          if (json?.status === "SUCCESS") map.set(leg.token, json);
-        } catch {
-          // one bad leg shouldn't fail the whole chain
-        }
-      })
-    );
-  });
-  return map;
+// ── capabilities ──
+
+const toQuote = (ref, q) => ({
+  token: String(ref.token),
+  exchange: ref.exchange,
+  ltp: num(q.ltp),
+  open: numOrNull(q.day_open),
+  high: numOrNull(q.day_high),
+  low: numOrNull(q.day_low),
+  close: null, // not in the quote payload
+  volume: numOrNull(q.volume),
+  oi: null, // not in the quote payload
+  bid: numOrNull(q.best_bid_price1),
+  ask: numOrNull(q.best_ask_price1),
+});
+
+export async function fetchQuotes(creds, refs = []) {
+  const list = Array.isArray(refs) ? refs : [];
+  list.forEach((r) => checkRef(r, "quotes"));
+  const raw = await paced(list, (r) => fetchQuoteRaw(creds, r.exchange, String(r.token)));
+  const data = [];
+  list.forEach((ref, i) => { if (raw[i]) data.push(toQuote(ref, raw[i])); });
+  return { status: "success", data };
 }
 
-/** legs: [{ exchange, token, ... }] -> Map<token, oi:number>. Runs on the DATA host, independent of quotes. */
-export async function fetchOIBatched(creds, legs) {
-  const map = new Map();
-  await batchWithDelay(legs, OI_BATCH_SIZE, OI_BATCH_DELAY_MS, async (chunk) => {
-    await Promise.all(
-      chunk.map(async (leg) => {
-        map.set(leg.token, await fetchLatestOI(creds, leg.exchange, leg.token));
-      })
-    );
+export async function fetchDepth(creds, ref) {
+  checkRef(ref, "depth");
+  const q = await fetchQuoteRaw(creds, ref.exchange, String(ref.token));
+  const side = (s) => [1, 2, 3, 4, 5]
+    .filter((i) => q[`best_${s}_price${i}`] !== undefined)
+    .map((i) => ({ price: num(q[`best_${s}_price${i}`]), qty: num(q[`best_${s}_qty${i}`]), orders: numOrNull(q[`best_${s}_orders${i}`]) }));
+  return { status: "success", data: { bids: side("bid"), asks: side("ask") } };
+}
+
+const INTERVALS = { "1m": "minute", "1d": "day" };
+
+export async function fetchHistorical(creds, { instrument, interval, from, to } = {}) {
+  const tf = INTERVALS[interval];
+  if (!tf) throw new BrokerInputError(`Definedge history supports 1m and 1d only (got ${interval})`);
+  checkRef(instrument, "history");
+  const fromMs = rangeMs(from, false);
+  const toMs = rangeMs(to, true);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs) throw new BrokerInputError("Definedge history needs a valid from/to range");
+  const path = `/history/${instrument.exchange}/${String(instrument.token)}/${tf}/${toDefinedgeDateTime(fromMs)}/${toDefinedgeDateTime(toMs)}`;
+  const text = await definedgeFetch(creds, path, { base: DATA_BASE, text: true, what: "history" });
+  return { status: "success", data: parseHistoryCsv(text) };
+}
+
+/** Latest OI from the last 1-minute candle over the past 4 days (survives weekends). 0 when unavailable. */
+async function fetchLatestOI(creds, exchange, token) {
+  const now = Date.now();
+  const path = `/history/${exchange}/${token}/minute/${toDefinedgeDateTime(now - 4 * 86_400_000)}/${toDefinedgeDateTime(now)}`;
+  const candles = parseHistoryCsv(await definedgeFetch(creds, path, { base: DATA_BASE, text: true, what: "OI history" }));
+  return candles.length ? num(candles[candles.length - 1].oi) : 0;
+}
+
+export async function fetchLTP(creds, symbol) {
+  getSession(creds); // not logged in -> 422 before any master download
+  const ref = await spotRef(symbol);
+  if (!ref) throw new BrokerInputError(`Definedge: no spot instrument for ${symbol}`);
+  const q = await fetchQuoteRaw(creds, ref.exchange, ref.token);
+  const last = num(q?.ltp);
+  if (!(last > 0)) throw new BrokerError(`Definedge returned no LTP for ${symbol}`);
+  return { status: "success", data: { last_price: last } };
+}
+
+export async function fetchExpiryList(creds, symbol) {
+  getSession(creds);
+  return { status: "success", data: distinctExpiriesAscending(await getOptionRows(symbol)) };
+}
+
+function strikeWindow(rows, spot) {
+  const strikes = [...new Set(rows.map((r) => r.strike))].sort((a, b) => a - b);
+  if (!strikes.length) return [];
+  let atm = 0;
+  strikes.forEach((s, i) => { if (Math.abs(s - spot) < Math.abs(strikes[atm] - spot)) atm = i; });
+  const keep = new Set(strikes.slice(Math.max(0, atm - STRIKE_HALF_WIDTH), atm + STRIKE_HALF_WIDTH + 1));
+  return rows.filter((r) => keep.has(r.strike));
+}
+
+export async function fetchOptionChain(creds, symbol, expiry) {
+  getSession(creds);
+  const all = await getOptionRows(symbol);
+  const expiryIso = expiry || distinctExpiriesAscending(all)[0];
+  const rows = all.filter((r) => r.expiry === expiryIso);
+  if (!rows.length) return { status: "success", data: { oc: {}, last_price: 0 } };
+  const spot = (await fetchLTP(creds, symbol)).data.last_price;
+  const legs = strikeWindow(rows, spot);
+  // Quotes (integrate host) and OI backfill (data host) are separate hosts: run both paced pipelines together.
+  const [quotes, ois] = await Promise.all([
+    paced(legs, (r) => fetchQuoteRaw(creds, r.exchange, r.token)),
+    paced(legs, (r) => fetchLatestOI(creds, r.exchange, r.token)),
+  ]);
+  const daysToExpiry = daysBetween(new Date(), expiryIso);
+  const oc = {};
+  legs.forEach((r, i) => {
+    const q = quotes[i];
+    if (!q) return;
+    const ltp = num(q.ltp);
+    (oc[String(r.strike)] ||= {})[r.optionType.toLowerCase()] = {
+      last_price: ltp,
+      oi: num(ois[i]),
+      volume: num(q.volume),
+      ...computeIVAndGreeks({ ltp, spot, strike: r.strike, daysToExpiry, type: r.optionType }),
+      bid_price: num(q.best_bid_price1),
+      ask_price: num(q.best_ask_price1),
+      security_id: r.token,
+    };
   });
-  return map;
+  return { status: "success", data: { oc, last_price: spot } };
 }

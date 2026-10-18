@@ -1,0 +1,77 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/holdingsDetails",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "Fetched holdings",
+        "data": [
+          {
+            "exchangeTradingSymbol": [
+              {
+                "exchange": "NSE",
+                "token": "18562",
+                "tradingSymbol": "MITTAL-EQ",
+                "pricePrecision": "2",
+                "tickSize": "0.01",
+                "lotSize": "1"
+              }
+            ],
+            "sellAmount": "0.000000",
+            "holdQuantity": "1",
+            "hairCut": "1.00",
+            "dpQuantity": "0",
+            "unPledgeQuantity": "0",
+            "uploadPrice": "2.23",
+            "BTSTQuantity": "0",
+            "usedQuantity": "0",
+            "tradeQuantity": "0",
+            "brokerCollateralQuantity": "0",
+            "beneficiaryQuantity": "0",
+            "collateralQuantity": "0"
+          },
+          {
+            "exchangeTradingSymbol": [
+              {
+                "exchange": "BSE",
+                "token": "532648",
+                "tradingSymbol": "YESBANK",
+                "pricePrecision": "2",
+                "tickSize": "0.01",
+                "lotSize": "1"
+              },
+              {
+                "exchange": "NSE",
+                "token": "11915",
+                "tradingSymbol": "YESBANK-EQ",
+                "pricePrecision": "2",
+                "tickSize": "0.01",
+                "lotSize": "1"
+              }
+            ],
+            "sellAmount": "37.540000",
+            "holdQuantity": "4",
+            "hairCut": "0.20",
+            "dpQuantity": "0",
+            "uploadPrice": "20.13",
+            "BTSTQuantity": "0",
+            "usedQuantity": "2",
+            "tradeQuantity": "2",
+            "collateralQuantity": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

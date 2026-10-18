@@ -1,0 +1,20 @@
+{
+  "args": [
+    "808058117761"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/orders/sync$",
+      "expectBody": {
+        "id": "808058117761"
+      },
+      "json": {
+        "s": "ok",
+        "code": 1103,
+        "message": "Successfully cancelled order",
+        "id": "808058117761"
+      }
+    }
+  ]
+}

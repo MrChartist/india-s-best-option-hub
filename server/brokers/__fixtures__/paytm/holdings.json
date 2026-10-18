@@ -1,0 +1,52 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/holdings/v1/get-user-holdings-data",
+      "status": 200,
+      "json": {
+        "data": {
+          "results": [
+            {
+              "nse_symbol": "SAIL",
+              "nse_security_id": "2963",
+              "bse_symbol": "SAIL",
+              "bse_security_id": "500113",
+              "exchange": "ALL",
+              "isin_code": "INE114A01011",
+              "security_source_type": "HLD",
+              "quantity": "2004",
+              "utilized_quantity": "0",
+              "remaining_quantity": "2004",
+              "last_traded_price": "137.65",
+              "row_no": "0",
+              "cost_price": "123.0276",
+              "display_name": "Steel Authority Of India",
+              "exchange_inst_name": "ES",
+              "bse_pml_id": "1000003742",
+              "nse_pml_id": "1000002812",
+              "xirr": "0.0",
+              "cagr": "0.0",
+              "segment": "E",
+              "nse_tick_size": "5.0",
+              "bse_tick_size": "5.0",
+              "is_quantity_mismatch": false,
+              "quantity_mismatch": 0,
+              "pc": 141.0,
+              "sector": "Steel",
+              "mcap_type": "Large Cap",
+              "nse_series": "EQ",
+              "bse_series": "A"
+            }
+          ]
+        },
+        "meta": {
+          "displayMessage": null
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

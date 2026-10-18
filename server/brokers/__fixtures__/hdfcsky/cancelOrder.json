@@ -1,0 +1,19 @@
+{
+  "args": [
+    "20211103-50"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://developer.hdfcsky.com/oapi/v1/orders/20211103-50?api_key=dummy-sky-api-key&client_id=DEMO1&execution_type=REGULAR",
+      "status": 200,
+      "json": {
+        "data": {
+          "oms_order_id": "20211103-50"
+        },
+        "message": "Order cancellation request submitted for OMS Order: 20211103-50",
+        "status": "success"
+      }
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://trade.wisdomcapital.in/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyWcIaKey01",
+        "secretKey": "dummyWcIaSecret01",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User.",
+        "result": {
+          "enums": {
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ],
+            "dayOrNet": [
+              "DAY",
+              "NET"
+            ],
+            "exchangeSegment": [
+              "NSECM",
+              "NSEFO",
+              "NSECD",
+              "BSECM",
+              "BSEFO",
+              "MCXFO"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "token": "dummy.ia.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://trade.wisdomcapital.in/interactive/orders/trades",
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Success trade book",
+        "result": [
+          {
+            "LoginID": "DUMMY1",
+            "ClientID": "DUMMY1",
+            "AppOrderID": 1211010442,
+            "OrderReferenceID": "",
+            "GeneratedBy": "ClientAPI",
+            "ExchangeOrderID": "X_201256262",
+            "OrderCategoryType": "NORMAL",
+            "ExchangeSegment": "NSEFO",
+            "ExchangeInstrumentID": 40201,
+            "OrderSide": "BUY",
+            "OrderType": "Limit",
+            "ProductType": "NRML",
+            "TimeInForce": "DAY",
+            "OrderPrice": 0,
+            "OrderQuantity": 75,
+            "OrderStopPrice": 0,
+            "OrderStatus": "Filled",
+            "OrderAverageTradedPrice": "25040",
+            "LeavesQuantity": 0,
+            "CumulativeQuantity": 75,
+            "OrderDisclosedQuantity": 0,
+            "OrderGeneratedDateTime": "19-10-2026 10:05:21",
+            "ExchangeTransactTime": "19-10-2026 10:05:21",
+            "LastUpdateDateTime": "19-10-2026 10:05:21",
+            "OrderUniqueIdentifier": "mrchub",
+            "OrderLegStatus": "SingleOrderLeg",
+            "LastTradedPrice": 25040,
+            "LastTradedQuantity": 75,
+            "LastExecutionTransactTime": "19-10-2026 10:05:21",
+            "ExecutionID": "203913480",
+            "TradingSymbol": "NIFTY 27OCT2026",
+            "ExecutionReportIndex": 3,
+            "ApiOrderSource": "",
+            "IsSpread": false,
+            "MessageCode": 9005,
+            "MessageVersion": 4,
+            "TokenID": 0,
+            "ApplicationType": 0,
+            "SequenceNumber": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

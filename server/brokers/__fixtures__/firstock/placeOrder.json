@@ -1,0 +1,44 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 95
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/placeOrder",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken",
+        "exchange": "NFO",
+        "retention": "DAY",
+        "product": "M",
+        "priceType": "LMT",
+        "tradingSymbol": "NIFTY20OCT26C25000",
+        "transactionType": "B",
+        "price": "95",
+        "triggerPrice": "0",
+        "quantity": "130"
+      },
+      "json": {
+        "status": "success",
+        "message": "Order details",
+        "data": {
+          "orderNumber": "26101600007328",
+          "requestTime": "17:50:52 16-10-2026"
+        }
+      }
+    }
+  ]
+}

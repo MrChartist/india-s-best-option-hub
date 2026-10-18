@@ -1,0 +1,56 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/positions$",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "instrumentId": "14366",
+            "tradingSymbol": "IDEA-EQ",
+            "formattedInstrumentName": "IDEA-EQ",
+            "exchange": "NSE",
+            "product": "CNC",
+            "netQuantity": 1,
+            "netAveragePrice": 7.69,
+            "overnightQuantity": 0,
+            "overnightPrice": 0,
+            "buyQuantity": 1,
+            "sellQuantity": 0,
+            "daySellQuantity": 0,
+            "dayBuyQuantity": 1,
+            "dayBuyPrice": 7.69,
+            "daySellPrice": 0,
+            "multiplier": 1,
+            "lotsize": 1,
+            "ticksize": 0.01,
+            "previousDayClose": null,
+            "realizedPnl": 0,
+            "buyPrice": 0,
+            "sellPrice": 0,
+            "dayBuyValue": 7.69,
+            "daySellValue": 0,
+            "validity": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

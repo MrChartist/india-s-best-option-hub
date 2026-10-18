@@ -1,0 +1,28 @@
+{
+  "args": [
+    "8102710298291",
+    {
+      "orderType": "LIMIT",
+      "limitPrice": 61049,
+      "qty": 1
+    }
+  ],
+  "responses": [
+    {
+      "method": "PATCH",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/orders/sync$",
+      "expectBody": {
+        "id": "8102710298291",
+        "type": 1,
+        "limitPrice": 61049,
+        "qty": 1
+      },
+      "json": {
+        "s": "ok",
+        "code": 1101,
+        "message": "Successfully modified order",
+        "id": "8102710298291"
+      }
+    }
+  ]
+}

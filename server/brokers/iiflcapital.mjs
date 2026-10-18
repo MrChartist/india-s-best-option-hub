@@ -1,181 +1,75 @@
 /**
- * IIFL Capital — real broker integration (see registry.mjs for the shared contract).
+ * IIFL Capital (IIFL Markets Open API) on the broker contract (server/brokers/contract.mjs).
  *
- * Auth model: one-time-per-day handshake, NOT a plain paste-a-token model.
- * IIFL's login is a browser OAuth-style redirect (docs:
- * broker-api-docs/iiflcapital-api-docs/03-user.md) — the user logs in on
- * IIFL's own site once per trading day and is redirected back with a
- * single-use `authCode` + `clientId`. Rather than making the end user
- * hand-compute the documented SHA-256 checksum themselves, this module does
- * that exchange server-side (see iiflcapitalAuth.mjs) from the pasted
- * clientId/appSecret/authCode, and caches the resulting `userSession` JWT
- * in-memory until the next IST midnight — never re-logging in on every call.
+ * Official docs: https://developers.iiflcapital.com/apidocs/ (introduction, user, ordermanagement, portfolio,
+ * marketdataapis, marketdatastream, annexure) and the official Postman collection
+ * (github.com/IIFLCapital/IIFL-Markets-Open-API-Postman-Collection-Official-), checked 2026-10. OpenAlgo (AGPL)
+ * was read for facts only; no code was taken from it.
  *
- * IIFL has no native option-chain endpoint: strikes/expiries/instrumentIds
- * come from IIFL's daily public contract CSVs (iiflcapitalInstruments.mjs),
- * prices/OI/volume come from batched /marketdata/marketquotes calls plus one
- * /marketdata/openinterest call per leg (IIFL's OI endpoint is single-mode
- * only — same constraint openalgo's production adapter documents), and since
- * neither endpoint returns IV/Greeks, every leg is back-solved via
- * Black-Scholes. This is architecturally the same shape as Zerodha's and
- * 5paisa's integrations.
+ * Auth (requestTokenExchange): the user logs in on IIFL's page each day and pastes the returned authCode;
+ * iiflcapitalAuth.mjs swaps it (SHA-256 checksum with the app secret) for a userSession JWT valid until midnight.
+ * Market data (iiflcapitalMarket.mjs): chain = daily contract file + bulk market quotes, OI per leg near the
+ * money, IV/Greeks back-solved; LTP/quotes/depth/candles from the documented endpoints. Portfolio and books:
+ * iiflcapitalPortfolio.mjs. Orders (gated): iiflcapitalOrders.mjs.
  *
- * NOTE FOR FUTURE BROKER WORK: nothing in IIFL Capital's endpoint paths,
- * field names, or CSV contract-file layout resembles the XTS/Omnesys
- * white-label shapes seen elsewhere — this looks like a genuinely custom
- * IIFL-built API, not a shared third-party backend.
+ * Fixed here (vs the earlier adapter): BANKEX and stock options were missing; one OI call was made for every
+ * leg of the chain (hundreds at 10/s); "empty book" errors (EC916/EC920/EC922/EC926) were not read as empty;
+ * any message containing "session" or "token" (e.g. EC908 "'token' cannot be empty") dropped the session; the
+ * session cache key held the raw secret; BSEFO's "OTPSTK" rows were ignored; the LTP for an unknown symbol
+ * came back as 0 instead of an error.
+ *
+ * Not declared: feed. IIFL's stream is MQTT over WebSocket with its own binary packets and SDK; it needs a live
+ * account to verify.
  */
 
-import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
-import { chunkArray } from "../lib/batch.mjs";
-import { getSession, iiflFetch } from "./iiflcapitalAuth.mjs";
-import {
-  SYMBOL_SEGMENT,
-  getOptionRows,
-  distinctExpiriesAscending,
-  filterRowsByExpiryIso,
-  resolveIndexInfo,
-} from "./iiflcapitalInstruments.mjs";
+import { iiflRequest, rowsOf } from "./iiflcapitalAuth.mjs";
+import { getSegment } from "./iiflcapitalInstruments.mjs";
+import { ORDER_FEATURES } from "./iiflcapitalOrders.mjs";
 
 export const id = "iiflcapital";
-export const credentialFields = ["clientId", "appSecret", "authCode"];
+export const credentialFields = ["clientId", "appSecret", "authCode", "userSession"];
 
-// No documented per-call instrument cap for /marketdata/marketquotes ("Single/Bulk"
-// mode) — chunk conservatively so one HTTP payload/response stays small; the
-// shared pacer in iiflcapitalAuth.mjs paces the resulting calls at IIFL's
-// documented 10 req/sec Market Quotes cap regardless of chunk size.
-const QUOTE_BATCH_SIZE = 50;
+export const capabilities = {
+  auth: { kind: "requestTokenExchange" },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "computed", oiStrikesEachSide: 12 },
+  ltp: true,
+  quotes: true,
+  depth: true,
+  historical: { intervals: ["1m", "5m", "15m", "30m", "60m", "1d"] },
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+  ...ORDER_FEATURES,
+};
 
-function quoteKey(exchange, instrumentId) {
-  return `${String(exchange || "").toUpperCase()}:${instrumentId}`;
-}
+export { normaliseError } from "./iiflcapitalAuth.mjs";
+export { fetchExpiryList, fetchOptionChain, fetchLTP, fetchQuotes, fetchDepth, fetchHistorical } from "./iiflcapitalMarket.mjs";
+export { fetchPositions, fetchHoldings, fetchFunds, fetchOrderBook, fetchTradeBook } from "./iiflcapitalPortfolio.mjs";
+export { placeOrder, modifyOrder, cancelOrder, buildOrderBody, buildModifyBody } from "./iiflcapitalOrders.mjs";
 
-async function fetchQuotesMap(creds, instruments) {
-  const map = new Map();
-  if (instruments.length === 0) return map;
-  for (const chunk of chunkArray(instruments, QUOTE_BATCH_SIZE)) {
-    const json = await iiflFetch("/marketdata/marketquotes", creds, chunk);
-    const rows = Array.isArray(json?.result) ? json.result : Array.isArray(json) ? json : [];
-    for (const row of rows) {
-      const exch = row.exchange ?? row.Exchange;
-      const instId = row.instrumentId ?? row.InstrumentId;
-      if (exch == null || instId == null) continue;
-      map.set(quoteKey(exch, instId), row);
-    }
-  }
-  return map;
-}
-
-/**
- * One HTTP call per leg — IIFL's /marketdata/openinterest is single-mode
- * only (no batch variant), same constraint openalgo's production adapter
- * documents. Fired concurrently via Promise.all: the shared pacer in
- * iiflcapitalAuth.mjs still serializes the actual outgoing requests against
- * the 10 req/sec Open Interest cap (its wait-then-stamp bookkeeping runs
- * synchronously before each call's first await, so concurrent callers queue
- * correctly instead of bursting). Best-effort — a failed leg reports OI 0
- * rather than failing the whole chain.
- */
-async function fetchOpenInterestMap(creds, instruments) {
-  const map = new Map();
-  if (instruments.length === 0) return map;
-  const entries = await Promise.all(
-    instruments.map(async (inst) => {
-      const key = quoteKey(inst.exchange, inst.instrumentId);
-      try {
-        const json = await iiflFetch("/marketdata/openinterest", creds, inst);
-        const result = json?.result ?? json;
-        const oi = Number(result?.openInterest ?? result?.oi) || 0;
-        return [key, oi];
-      } catch {
-        return [key, 0];
-      }
-    })
-  );
-  for (const [key, oi] of entries) map.set(key, oi);
-  return map;
-}
-
-function buildLeg(quoteRow, oi, ctx) {
-  const ltp = Number(quoteRow?.ltp ?? quoteRow?.LTP) || 0;
-  const greeks = computeIVAndGreeks({ ltp, spot: ctx.spot, strike: ctx.strike, daysToExpiry: ctx.daysToExpiry, type: ctx.type });
-  return {
-    last_price: ltp,
-    oi,
-    volume: Number(quoteRow?.tradedVolume ?? quoteRow?.TradedVolume) || 0,
-    ...greeks,
-    bid_price: Number(quoteRow?.bestBidPrice ?? quoteRow?.BestBidPrice) || 0,
-    ask_price: Number(quoteRow?.bestAskPrice ?? quoteRow?.BestAskPrice) || 0,
-  };
-}
-
+/** One cheap authenticated call (GET /profile), after the authCode exchange. Never throws. */
 export async function testConnection(creds = {}) {
   try {
-    await getSession(creds); // performs the checksum exchange, throws a clear message on bad creds
-    await iiflFetch("/profile", creds, undefined, { method: "GET" });
-    return { status: "success", message: "IIFL Capital session authenticated" };
+    const r = rowsOf(await iiflRequest(creds, "/profile"))[0] ?? {};
+    return { status: "success", message: r.clientName ? `IIFL Capital connected (${String(r.clientName).split(" ")[0]})` : "IIFL Capital connected" };
   } catch (e) {
-    return { status: "error", message: e.message };
+    return { status: "error", message: e?.message || "IIFL Capital connection failed" };
   }
 }
 
-export async function fetchExpiryList(creds, symbol) {
-  if (!SYMBOL_SEGMENT[symbol]) throw new Error(`Unknown symbol: ${symbol}`);
-  const rows = await getOptionRows(symbol);
-  return { status: "success", data: distinctExpiriesAscending(rows) };
-}
-
-export async function fetchLTP(creds, symbol) {
-  const indexInfo = await resolveIndexInfo(symbol);
-  // Degrade gracefully to last_price:0 rather than throwing — matches this
-  // module's own fetchOptionChain (which already treats a null indexInfo as
-  // spot:0) and every other broker's fetchLTP in this registry.
-  if (!indexInfo) return { status: "success", data: { last_price: 0 } };
-  const quotesMap = await fetchQuotesMap(creds, [indexInfo]);
-  const row = quotesMap.get(quoteKey(indexInfo.exchange, indexInfo.instrumentId));
-  const lastPrice = Number(row?.ltp) || 0;
-  return { status: "success", data: { last_price: lastPrice } };
-}
-
-export async function fetchOptionChain(creds, symbol, expiry) {
-  const segment = SYMBOL_SEGMENT[symbol];
-  if (!segment) throw new Error(`Unknown symbol: ${symbol}`);
-
-  let rows = await getOptionRows(symbol);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const targetExpiry = expiry || distinctExpiriesAscending(rows)[0];
-  if (!targetExpiry) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  rows = filterRowsByExpiryIso(rows, targetExpiry);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const indexInfo = await resolveIndexInfo(symbol);
-  const legInstruments = rows.map((r) => ({ exchange: segment, instrumentId: r.token }));
-  const quoteInstruments = indexInfo ? [...legInstruments, indexInfo] : legInstruments;
-
-  const [quotesMap, oiMap] = await Promise.all([
-    fetchQuotesMap(creds, quoteInstruments),
-    fetchOpenInterestMap(creds, legInstruments),
-  ]);
-
-  const spot = indexInfo ? Number(quotesMap.get(quoteKey(indexInfo.exchange, indexInfo.instrumentId))?.ltp) || 0 : 0;
-  const daysToExpiry = daysBetween(new Date(), targetExpiry);
-
-  const oc = {};
-  for (const row of rows) {
-    const key = quoteKey(segment, row.token);
-    const quoteRow = quotesMap.get(key);
-    if (!quoteRow) continue;
-
-    const strike = Number(row.strike) || 0;
-    const strikeKey = String(strike);
-    const type = row.optionType === "CE" ? "CE" : "PE";
-    const oi = oiMap.get(key) || 0;
-
-    if (!oc[strikeKey]) oc[strikeKey] = {};
-    oc[strikeKey][type.toLowerCase()] = buildLeg(quoteRow, oi, { spot, strike, daysToExpiry, type });
-  }
-
-  return { status: "success", data: { oc, last_price: spot } };
+/** Indices, NSE/BSE F&O and NSE equities from the daily contract files. */
+export async function fetchInstruments() {
+  const files = [];
+  for (const seg of ["INDICES", "NSEFO", "BSEFO", "NSEEQ"]) files.push(await getSegment(seg));
+  const strip = ({ iiflExchange: _x, ...m }) => m;
+  return { status: "success", data: files.flat().map(strip) };
 }

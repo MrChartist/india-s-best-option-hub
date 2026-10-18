@@ -1,0 +1,67 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/Holdings",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\",\"actid\":\"Z12345\",\"prd\":\"C\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "13",
+              "tsym": "ABB-EQ"
+            }
+          ],
+          "holdqty": "20",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1800.00"
+        },
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "BSE",
+              "token": "500410",
+              "tsym": "ACC"
+            },
+            {
+              "exch": "NSE",
+              "token": "22",
+              "tsym": "ACC-EQ"
+            }
+          ],
+          "holdqty": "15",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "5",
+          "upldprc": "1400.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

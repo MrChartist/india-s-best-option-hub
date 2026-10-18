@@ -1,0 +1,67 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "26000",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2026-10-16",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/TPSeries",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\",\"exch\":\"NSE\",\"token\":\"26000\",\"st\":\"1792122300\",\"et\":\"1792144800\",\"intrv\":\"1\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "time": "16-10-2026 09:16:00",
+          "into": "24961.00",
+          "inth": "24970.50",
+          "intl": "24955.00",
+          "intc": "24968.20",
+          "intvwap": "0.00",
+          "intv": "0",
+          "intoi": "0",
+          "v": "0",
+          "oi": "0"
+        },
+        {
+          "stat": "Ok",
+          "time": "16-10-2026 09:15:00",
+          "into": "24960.35",
+          "inth": "24990.00",
+          "intl": "24940.10",
+          "intc": "24961.00",
+          "intvwap": "0.00",
+          "intv": "0",
+          "intoi": "0",
+          "v": "0",
+          "oi": "0"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

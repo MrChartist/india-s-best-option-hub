@@ -1,0 +1,32 @@
+{
+  "brokerId": "pocketful",
+  "creds": {
+    "accessToken": "dummy-access-token",
+    "clientId": "DUMMY1"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://api.pocketful.in/docs/curl/login",
+    "https://api.pocketful.in/docs/curl/individual-profile",
+    "https://api.pocketful.in/docs/curl/security-id-list",
+    "https://api.pocketful.in/docs/curl/get-market-data",
+    "https://api.pocketful.in/docs/curl/get-last-traded-price",
+    "https://api.pocketful.in/docs/curl/option-chain",
+    "https://api.pocketful.in/docs/curl/getting-started",
+    "https://api.pocketful.in/docs/curl/detailed-marketdata",
+    "https://api.pocketful.in/docs/curl/connecting-websockets",
+    "https://api.pocketful.in/docs/curl/fetch-position-netwise",
+    "https://api.pocketful.in/docs/curl/fetch-demat-holdings",
+    "https://api.pocketful.in/docs/curl/funds",
+    "https://api.pocketful.in/docs/curl/fetch-pending-orders",
+    "https://api.pocketful.in/docs/curl/fetch-completed-orders",
+    "https://api.pocketful.in/docs/curl/trade-book",
+    "https://api.pocketful.in/docs/curl/place-regular-order",
+    "https://api.pocketful.in/docs/curl/modify-regular-order",
+    "https://api.pocketful.in/docs/curl/cancel-regular-order",
+    "https://api.pocketful.in/docs/curl/annexure",
+    "https://github.com/pocketful-tech/pocketfulapi-javascript"
+  ],
+  "notes": "Payloads are the official Pocketful API documentation samples (api.pocketful.in/docs/curl), trimmed, with ids, names and dates replaced by dummy values. The contract-master ZIP uses the live files' header row with dummy rows. streamTicks feed the fake WebSocket in pocketful.test.mjs (prices in rupees; encoded as paise like the docs' sample packet)."
+}

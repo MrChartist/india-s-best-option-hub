@@ -1,0 +1,34 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/login/v5/getprofile",
+      "json": {
+        "status": "SUCCESS",
+        "message": "Profile Data",
+        "errorcode": "",
+        "data": {
+          "clientcode": "EMUM123456",
+          "name": "Dummy Trader",
+          "exchanges": [
+            "NSE",
+            "BSE",
+            "NSEFO",
+            "BSEFO"
+          ],
+          "products": [
+            "Normal",
+            "Delivery"
+          ],
+          "usertype": "Investorclient"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

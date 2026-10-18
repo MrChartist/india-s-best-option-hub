@@ -1,182 +1,193 @@
 /**
- * Motilal Oswal instrument-master helpers.
+ * Motilal Oswal instrument masters (public CSVs) and lookups.
  *
- * Motilal has no native option-chain endpoint (confirmed against openalgo's
- * production adapter — `broker/motilal/api/data.py` only exposes a
- * single-scrip LTP call). The chain is built here from Motilal's own public,
- * unauthenticated CSV dumps:
- *
- *   GET /getscripmastercsv?name=NSEFO   (NIFTY/BANKNIFTY/FINNIFTY/MIDCPNIFTY options)
- *   GET /getscripmastercsv?name=BSEFO   (SENSEX options)
- *   GET /getindexdatacsv?name=NSE|BSE   (index codes, for resolving the underlying spot)
- *
- * Column names, the SENSEX "BSX" house code and the scripname-based expiry
- * parse below are all taken verbatim from openalgo's
- * `broker/motilal/database/master_contract_db.py`, which documents each of
- * these as cross-checked against a live download (0 mismatches vs. the
- * `expirydate` epoch field across ~146k NSEFO/BSEFO/NSECD rows).
+ * Official docs: https://invest.motilaloswal.com/moAPI/APIDocumentation/Introduction, sections "Scrip/Instrument (CSV
+ * Format)" and "INDEX DATA (CSV Format)" (checked 2026-10):
+ *   GET https://openapi.motilaloswal.com/getscripmastercsv?name=<exchangename>   (NSE, BSE, NSEFO, BSEFO, NSECD, MCX)
+ *     columns: exchange, exchangename, scripcode, scripname, marketlot, scripshortname, issuspended, instrumentname,
+ *     expirydate, strikeprice, optiontype, markettype, foexposurepercent, ticksize, scripisinno, indicesidentifier,
+ *     isbanscrip, scripfullname, facevalue, calevel, maxqtyperorder
+ *     scripname embeds the expiry as DD-Mon-YYYY ("BANKNIFTY 03-Feb-2022 PE 32300"); expirydate is seconds from
+ *     1980-01-01 IST (1328365800 -> 03-Feb-2022 14:30 IST), so the scripname date is used.
+ *   GET https://openapi.motilaloswal.com/getindexdatacsv?name=NSE|BSE  -> exchangename, indexcode, indexname
+ *     ("BSE BANKEX" 999912 in the doc sample).
+ * BSEFO lists SENSEX and BANKEX derivatives under the house codes BSX and BKX (OpenAlgo documents this; the official
+ * page shows NSEFO samples only).
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
+import { BrokerError, brokerFetch, BrokerInputError, CANONICAL_UNDERLYINGS } from "./contract.mjs";
 
 const OPTION_MASTER_URL = "https://openapi.motilaloswal.com/getscripmastercsv";
 const INDEX_MASTER_URL = "https://openapi.motilaloswal.com/getindexdatacsv";
 
-// Which F&O scrip-master file + Motilal "scripshortname" identifies each
-// app symbol's option contracts. NSEFO's scripshortname is already canonical
-// (NIFTY, BANKNIFTY, FINNIFTY, MIDCPNIFTY) — no aliasing needed. BSEFO ships
-// SENSEX index derivatives under the house code "BSX" (ultoken 999901), not
-// the spelled-out name.
-const SYMBOL_CONFIG = {
-  NIFTY: { foName: "NSEFO", scripShortName: "NIFTY" },
-  BANKNIFTY: { foName: "NSEFO", scripShortName: "BANKNIFTY" },
-  FINNIFTY: { foName: "NSEFO", scripShortName: "FINNIFTY" },
-  MIDCPNIFTY: { foName: "NSEFO", scripShortName: "MIDCPNIFTY" },
-  SENSEX: { foName: "BSEFO", scripShortName: "BSX" },
+const CANONICAL = new Set(CANONICAL_UNDERLYINGS);
+const STOCK_RE = /^[A-Z0-9&-]{1,20}$/;
+/** F&O file + Motilal scripshortname for each canonical index. Stocks use NSEFO with their own symbol. */
+const INDEX_FO = {
+  NIFTY: { foName: "NSEFO", short: "NIFTY" },
+  BANKNIFTY: { foName: "NSEFO", short: "BANKNIFTY" },
+  FINNIFTY: { foName: "NSEFO", short: "FINNIFTY" },
+  MIDCPNIFTY: { foName: "NSEFO", short: "MIDCPNIFTY" },
+  SENSEX: { foName: "BSEFO", short: "BSX" },
+  BANKEX: { foName: "BSEFO", short: "BKX" },
 };
-
-// Index-master CSV ("NSE"/"BSE") + the broker-house index names that resolve
-// to each app symbol, matched after upper-casing and stripping all whitespace.
-const INDEX_CONFIG = {
+const SHORT_TO_CANONICAL = { BSX: "SENSEX", BKX: "BANKEX" };
+/** Index-master names (upper-cased, whitespace removed) for each canonical index. */
+const INDEX_ALIASES = {
   NIFTY: { csv: "NSE", aliases: ["NIFTY50", "NIFTY"] },
   BANKNIFTY: { csv: "NSE", aliases: ["NIFTYBANK", "BANKNIFTY"] },
   FINNIFTY: { csv: "NSE", aliases: ["NIFTYFINSERVICE", "NIFTYFINSERV", "FINNIFTY"] },
   MIDCPNIFTY: { csv: "NSE", aliases: ["NIFTYMIDSELECT", "NIFTYMIDCAPSELECT", "MIDCPNIFTY"] },
   SENSEX: { csv: "BSE", aliases: ["SENSEX", "BSESENSEX"] },
+  BANKEX: { csv: "BSE", aliases: ["BSEBANKEX", "BANKEX"] },
 };
 
-export const KNOWN_SYMBOLS = new Set(Object.keys(SYMBOL_CONFIG));
+export function assertSymbol(symbol) {
+  const s = String(symbol ?? "").toUpperCase();
+  if (!CANONICAL.has(s) && !STOCK_RE.test(s)) throw new BrokerInputError(`Unknown symbol for Motilal Oswal: ${symbol}`);
+  return s;
+}
 
 const MONTHS = { JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06", JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12" };
-const EXPIRY_RE = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/;
 
-/** "NIFTY 30-OCT-2025 CE 24000" -> "2025-10-30", per scripname's embedded DD-MMM-YYYY token. */
-function parseExpiryFromScripname(scripname) {
-  if (!scripname) return null;
-  for (const part of String(scripname).split(/\s+/)) {
-    const m = EXPIRY_RE.exec(part);
-    if (!m) continue;
-    const month = MONTHS[m[2].toUpperCase()];
-    if (!month) continue;
-    return `${m[3]}-${month}-${m[1].padStart(2, "0")}`;
+/** "NIFTY 20-Oct-2026 CE 25000" -> "2026-10-20". */
+export function expiryFromScripname(scripname) {
+  for (const part of String(scripname ?? "").split(/\s+/)) {
+    const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(part);
+    if (m && MONTHS[m[2].toUpperCase()]) return `${m[3]}-${MONTHS[m[2].toUpperCase()]}-${m[1].padStart(2, "0")}`;
   }
   return null;
 }
 
-/** Quote-aware CSV line splitter (Motilal's scripname field can be quoted). */
 function splitCsvLine(line) {
-  const fields = [];
+  const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else cur += c;
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      fields.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
-  fields.push(cur);
-  return fields;
+  out.push(cur);
+  return out;
 }
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) return [];
+export function parseCsv(text) {
+  const lines = String(text).split(/\r?\n/).filter((l) => l.length > 0);
+  if (!lines.length) return [];
   const header = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-  const rows = new Array(lines.length - 1);
-  for (let i = 1; i < lines.length; i++) {
-    const fields = splitCsvLine(lines[i]);
+  return lines.slice(1).map((line) => {
+    const f = splitCsvLine(line);
     const row = {};
-    for (let j = 0; j < header.length; j++) row[header[j]] = fields[j];
-    rows[i - 1] = row;
-  }
-  return rows;
+    header.forEach((h, j) => { row[h] = (f[j] ?? "").trim(); });
+    return row;
+  });
 }
 
 async function downloadCsv(url) {
-  const res = await fetch(url);
+  const res = await brokerFetch(url, { redirect: "follow" }, { kind: "master" });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Motilal Oswal CSV download failed [HTTP ${res.status}] (${url}): ${text.slice(0, 200)}`);
+  if (!res.ok) throw new BrokerError(`Motilal Oswal CSV download failed [HTTP ${res.status}] (${url})`);
   return parseCsv(text);
 }
 
-/** Parses every CE/PE row out of one F&O scrip-master CSV, keyed by scripshortname. NIFTY/BANKNIFTY/FINNIFTY/MIDCPNIFTY share the same NSEFO file, so this is fetched once per file, not once per symbol. */
-async function fetchAndFilterOptionMaster(foName) {
-  const rows = await downloadCsv(`${OPTION_MASTER_URL}?name=${foName}`);
-  const filtered = [];
-  for (const row of rows) {
-    const optionType = (row.optiontype || "").trim().toUpperCase();
-    if (optionType !== "CE" && optionType !== "PE") continue;
-    const expiryIso = parseExpiryFromScripname(row.scripname);
-    const strike = Number(row.strikeprice);
-    const token = (row.scripcode || "").trim();
-    const exchangename = (row.exchangename || foName).trim();
-    const scripShortName = (row.scripshortname || "").trim().toUpperCase();
-    if (!expiryIso || !Number.isFinite(strike) || strike <= 0 || !token || !scripShortName) continue;
-    filtered.push({ scripShortName, token, exchangename, strike, expiryIso, side: optionType === "CE" ? "ce" : "pe" });
+/** Compact F&O rows (options + futures) of one F&O master. */
+export function compactFo(rows, foName) {
+  const out = [];
+  for (const r of rows) {
+    const inst = String(r.instrumentname || "").toUpperCase();
+    if (!["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"].includes(inst)) continue;
+    const opt = inst.startsWith("OPT");
+    const optType = String(r.optiontype || "").toUpperCase();
+    if (opt && optType !== "CE" && optType !== "PE") continue;
+    const expiry = expiryFromScripname(r.scripname);
+    const token = String(r.scripcode || "");
+    const short = String(r.scripshortname || "").toUpperCase();
+    const strike = opt ? Number(r.strikeprice) : null;
+    if (!expiry || !/^\d+$/.test(token) || !short || (opt && !(strike > 0))) continue;
+    out.push({
+      token, short, root: SHORT_TO_CANONICAL[short] ?? short, instType: inst, expiry, strike,
+      optType: opt ? optType : null, exchangename: r.exchangename || foName, scripname: r.scripname,
+      lotSize: Number(r.marketlot) || 1, tickSize: Number(r.ticksize) || 0.05,
+    });
   }
-  return filtered;
+  return out;
 }
 
-/** Cached once/day per F&O file (NSEFO/BSEFO) — public, unauthenticated CSV; shared across every user's credentials and every symbol on that exchange. */
-async function getFoMaster(foName) {
-  return getCachedOrFetch(`motilal:optmaster:${foName}`, () => fetchAndFilterOptionMaster(foName), ONE_DAY_MS);
+/** Cached once a day per F&O file (NSEFO / BSEFO); public CSV shared by every user. */
+export async function getFoMaster(foName) {
+  return getCachedOrFetch(`motilal:fomaster:v2:${foName}`, async () => compactFo(await downloadCsv(`${OPTION_MASTER_URL}?name=${foName}`), foName), ONE_DAY_MS);
 }
 
-/** All CE/PE rows for one app symbol (filtered in-memory from the shared per-exchange master). */
+export const foNameFor = (symbol) => INDEX_FO[symbol]?.foName ?? "NSEFO";
+
+/** Option rows for an app symbol. */
 export async function getOptionMaster(symbol) {
-  const cfg = SYMBOL_CONFIG[symbol];
-  if (!cfg) throw new Error(`Unknown symbol for Motilal Oswal: ${symbol}`);
-  const rows = await getFoMaster(cfg.foName);
-  return rows.filter((r) => r.scripShortName === cfg.scripShortName);
+  const rows = await getFoMaster(foNameFor(symbol));
+  return rows.filter((r) => r.root === symbol && r.optType);
 }
 
-/** Distinct, ascending ISO expiry dates. */
 export function listExpiries(rows) {
-  return Array.from(new Set(rows.map((r) => r.expiryIso))).sort();
+  return [...new Set(rows.map((r) => r.expiry))].sort();
 }
 
-/** Map of strike (string) -> { ce?: {token, exchangename}, pe?: {token, exchangename} } for one expiry. */
+/** strike (string) -> { ce?: { token, exchangename, lotSize }, pe?: {...} } for one expiry. */
 export function strikeMapForExpiry(rows, expiryIso) {
   const map = new Map();
-  for (const row of rows) {
-    if (row.expiryIso !== expiryIso) continue;
-    const strikeKey = String(row.strike);
-    if (!map.has(strikeKey)) map.set(strikeKey, {});
-    map.get(strikeKey)[row.side] = { token: row.token, exchangename: row.exchangename };
+  for (const r of rows) {
+    if (r.expiry !== expiryIso) continue;
+    const key = String(r.strike);
+    if (!map.has(key)) map.set(key, {});
+    map.get(key)[r.optType === "CE" ? "ce" : "pe"] = { token: r.token, exchangename: r.exchangename, lotSize: r.lotSize };
   }
   return map;
 }
 
-async function fetchAndFilterIndexMaster(csvName) {
-  const rows = await downloadCsv(`${INDEX_MASTER_URL}?name=${csvName}`);
-  return rows.map((r) => ({
-    token: (r.indexcode || "").trim(),
-    name: (r.indexname || "").trim(),
-    exchangename: (r.exchangename || csvName).trim(),
-  }));
-}
-
-/** Cached once/day per index CSV ("NSE"/"BSE"). */
 async function getIndexMaster(csvName) {
-  return getCachedOrFetch(`motilal:indexmaster:${csvName}`, () => fetchAndFilterIndexMaster(csvName), ONE_DAY_MS);
+  return getCachedOrFetch(`motilal:indexmaster:v2:${csvName}`, async () => (await downloadCsv(`${INDEX_MASTER_URL}?name=${csvName}`)).map((r) => ({
+    token: r.indexcode, name: r.indexname, exchangename: r.exchangename || csvName,
+  })), ONE_DAY_MS);
 }
 
-/** The index-master row (token + Motilal exchange) for an app symbol's underlying spot, or null. */
+/** Index spot { token, exchangename: "NSE"|"BSE" } for a canonical index, or null. */
 export async function resolveIndexInfo(symbol) {
-  const cfg = INDEX_CONFIG[symbol];
+  const cfg = INDEX_ALIASES[symbol];
   if (!cfg) return null;
-  const rows = await getIndexMaster(cfg.csv);
-  const aliasSet = new Set(cfg.aliases);
-  const row = rows.find((r) => aliasSet.has(r.name.toUpperCase().replace(/\s+/g, "")));
-  if (!row || !row.token) return null;
-  return { token: row.token, exchangename: cfg.csv }; // getindexltpdata wants the bare "NSE"/"BSE" exchange
+  const aliases = new Set(cfg.aliases);
+  const row = (await getIndexMaster(cfg.csv)).find((r) => aliases.has(String(r.name).toUpperCase().replace(/\s+/g, "")));
+  return row?.token ? { token: String(row.token), exchangename: cfg.csv } : null;
+}
+
+/** NSE cash scripcode for a stock (from the NSE scrip master), or null. */
+export async function resolveStockSpot(symbol) {
+  const rows = await getCachedOrFetch("motilal:nsecash:v2", async () => (await downloadCsv(`${OPTION_MASTER_URL}?name=NSE`))
+    .filter((r) => /^\d+$/.test(r.scripcode || ""))
+    .map((r) => ({ token: r.scripcode, short: String(r.scripshortname || "").toUpperCase(), name: String(r.scripname || "").toUpperCase() })), ONE_DAY_MS);
+  const hits = rows.filter((r) => r.short === symbol);
+  const eq = hits.find((r) => r.name === `${symbol} EQ` || r.name.endsWith(" EQ")) ?? hits[0];
+  return eq ? { token: eq.token, exchangename: "NSE" } : null;
+}
+
+const EXCHANGE_OF = { NSE: "NSE", BSE: "BSE", NSEFO: "NFO", BSEFO: "BFO", NSECD: "CDS", BSECD: "CDS", MCX: "MCX", NSECASH: "NSE", BSECASH: "BSE" };
+const MO_EXCHANGE = { NSE: "NSE", BSE: "BSE", NFO: "NSEFO", BFO: "BSEFO", CDS: "NSECD", MCX: "MCX" };
+export const contractExchange = (mo) => EXCHANGE_OF[String(mo || "").toUpperCase().replace(/\s+/g, "")] ?? "NSE";
+export function motilalExchange(exchange) {
+  const mo = MO_EXCHANGE[exchange];
+  if (!mo) throw new BrokerInputError(`Unsupported exchange for Motilal Oswal: ${exchange}`);
+  return mo;
+}
+
+/** Contract Instrument for a compact F&O row, or null for a non-canonical index derivative. */
+export function toInstrument(r) {
+  const index = r.instType.endsWith("IDX");
+  if (index && !CANONICAL.has(r.root)) return null;
+  const opt = r.instType.startsWith("OPT");
+  return {
+    token: r.token, exchange: contractExchange(r.exchangename), tradingSymbol: r.scripname || r.token, underlying: r.root,
+    instrumentType: r.instType, expiry: r.expiry, strike: opt ? r.strike : null, optionType: opt ? r.optType : null,
+    lotSize: r.lotSize, tickSize: r.tickSize,
+  };
 }

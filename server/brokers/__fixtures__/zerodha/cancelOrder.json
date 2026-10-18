@@ -1,0 +1,18 @@
+{
+  "args": [
+    "151220000000000"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://api.kite.trade/orders/regular/151220000000000",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "151220000000000"
+        }
+      }
+    }
+  ]
+}

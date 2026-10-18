@@ -1,151 +1,110 @@
 /**
- * Firstock authentication + generic authenticated POST helper.
+ * Firstock: session login (contract auth.kind "sessionLogin") + the authenticated POST helper.
  *
- * Firstock's login handshake — userId/password(SHA256)/TOTP/vendorCode/apiKey
- * -> a "susertoken" session key used as "jKey" on every subsequent call — is
- * near byte-for-byte the same shape as the Omnesys/Trustline "NorenAPI"
- * white-label backend used by Shoonya, Flattrade, and Zebu (uid/pwd/factor2/vc/
- * appkey -> susertoken, "jKey"/"uid" field naming throughout). Strong signal
- * this runs on the same third-party backend under renamed fields — worth
- * reusing this module's request/response shapes as a starting point if/when
- * those three get implemented.
+ * Official docs (https://firstock.in/api/docs/, checked 2026-10):
+ *  - login/ : POST https://api.firstock.in/V1/login { userId, password: SHA-256(password), TOTP, vendorCode,
+ *    apiKey } -> { status: "success", data: { actid, userName, susertoken, email } }. The susertoken is the
+ *    `jKey` every later call sends in its JSON body together with `userId`.
+ *  - request-responses/ and exception-errors/ : failures are { status: "failed", code, name, error: { field,
+ *    message } }. code 401 / INVALID_JKEY (or INVALID_USERID) means the session is gone; 429 /
+ *    RATE_LIMIT_EXCEEDED means slow down.
+ *  - Rate limits (exception-errors/): quotes 1 req/s (reduced from 4), historical 3 req/s, everything else
+ *    10 req/s.
+ * No session lifetime is documented; a fresh login is expected each trading day, so expiresAt is the next
+ * IST midnight and any INVALID_JKEY reply throws SessionRequiredError before then.
  *
- * No documented session TTL was found for Firstock specifically; like the
- * rest of the NorenAPI family, a fresh TOTP login is expected once per
- * trading day, so sessions are cached until IST end-of-day (mirrors the
- * 5paisa module's approach) and re-established transparently after that or
- * on any "session/token/login" style error from the API.
+ * The user types the password and the current 6-digit code in Broker Settings; login() runs once and
+ * returns only { sessionToken } (the susertoken). The password and code are never stored, cached or logged.
  */
 
 import { createHash } from "node:crypto";
-import { generateTOTP } from "../lib/totp.mjs";
+import { BrokerError, brokerFetch, SessionRequiredError } from "./contract.mjs";
+import { readTotpCode, requireFields, sessionFromCreds, nextIstMidnightMs } from "./sessionLogin.mjs";
+import { sleep } from "../lib/batch.mjs";
 
 export const BASE = "https://api.firstock.in/V1";
 
-// key -> { jKey, userId, expiresAt } — in-memory only, never persisted/logged.
-const SESSION_CACHE = new Map();
+export const LOGIN_FIELDS = [
+  { key: "password", label: "Firstock password", kind: "secret" },
+  { key: "totpCode", label: "6-digit TOTP code", kind: "totp" },
+];
+export const SESSION_FIELDS = ["sessionToken"];
 
-function sha256Hex(text) {
-  return createHash("sha256").update(text, "utf8").digest("hex");
+export function sha256Hex(text) {
+  return createHash("sha256").update(String(text), "utf8").digest("hex");
 }
 
-/** In-process cache key only. Never logged, never persisted. */
-function sessionKey(creds) {
-  return JSON.stringify({
-    u: creds?.userId,
-    p: creds?.password,
-    t: creds?.totpSecret,
-    v: creds?.vendorCode,
-    a: creds?.apiKey,
-  });
-}
-
-/** Today's 23:59 IST as an epoch ms timestamp, regardless of the host server's own timezone. */
-function istEndOfDay(now = new Date()) {
-  const istDateStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now); // "YYYY-MM-DD"
-  return new Date(`${istDateStr}T23:59:00+05:30`).getTime();
-}
-
-function requireFields(creds) {
-  const required = ["userId", "password", "totpSecret", "vendorCode", "apiKey"];
-  const missing = required.filter((f) => !creds?.[f]);
-  if (missing.length) {
-    throw new Error(`Firstock credentials missing required field(s): ${missing.join(", ")}`);
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }
 
-async function loginFresh(creds) {
-  requireFields(creds);
+const errorText = (json) => String(json?.error?.message || json?.message || "").replace(/\s+/g, " ").trim().slice(0, 200);
 
-  const body = {
-    userId: creds.userId,
-    password: sha256Hex(creds.password),
-    TOTP: generateTOTP(creds.totpSecret),
-    vendorCode: creds.vendorCode,
-    apiKey: creds.apiKey,
-  };
+/** Map a failed Firstock reply to the contract error classes. */
+export function classifyError(httpStatus, json, endpoint) {
+  const code = String(json?.code ?? "");
+  const name = String(json?.name ?? "").toUpperCase().replace(/_/g, "");
+  const field = String(json?.error?.field ?? "");
+  if (httpStatus === 401 || code === "401" || name === "INVALIDJKEY" || name === "UNAUTHORIZED" || field === "jKey") {
+    return new SessionRequiredError("Firstock rejected the session. Log in again from Broker Settings.");
+  }
+  if (httpStatus === 429 || code === "429" || name === "RATELIMITEXCEEDED" || name === "TOOMANYREQUESTS") {
+    return new BrokerError(`Firstock rate limit hit on ${endpoint}.`, { code: "UPSTREAM_RATE_LIMIT" });
+  }
+  const msg = errorText(json) || `HTTP ${httpStatus}`;
+  return new BrokerError(`Firstock ${endpoint} failed: ${msg}${json?.name ? ` [${json.name}]` : ""}`);
+}
 
-  const res = await fetch(`${BASE}/login`, {
+/** One login with the user-typed password + TOTP code. Returns only the session token. */
+export async function login(creds) {
+  requireFields(creds, ["userId", "password", "vendorCode", "apiKey"], "Firstock");
+  const totp = readTotpCode(creds);
+  const res = await brokerFetch(`${BASE}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ userId: creds.userId, password: sha256Hex(creds.password), TOTP: totp, vendorCode: creds.vendorCode, apiKey: creds.apiKey }),
   });
-  const text = await res.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Firstock login returned non-JSON response (HTTP ${res.status})`);
+  const json = parseJson(await res.text());
+  if (!json || json.status !== "success") {
+    throw new BrokerError(`Firstock login failed: ${errorText(json) || `HTTP ${res.status}`}`, { code: "UPSTREAM_AUTH" });
   }
-
-  if (json?.status !== "success") {
-    const msg = json?.error?.message || json?.message || `HTTP ${res.status}`;
-    console.log(`[firstock] login failed: ${msg}`);
-    throw new Error(`Firstock login failed: ${msg}`);
-  }
-
   const jKey = json?.data?.susertoken || json?.data?.jKey;
-  if (!jKey) throw new Error("Firstock login succeeded but no session token (susertoken) was returned");
-
-  const session = { jKey, userId: creds.userId, expiresAt: istEndOfDay() };
-  SESSION_CACHE.set(sessionKey(creds), session);
-  return session;
+  if (!jKey) throw new BrokerError("Firstock login succeeded but returned no session token.", { code: "UPSTREAM_AUTH" });
+  return { session: { sessionToken: String(jKey) }, expiresAt: nextIstMidnightMs() };
 }
 
-/** Returns a cached, still-valid session or performs a fresh TOTP login. Throws on any auth failure. */
-export async function ensureSession(creds) {
-  const key = sessionKey(creds);
-  const cached = SESSION_CACHE.get(key);
-  if (cached && Date.now() < cached.expiresAt) return cached;
-  return loginFresh(creds);
+/** The stored session { jKey, userId }. Throws SessionRequiredError (no network) when absent or expired. */
+export function ensureSession(creds) {
+  requireFields(creds, ["userId"], "Firstock");
+  return { jKey: sessionFromCreds(creds, SESSION_FIELDS, "Firstock").sessionToken, userId: String(creds.userId) };
 }
 
 /**
- * POST helper against api.firstock.in/V1. Attaches `userId` (and `jKey` once
- * authenticated) per Firstock's flat-JSON-payload convention shared across
- * every endpoint. Retries once on Firstock's documented plain-text
- * "rate limit" response body (not a normal JSON error shape).
+ * POST { userId, jKey, ...payload } to api.firstock.in/V1<endpoint>. Retries once after a second on a
+ * documented rate-limit reply. Returns the parsed success JSON; throws contract errors otherwise.
  */
-export async function callApi(creds, endpoint, extraPayload = {}, { auth = true } = {}) {
-  let session = null;
-  if (auth) session = await ensureSession(creds);
-
-  const payload = { userId: creds.userId, ...extraPayload };
-  if (auth) payload.jKey = session.jKey;
-
-  const doCall = async () => {
-    const res = await fetch(`${BASE}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return { res, text: await res.text() };
+export async function callApi(creds, endpoint, payload = {}) {
+  const { jKey, userId } = ensureSession(creds);
+  const body = JSON.stringify({ userId, ...payload, jKey });
+  const once = async () => {
+    const res = await brokerFetch(`${BASE}${endpoint}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body });
+    const text = await res.text();
+    return { status: res.status, json: parseJson(text), text };
   };
-
-  let { res, text } = await doCall();
-  if (text && text.toLowerCase().includes("rate limit")) {
-    console.log(`[firstock] rate limited on ${endpoint} — retrying after 1s`);
-    await new Promise((r) => setTimeout(r, 1000));
-    ({ res, text } = await doCall());
+  let r = await once();
+  const limited = (x) => x.status === 429 || String(x.json?.code ?? "") === "429" || /rate.?limit/i.test(x.json ? `${x.json.name ?? ""} ${errorText(x.json)}` : x.text);
+  if (limited(r)) {
+    await sleep(1000);
+    r = await once();
   }
-  if (!text) throw new Error(`Firstock API [${endpoint}] returned an empty response`);
-
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Firstock API [${endpoint}] returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`);
+  if (!r.json) {
+    if (limited(r)) throw new BrokerError(`Firstock rate limit hit on ${endpoint}.`, { code: "UPSTREAM_RATE_LIMIT" });
+    throw new BrokerError(`Firstock ${endpoint} returned a non-JSON reply (HTTP ${r.status}).`);
   }
-
-  if (json.status !== "success") {
-    const msg = json?.error?.message || json?.message || "unknown error";
-    if (auth && /session|token|login|auth/i.test(msg)) SESSION_CACHE.delete(sessionKey(creds));
-    throw new Error(`Firstock API [${endpoint}] error: ${msg}`);
-  }
-  return json;
+  if (r.json.status !== "success") throw classifyError(r.status, r.json, endpoint);
+  return r.json;
 }

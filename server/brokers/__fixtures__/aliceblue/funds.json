@@ -1,0 +1,38 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/limits$",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "tradingLimit": 0,
+            "openingCashLimit": 50,
+            "intradayPayin": 0,
+            "collateralMargin": 0,
+            "creditForSell": 0,
+            "adhocMargin": 0,
+            "utilizedMargin": 0,
+            "blockedForPayout": 0,
+            "utilizedSpanMargin": 0,
+            "utilizedExposureMargin": 0
+          }
+        ]
+      }
+    }
+  ]
+}

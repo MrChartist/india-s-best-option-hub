@@ -1,180 +1,199 @@
 /**
- * Instrument-master + batched-quotes fallback for Paytm Money — used only
- * for SENSEX, since /fno/v1/option-chain (paytmChain.mjs) is confirmed
- * empty for SENSEX in production; see paytmChain.mjs's header for the source.
+ * Paytm Money security masters, symbol mapping and the live-quote call.
  *
- * Master: GET /data/v1/scrips/security_master.csv — public, NO auth header
- * required (verified directly: a plain unauthenticated GET returns 200 with
- * the full ~7.5MB file; every other filename tried against this same route
- * — index/equity master guesses — 403s, so this appears to be the only
- * whitelisted file). One row per NSE/BSE F&O contract; no equities or
- * indices. Columns (confirmed by direct download):
- *   security_id, symbol, name, series, tick_size, lot_size, instrument_type,
- *   segment, exchange, upper_limit, lower_limit, expiry_date, strike_price,
- *   freeze_quantity
- * SENSEX option rows carry `symbol` already formatted as
- * "SENSEX-<Mon><YYYY>-<strike>-<CE|PE>" (e.g. "SENSEX-Dec2026-77000-PE") on
- * exchange="BSE", instrument_type="OPTIDX".
- *
- * Quotes: GET /data/v1/price/live?mode=FULL&pref=<comma-joined "EXCH:id:OPTION">
- * mode=FULL (not QUOTE) is required so the response carries `oi`/`change_oi`/
- * `depth` — openalgo's production Paytm plugin calls this out explicitly
- * ("QUOTE mode omits them"). Batch size/delay below mirror openalgo's Paytm
- * plugin (BATCH_SIZE=100, 100ms between batches) since Paytm publishes no
- * documented rate limit for this endpoint.
+ * Official docs:
+ *  - security-master: public CSVs under https://developer.paytmmoney.com/data/v1/scrips/:
+ *    security_master.csv (all), index_security_master.csv, option_security_master.csv, and NSE / BSE /
+ *    FUTURE / EQUITY / ETF variants. Columns (header of the live files, October 2026; every field quoted):
+ *      security_id, symbol, name, series, tick_size, lot_size, instrument_type, segment, exchange,
+ *      upper_limit, lower_limit, expiry_date, strike_price, freeze_quantity
+ *    instrument_type: I (index), ES (equity), ETF, OPTIDX, OPTSTK, FUTIDX, FUTSTK; segment E|D; exchange
+ *    NSE|BSE (derivatives too). tick_size is in paise ("5.0000" = 0.05). Option rows: symbol
+ *    "NIFTY-Oct2026-25000-CE", name "NIFTY 27 OCT 25000 CALL", expiry_date "2026-10-27 14:00:00".
+ *    Index ids (index master): NIFTY 13, BANKNIFTY 25, FINNIFTY 27, NIFTY MID SELECT 442 (MIDCPNIFTY),
+ *    SENSEX 51, BANKEX 69. The previous version used SENSEX = 1 (wrong) and could not quote BANKEX.
+ *    Paytm reuses ids across scrip types (index 13 = NIFTY, equity 13 = ABB), so index instruments
+ *    carry the token "IDX-<id>" in this adapter to keep tokens unique per exchange.
+ *  - live-market-data-api: GET /data/v1/price/live?mode=LTP|QUOTE|FULL&pref={Exchange}:{ScripId}:{ScripType}
+ *    (comma-separated, ScripType INDEX|EQUITY|ETF|FUTURE|OPTION). Response rows carry security_id but
+ *    no exchange; "found": false marks a miss. FULL adds ohlc, volume_traded, oi, change_oi and 5-level
+ *    depth (buy/sell: quantity, price, orders). No batch size is documented; we send 50 per call.
  */
 
-import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
-import { batchWithDelay } from "../lib/batch.mjs";
-import { PAYTM_BASE, INDEX_IDS, paytmGet, toIsoDate } from "./paytmClient.mjs";
+import { sleep } from "../lib/batch.mjs";
+import { PAYTM_BASE, paytmGet, toIsoDate } from "./paytmClient.mjs";
+import { brokerFetch } from "./contract.mjs";
 
-const MASTER_URL = `${PAYTM_BASE}/data/v1/scrips/security_master.csv`;
-const QUOTE_BATCH_SIZE = 100;
-const QUOTE_BATCH_DELAY_MS = 100;
+export const MASTER_URLS = Object.freeze({
+  all: `${PAYTM_BASE}/data/v1/scrips/security_master.csv`,
+  index: `${PAYTM_BASE}/data/v1/scrips/index_security_master.csv`,
+  option: `${PAYTM_BASE}/data/v1/scrips/option_security_master.csv`,
+});
+export const QUOTE_BATCH_SIZE = 50;
+const QUOTE_BATCH_DELAY_MS = 150;
 
-/** Minimal RFC4180-ish CSV line parser — handles quoted fields (every field in this file is quoted). */
-function parseCsvLine(line) {
+/** App index symbol -> index-master names and the exchange its options trade on. */
+export const INDEX_CONFIG = Object.freeze({
+  NIFTY: { exchange: "NSE", names: ["NIFTY", "NIFTY 50"] },
+  BANKNIFTY: { exchange: "NSE", names: ["BANKNIFTY", "NIFTY BANK"] },
+  FINNIFTY: { exchange: "NSE", names: ["FINNIFTY", "NIFTY FIN SERVICE"] },
+  MIDCPNIFTY: { exchange: "NSE", names: ["NIFTY MID SELECT", "MIDCPNIFTY"] },
+  SENSEX: { exchange: "BSE", names: ["SENSEX"] },
+  BANKEX: { exchange: "BSE", names: ["BANKEX"] },
+});
+const norm = (s) => String(s ?? "").toUpperCase().replace(/\s+/g, " ").trim();
+const CANONICAL_BY_NAME = new Map(Object.entries(INDEX_CONFIG).flatMap(([sym, c]) => c.names.map((n) => [`${c.exchange}:${norm(n)}`, sym])));
+
+// ── CSV + cache ──
+
+export function parseCsvLine(line) {
   const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (inQuotes) {
+    if (quoted) {
       if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else {
-        cur += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
+        if (line[i + 1] === '"') { cur += '"'; i++; } else quoted = false;
+      } else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
   out.push(cur);
   return out;
 }
 
-function parseCsv(text) {
-  const lines = text.split("\n");
-  let start = 0;
-  while (start < lines.length && lines[start].trim() === "") start++;
-  if (start >= lines.length) return [];
-  const headers = parseCsvLine(lines[start]).map((h) => h.trim());
-  const rows = [];
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line || !line.trim()) continue;
+export function parseCsv(text) {
+  const lines = String(text).split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const headers = parseCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
     const cols = parseCsvLine(line);
-    const row = {};
-    for (let c = 0; c < headers.length; c++) row[headers[c]] = (cols[c] ?? "").trim();
-    rows.push(row);
-  }
-  return rows;
+    return Object.fromEntries(headers.map((h, i) => [h, (cols[i] ?? "").trim()]));
+  });
 }
 
-async function downloadMaster() {
-  const res = await fetch(MASTER_URL);
-  if (!res.ok) throw new Error(`Paytm Money instrument master download failed [${res.status}]`);
+let memoryOnly = false;
+const mem = new Map();
+const inflight = new Map();
+
+/** Tests: drop cached masters and stop using the shared disk cache. */
+export function resetPaytmInstrumentCache({ diskCache = false } = {}) {
+  memoryOnly = !diskCache;
+  mem.clear();
+  inflight.clear();
+}
+
+async function download(kind) {
+  const res = await brokerFetch(MASTER_URLS[kind], { redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`Paytm Money ${kind} security master download failed [${res.status}]`);
   return parseCsv(await res.text());
 }
 
-/** Cached once/day, shared across every user's credentials — it's public market data, needs no auth. */
-async function getMaster() {
-  return getCachedOrFetch("paytm:instruments:security_master", downloadMaster, ONE_DAY_MS);
-}
-
-async function getOptionRows(symbol) {
-  const rows = await getMaster();
-  const prefix = `${symbol}-`;
-  return rows.filter((r) => r.instrument_type === "OPTIDX" && r.symbol?.startsWith(prefix));
-}
-
-export async function fetchInstrumentExpiries(symbol) {
-  const rows = await getOptionRows(symbol);
-  const dates = Array.from(new Set(rows.map((r) => toIsoDate(r.expiry_date)).filter(Boolean)));
-  dates.sort();
-  return dates;
-}
-
-/** Best-effort standalone index spot via the /price/live INDEX quote. Returns 0, never throws. */
-export async function fetchIndexSpot(creds, symbol) {
-  const info = INDEX_IDS[symbol];
-  if (!info) return 0;
-  try {
-    const json = await paytmGet(`/data/v1/price/live?mode=LTP&pref=${info.exch}:${info.id}:INDEX`, creds);
-    return Number(json?.data?.[0]?.last_price) || 0;
-  } catch {
-    return 0;
+/** kind: "all" | "index" | "option"; cached for a day. */
+export async function getMaster(kind) {
+  if (!memoryOnly) return getCachedOrFetch(`paytm:security-master:${kind}:v2`, () => download(kind), ONE_DAY_MS);
+  const hit = mem.get(kind);
+  if (hit && Date.now() - hit.at < ONE_DAY_MS) return hit.rows;
+  if (!inflight.has(kind)) {
+    inflight.set(kind, download(kind).then((rows) => { mem.set(kind, { rows, at: Date.now() }); return rows; }).finally(() => inflight.delete(kind)));
   }
+  return inflight.get(kind);
 }
 
-async function fetchQuotesByToken(creds, exchange, tokens) {
-  const batches = await batchWithDelay(tokens, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    const pref = chunk.map((t) => `${exchange}:${t}:OPTION`).join(",");
-    const json = await paytmGet(`/data/v1/price/live?mode=FULL&pref=${encodeURIComponent(pref)}`, creds);
-    return json?.data || [];
-  });
-  const byToken = new Map();
-  for (const batch of batches) {
-    for (const quote of batch) {
-      const token = String(quote.security_id || "");
-      if (token) byToken.set(token, quote);
+// ── mapping ──
+
+export const tickSizeOf = (raw) => {
+  const v = Number(raw);
+  return Number.isFinite(v) && v > 0 ? v / 100 : 0.05;
+};
+
+export function indexNameOf(row) {
+  return CANONICAL_BY_NAME.get(`${String(row.exchange).toUpperCase()}:${norm(row.name)}`) ?? norm(row.name).replace(/\s+/g, "");
+}
+
+export function optionTypeOf(row) {
+  const sym = String(row.symbol ?? "").toUpperCase();
+  if (sym.endsWith("-CE")) return "CE";
+  if (sym.endsWith("-PE")) return "PE";
+  const name = String(row.name ?? "").toUpperCase();
+  return /\bCALL$/.test(name) ? "CE" : /\bPUT$/.test(name) ? "PE" : null;
+}
+
+/** Master row -> contract Instrument (or null when out of scope). */
+export function toInstrument(row) {
+  const ex = String(row.exchange).toUpperCase();
+  const type = String(row.instrument_type).toUpperCase();
+  const id = String(row.security_id ?? "");
+  if ((ex !== "NSE" && ex !== "BSE") || !/^\d+$/.test(id)) return null;
+  const lot = Number(row.lot_size);
+  const lotSize = Number.isFinite(lot) && lot > 0 ? lot : 1;
+  if (type === "I") {
+    const name = indexNameOf(row);
+    return { token: `IDX-${id}`, exchange: ex, tradingSymbol: name, underlying: name, instrumentType: "INDEX", expiry: null, strike: null, optionType: null, lotSize: 1, tickSize: 0.05 };
+  }
+  if (type === "ES" || type === "ETF") {
+    const sym = String(row.symbol || row.name);
+    return { token: id, exchange: ex, tradingSymbol: sym, underlying: sym, instrumentType: "EQ", expiry: null, strike: null, optionType: null, lotSize, tickSize: tickSizeOf(row.tick_size) };
+  }
+  if (!["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"].includes(type)) return null;
+  const expiry = toIsoDate(row.expiry_date);
+  const underlying = String(row.name ?? "").trim().split(/\s+/)[0];
+  if (!expiry || !underlying) return null;
+  const isOpt = type.startsWith("OPT");
+  const optionType = isOpt ? optionTypeOf(row) : null;
+  const strike = Number(row.strike_price);
+  if (isOpt && (!optionType || !(strike > 0))) return null;
+  return {
+    token: id, exchange: ex === "NSE" ? "NFO" : "BFO", tradingSymbol: String(row.symbol), underlying, instrumentType: type, expiry,
+    strike: isOpt ? strike : null, optionType, lotSize, tickSize: tickSizeOf(row.tick_size),
+  };
+}
+
+/** Index security_id for an app symbol from the index master. */
+export async function indexIdFor(symbol) {
+  const cfg = INDEX_CONFIG[symbol];
+  if (!cfg) return null;
+  const names = new Set(cfg.names.map(norm));
+  const row = (await getMaster("index")).find((r) => String(r.exchange).toUpperCase() === cfg.exchange && String(r.instrument_type).toUpperCase() === "I" && names.has(norm(r.name)));
+  return row ? String(row.security_id) : null;
+}
+
+/** OPTIDX rows of an index from the option master. */
+export async function optionRowsFor(symbol) {
+  const cfg = INDEX_CONFIG[symbol];
+  if (!cfg) throw new Error(`Paytm Money: unknown symbol ${symbol}`);
+  return (await getMaster("option")).filter(
+    (r) => String(r.instrument_type).toUpperCase() === "OPTIDX" && String(r.exchange).toUpperCase() === cfg.exchange && String(r.name).toUpperCase().split(/\s+/)[0] === symbol,
+  );
+}
+
+// ── live quotes ──
+
+/**
+ * GET /data/v1/price/live for prefs [{ exchange: NSE|BSE, id, scripType }] in chunks.
+ * Returns Map<"EXCH:id:TYPE", row> for rows with found !== false (rows are matched back by
+ * security_id within each chunk, since the response carries no exchange).
+ */
+export async function fetchLive(creds, mode, prefs) {
+  const out = new Map();
+  for (let i = 0; i < prefs.length; i += QUOTE_BATCH_SIZE) {
+    if (i > 0) await sleep(QUOTE_BATCH_DELAY_MS);
+    const chunk = prefs.slice(i, i + QUOTE_BATCH_SIZE);
+    const pref = chunk.map((p) => `${p.exchange}:${p.id}:${p.scripType}`).join(",");
+    const json = await paytmGet(`/data/v1/price/live?mode=${mode}&pref=${encodeURIComponent(pref)}`, creds);
+    const byId = new Map();
+    for (const row of Array.isArray(json?.data) ? json.data : []) {
+      if (row?.found === false) continue;
+      const list = byId.get(String(row.security_id)) ?? [];
+      list.push(row);
+      byId.set(String(row.security_id), list);
+    }
+    for (const p of chunk) {
+      const rows = byId.get(String(p.id));
+      if (rows?.length) out.set(`${p.exchange}:${p.id}:${p.scripType}`, rows.shift());
     }
   }
-  return byToken;
-}
-
-export async function fetchInstrumentChain(creds, symbol, expiryIso) {
-  let rows = await getOptionRows(symbol);
-  if (rows.length === 0) return { oc: {}, last_price: 0 };
-
-  const expiries = Array.from(new Set(rows.map((r) => toIsoDate(r.expiry_date)))).sort();
-  const resolvedIso = expiryIso || expiries[0];
-  if (!resolvedIso) return { oc: {}, last_price: 0 };
-
-  rows = rows.filter((r) => toIsoDate(r.expiry_date) === resolvedIso);
-  if (rows.length === 0) return { oc: {}, last_price: 0 };
-
-  const exchange = rows[0].exchange || "BSE";
-  const daysToExpiry = daysBetween(new Date(), resolvedIso);
-  const quotesByToken = await fetchQuotesByToken(creds, exchange, rows.map((r) => r.security_id));
-
-  // Paytm's /price/live response for an OPTION scrip carries no underlying
-  // spot field, so fetch it separately via the INDEX quote. If that INDEX
-  // security_id turns out to be wrong (unverified — see paytmClient.mjs),
-  // fall back to the median listed strike as a coarse still-usable proxy
-  // for Black-Scholes rather than leaving IV/Greeks at zero.
-  let spot = await fetchIndexSpot(creds, symbol);
-  if (!(spot > 0)) {
-    const strikes = rows.map((r) => Number(r.strike_price)).filter((s) => s > 0).sort((a, b) => a - b);
-    if (strikes.length > 0) spot = strikes[Math.floor(strikes.length / 2)];
-  }
-
-  const oc = {};
-  for (const row of rows) {
-    const quote = quotesByToken.get(String(row.security_id));
-    if (!quote) continue;
-    const strike = Number(row.strike_price);
-    if (!(strike > 0)) continue;
-    const type = (row.symbol || "").endsWith("-CE") ? "CE" : "PE";
-    const ltp = Number(quote.last_price) || 0;
-    const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
-    const strikeKey = String(strike);
-    if (!oc[strikeKey]) oc[strikeKey] = {};
-    oc[strikeKey][type.toLowerCase()] = {
-      last_price: ltp,
-      oi: Number(quote.oi) || 0,
-      oi_chg: Number(quote.change_oi) || 0,
-      volume: Number(quote.volume_traded ?? quote.volume) || 0,
-      ...greeks,
-      bid_price: Number(quote.depth?.buy?.[0]?.price) || 0,
-      ask_price: Number(quote.depth?.sell?.[0]?.price) || 0,
-    };
-  }
-  return { oc, last_price: spot };
+  return out;
 }

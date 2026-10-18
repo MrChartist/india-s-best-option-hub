@@ -1,149 +1,165 @@
 /**
- * Groww instrument/scrip master — daily CSV download + parsing helpers.
+ * Groww instrument master (official docs: https://groww.in/trade-api/docs/curl/instruments).
  *
- * Groww has no native option-chain endpoint, so strikes/expiries/trading_symbols
- * are resolved from the public instrument dump at growwapi-assets.groww.in
- * (confirmed via marketcalls/openalgo's broker/groww/database/master_contract_db.py
- * — `download_groww_instrument_data`). The download needs no auth, so it's cached
- * once/day and shared across every user's credentials rather than keyed per-user.
+ * Public CSV, no auth: https://growwapi-assets.groww.in/instruments/instrument.csv
+ * Documented columns: exchange, exchange_token, trading_symbol, groww_symbol, name, instrument_type
+ * (EQ | IDX | FUT | CE | PE), segment (CASH | FNO; the live file also carries COMMODITY, which the
+ * API does not trade), series, isin, underlying_symbol, underlying_exchange_token, expiry_date
+ * (YYYY-MM-DD), strike_price, lot_size, tick_size, freeze_quantity, is_reserved, buy_allowed, sell_allowed.
+ * Columns are read by header name, so extra columns are ignored.
  *
- * CSV columns (header row, order not depended on): exchange, exchange_token,
- * trading_symbol, groww_symbol, name, instrument_type, segment, series, isin,
- * underlying_symbol, underlying_exchange_token, expiry_date, strike_price,
- * lot_size, tick_size, freeze_quantity, is_reserved, buy_allowed, sell_allowed.
- * expiry_date is already "YYYY-MM-DD". instrument_type is CE/PE/FUT/EQ/IDX.
+ * Index rows (instrument_type IDX, segment CASH) use the index name as trading_symbol: NIFTY, BANKNIFTY,
+ * FINNIFTY, NIFTYMIDSELECT (Nifty Midcap Select), SENSEX, BANKEX. Index options use underlying_symbol
+ * NIFTY / BANKNIFTY / FINNIFTY / MIDCPNIFTY / SENSEX / BANKEX. Groww symbols look like NSE-NIFTY,
+ * NSE-NIFTY-27Oct26-25000-CE (Backtesting page), used by the historical-candles endpoint.
  */
 
+import { brokerFetch, CANONICAL_UNDERLYINGS } from "./contract.mjs";
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
 
-const INSTRUMENTS_CSV_URL = "https://growwapi-assets.groww.in/instruments/instrument.csv";
+export const INSTRUMENTS_CSV_URL = "https://growwapi-assets.groww.in/instruments/instrument.csv";
 
-// Which exchange each app symbol's option contracts (and the index itself) live on.
-export const UNDERLYING_EXCHANGE = {
-  NIFTY: "NSE",
-  BANKNIFTY: "NSE",
-  FINNIFTY: "NSE",
-  MIDCPNIFTY: "NSE",
-  SENSEX: "BSE",
+/** Index trading_symbol in the CASH segment for each canonical underlying (the spot quote). */
+export const INDEX_SPOT_SYMBOL = {
+  NIFTY: "NIFTY", BANKNIFTY: "BANKNIFTY", FINNIFTY: "FINNIFTY", MIDCPNIFTY: "NIFTYMIDSELECT", SENSEX: "SENSEX", BANKEX: "BANKEX",
 };
+export const INDEX_EXCHANGE = { NIFTY: "NSE", BANKNIFTY: "NSE", FINNIFTY: "NSE", MIDCPNIFTY: "NSE", SENSEX: "BSE", BANKEX: "BSE" };
+const CANONICAL_OF_INDEX_SYMBOL = Object.fromEntries(Object.entries(INDEX_SPOT_SYMBOL).map(([k, v]) => [v, k]));
+const CANONICAL = new Set(CANONICAL_UNDERLYINGS);
+// Index derivatives outside the six canonical underlyings (e.g. NIFTYNXT50, SENSEX50) are left out.
+const OTHER_INDEX_UNDERLYING = /^(NIFTY|SENSEX|BANKEX|FINNIFTY|MIDCPNIFTY)/;
 
-// Groww's `underlying_symbol` column value(s) for each app symbol's option contracts.
-// MIDCPNIFTY is unverified — openalgo's master_contract_db.py shows Groww uses
-// "NIFTYMIDSELECT" as the raw symbol for the Nifty Midcap Select index elsewhere
-// in its data, so both spellings are checked defensively.
-export const UNDERLYING_NAME_ALIASES = {
-  NIFTY: ["NIFTY"],
-  BANKNIFTY: ["BANKNIFTY"],
-  FINNIFTY: ["FINNIFTY"],
-  MIDCPNIFTY: ["MIDCPNIFTY", "NIFTYMIDSELECT"],
-  SENSEX: ["SENSEX"],
-};
-
-// `trading_symbol` candidates for the index (IDX) row itself, used for the spot quote.
-export const INDEX_SPOT_ALIASES = {
-  NIFTY: ["NIFTY"],
-  BANKNIFTY: ["BANKNIFTY", "NIFTY BANK"],
-  FINNIFTY: ["FINNIFTY", "NIFTY FIN SERVICE"],
-  MIDCPNIFTY: ["MIDCPNIFTY", "NIFTYMIDSELECT", "NIFTY MID SELECT"],
-  SENSEX: ["SENSEX"],
-};
-
-/** Minimal RFC4180-ish CSV line parser — handles quoted fields with embedded commas. */
-function parseCsvLine(line) {
+/** RFC 4180-ish line splitter (quoted fields may hold commas). */
+export function splitCsvLine(line) {
   const out = [];
   let cur = "";
-  let inQuotes = false;
+  let quoted = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
-      } else {
-        cur += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += c;
-    }
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { out.push(cur); cur = ""; } else cur += c;
   }
   out.push(cur);
   return out;
 }
 
-function parseCsv(text) {
-  const lines = text.split("\n");
-  let start = 0;
-  while (start < lines.length && lines[start].trim() === "") start++;
-  if (start >= lines.length) return [];
-  const headers = parseCsvLine(lines[start]).map((h) => h.trim());
-  const rows = [];
-  for (let i = start + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line || !line.trim()) continue;
-    const cols = parseCsvLine(line);
+export function parseCsv(text) {
+  const lines = String(text ?? "").split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const head = splitCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const cols = splitCsvLine(line);
     const row = {};
-    for (let c = 0; c < headers.length; c++) row[headers[c]] = (cols[c] ?? "").trim();
-    rows.push(row);
+    head.forEach((h, i) => { row[h] = (cols[i] ?? "").trim(); });
+    return row;
+  });
+}
+
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+/**
+ * One CSV row -> a compact master row, or null when it is outside what this adapter trades.
+ * { exchange (contract), growwExchange, segment, token, tradingSymbol, growwSymbol, instrumentType,
+ *   underlying, expiry, strike, optionType, lotSize, tickSize, isin }
+ */
+export function toMasterRow(r) {
+  const growwExchange = r.exchange;
+  if (growwExchange !== "NSE" && growwExchange !== "BSE") return null;
+  const type = r.instrument_type;
+  const base = {
+    growwExchange,
+    token: r.exchange_token,
+    tradingSymbol: r.trading_symbol,
+    growwSymbol: r.groww_symbol || null,
+    isin: r.isin && r.isin !== "NaN" ? r.isin : null,
+  };
+  if (!base.token || !base.tradingSymbol) return null;
+  const lot = num(r.lot_size);
+  const tick = num(r.tick_size);
+  if (r.segment === "CASH" && type === "IDX") {
+    return { ...base, exchange: growwExchange, segment: "CASH", instrumentType: "INDEX",
+      underlying: CANONICAL_OF_INDEX_SYMBOL[r.trading_symbol] ?? r.trading_symbol, expiry: null, strike: null, optionType: null, lotSize: 1, tickSize: 0.05 };
   }
+  if (r.segment === "CASH" && type === "EQ") {
+    return { ...base, exchange: growwExchange, segment: "CASH", instrumentType: "EQ", underlying: r.trading_symbol,
+      expiry: null, strike: null, optionType: null, lotSize: lot > 0 ? lot : 1, tickSize: tick > 0 ? tick : 0.05 };
+  }
+  if (r.segment !== "FNO" || !["CE", "PE", "FUT"].includes(type)) return null;
+  const underlying = r.underlying_symbol;
+  const isIndex = CANONICAL.has(underlying);
+  if (!isIndex && OTHER_INDEX_UNDERLYING.test(underlying)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.expiry_date) || !(lot > 0)) return null;
+  const isOpt = type !== "FUT";
+  const strike = num(r.strike_price);
+  if (isOpt && !(strike > 0)) return null;
+  return {
+    ...base,
+    exchange: growwExchange === "NSE" ? "NFO" : "BFO",
+    segment: "FNO",
+    instrumentType: isOpt ? (isIndex ? "OPTIDX" : "OPTSTK") : (isIndex ? "FUTIDX" : "FUTSTK"),
+    underlying,
+    expiry: r.expiry_date,
+    strike: isOpt ? strike : null,
+    optionType: isOpt ? type : null,
+    lotSize: lot,
+    tickSize: tick > 0 ? tick : 0.05,
+  };
+}
+
+/** Contract Instrument from a master row. */
+export function toInstrument(m) {
+  return {
+    token: String(m.token), exchange: m.exchange, tradingSymbol: m.tradingSymbol, underlying: m.underlying,
+    instrumentType: m.instrumentType, expiry: m.expiry, strike: m.strike, optionType: m.optionType, lotSize: m.lotSize, tickSize: m.tickSize,
+  };
+}
+
+async function download() {
+  const res = await brokerFetch(INSTRUMENTS_CSV_URL, { redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`Groww instrument master download failed (HTTP ${res.status})`);
+  const rows = parseCsv(await res.text()).map(toMasterRow).filter(Boolean);
+  if (!rows.length) throw new Error("Groww instrument master had no usable rows");
   return rows;
 }
 
-async function downloadInstruments() {
-  console.log("[groww] downloading instrument master (instrument.csv)");
-  const res = await fetch(INSTRUMENTS_CSV_URL);
-  if (!res.ok) throw new Error(`Groww instrument master download failed [${res.status}]`);
-  const text = await res.text();
-  const rows = parseCsv(text);
-  if (rows.length === 0) throw new Error("Groww instrument master returned no rows");
-  return rows;
+/** Daily-cached master rows (public data, shared by every user). */
+export function getMaster() {
+  return getCachedOrFetch("groww:master:v2", download, ONE_DAY_MS);
 }
 
-/** Cached once/day, shared across all users' credentials (public market data). */
-export async function getInstrumentMaster() {
-  return getCachedOrFetch("groww:instrument-master", downloadInstruments, ONE_DAY_MS);
+/** Option rows of one underlying (canonical index or stock symbol), all expiries. */
+export function optionRows(master, symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  return master.filter((m) => m.underlying === u && (m.instrumentType === "OPTIDX" || m.instrumentType === "OPTSTK"));
 }
 
-function normalize(s) {
-  return (s || "").toUpperCase().replace(/\s+/g, "");
+export function listExpiries(master, symbol) {
+  return [...new Set(optionRows(master, symbol).map((m) => m.expiry))].sort();
 }
 
-function matchesUnderlying(row, symbol) {
-  const aliases = (UNDERLYING_NAME_ALIASES[symbol] || []).map(normalize);
-  return aliases.includes(normalize(row.underlying_symbol));
+/** The CASH row to quote for a symbol's spot (index or stock), or null. */
+export function spotRow(master, symbol) {
+  const u = String(symbol ?? "").toUpperCase();
+  if (INDEX_SPOT_SYMBOL[u]) {
+    return master.find((m) => m.instrumentType === "INDEX" && m.growwExchange === INDEX_EXCHANGE[u] && m.tradingSymbol === INDEX_SPOT_SYMBOL[u]) || null;
+  }
+  return master.find((m) => m.instrumentType === "EQ" && m.growwExchange === "NSE" && m.tradingSymbol === u) || null;
 }
 
-/** All CE/PE instrument rows for a given app symbol, across all expiries. */
-export async function getOptionRows(symbol) {
-  const exchange = UNDERLYING_EXCHANGE[symbol];
-  if (!exchange) throw new Error(`Unknown symbol: ${symbol}`);
-  const rows = await getInstrumentMaster();
-  return rows.filter((r) =>
-    r.exchange === exchange &&
-    r.segment === "FNO" &&
-    (r.instrument_type === "CE" || r.instrument_type === "PE") &&
-    matchesUnderlying(r, symbol)
-  );
+/** Master row for a contract InstrumentRef { token, exchange }. */
+export function findByRef(master, ref) {
+  const token = String(ref?.token ?? "");
+  return master.find((m) => m.exchange === ref?.exchange && String(m.token) === token)
+    // An index ref may arrive with exchange NSE/BSE and the index name as token.
+    || master.find((m) => m.instrumentType === "INDEX" && m.growwExchange === ref?.exchange && String(m.token) === token)
+    || null;
 }
 
-/** Distinct expiry dates (already "YYYY-MM-DD" in the CSV), ascending. */
-export function distinctExpiriesAscending(rows) {
-  const set = new Set(rows.map((r) => r.expiry_date).filter(Boolean));
-  return Array.from(set).sort();
-}
-
-/** The index (IDX) row for an app symbol's own spot quote, or null if not found. */
-export async function getIndexSpotRow(symbol) {
-  const exchange = UNDERLYING_EXCHANGE[symbol];
-  if (!exchange) throw new Error(`Unknown symbol: ${symbol}`);
-  const aliases = (INDEX_SPOT_ALIASES[symbol] || []).map(normalize);
-  const rows = await getInstrumentMaster();
-  return rows.find((r) =>
-    r.exchange === exchange &&
-    (r.instrument_type === "IDX" || r.segment === "IDX") &&
-    aliases.includes(normalize(r.trading_symbol))
-  ) || null;
+export function findBySymbol(master, exchange, tradingSymbol) {
+  return master.find((m) => m.exchange === exchange && m.tradingSymbol === tradingSymbol) || null;
 }

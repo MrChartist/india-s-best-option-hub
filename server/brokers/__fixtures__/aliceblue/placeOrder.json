@@ -1,0 +1,56 @@
+{
+  "args": [
+    {
+      "token": "47425",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "INTRADAY",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/orders/placeorder$",
+      "expectBody": [
+        {
+          "exchange": "NFO",
+          "instrumentId": "47425",
+          "transactionType": "BUY",
+          "quantity": 130,
+          "product": "INTRADAY",
+          "orderComplexity": "REGULAR",
+          "orderType": "LIMIT",
+          "validity": "DAY",
+          "price": 104.5
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "brokerOrderId": "26081900044170",
+            "requestTime": "10:25:03 19-08-2026"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "brokerId": "hdfcsky",
+  "creds": {
+    "apiKey": "dummy-sky-api-key",
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJERU1PMSIsImV4cCI6MTg5MzQ1NjAwMH0.dummysignature"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-27",
+  "sources": [
+    "https://developer.hdfcsky.com/sky-docs/docs/intro",
+    "https://developer.hdfcsky.com/sky-docs/docs/token_id_fe",
+    "https://developer.hdfcsky.com/sky-docs/docs/fetch_access_token_via_api/access_token",
+    "https://developer.hdfcsky.com/sky-docs/docs/error_structure",
+    "https://developer.hdfcsky.com/sky-docs/docs/response",
+    "https://developer.hdfcsky.com/sky-docs/docs/profile/",
+    "https://developer.hdfcsky.com/sky-docs/docs/fetchltp",
+    "https://developer.hdfcsky.com/sky-docs/docs/fetchCandles",
+    "https://developer.hdfcsky.com/sky-docs/docs/security_master",
+    "https://developer.hdfcsky.com/sky-docs/docs/websocket",
+    "https://developer.hdfcsky.com/sky-docs/docs/portfolio/fetchpositionsnetwise",
+    "https://developer.hdfcsky.com/sky-docs/docs/portfolio/fetchdematholdings",
+    "https://developer.hdfcsky.com/sky-docs/docs/funds/fetchfundsv2",
+    "https://developer.hdfcsky.com/sky-docs/docs/funds/",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/order_book/fetchpendingorder",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/order_book/fetchcompletedorder",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/order_book/tradebook",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/regular_order/placeregularorder",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/regular_order/modifyregularorder",
+    "https://developer.hdfcsky.com/sky-docs/docs/orders/regular_order/deleteregularorder"
+  ],
+  "notes": "JSON payloads are the official HDFC Sky docs samples (fetchltp, fetchCandles, profile, fetchpositionsnetwise, fetchdematholdings, fetchfundsv2, fetchpendingorder, fetchcompletedorder, tradebook, place/modify/delete regular order) with ids and prices replaced by dummies. Docs typos fixed so the samples parse: missing commas between funds rows and after contract_description. The docs do not describe the security-master columns; the CSV header is copied from the live CompactScrip.csv (October 2026) and served here as plain text (the live download is a ZIP; hdfcskyInstruments accepts both). The access token is a dummy unsigned JWT whose sub claim is the docs' DEMO1 client id. OI/volume/depth come from the WebSocket and are stubbed in hdfcsky.test.mjs."
+}

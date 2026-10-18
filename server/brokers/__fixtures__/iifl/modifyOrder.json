@@ -1,0 +1,95 @@
+{
+  "args": [
+    "2190766863",
+    {
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "quantity": 150,
+      "price": 198.75
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://ttblaze.iifl.com/hostlookup",
+      "expectBody": {
+        "AccessPassword": "2021HostLookUpAccess",
+        "version": "interactive_1.0.1"
+      },
+      "json": {
+        "type": "success",
+        "code": "hostlookup",
+        "description": "Hostlookup successful",
+        "result": {
+          "UniqueKey": "dummyUniqueKey01",
+          "connectionString": "https://ttblaze.iifl.com/1interactive",
+          "timeStamp": "0",
+          "remarks": ""
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://ttblaze.iifl.com/1interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIiIaKey01",
+        "secretKey": "dummyIiIaSecret01",
+        "accessToken": "dummyAccessToken01",
+        "uniqueKey": "dummyUniqueKey01"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User.",
+        "result": {
+          "enums": {
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ],
+            "dayOrNet": [
+              "DAY",
+              "NET"
+            ],
+            "exchangeSegment": [
+              "NSECM",
+              "NSEFO",
+              "NSECD",
+              "BSECM",
+              "BSEFO",
+              "MCXFO"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "token": "dummy.ia.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://ttblaze.iifl.com/1interactive/orders",
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 2190766863,
+          "OrderUniqueIdentifier": "mrchub",
+          "ClientID": "DUMMY1"
+        }
+      },
+      "expectBody": {
+        "appOrderID": 2190766863,
+        "modifiedOrderType": "Limit",
+        "modifiedProductType": "NRML",
+        "modifiedOrderQuantity": 150,
+        "modifiedLimitPrice": 198.75
+      }
+    }
+  ]
+}

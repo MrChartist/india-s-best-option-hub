@@ -1,0 +1,55 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY26OCT25000CE",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 95
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/order/create",
+      "expectBody": {
+        "trading_symbol": "NIFTY26OCT25000CE",
+        "quantity": 130,
+        "price": 95,
+        "trigger_price": 0,
+        "validity": "DAY",
+        "exchange": "NSE",
+        "segment": "FNO",
+        "product": "NRML",
+        "order_type": "LIMIT",
+        "transaction_type": "BUY"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "groww_order_id": "GMK39038RDT490CCVRO",
+          "order_status": "OPEN",
+          "order_reference_id": "Ab654321234162819",
+          "remark": "Order placed successfully"
+        }
+      }
+    }
+  ]
+}

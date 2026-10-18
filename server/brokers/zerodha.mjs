@@ -1,132 +1,104 @@
 /**
- * Zerodha (Kite Connect) — real broker integration (see registry.mjs for the shared contract).
+ * Zerodha (Kite Connect v3) on the canonical adapter contract (server/brokers/contract.mjs).
  *
- * Auth model: paste-token, same UX as Dhan. The user completes Kite's browser
- * OAuth (password + TOTP) externally once per trading day and pastes the
- * resulting accessToken into Broker Settings. This module never performs a
- * login itself — every call just builds `Authorization: token <apiKey>:<accessToken>`
- * + `X-Kite-Version: 3` directly from creds. accessToken expires ~6:00 AM IST
- * the next calendar day; a 403 is treated as "token expired" and surfaced as such.
+ * Official docs (checked October 2026): https://kite.trade/docs/connect/v3/ — user/ (login flow,
+ * /session/token, /user/profile, /user/margins), market-quotes/, historical/, portfolio/, orders/,
+ * websocket/, exceptions/. OpenAlgo was read for facts only; no code was taken from it.
  *
- * Kite has no native option-chain endpoint, so the chain is built from the daily
- * instrument master (zerodhaInstruments.mjs) + batched /quote calls, with IV and
- * Greeks filled in via Black-Scholes since Kite's quotes carry neither.
+ * Auth: oauthRedirect. The user logs in on kite.zerodha.com/connect/login?v=3&api_key=..., Kite
+ * redirects back with a short-lived request_token, and POST /session/token (api_key, request_token,
+ * checksum = SHA-256(api_key + request_token + api_secret)) returns the access_token. Today the user
+ * pastes the access_token in Broker Settings; exchangeRequestToken() below is the server-side half of
+ * the redirect flow for when a callback route is added. The access token expires at 6 AM IST the next
+ * day (regulatory). Kite answers 403 TokenException once it is dead; that surfaces as UPSTREAM_AUTH.
+ *
+ * Option chain: Kite has no chain endpoint. Strikes come from the daily instrument dump
+ * (zerodhaInstruments.mjs) and prices from batched GET /quote (500 instruments per call, 1 call per
+ * second); the index spot rides in the same /quote call. Kite quotes carry no IV, Greeks or previous
+ * OI, so IV/Greeks are computed (Black-Scholes, blackScholes.mjs) and oi_chg is omitted.
  */
 
+import { createHash } from "node:crypto";
 import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
-import { batchWithDelay } from "../lib/batch.mjs";
-import {
-  KITE_BASE,
-  UNDERLYING_EXCHANGE,
-  SPOT_TICKER,
-  authHeaders,
-  getOptionRows,
-  distinctExpiriesAscending,
-} from "./zerodhaInstruments.mjs";
-
-// Order placement (real money) — see zerodhaOrders.mjs for what's confirmed
-// against Kite Connect's official docs vs. NEEDS VERIFICATION. Re-exported
-// here so registry.get("zerodha") matches the module contract documented in
-// registry.mjs, same as every other exported function in this file.
-export { capabilities, buildOrderBody, placeOrder, getOrders, getOrderStatus, cancelOrder } from "./zerodhaOrders.mjs";
+import { BrokerError, BrokerInputError, normaliseError as baseNormalise } from "./contract.mjs";
+import { KITE_LOGIN_URL, kiteFetch } from "./zerodhaClient.mjs";
+import { distinctExpiriesAscending, getOptionRows, optionUnderlying } from "./zerodhaInstruments.mjs";
+import { quoteByKeys } from "./zerodhaData.mjs";
+import { orderFeatures } from "./zerodhaOrders.mjs";
 
 export const id = "zerodha";
 export const credentialFields = ["apiKey", "apiSecret", "accessToken"];
 
-// Kite's documented /quote rate limit: 1 request/second, max 500 instruments per call.
-const QUOTE_BATCH_SIZE = 500;
-const QUOTE_BATCH_DELAY_MS = 1000;
+export const capabilities = {
+  auth: { kind: "oauthRedirect", loginUrl: `${KITE_LOGIN_URL}?v=3&api_key={apiKey}`, tokenExpiry: "06:00 IST next day" },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "computed" },
+  ltp: true,
+  quotes: true,
+  depth: true,
+  historical: { intervals: ["1m", "3m", "5m", "15m", "30m", "60m", "1d"] },
+  feed: true,
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+  ...orderFeatures,
+};
 
-async function kiteGet(path, creds, params) {
-  const url = new URL(`${KITE_BASE}${path}`);
-  if (params) {
-    for (const [key, value] of params) url.searchParams.append(key, value);
-  }
-  const res = await fetch(url, { headers: authHeaders(creds) });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    if (res.status === 403) {
-      throw new Error("Zerodha access token expired or invalid — generate a fresh token and paste it in Broker Settings.");
-    }
-    throw new Error(`Zerodha API error [${res.status}]: ${body.slice(0, 300)}`);
-  }
-  return res.json();
-}
-
+/** One cheap authenticated call: GET /user/profile. */
 export async function testConnection(creds = {}) {
   try {
-    if (!creds.apiKey || !creds.accessToken) {
-      return { status: "error", message: "Missing apiKey or accessToken" };
-    }
-    const json = await kiteGet("/quote/ltp", creds, [["i", SPOT_TICKER.NIFTY]]);
-    if (json?.status !== "success") {
-      return { status: "error", message: json?.message || "Zerodha did not return a success status" };
-    }
-    return { status: "success", message: "Zerodha (Kite Connect) connected" };
+    if (!creds.apiKey || !creds.accessToken) return { status: "error", message: "Missing API key or access token." };
+    const profile = await kiteFetch("/user/profile", creds);
+    const fno = Array.isArray(profile?.exchanges) && profile.exchanges.includes("NFO");
+    return { status: "success", message: `Zerodha (Kite Connect) connected${fno ? "" : " — note: NFO is not enabled on this account"}.` };
   } catch (e) {
     return { status: "error", message: e.message };
   }
 }
 
 export async function fetchExpiryList(creds, symbol) {
-  const rows = await getOptionRows(creds, symbol);
-  return { status: "success", data: distinctExpiriesAscending(rows) };
+  return { status: "success", data: distinctExpiriesAscending(await getOptionRows(creds, symbol)) };
 }
 
 export async function fetchLTP(creds, symbol) {
-  const ticker = SPOT_TICKER[symbol];
-  if (!ticker) throw new Error(`Unknown index: ${symbol}`);
-  const json = await kiteGet("/quote/ltp", creds, [["i", ticker]]);
-  const lastPrice = json?.data?.[ticker]?.last_price;
-  if (typeof lastPrice !== "number") {
-    throw new Error(`Zerodha returned no LTP for ${ticker}`);
-  }
+  const ticker = optionUnderlying(symbol)?.spotKey;
+  if (!ticker) throw new Error(`Unknown symbol for Zerodha: ${symbol}`);
+  const data = await kiteFetch("/quote/ltp", creds, { query: [["i", ticker]] });
+  const lastPrice = Number(data?.[ticker]?.last_price);
+  if (!(lastPrice > 0)) throw new BrokerError(`Zerodha returned no LTP for ${ticker}`);
   return { status: "success", data: { last_price: lastPrice } };
 }
 
-async function fetchSpot(creds, symbol) {
-  const { data } = await fetchLTP(creds, symbol);
-  return data.last_price;
-}
-
-/** Fetches quotes for `tradingsymbols` (already "EXCHANGE:TRADINGSYMBOL"), batched + rate-limited. */
-async function fetchQuotes(creds, tradingsymbols) {
-  const batches = await batchWithDelay(tradingsymbols, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    const json = await kiteGet("/quote", creds, chunk.map((sym) => ["i", sym]));
-    return json?.data || {};
-  });
-  return Object.assign({}, ...batches);
-}
-
-function buildLeg({ quote, spot, strike, daysToExpiry, type }) {
-  const ltp = quote.last_price || 0;
-  const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
+function buildLeg(quote, { spot, strike, daysToExpiry, type }) {
+  const ltp = Number(quote.last_price) || 0;
   return {
     last_price: ltp,
-    oi: quote.oi || 0,
-    volume: quote.volume || 0,
-    ...greeks,
-    bid_price: quote.depth?.buy?.[0]?.price || 0,
-    ask_price: quote.depth?.sell?.[0]?.price || 0,
+    oi: Number(quote.oi) || 0,
+    volume: Number(quote.volume) || 0,
+    ...computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type }),
+    bid_price: Number(quote.depth?.buy?.[0]?.price) || 0,
+    ask_price: Number(quote.depth?.sell?.[0]?.price) || 0,
   };
 }
 
 export async function fetchOptionChain(creds, symbol, expiry) {
-  let rows = await getOptionRows(creds, symbol);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
+  const all = await getOptionRows(creds, symbol);
+  const targetExpiry = expiry || distinctExpiriesAscending(all)[0];
+  const rows = all.filter((r) => r.expiry === targetExpiry);
+  if (!targetExpiry || rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
 
-  const targetExpiry = expiry || distinctExpiriesAscending(rows)[0];
-  if (!targetExpiry) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  rows = rows.filter((r) => r.expiry === targetExpiry);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const exchange = UNDERLYING_EXCHANGE[symbol];
-  const spot = await fetchSpot(creds, symbol);
+  const { exchange, spotKey } = optionUnderlying(symbol);
+  const quotes = await quoteByKeys(creds, [spotKey, ...rows.map((r) => `${exchange}:${r.tradingsymbol}`)]);
+  const spot = Number(quotes[spotKey]?.last_price) || 0;
   const daysToExpiry = daysBetween(new Date(), targetExpiry);
-
-  const tradingsymbols = rows.map((r) => `${exchange}:${r.tradingsymbol}`);
-  const quotes = await fetchQuotes(creds, tradingsymbols);
 
   const oc = {};
   for (const row of rows) {
@@ -134,10 +106,35 @@ export async function fetchOptionChain(creds, symbol, expiry) {
     if (!quote) continue;
     const strike = Number(row.strike);
     const type = row.instrument_type === "CE" ? "CE" : "PE";
-    const strikeKey = String(strike);
-    if (!oc[strikeKey]) oc[strikeKey] = {};
-    oc[strikeKey][type.toLowerCase()] = buildLeg({ quote, spot, strike, daysToExpiry, type });
+    (oc[String(strike)] ||= {})[type.toLowerCase()] = buildLeg(quote, { spot, strike, daysToExpiry, type });
   }
-
   return { status: "success", data: { oc, last_price: spot } };
 }
+
+/**
+ * Server-side half of the Kite redirect login: swap the one-time request_token for an access token.
+ * Returns only { accessToken, userId }; the api_secret never leaves this process and is not logged.
+ * Not wired to a route yet (the user pastes the access token today).
+ */
+export async function exchangeRequestToken(creds, requestToken) {
+  if (!creds?.apiKey || !creds?.apiSecret) throw new BrokerInputError("Zerodha: API key and API secret are required.");
+  if (!/^[A-Za-z0-9]{6,64}$/.test(String(requestToken ?? ""))) throw new BrokerInputError("Zerodha: the request token looks malformed.");
+  const checksum = createHash("sha256").update(`${creds.apiKey}${requestToken}${creds.apiSecret}`).digest("hex");
+  const data = await kiteFetch("/session/token", creds, { method: "POST", auth: false, form: { api_key: creds.apiKey, request_token: requestToken, checksum } });
+  if (!data?.access_token) throw new BrokerError("Zerodha did not return an access token.");
+  return { accessToken: String(data.access_token), userId: data.user_id ? String(data.user_id) : null };
+}
+
+/** Kite errors already carry contract codes (KiteApiError); this adds secret redaction and the fallback. */
+export function normaliseError(err, opts = {}) {
+  const base = baseNormalise(err, opts);
+  if (err instanceof BrokerError) return base;
+  if (/TokenException|\[403/.test(base.message)) return { ...base, code: "UPSTREAM_AUTH" };
+  if (/\[429/.test(base.message)) return { ...base, code: "UPSTREAM_RATE_LIMIT" };
+  return base;
+}
+
+export { fetchInstruments } from "./zerodhaInstruments.mjs";
+export { fetchQuotes, fetchDepth, fetchHistorical, fetchPositions, fetchHoldings, fetchFunds } from "./zerodhaData.mjs";
+export { buildOrderBody, buildModifyBody, placeOrder, modifyOrder, cancelOrder, getOrders, getOrderStatus, fetchOrderBook, fetchTradeBook } from "./zerodhaOrders.mjs";
+export { createFeed } from "./zerodhaFeed.mjs";

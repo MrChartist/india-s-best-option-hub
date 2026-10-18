@@ -1,114 +1,154 @@
 /**
- * Arrow (https://arrow.trade) authentication.
+ * Arrow (arrow.trade, iRage Broking) session exchange and REST transport.
  *
- * Arrow's login is a Zerodha-style external redirect + checksum handshake, NOT
- * a paste-a-JWT model and NOT a server-side TOTP login:
- *   1. The user visits https://app.arrow.trade/app/login?appID=<appId> in their
- *      own browser, signs in (password + TOTP is handled entirely by Arrow's
- *      hosted login page), and is redirected to their registered redirect URL
- *      with a one-time `request-token` query param.
- *   2. The user copies that `request-token` value and pastes it into Broker
- *      Settings alongside their `appId` / `appSecret`.
- *   3. WE do the token exchange server-side: SHA256("appId:appSecret:requestToken")
- *      (colon-separated, in that order) as `checkSum`, POSTed with `token`
- *      (the request-token) and `appID` to /auth/app/authenticate-token.
- *   4. Arrow returns a JWT (`data.token`) good for 24 hours (docs: "Access
- *      tokens have a limited lifespan (24hrs) due to regulatory compliance").
+ * Official docs (checked 2026-10): https://docs.arrow.trade/rest-api/authentication/ ,
+ * /rest-api/error-codes/ , /rest-api/response-structure/ , /rest-api/rate-limits/ .
+ *  1. The user opens https://app.arrow.trade/app/login?appID=<appId>, signs in on Arrow's own page
+ *     (user id, password and TOTP never touch this app) and is redirected with ?request-token=...
+ *  2. POST https://edge.arrow.trade/auth/app/authenticate-token with JSON
+ *     { appID, token: <request-token>, checkSum: SHA-256("appID:appSecret:request-token") }.
+ *     Success: { status: "success", data: { name, token, userID } }. The token lasts 24 hours and there is
+ *     no refresh token. The request-token is single use.
+ *  3. Every call sends the custom headers `appID` and `token` (not `Authorization: Bearer`).
+ *  Errors: { status: "error"|"failure", message, errorCode }, with HTTP 401 UNAUTHORIZED for an expired
+ *  session and 429 TOO_MANY_REQUESTS. Rate limits: 10 requests/second per product (orders, positions,
+ *  holdings, funds, historical, market data).
  *
- * The request-token is single-use, so we cache the resulting JWT in-memory
- * keyed by the full creds triple and reuse it for the documented 24h window
- * instead of re-exchanging (which would fail the second time — Arrow's token
- * exchange is one-shot per request-token). Once the JWT expires the user must
- * repeat the browser login and paste a fresh request-token.
- *
- * NEVER log appSecret, requestToken, or the JWT itself — field names / status
- * codes only.
+ * Contract auth kind: "requestTokenExchange". The access token lives only in this process (keyed by a hash
+ * of the saved fields) and is never logged; a used or rejected request-token is remembered so it is not
+ * re-sent. Nothing secret is logged.
  */
 
 import { createHash } from "node:crypto";
+import { BrokerError, brokerFetch, BrokerInputError, SessionRequiredError } from "./contract.mjs";
+import { createBoundedSet, createSessionCache } from "../lib/boundedCache.mjs";
 
 export const ROOT_URL = "https://edge.arrow.trade";
-const AUTH_TOKEN_URL = `${ROOT_URL}/auth/app/authenticate-token`;
+export const HISTORICAL_URL = "https://historical-api.arrow.trade";
+export const AUTH_TOKEN_URL = `${ROOT_URL}/auth/app/authenticate-token`;
+export const LOGIN_URL = "https://app.arrow.trade/app/login";
 
-// Documented session lifetime — used as our in-memory cache TTL.
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // documented lifetime
+const SAFETY_MARGIN_MS = 5 * 60 * 1000;
+const KEY_FIELDS = ["appId", "appSecret", "requestToken"];
 
-const sessionCache = new Map(); // credsKey -> { token, expiresAt }
+export const sha256Hex = (s) => createHash("sha256").update(String(s)).digest("hex");
+const str = (v) => (v === undefined || v === null ? "" : String(v));
+const keyOf = (creds) => sha256Hex(JSON.stringify(KEY_FIELDS.map((f) => str(creds?.[f]))));
+const regenerate = (creds) =>
+  `Open ${LOGIN_URL}?appID=${encodeURIComponent(str(creds?.appId) || "<App ID>")}, log in and save the new request-token in Broker Settings.`;
 
-function credsKey(creds) {
-  return JSON.stringify({
-    a: creds?.appId,
-    s: creds?.appSecret,
-    r: creds?.requestToken,
-  });
-}
-
-function sha256Hex(str) {
-  return createHash("sha256").update(str).digest("hex");
-}
+const sessions = createSessionCache(); // key -> { token, expiresAt }
+const inflight = new Map(); // key -> Promise (one exchange per request-token even under concurrent calls)
+const deadTokens = createBoundedSet();
 
 async function exchangeRequestToken(creds) {
-  const { appId, appSecret, requestToken } = creds || {};
-  if (!appId || !appSecret || !requestToken) {
-    throw new Error(
-      "Arrow credentials incomplete — need appId, appSecret, and requestToken. " +
-      "Get requestToken by visiting https://app.arrow.trade/app/login?appID=<appId>, " +
-      "logging in, and copying the request-token from the redirect URL."
-    );
+  const appId = str(creds.appId);
+  const requestToken = str(creds.requestToken);
+  let res;
+  try {
+    res = await brokerFetch(AUTH_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appID: appId, token: requestToken, checkSum: sha256Hex(`${appId}:${str(creds.appSecret)}:${requestToken}`) }),
+    });
+  } catch (e) {
+    throw new BrokerError(`Arrow login: network error (${e?.message || e})`);
   }
-
-  const checkSum = sha256Hex(`${appId}:${appSecret}:${requestToken}`);
-  const res = await fetch(AUTH_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ appID: appId, token: requestToken, checkSum }),
-  });
-  const json = await res.json().catch(() => ({}));
-
-  if (!res.ok || json?.status !== "success") {
-    const msg = json?.message || `HTTP ${res.status}`;
-    console.log(`[arrow] token exchange failed: ${msg}`);
-    throw new Error(
-      `Arrow authentication failed: ${msg}. The requestToken is single-use — ` +
-      "generate a fresh one by logging in again at https://app.arrow.trade/app/login?appID=<appId>."
-    );
-  }
-
-  const token = json.data?.token;
-  if (!token) {
-    throw new Error("Arrow authentication succeeded but returned no access token.");
-  }
-  return token;
+  const json = await res.json().catch(() => null);
+  const token = json?.status === "success" ? str(json?.data?.token) : "";
+  if (res.ok && token) return { token, expiresAt: Date.now() + SESSION_TTL_MS - SAFETY_MARGIN_MS };
+  if (res.status >= 500 || !json) throw new BrokerError(`Arrow login: HTTP ${res.status}`);
+  throw new SessionRequiredError(`Arrow did not accept the request-token (${json.message || `HTTP ${res.status}`}). Request-tokens are single use. ${regenerate(creds)}`);
 }
 
-/** Returns a valid cached JWT, exchanging the requestToken once if missing/expired. */
-export async function getAuthToken(creds) {
-  const key = credsKey(creds);
-  const cached = sessionCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.token;
+/** A valid access token for these saved fields, exchanging the request-token once when needed. */
+export async function getAccessToken(creds) {
+  const missing = KEY_FIELDS.filter((f) => !str(creds?.[f]).trim());
+  if (missing.length) throw new BrokerInputError(`Arrow: missing ${missing.join(", ")}.`);
+  const key = keyOf(creds);
+  const hit = sessions.get(key);
+  if (hit && Date.now() < hit.expiresAt) return hit.token;
+  if (hit) {
+    sessions.delete(key);
+    deadTokens.add(key);
+  }
+  if (deadTokens.has(key)) throw new SessionRequiredError(`Arrow: this request-token has already been used or has expired. ${regenerate(creds)}`);
+  let p = inflight.get(key);
+  if (!p) {
+    p = (async () => {
+      try {
+        const s = await exchangeRequestToken(creds);
+        sessions.set(key, s);
+        return s;
+      } catch (e) {
+        if (e instanceof SessionRequiredError) deadTokens.add(key);
+        throw e;
+      } finally {
+        inflight.delete(key);
+      }
+    })();
+    inflight.set(key, p);
+  }
+  return (await p).token;
+}
 
-  const token = await exchangeRequestToken(creds);
-  sessionCache.set(key, { token, expiresAt: Date.now() + SESSION_TTL_MS });
-  return token;
+/** Drop the cached access token after Arrow rejected it (401). The request-token cannot be reused. */
+export function invalidateSession(creds) {
+  const key = keyOf(creds);
+  sessions.delete(key);
+  deadTokens.add(key);
+}
+
+/** Test helper: forget every cached session and used request-token. */
+export function resetSessions() {
+  sessions.clear();
+  inflight.clear();
+  deadTokens.clear();
+}
+
+/** Arrow's custom auth headers. */
+export function authHeaders(appId, token, withJson = false) {
+  const headers = { appID: str(appId), token: str(token) };
+  if (withJson) headers["Content-Type"] = "application/json";
+  return headers;
 }
 
 /**
- * Evicts the cached JWT after a live 401/403 proves the broker rejected it before
- * its own 24h TTL (e.g. a forced logout, or server-side revocation). Unlike
- * angelone/5paisa's evergreen TOTP secrets, Arrow's requestToken is single-use —
- * it was already consumed by the original exchangeRequestToken call — so this
- * cannot silently re-derive a fresh JWT the way a full reactive retry would.
- * Callers must still surface a clear "get a fresh requestToken" error; this only
- * stops the stale, already-dead JWT from being reused on every subsequent call
- * until the 24h cache TTL happens to elapse on its own.
+ * Authenticated call. Returns the parsed JSON body (or { text } for non-JSON bodies when `raw` is set).
+ * 401 -> SessionRequiredError (cached token dropped); 429 -> BrokerError UPSTREAM_RATE_LIMIT;
+ * any other non-2xx or an error envelope -> BrokerError with Arrow's message.
  */
-export function invalidateSession(creds) {
-  sessionCache.delete(credsKey(creds));
-}
-
-/** Builds Arrow's custom auth headers. Arrow does NOT use `Authorization: Bearer`. */
-export function authHeaders(appId, token, withJson = false) {
-  const headers = { appID: appId, token };
-  if (withJson) headers["Content-Type"] = "application/json";
-  return headers;
+export async function arrowFetch(creds, path, { method = "GET", body, base = ROOT_URL, raw = false, what = path } = {}) {
+  const token = await getAccessToken(creds);
+  let res;
+  try {
+    res = await brokerFetch(`${base}${path}`, {
+      method,
+      headers: authHeaders(creds.appId, token, body !== undefined),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw new BrokerError(`Arrow ${what}: network error (${e?.message || e})`);
+  }
+  if (res.status === 401) {
+    invalidateSession(creds);
+    throw new SessionRequiredError(`Arrow rejected the session (HTTP 401). ${regenerate(creds)}`);
+  }
+  const text = await res.text();
+  if (raw && res.ok) return { text };
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+  if (res.status === 429) throw new BrokerError(`Arrow ${what}: rate limit reached (10 requests a second). Try again shortly.`, { code: "UPSTREAM_RATE_LIMIT" });
+  const envelopeFailed = json && typeof json === "object" && !Array.isArray(json) && json.status && json.status !== "success";
+  if (!res.ok || envelopeFailed) {
+    const msg = (json && (json.message || json.errorCode)) || text.slice(0, 160) || `HTTP ${res.status}`;
+    throw new BrokerError(`Arrow ${what} failed (HTTP ${res.status}): ${msg}`);
+  }
+  if (json === null) throw new BrokerError(`Arrow ${what}: unexpected non-JSON response`);
+  return json;
 }

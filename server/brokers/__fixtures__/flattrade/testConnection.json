@@ -1,0 +1,66 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/UserDetails",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "20:20:04 19-05-2020",
+        "prarr": [
+          {
+            "prd": "C",
+            "s_prdt_ali": "Delivery",
+            "exch": [
+              "NSE",
+              "BSE"
+            ]
+          },
+          {
+            "prd": "I",
+            "s_prdt_ali": "Intraday",
+            "exch": [
+              "NSE",
+              "BSE",
+              "NFO"
+            ]
+          }
+        ],
+        "exarr": [
+          "NSE",
+          "NFO"
+        ],
+        "orarr": [
+          "LMT",
+          "SL-LMT"
+        ],
+        "brkname": "DUMMY",
+        "brnchid": "DUMMY",
+        "email": "user@example.com",
+        "actid": "FZ00000",
+        "uprev": "INVESTOR",
+        "stat": "Ok"
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

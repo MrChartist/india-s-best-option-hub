@@ -1,0 +1,130 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/optionchains/NIFTY?exchange=NSE&expiry=20261020",
+      "json": {
+        "chain": {
+          "asset": "NIFTY",
+          "exchange": "NSE",
+          "expiry": "20261020",
+          "ce": [
+            {
+              "ref_id": 739117,
+              "inst_id": 740117,
+              "ts": 1792213200000000000,
+              "sp": 2495000,
+              "ls": 65,
+              "ltp": 13210,
+              "ltpchg": -6.47,
+              "iv": null,
+              "delta": 0.62,
+              "gamma": 0.0011,
+              "theta": -14.2,
+              "vega": 9.8,
+              "oi": 1022330,
+              "volume": 1070630
+            },
+            {
+              "ref_id": 739119,
+              "inst_id": 740119,
+              "ts": 1792213200000000000,
+              "sp": 2500000,
+              "ls": 65,
+              "ltp": 10495,
+              "ltpchg": -6.47,
+              "iv": null,
+              "delta": 0.51,
+              "gamma": 0.0012,
+              "theta": -15.1,
+              "vega": 10.2,
+              "oi": 2168400,
+              "volume": 12070630
+            },
+            {
+              "ref_id": 739121,
+              "inst_id": 740121,
+              "ts": 1792213200000000000,
+              "sp": 2505000,
+              "ls": 65,
+              "ltp": 7980,
+              "ltpchg": -6.47,
+              "iv": 0.1412,
+              "delta": 0.41,
+              "gamma": 0.0011,
+              "theta": -14.6,
+              "vega": 10.0,
+              "oi": 1814195,
+              "volume": 9070630
+            }
+          ],
+          "pe": [
+            {
+              "ref_id": 739118,
+              "inst_id": 740118,
+              "ts": 1792213200000000000,
+              "sp": 2495000,
+              "ls": 65,
+              "ltp": 7020,
+              "ltpchg": -6.47,
+              "iv": null,
+              "delta": -0.38,
+              "gamma": 0.0011,
+              "theta": -13.9,
+              "vega": 9.8,
+              "oi": 1392625,
+              "volume": 5070630
+            },
+            {
+              "ref_id": 739120,
+              "inst_id": 740120,
+              "ts": 1792213200000000000,
+              "sp": 2500000,
+              "ls": 65,
+              "ltp": 8350,
+              "ltpchg": -6.47,
+              "iv": null,
+              "delta": -0.49,
+              "gamma": 0.0012,
+              "theta": -14.8,
+              "vega": 10.2,
+              "oi": 2314195,
+              "volume": 11070630
+            },
+            {
+              "ref_id": 739122,
+              "inst_id": 740122,
+              "ts": 1792213200000000000,
+              "sp": 2505000,
+              "ls": 65,
+              "ltp": 9870,
+              "ltpchg": -6.47,
+              "iv": null,
+              "delta": null,
+              "gamma": null,
+              "theta": null,
+              "vega": null,
+              "oi": 1422330,
+              "volume": 2070630
+            }
+          ],
+          "atm": 2500000,
+          "cp": 2501215,
+          "all_expiries": [
+            "20261027",
+            "20261020",
+            "20261103",
+            "20261124"
+          ]
+        },
+        "message": "option chains"
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

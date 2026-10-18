@@ -1,0 +1,69 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/portfolio/v1/getAllHolding$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "holdings": [
+            {
+              "tradingsymbol": "PARAGMILK-EQ",
+              "exchange": "NSE",
+              "isin": "INE883N01014",
+              "t1quantity": 0,
+              "realisedquantity": 2,
+              "quantity": 2,
+              "authorisedquantity": 0,
+              "product": "DELIVERY",
+              "collateralquantity": null,
+              "collateraltype": null,
+              "haircut": 0,
+              "averageprice": 154.03,
+              "ltp": 201,
+              "symboltoken": "17130",
+              "close": 192.1,
+              "profitandloss": 94,
+              "pnlpercentage": 30.49
+            },
+            {
+              "tradingsymbol": "SBIN-EQ",
+              "exchange": "NSE",
+              "isin": "INE062A01020",
+              "t1quantity": 0,
+              "realisedquantity": 8,
+              "quantity": 8,
+              "authorisedquantity": 0,
+              "product": "DELIVERY",
+              "collateralquantity": null,
+              "collateraltype": null,
+              "haircut": 0,
+              "averageprice": 573.1,
+              "ltp": 579.05,
+              "symboltoken": "3045",
+              "close": 570.5,
+              "profitandloss": 48,
+              "pnlpercentage": 1.04
+            }
+          ],
+          "totalholding": {
+            "totalholdingvalue": 5294,
+            "totalinvvalue": 5116,
+            "totalprofitandloss": 178.14,
+            "totalpnlpercentage": 3.48
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

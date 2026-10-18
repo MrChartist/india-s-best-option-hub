@@ -1,0 +1,90 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "args": [
+    "261016000000080",
+    {
+      "orderType": "LIMIT",
+      "qty": 130,
+      "price": 119.5,
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/oms/orders",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": [
+          {
+            "symId": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+            "status": "open",
+            "qty": 130,
+            "side": "buy",
+            "type": "limit",
+            "validity": "day",
+            "validTill": "",
+            "source": "API",
+            "limitPrice": 118,
+            "exchOrderId": "1100000000000001",
+            "discQty": 0,
+            "product": "normal",
+            "exchTime": "16-10-2026 10:47:05",
+            "orderId": "261016000000080",
+            "orderTime": "16-10-2026 10:47:04",
+            "avgPrice": 118,
+            "amo": false,
+            "fillQty": 65,
+            "trigPrice": 0,
+            "reason": "",
+            "pendingQty": 65,
+            "sym": {
+              "id": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+              "symbol": "NIFTY",
+              "tradSymbol": "NIFTY 20OCT 25000 CE",
+              "exchange": "NFO",
+              "lot": "65",
+              "instrument": "OPTIDX",
+              "companyName": "",
+              "expiry": "",
+              "dispSymbol": "NIFTY 20OCT 25000 CE",
+              "asset": "option",
+              "empty": false
+            },
+            "mktProt": 0,
+            "orderValue": 15340,
+            "tradeValue": 7670,
+            "modifiable": true,
+            "cancellable": true,
+            "exitable": false,
+            "retriable": false,
+            "orderPoll": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://api.tradejini.com/v2/api/oms/modify-order",
+      "expectBody": {
+        "symId": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+        "orderId": "261016000000080",
+        "qty": "130",
+        "type": "limit",
+        "limitPrice": "119.5",
+        "validity": "day"
+      },
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "orderId": "261016000000080",
+          "msg": "Order Modified Successfully"
+        }
+      }
+    }
+  ]
+}

@@ -4,8 +4,7 @@
  * ONLY the exact field numbers/types the app needs, taken verbatim from HDFC's
  * published schema:
  *   https://developer.hdfcsec.com/ir-docs/assets/files/GenericDTO3-...proto
- * (openalgo's broker/hdfcsecurities/streaming/hdfcsecurities_market.proto
- * checks in the identical file — field numbers below are cross-checked against it).
+ * Field numbers and the PacketType enum below come from that schema.
  *
  * Wire format refresher: each field is `tag = (fieldNumber << 3) | wireType`
  * as a varint, followed by wireType 0 (varint), 1 (fixed64: double/int64),
@@ -99,17 +98,40 @@ function getRepeatedMessageFields(fields, num) {
   return arr.filter((e) => Buffer.isBuffer(e.raw)).map((e) => decodeFields(e.raw));
 }
 
-// PacketType enum values (from the .proto) this app cares about.
-export const PACKET_TYPE = {
-  NSE_INDEX: 2,
-  NSE_FO_ALL: 3,
-  BSE_INDEX: 5,
-  BSE_FO_ALL: 6,
-  NSE_FO_CIRC: 13,
-  NSE_FO_OI: 14,
-  BSE_FO_OI: 15,
-  HEARTBEAT: 16,
-};
+/**
+ * The PacketType enum from HDFC's GenericDTO .proto, one row per value, with the GenericDTO field that carries
+ * the data for that packet ("payload"):
+ *   mbp     - market-by-price quote in mbpData (field 2)
+ *   index   - index value in indexData (field 3)
+ *   oi      - open-interest refresh; the OI sits in mbpData.oi (field 2 -> 17)
+ *   circuit - price-band refresh only; nothing this app shows
+ *   skip    - order/trade/greek/heartbeat packets, not market quotes
+ */
+const PACKET_TABLE = [
+  ["NSE_CM_ALL", 0, "mbp"],
+  ["NSE_CD_ALL", 1, "mbp"],
+  ["NSE_INDEX", 2, "index"],
+  ["NSE_FO_ALL", 3, "mbp"],
+  ["BSE_CM", 4, "mbp"],
+  ["BSE_INDEX", 5, "index"],
+  ["BSE_FO_ALL", 6, "mbp"],
+  ["MCX_PKT", 7, "mbp"],
+  ["ORDER", 8, "skip"],
+  ["TRADE", 9, "skip"],
+  ["NSE_CM_CIRC", 10, "circuit"],
+  ["NSE_CD_CIRC", 11, "circuit"],
+  ["NSE_CD_OI", 12, "oi"],
+  ["NSE_FO_CIRC", 13, "circuit"],
+  ["NSE_FO_OI", 14, "oi"],
+  ["BSE_FO_OI", 15, "oi"],
+  ["HEARTBEAT", 16, "skip"],
+  ["NSE_FO_GREEK", 17, "skip"],
+  ["BSE_FO_GREEK", 18, "skip"],
+];
+
+/** Enum name -> number, e.g. PACKET_TYPE.NSE_FO_ALL === 3. */
+export const PACKET_TYPE = Object.freeze(Object.fromEntries(PACKET_TABLE.map(([name, value]) => [name, value])));
+const PAYLOAD_OF = new Map(PACKET_TABLE.map(([, value, payload]) => [value, payload]));
 
 function decodeMarketDepth(mdListFields) {
   if (!mdListFields) return { buy: [], sell: [] };
@@ -155,40 +177,35 @@ function decodeIndex(indexFields) {
   };
 }
 
-/** One GenericDTO -> a normalized tick, or null for packet types we don't need (Order/Trade/Greek/Heartbeat). */
+/** Payload readers by kind; each returns the tick fields, or null when the expected submessage is missing. */
+const PAYLOAD_READERS = {
+  index: (dto) => {
+    const fields = getMessageFields(dto, 3);
+    return fields ? { kind: "index", ...decodeIndex(fields) } : null;
+  },
+  oi: (dto) => {
+    const fields = getMessageFields(dto, 2);
+    return fields ? { kind: "oi", oi: getInt(fields, 17) } : null;
+  },
+  circuit: () => ({ kind: "circuit" }),
+  mbp: (dto) => {
+    const fields = getMessageFields(dto, 2);
+    return fields ? { kind: "mbp", ...decodeMbp(fields) } : null;
+  },
+};
+
+/**
+ * One GenericDTO -> a normalised tick, or null for packets that carry no market quote. A PacketType value that is
+ * not in the table (one HDFC adds later) is read as mbp, so any packet carrying mbpData still yields a tick.
+ */
 function decodePacket(dtoFields) {
   const packetType = getInt(dtoFields, 9);
-  if (packetType === PACKET_TYPE.HEARTBEAT) return null;
-
+  const payload = PAYLOAD_OF.get(packetType) ?? "mbp";
+  if (payload === "skip") return null;
   const token = getInt(dtoFields, 1);
   if (!token) return null;
-
-  const tick = { token, packetType };
-
-  if (packetType === PACKET_TYPE.NSE_INDEX || packetType === PACKET_TYPE.BSE_INDEX) {
-    const indexFields = getMessageFields(dtoFields, 3);
-    if (!indexFields) return null;
-    return { ...tick, kind: "index", ...decodeIndex(indexFields) };
-  }
-
-  if (packetType === PACKET_TYPE.NSE_FO_OI || packetType === PACKET_TYPE.BSE_FO_OI) {
-    const mbpFields = getMessageFields(dtoFields, 2);
-    if (!mbpFields) return null;
-    return { ...tick, kind: "oi", oi: getInt(mbpFields, 17) };
-  }
-
-  if (packetType === PACKET_TYPE.NSE_FO_CIRC) {
-    return { ...tick, kind: "circuit" }; // band-only refresh — nothing this app uses
-  }
-
-  // NSE_FO_ALL / BSE_FO_ALL (full quote) — also accept any packet carrying mbpData
-  // even if the type isn't in our known list, matching openalgo's fallback.
-  const mbpFields = getMessageFields(dtoFields, 2);
-  if (mbpFields) {
-    return { ...tick, kind: "mbp", ...decodeMbp(mbpFields) };
-  }
-
-  return null;
+  const body = PAYLOAD_READERS[payload](dtoFields);
+  return body ? { token, packetType, ...body } : null;
 }
 
 /** Decode one binary WS frame (GenericDTOList, falling back to a bare GenericDTO) into normalized ticks. Never throws — returns [] on anything unparseable. */

@@ -1,0 +1,34 @@
+{
+  "args": [
+    "240108010918222",
+    {
+      "orderType": "LIMIT",
+      "validity": "DAY",
+      "price": 16.8,
+      "quantity": 2
+    }
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://api-hft.upstox.com/v3/order/modify",
+      "expectBody": {
+        "order_id": "240108010918222",
+        "order_type": "LIMIT",
+        "validity": "DAY",
+        "price": 16.8,
+        "trigger_price": 0,
+        "quantity": 2
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "240108010918222"
+        },
+        "metadata": {
+          "latency": 40
+        }
+      }
+    }
+  ]
+}

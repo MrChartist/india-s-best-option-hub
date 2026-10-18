@@ -1,0 +1,69 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/positionBook",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "Positions retrieved successfully",
+        "data": [
+          {
+            "RealizedPNL": "0.03",
+            "cfBuyAmt": "",
+            "cfBuyQty": "",
+            "cfSellAmt": "",
+            "cfSellQty": "",
+            "dayBuyAmount": "7.68",
+            "dayBuyAveragePrice": "7.68",
+            "dayBuyQuantity": "01",
+            "daySellAmount": "7.71",
+            "daySellAveragePrice": "7.71",
+            "daySellQuantity": "01",
+            "exchange": "NSE",
+            "lastTradedPrice": "7.72",
+            "lotSize": "1",
+            "netAveragePrice": "0.00",
+            "netQuantity": "0",
+            "netUploadPrice": "0.00",
+            "product": "C",
+            "tickSize": "5.00",
+            "token": "14366",
+            "totalMTM": "0.03",
+            "totalPNL": "0.03",
+            "tradingSymbol": "IDEA-EQ",
+            "uploadPrice": "00",
+            "userId": "AB1234"
+          },
+          {
+            "RealizedPNL": "0.00",
+            "dayBuyAmount": "6292.00",
+            "dayBuyAveragePrice": "96.80",
+            "dayBuyQuantity": "65",
+            "daySellQuantity": "0",
+            "exchange": "NFO",
+            "lastTradedPrice": "99.20",
+            "lotSize": "65",
+            "netAveragePrice": "96.80",
+            "netQuantity": "65",
+            "product": "M",
+            "token": "40003",
+            "totalMTM": "156.00",
+            "totalPNL": "156.00",
+            "tradingSymbol": "NIFTY20OCT26C25000",
+            "userId": "AB1234"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

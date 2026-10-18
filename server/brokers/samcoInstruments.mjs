@@ -1,105 +1,124 @@
 /**
- * Samco StockNote scrip master — a public, unauthenticated CSV covering every
- * exchange segment (NSE/BSE/NFO/BFO/CDS/MCX/MFO). Samco's REST API has no
- * native option-chain endpoint, so this resolves each app symbol's
- * strikes/expiries/symbolCodes from the CSV; samco.mjs fills prices in via
- * batched /quote/multiQuote calls.
+ * Samco scrip master — the public CSV linked from the official docs home page
+ * (https://docs-tradeapi.samco.in/ → "ScripMaster.csv"): https://developers.stocknote.com/doc/ScripMaster.csv
  *
- * Columns verified against a live download (2026-09):
+ * Columns (header row of the live file, 2026-10):
  *   exchange,exchangeSegment,symbolCode,tradingSymbol,name,lastPrice,instrument,lotSize,strikePrice,expiryDate,tickSize
- * No field is quoted/comma-containing in the live file, so a plain split(",")
- * per line is safe and much faster than a general CSV parser for this ~15MB/
- * ~180k-row file.
+ *  - expiryDate is DD/MM/YY; strikePrice is blank for non-options; no field is quoted.
+ *  - symbolCode is "<scripCode>_<exchange>" (e.g. "58534_NFO"); the quote APIs echo it back as `symbol`.
+ *  - NFO uses instrument codes OPTIDX/FUTIDX/OPTSTK/FUTSTK; BFO uses IO (index options), IF (index futures),
+ *    SO (stock options) and SF (stock futures). Index rows are NOT in the file: indices are quoted by name
+ *    through /quote/indexQuote (names from the official index list, e.g. "NIFTY 50", "NIFTY BANK").
+ *  - Place Order docs: symbolName is the `name` for cash equities and the `tradingSymbol` for every F&O contract.
  *
- * symbolCode is Samco's own "<scripCode>_<segment>" token (e.g. "51278_NFO").
- * This is the one field /quote/multiQuote always echoes back verbatim as its
- * `symbol` field on every quote item, so it is used as the join key for quote
- * responses instead of tradingSymbol (multiQuote reformats trading symbols
- * into a different compact date form on the way back out).
+ * The file is public market data, so it is cached once a day and shared by every user (instrumentCache.mjs).
+ * Only the rows this terminal can use are kept: NSE equities and every NFO/BFO derivative.
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
+import { brokerFetch, BrokerInputError } from "./contract.mjs";
 
 export const SCRIP_MASTER_URL = "https://developers.stocknote.com/doc/ScripMaster.csv";
 
-// Each index's option contracts: the exchange segment + `instrument` code
-// they're filed under in the CSV, the CSV `name` value, and the exact
-// indexName Samco's /quote/indexQuote endpoint expects for the underlying
-// spot price (confirmed against Samco's documented index-name list).
-export const UNDERLYING = {
-  NIFTY: { exchange: "NFO", instrument: "OPTIDX", name: "NIFTY", indexName: "NIFTY 50" },
-  BANKNIFTY: { exchange: "NFO", instrument: "OPTIDX", name: "BANKNIFTY", indexName: "NIFTY BANK" },
-  FINNIFTY: { exchange: "NFO", instrument: "OPTIDX", name: "FINNIFTY", indexName: "NIFTY FIN SERVICE" },
-  MIDCPNIFTY: { exchange: "NFO", instrument: "OPTIDX", name: "MIDCPNIFTY", indexName: "NIFTY MID SELECT" },
-  // SENSEX index options are filed under BFO with instrument code "IO" (index
-  // options) rather than NFO's "OPTIDX" — verified against a live scrip master row.
-  SENSEX: { exchange: "BFO", instrument: "IO", name: "SENSEX", indexName: "SENSEX" },
+/** Canonical index -> where its derivatives live and the indexQuote name for its spot. */
+export const INDEX = {
+  NIFTY: { exchange: "NFO", name: "NIFTY", indexName: "NIFTY 50" },
+  BANKNIFTY: { exchange: "NFO", name: "BANKNIFTY", indexName: "NIFTY BANK" },
+  FINNIFTY: { exchange: "NFO", name: "FINNIFTY", indexName: "NIFTY FIN SERVICE" },
+  MIDCPNIFTY: { exchange: "NFO", name: "MIDCPNIFTY", indexName: "NIFTY MID SELECT" },
+  SENSEX: { exchange: "BFO", name: "SENSEX", indexName: "SENSEX" },
+  BANKEX: { exchange: "BFO", name: "BANKEX", indexName: "BANKEX" },
+};
+const INDEX_BY_NAME = new Map(Object.entries(INDEX).map(([k, v]) => [`${v.exchange}|${v.name}`, k]));
+
+const TYPE_OF = {
+  "NFO|OPTIDX": "OPTIDX", "NFO|FUTIDX": "FUTIDX", "NFO|OPTSTK": "OPTSTK", "NFO|FUTSTK": "FUTSTK",
+  "BFO|IO": "OPTIDX", "BFO|IF": "FUTIDX", "BFO|SO": "OPTSTK", "BFO|SF": "FUTSTK",
+  "NSE|EQ": "EQ",
 };
 
-const UNDERLYING_LOOKUP = new Map(
-  Object.entries(UNDERLYING).map(([symbol, u]) => [`${u.exchange}|${u.instrument}|${u.name}`, symbol])
-);
-
-/** Samco's expiryDate wire format "DD/MM/YY" -> ISO "YYYY-MM-DD". */
-function expiryToIso(raw) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(String(raw || "").trim());
-  if (!m) return null;
-  const [, dd, mm, yy] = m;
-  return `20${yy}-${mm}-${dd}`;
+/** "27/10/26" -> "2026-10-27". */
+export function samcoExpiryToIso(raw) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(String(raw ?? "").trim());
+  return m ? `20${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
-async function downloadAndFilter() {
-  const res = await fetch(SCRIP_MASTER_URL);
-  if (!res.ok) {
-    throw new Error(`Samco ScripMaster download failed (HTTP ${res.status})`);
-  }
-  const text = await res.text();
-  const lines = text.split(/\r?\n/);
-  const filtered = [];
+/** One CSV line -> contract Instrument (plus `symbolCode` and `name`), or null for rows we do not use. */
+export function toInstrument(line) {
+  const c = line.split(",");
+  if (c.length < 11) return null;
+  const [exchange, , symbolCode, tradingSymbol, name, , instrument, lotSize, strikePrice, expiryDate, tickSize] = c.map((s) => s.trim());
+  const instrumentType = TYPE_OF[`${exchange}|${instrument}`];
+  if (!instrumentType || !symbolCode || !tradingSymbol) return null;
+  const isOpt = instrumentType === "OPTIDX" || instrumentType === "OPTSTK";
+  const isDeriv = instrumentType !== "EQ";
+  const isIndex = instrumentType === "OPTIDX" || instrumentType === "FUTIDX";
+  const underlying = isIndex ? INDEX_BY_NAME.get(`${exchange}|${name}`) : name;
+  if (!underlying) return null; // index derivative on an index we do not map (e.g. NIFTYNXT50 on NFO)
+  const expiry = isDeriv ? samcoExpiryToIso(expiryDate) : null;
+  if (isDeriv && !expiry) return null;
+  const optionType = isOpt ? (tradingSymbol.endsWith("CE") ? "CE" : tradingSymbol.endsWith("PE") ? "PE" : null) : null;
+  const strike = isOpt ? Number(strikePrice) : null;
+  if (isOpt && (!optionType || !(strike > 0))) return null;
+  return {
+    token: symbolCode,
+    exchange,
+    tradingSymbol,
+    underlying,
+    instrumentType,
+    expiry,
+    strike,
+    optionType,
+    lotSize: Number(lotSize) > 0 ? Number(lotSize) : 1,
+    tickSize: Number(tickSize) > 0 ? Number(tickSize) : 0.05,
+    symbolCode,
+    name,
+  };
+}
 
+export function parseScripMaster(text) {
+  const out = [];
+  const lines = String(text).split(/\r?\n/);
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) continue;
-    const cols = line.split(",");
-    if (cols.length < 11) continue;
-
-    const exchange = cols[0];
-    const symbolCode = cols[2];
-    const tradingSymbol = cols[3];
-    const name = cols[4];
-    const instrument = cols[6];
-    const strikePrice = cols[8];
-    const expiryDate = cols[9];
-
-    const symbol = UNDERLYING_LOOKUP.get(`${exchange}|${instrument}|${name}`);
-    if (!symbol) continue;
-
-    const side = tradingSymbol.endsWith("CE") ? "ce" : tradingSymbol.endsWith("PE") ? "pe" : null;
-    if (!side) continue;
-
-    const expiry = expiryToIso(expiryDate);
-    const strike = Number(strikePrice);
-    if (!expiry || !Number.isFinite(strike) || strike <= 0) continue;
-
-    filtered.push({ symbol, symbolCode, tradingSymbol, strike, expiry, side, exchange });
+    if (!lines[i]) continue;
+    const row = toInstrument(lines[i]);
+    if (row) out.push(row);
   }
-
-  return filtered;
+  return out;
 }
 
-/** Cached once/day, shared across all users' credentials — this file is public market data. */
-export async function getInstrumentMaster() {
-  return getCachedOrFetch("samco:scripmaster", downloadAndFilter, ONE_DAY_MS);
+async function download() {
+  const res = await brokerFetch(SCRIP_MASTER_URL, { redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`Samco scrip master download failed (HTTP ${res.status})`);
+  return parseScripMaster(await res.text());
 }
 
-/** All CE/PE rows for one app symbol, across every expiry. */
-export async function getOptionRows(symbol) {
-  if (!UNDERLYING[symbol]) throw new Error(`Unknown symbol for Samco: ${symbol}`);
-  const master = await getInstrumentMaster();
-  return master.filter((r) => r.symbol === symbol);
+/** Cached once a day, shared by every user: public market data. */
+export function getInstruments() {
+  return getCachedOrFetch("samco:scripmaster:v2", download, ONE_DAY_MS);
 }
 
-/** Distinct ascending ISO expiry dates for a set of option rows. */
-export function distinctExpiriesAscending(rows) {
+/** "nifty" / "NIFTY" -> { symbol, isIndex, exchange }. Stocks are any plain NSE symbol with NFO options. */
+export function resolveUnderlying(symbol) {
+  const s = String(symbol ?? "").trim().toUpperCase();
+  if (INDEX[s]) return { symbol: s, isIndex: true, exchange: INDEX[s].exchange, indexName: INDEX[s].indexName };
+  if (/^[A-Z0-9&-]{1,20}$/.test(s)) return { symbol: s, isIndex: false, exchange: "NFO", indexName: null };
+  throw new BrokerInputError(`Samco: unknown symbol ${symbol}`);
+}
+
+/** Option rows for one underlying (all expiries). */
+export async function optionRows(symbol) {
+  const u = resolveUnderlying(symbol);
+  const rows = await getInstruments();
+  return rows.filter((r) => r.underlying === u.symbol && r.exchange === u.exchange && (r.instrumentType === "OPTIDX" || r.instrumentType === "OPTSTK"));
+}
+
+export function distinctExpiries(rows) {
   return Array.from(new Set(rows.map((r) => r.expiry))).sort();
+}
+
+/** Look an instrument up by its token (symbolCode). */
+export async function findByToken(token) {
+  const rows = await getInstruments();
+  return rows.find((r) => r.token === String(token)) || null;
 }

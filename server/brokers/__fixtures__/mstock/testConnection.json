@@ -1,0 +1,32 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/user/fundsummary",
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "ADDITIONAL_MARGIN": "0.0",
+            "AMOUNT_UTILIZED": "27395.71",
+            "AVAILABLE_BALANCE": "172604.29",
+            "COLLATERALS": "74668",
+            "PAY_OUT_AMT": "500.0",
+            "SUM_OF_ALL": "200000",
+            "SEG": "A",
+            "MTF_AVAILABLE_BALANCE": "172604.29"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/oms/limits",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "totalCredits": 125000,
+          "availMargin": 109797.5,
+          "brokerage": 40,
+          "availCash": 100000,
+          "peakMargin": 15202.5,
+          "payIn": 0,
+          "span": 12000,
+          "realizedPnl": 100,
+          "unrealizedPnL": 0,
+          "exposure": 3202.5,
+          "adHocMargin": 0,
+          "stockCollateral": 25000,
+          "optionPremium": 0,
+          "segment": "ALL",
+          "payOut": 0,
+          "brkCollatAmount": 0,
+          "unclearedCash": 0,
+          "auxCash": 0,
+          "auxCollatAmount": 0,
+          "auxUnclearedCash": 0,
+          "dayCash": 0,
+          "turnOverLmt": 0,
+          "pendOrdValLmt": 0,
+          "turnover": 0,
+          "pendOrdValue": 0,
+          "marginUsed": 15202.5,
+          "premium": 0
+        }
+      }
+    }
+  ]
+}

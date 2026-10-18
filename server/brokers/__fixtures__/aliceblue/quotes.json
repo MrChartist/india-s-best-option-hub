@@ -1,0 +1,58 @@
+{
+  "args": [
+    [
+      {
+        "token": "22",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/ChartAPIService/chart/get/multi/ohlc$",
+      "expectBody": [
+        {
+          "exchange": "NSE",
+          "token": "22"
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "reason": null,
+        "result": [
+          {
+            "e": "NSE",
+            "ltp": 1350.9,
+            "poi": 0,
+            "ft": "10:57",
+            "volume": 115383,
+            "high": 1360.2,
+            "avg": "1349.03",
+            "low": 1332,
+            "tk": "22",
+            "oi": 0,
+            "close": 1340.9,
+            "open": 1350.9
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

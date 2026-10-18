@@ -1,0 +1,45 @@
+{
+  "args": [
+    "25061300124513",
+    {
+      "orderType": "LIMIT",
+      "qty": 65,
+      "price": 8
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/orders/modify$",
+      "expectBody": {
+        "brokerOrderId": "25061300124513",
+        "quantity": 65,
+        "orderType": "LIMIT",
+        "price": 8,
+        "validity": "DAY"
+      },
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "brokerOrderId": "25061300124513",
+            "requestTime": "10:25:03 19-08-2026"
+          }
+        ]
+      }
+    }
+  ]
+}

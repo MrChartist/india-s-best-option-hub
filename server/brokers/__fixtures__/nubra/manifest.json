@@ -1,0 +1,27 @@
+{
+  "brokerId": "nubra",
+  "creds": {
+    "phone": "9999999999"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://nubra.io/products/api/docs/rest-api-v3/authentication.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/errors_and_exceptions.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/RateLimits.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/get-instruments.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/market-data/option-chain.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/market-data/current-price.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/market-data/market-quotes.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/market-data/historical-market-data.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/orders/place-order.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/orders/modify-order.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/orders/cancel-order.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/orders/get-order.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/portfolio/positions.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/portfolio/holdings.html",
+    "https://nubra.io/products/api/docs/rest-api-v3/trading/portfolio/funds.html",
+    "https://pypi.org/project/nubra-sdk/ (official SDK 0.5.4: /totp/login)"
+  ],
+  "notes": "Payloads use the official V3 docs' sample responses (paise integers), re-keyed to NIFTY/SENSEX October 2026 contracts; the TOTP login step follows Nubra's official Python SDK because the REST page documents only the SMS-OTP path. Session token is added per fixture so manifest.creds stays logged out. Every id is a dummy."
+}

@@ -1,0 +1,31 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/portfolio/holdings",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "total_qty": 1,
+            "avg_price": 217.3,
+            "used_qty": 0,
+            "isin": "INE509F01029",
+            "security_id": "18520",
+            "symbol": "CUPID",
+            "t1_avg_price": 217.3,
+            "t1_qty": 1,
+            "dp_qty": 0,
+            "dp_avg_price": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

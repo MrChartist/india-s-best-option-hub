@@ -1,0 +1,31 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "args": [
+    "DRV-28131451",
+    {
+      "qty": 130,
+      "price": 44
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.indstocks.com/order/modify",
+      "expectBody": {
+        "order_id": "DRV-28131451",
+        "segment": "DERIVATIVE",
+        "qty": 130,
+        "limit_price": 44
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "DRV-28131451",
+          "order_status": "MODIFIED"
+        }
+      }
+    }
+  ]
+}

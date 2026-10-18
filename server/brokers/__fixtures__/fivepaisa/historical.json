@@ -1,0 +1,57 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "1630",
+        "exchange": "NSE"
+      },
+      "interval": "1d",
+      "from": "2026-10-01",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://openapi.5paisa.com/V2/historical/N/C/1630/1d?from=2026-10-01&end=2026-10-16",
+      "json": {
+        "status": "success",
+        "data": {
+          "candles": [
+            [
+              "2026-10-14T00:00:00",
+              292,
+              294,
+              289.5,
+              293.55,
+              11025420
+            ],
+            [
+              "2026-10-15T00:00:00",
+              295,
+              296.3,
+              293.75,
+              295.3,
+              11315876
+            ],
+            [
+              "2026-10-16T00:00:00",
+              295.2,
+              295.6,
+              292.7,
+              294.45,
+              9149737
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

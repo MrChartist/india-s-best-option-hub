@@ -11,14 +11,21 @@
  * holds the trading `uid`.
  *
  * NEEDS VERIFICATION (no live account, no network access from this repo's
- * tests): the endpoint paths and field names below (PlaceOrder / OrderBook /
- * SingleOrdStatus / CancelOrder, tsym/qty/prc/prd/trantype/prctyp/ret/trgprc/
- * norenordno) follow the Noren OMS API surface documented across this
- * broker family's own public docs and the openalgo adapters this repo's
- * other Noren-family files already cite for GetQuotes/Limits. None of it has
- * been exercised against a live order-placement endpoint — this codebase
- * never mocks HTTP in tests (see dhanOrders.test.mjs precedent), so only the
- * pure buildOrderBody() below is unit-tested. Confirm every field name
+ * tests). Sources for the endpoint paths and field names below are the
+ * brokers' own official API material:
+ *  - Flattrade pi docs, https://pi.flattrade.in/docs (the same Noren endpoint
+ *    names under https://piconnect.flattrade.in/PiConnectAPI/, see flattradeAuth.mjs);
+ *  - Shoonya API documentation, https://shoonya.com/api-documentation, and
+ *    Shoonya's official SDKs (github.com/Shoonya-Dev/ShoonyaApi-py, PyPI
+ *    NorenRestApiOAuth): /PlaceOrder, /OrderBook, /CancelOrder, /SingleOrdHist,
+ *    and the fields tsym, qty, prc, prd, trantype, prctyp, ret, trgprc and the
+ *    norenordno returned by a successful placement.
+ * OpenAlgo was used only as a cross-check. Note: getOrderStatus() below calls
+ * /SingleOrdStatus, which Shoonya's official SDK does not use (it reads one
+ * order through /SingleOrdHist); confirm the path for each broker before it is
+ * relied on. Nothing in this module is wired into a live order path today, and
+ * none of it has been exercised against a live order-placement endpoint, so
+ * only the pure buildOrderBody() is unit-tested. Confirm every field name
  * against a live sandbox account before any live order flows through this.
  *
  * Deliberately mirrors dhanOrders.mjs:

@@ -1,0 +1,22 @@
+{
+  "brokerId": "dhan",
+  "creds": {
+    "clientId": "1000000001",
+    "accessToken": "dummy.access.token.for.fixtures.only"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://dhanhq.co/docs/v2/authentication/",
+    "https://dhanhq.co/docs/v2/option-chain/",
+    "https://dhanhq.co/docs/v2/market-quote/",
+    "https://dhanhq.co/docs/v2/historical-data/",
+    "https://dhanhq.co/docs/v2/instruments/",
+    "https://dhanhq.co/docs/v2/live-market-feed/",
+    "https://dhanhq.co/docs/v2/portfolio/",
+    "https://dhanhq.co/docs/v2/funds/",
+    "https://dhanhq.co/docs/v2/orders/",
+    "https://dhanhq.co/docs/v2/annexure/"
+  ],
+  "notes": "Payload shapes from Dhan's official v2 docs samples (quote sample: NSE_FNO 49081; daily candle sample). instruments.json rows are copied from Dhan's public detailed instrument master (api-scrip-master-detailed.csv, October 2026). Client id and token are dummies."
+}

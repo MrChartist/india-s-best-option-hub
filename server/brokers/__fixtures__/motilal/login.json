@@ -1,0 +1,26 @@
+{
+  "secrets": {
+    "password": "Hunter2Pass!",
+    "dob": "01/01/1990",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/login/v7/authdirectapi",
+      "expectBody": {
+        "userid": "EMUM123456",
+        "2FA": "01/01/1990",
+        "totp": "123456"
+      },
+      "status": 200,
+      "json": {
+        "status": "SUCCESS",
+        "message": "Login Successful",
+        "errorcode": "",
+        "AuthToken": "dummy-auth-token",
+        "isAuthTokenVerified": "TRUE"
+      }
+    }
+  ]
+}

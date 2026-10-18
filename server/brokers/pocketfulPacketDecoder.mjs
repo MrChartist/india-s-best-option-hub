@@ -1,16 +1,13 @@
 /**
- * Binary decoder for Pocketful's WebSocket "detailed marketdata" packet
- * (mode byte = 1). Field layout + byte offsets transcribed from OpenAlgo's
- * production Python adapter (broker/pocketful/api/packet_decoder.py,
- * decodeDetailedMarketData — struct format ">b"/">I"/">Q", i.e. big-endian
- * signed-byte / unsigned-32 / unsigned-64). Price fields are transmitted as
- * integer paise and must be divided by 100 to get rupees — confirmed against
- * the same source's data.py, which does this for every price field it reads.
+ * Binary decoder for Pocketful's WebSocket "detailed marketdata" packet (mode byte = 1).
  *
- * Only "detailed marketdata" (mode 1) is decoded here — it is the one
- * subscription mode that carries LTP + OI + volume + bid/ask in a single
- * packet, so fetchOptionChain/fetchLTP never need "compact_marketdata" (mode 2,
- * no OI) or "full_snapquote" (mode 4, no OI either, per the same source).
+ * Layout from the official JavaScript SDK (github.com/pocketful-tech/pocketfulapi-javascript, PocketfulAPI/packetDecoder.js):
+ * big-endian; int8 mode, int8 exchange code, uint32 token, then uint32 fields (LTP @6 ... close @74, yearly high/low,
+ * DPR band) and current/initial open interest @94/@98, with total buy/sell quantity as uint64 @38/@46. The docs'
+ * sample packet (https://api.pocketful.in/docs/curl/detailed-marketdata: HDFCBANK last_traded_price 144895) shows prices
+ * are integer paise, so price fields are divided by 100 here.
+ *
+ * Only mode 1 is decoded: it is the one subscription mode that carries LTP + OI + volume + bid/ask in a single packet.
  */
 
 const DETAILED_MIN_LEN = 102;

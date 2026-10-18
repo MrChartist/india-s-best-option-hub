@@ -1,0 +1,20 @@
+{
+  "brokerId": "zerodha",
+  "creds": {
+    "apiKey": "dummyapikey0001",
+    "apiSecret": "dummyapisecret0001",
+    "accessToken": "dummyaccesstoken0001"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-27",
+  "sources": [
+    "https://kite.trade/docs/connect/v3/user/",
+    "https://kite.trade/docs/connect/v3/market-quotes/",
+    "https://kite.trade/docs/connect/v3/historical/",
+    "https://kite.trade/docs/connect/v3/portfolio/",
+    "https://kite.trade/docs/connect/v3/orders/",
+    "https://kite.trade/docs/connect/v3/websocket/",
+    "https://kite.trade/docs/connect/v3/exceptions/"
+  ],
+  "notes": "Response envelopes and field names follow the samples on Kite Connect's official v3 docs pages (profile, /quote, /quote/ltp, historical candles, holdings, positions, margins, orders, trades). Instrument-dump rows are written in the documented CSV column order with illustrative tokens and Kite's tradingsymbol conventions (monthly NIFTY26OCT25000CE, weekly NIFTY26N0325000CE / SENSEX26O2282000CE); they are not a live download. All keys, tokens and account ids are dummies."
+}

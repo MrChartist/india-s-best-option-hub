@@ -1,0 +1,42 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/user/balance",
+      "json": {
+        "type": "success",
+        "code": "s-user-0002",
+        "description": "OK",
+        "result": {
+          "BalanceList": {
+            "limitHeader": "ALL|ALL|ALL",
+            "limitObject": {
+              "RMSSubLimits": {
+                "cashAvailable": 250000,
+                "collateral": 50000,
+                "marginUtilized": 52955.28,
+                "netMarginAvailable": 247044.72,
+                "MTM": 0,
+                "UnrealizedMTM": 0,
+                "RealizedMTM": 0
+              },
+              "marginAvailable": {
+                "CashMarginAvailable": 250000,
+                "AdhocMargin": 0,
+                "NotinalCash": 0,
+                "PayInAmount": 0,
+                "PayOutAmount": 0
+              },
+              "marginUtilized": {
+                "MarginUsed": 52955.28,
+                "TotalSpanMargin": 0,
+                "ExposureMarginPresent": 0
+              },
+              "AccountID": "DUMMY1"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

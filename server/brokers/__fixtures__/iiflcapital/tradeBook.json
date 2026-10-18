@@ -1,0 +1,45 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.iiflcapital.com/v1/trades",
+      "json": [
+        {
+          "clientId": "31625881",
+          "placedBy": "31625881",
+          "brokerOrderId": "240807000000068",
+          "exchangeOrderId": "900000000000000",
+          "exchangeTradeId": "893487609000000",
+          "formattedInstrumentName": "IDEA VODAFONE",
+          "tradingSymbol": "IDEA-EQ",
+          "instrumentId": "14366",
+          "exchange": "NSEEQ",
+          "transactionType": "BUY",
+          "product": "NORMAL",
+          "orderComplexity": "REGULAR",
+          "orderType": "MARKET",
+          "validity": "DAY",
+          "tradedPrice": "15.60",
+          "filledQuantity": "50",
+          "fillTimestamp": "07-Aug-2024 16:14:17",
+          "algoId": "algo123",
+          "orderTag": "123abc"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

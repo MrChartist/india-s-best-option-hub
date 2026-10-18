@@ -1,0 +1,111 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/fno/v1/option-chain?type=CALL&symbol=NIFTY&expiry=27-10-2026",
+      "status": 200,
+      "json": {
+        "meta": {
+          "code": "PM_FNO_200",
+          "message": "Success",
+          "displayMessage": "Success"
+        },
+        "data": {
+          "results": [
+            {
+              "pml_id": 5000825313,
+              "exchange": "NSE",
+              "underlaying_scrip_code": 26000,
+              "segment": "D",
+              "security_id": 58445,
+              "pml_symbol": "NIFTY-Oct2026-25000-CE",
+              "vega": "14.26",
+              "fresh_pos": "0",
+              "iv": "13.54",
+              "square_off_pos": "5293",
+              "desc": "NIFTY26OCT25000CE",
+              "theta": "-9.64",
+              "gamma": "0.0004",
+              "spot_price": "25061.40",
+              "delta": "0.57",
+              "price": "182.40",
+              "stk_price": 25000.0,
+              "net_chg": "-6.35",
+              "oi": "1874500.00",
+              "oi_per_chg": "0.01",
+              "oi_net_chg": "100.00",
+              "per_chg": "-3.19",
+              "traded_vol": "90048.00",
+              "symbol": "NIFTY",
+              "expiry_date": "2026-10-27T00:00:00",
+              "option_type": "CE",
+              "instrument": "OPTIDX",
+              "name": "NIFTY 27 OCT 25000 CALL",
+              "tick_size": 5,
+              "lot_size": 65,
+              "exch_feed_time": "2026-10-16T13:44:01"
+            }
+          ],
+          "pg_cxt": {
+            "res_at": 1792404600
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/fno/v1/option-chain?type=PUT&symbol=NIFTY&expiry=27-10-2026",
+      "status": 200,
+      "json": {
+        "meta": {
+          "code": "PM_FNO_200",
+          "message": "Success",
+          "displayMessage": "Success"
+        },
+        "data": {
+          "results": [
+            {
+              "pml_id": 5000825313,
+              "exchange": "NSE",
+              "underlaying_scrip_code": 26000,
+              "segment": "D",
+              "security_id": 58446,
+              "pml_symbol": "NIFTY-Oct2026-25000-PE",
+              "vega": "14.26",
+              "fresh_pos": "0",
+              "iv": "13.80",
+              "square_off_pos": "5293",
+              "desc": "NIFTY26OCT25000PE",
+              "theta": "-9.64",
+              "gamma": "0.0004",
+              "spot_price": "25061.40",
+              "delta": "-0.43",
+              "price": "135.55",
+              "stk_price": 25000.0,
+              "net_chg": "-6.35",
+              "oi": "2102300.00",
+              "oi_per_chg": "0.01",
+              "oi_net_chg": "-2500.00",
+              "per_chg": "-3.19",
+              "traded_vol": "90048.00",
+              "symbol": "NIFTY",
+              "expiry_date": "2026-10-27T00:00:00",
+              "option_type": "PE",
+              "instrument": "OPTIDX",
+              "name": "NIFTY 27 OCT 25000 PUT",
+              "tick_size": 5,
+              "lot_size": 65,
+              "exch_feed_time": "2026-10-16T13:44:01"
+            }
+          ],
+          "pg_cxt": {
+            "res_at": 1792404600
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 1
+  }
+}

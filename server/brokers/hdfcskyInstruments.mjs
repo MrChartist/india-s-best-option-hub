@@ -1,142 +1,174 @@
 /**
- * HDFC Sky Security Master — daily ZIP+CSV download + parsing helpers.
+ * HDFC Sky Security Master: download, parsing and symbol mapping.
  *
- * HDFC Sky has no native option-chain or expiry-list endpoint, so strikes,
- * expiries and the numeric `exchange_token` every quote call needs are all
- * resolved from this master. It's a public, unauthenticated download (no
- * Authorization header required), so — like Zerodha's instrument dump — it's
- * cached once/day and shared across every user's credentials rather than
- * keyed per-user.
- *
- * CSV columns (verified against the live file by marketcalls/openalgo's
- * HDFC Sky plugin): exchange_token, trading_symbol, company_name,
- * close_price, expiry, strike, tick_size, lot_size, instrument_name,
- * option_type, segment, exchange, fin_instrm_pdct_tp_cd, asset_code,
- * settlement_type, isin.
+ * Official docs: https://developer.hdfcsky.com/sky-docs/docs/security_master ("Download CSV" ->
+ * https://hdfcsky.com/api/v1/contract/Compact?info=download, a public ZIP holding CompactScrip.csv).
+ * The docs do not describe the columns; they were read from the live file header (October 2026):
+ *   exchange_token, trading_symbol, company_name, close_price, expiry, strike, tick_size, lot_size,
+ *   instrument_name, option_type, segment, exchange, fin_instrm_pdct_tp_cd, asset_code,
+ *   settlement_type, isin
+ * Facts used (live file):
+ *   - `exchange` is already NSE / BSE / NFO / BFO / CDS / MCX. Index spot rows are NSE rows with
+ *     segment "INDICES" ("Nifty 50" 26000, "Nifty Bank" 26009, "Nifty Fin Service" 26037,
+ *     "NIFTY MID SELECT" 26074) and BSE rows with segment "IDX" (SENSEX 1, BANKEX 12).
+ *   - Derivatives: `company_name` is the underlying (NIFTY, SENSEX, RELIANCE); `instrument_name` is
+ *     OPTIDX/OPTSTK/FUTIDX/FUTSTK on NFO and IO/SO/IF/SF on BFO; `option_type` CE/PE; `expiry`
+ *     "27-Oct-2026" (non-expiring rows carry "01-Jan-0001"); `strike` in rupees; `tick_size` in rupees.
+ *   - Cash rows carry the series in the symbol: "RELIANCE-EQ" on NSE.
+ *   - `exchange_token` is the token for fetch-ltp, the WebSocket and order `instrument_token`.
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
 import { unzipFirstCsv } from "./hdfcskyZip.mjs";
 import { USER_AGENT } from "./hdfcskyClient.mjs";
+import { readBodyCapped } from "../lib/safeArchive.mjs";
+import { brokerFetch } from "./contract.mjs";
 
-const SECURITY_MASTER_URL = "https://hdfcsky.com/api/v1/contract/Compact?info=download";
+export const SECURITY_MASTER_URL = "https://hdfcsky.com/api/v1/contract/Compact?info=download";
 
-// Which exchange + `company_name` value each app symbol's OPTIDX contracts
-// carry in the master. NFO_INDEX_UNDERLYINGS / BFO index names per openalgo's
-// HDFC Sky mapping (broker/hdfcsky/mapping/transform_data.py).
-const UNDERLYING_MAP = {
-  NIFTY: { exchange: "NFO", name: "NIFTY" },
-  BANKNIFTY: { exchange: "NFO", name: "BANKNIFTY" },
-  FINNIFTY: { exchange: "NFO", name: "FINNIFTY" },
-  MIDCPNIFTY: { exchange: "NFO", name: "MIDCPNIFTY" },
-  SENSEX: { exchange: "BFO", name: "SENSEX" },
-};
+/** App index symbol -> options exchange + index spot row. */
+export const SYMBOL_CONFIG = Object.freeze({
+  NIFTY: { derivExchange: "NFO", indexExchange: "NSE", indexToken: "26000" },
+  BANKNIFTY: { derivExchange: "NFO", indexExchange: "NSE", indexToken: "26009" },
+  FINNIFTY: { derivExchange: "NFO", indexExchange: "NSE", indexToken: "26037" },
+  MIDCPNIFTY: { derivExchange: "NFO", indexExchange: "NSE", indexToken: "26074" },
+  SENSEX: { derivExchange: "BFO", indexExchange: "BSE", indexToken: "1" },
+  BANKEX: { derivExchange: "BFO", indexExchange: "BSE", indexToken: "12" },
+});
+const CANONICAL_INDEX_BY_KEY = Object.fromEntries(Object.entries(SYMBOL_CONFIG).map(([sym, c]) => [`${c.indexExchange}:${c.indexToken}`, sym]));
 
-// Index-spot rows live under the parent cash exchange, flagged by `segment`
-// ("INDICES" on NSE, "IDX" on BSE) rather than a dedicated exchange code.
-// `ltpExchange` is what /fetch-ltp itself expects for indices (NSE_INDEX /
-// BSE_INDEX — the one REST endpoint that is NOT the plain cash exchange).
-// display-name variants cover both spaced ("NIFTY 50") and compact forms.
-const INDEX_SPOT_MAP = {
-  NIFTY: { exchange: "NSE", segment: "INDICES", ltpExchange: "NSE_INDEX", names: ["NIFTY50", "NIFTY 50"] },
-  BANKNIFTY: { exchange: "NSE", segment: "INDICES", ltpExchange: "NSE_INDEX", names: ["NIFTYBANK", "NIFTY BANK"] },
-  FINNIFTY: { exchange: "NSE", segment: "INDICES", ltpExchange: "NSE_INDEX", names: ["NIFTYFINSERVICE", "NIFTY FIN SERVICE"] },
-  MIDCPNIFTY: { exchange: "NSE", segment: "INDICES", ltpExchange: "NSE_INDEX", names: ["NIFTYMIDSELECT", "NIFTY MID SELECT", "NIFTY MIDCAP SELECT"] },
-  SENSEX: { exchange: "BSE", segment: "IDX", ltpExchange: "BSE_INDEX", names: ["SENSEX"] },
-};
-
+const INDEX_SEGMENT = { NSE: "INDICES", BSE: "IDX" };
+const INSTRUMENT_TYPE = { OPTIDX: "OPTIDX", OPTSTK: "OPTSTK", FUTIDX: "FUTIDX", FUTSTK: "FUTSTK", IO: "OPTIDX", SO: "OPTSTK", IF: "FUTIDX", SF: "FUTSTK" };
 const MONTH_INDEX = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
-const CSV_COLUMNS = [
-  "exchange_token", "trading_symbol", "company_name", "close_price", "expiry", "strike",
-  "tick_size", "lot_size", "instrument_name", "option_type", "segment", "exchange",
-  "fin_instrm_pdct_tp_cd", "asset_code", "settlement_type", "isin",
-];
 
-/** "28-Aug-2025" -> "2025-08-28". Returns null for the non-expiring sentinel / unparseable values. */
-function expiryToIso(ddMonYyyy) {
-  const parts = String(ddMonYyyy || "").split("-");
-  if (parts.length !== 3) return null;
-  const [d, monRaw, y] = parts;
-  const m = MONTH_INDEX[monRaw.slice(0, 3).toUpperCase()];
-  if (!m || !y || y === "0001") return null;
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+let memoryOnly = false;
+let mem = null;
+let inflight = null;
+
+/** Tests: drop the cached master and stop using the shared disk cache. */
+export function resetHdfcSkyInstrumentCache({ diskCache = false } = {}) {
+  memoryOnly = !diskCache;
+  mem = null;
+  inflight = null;
 }
 
-/** Simple comma-split CSV parser — the security master's columns carry no embedded commas/quotes. */
-function parseCsv(text) {
-  const lines = text.split("\n");
+/** "28-Aug-2025" -> "2025-08-28"; null for the "01-Jan-0001" sentinel or anything unparseable. */
+export function expiryToIso(ddMonYyyy) {
+  const m = String(ddMonYyyy ?? "").trim().match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (!m || m[3] === "0001") return null;
+  const mon = MONTH_INDEX[m[2].toUpperCase()];
+  return mon ? `${m[3]}-${String(mon).padStart(2, "0")}-${m[1].padStart(2, "0")}` : null;
+}
+
+export function parseCsv(text) {
+  const lines = String(text).split(/\r?\n/);
+  if (!lines.length) return [];
+  const headers = lines[0].split(",").map((h) => h.trim());
   const rows = [];
-  // Skip the header line (line 0) — column order is fixed and verified (CSV_COLUMNS).
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line || !line.trim()) continue;
     const cols = line.split(",");
-    if (cols.length < CSV_COLUMNS.length) continue;
+    if (cols.length < headers.length) continue;
     const row = {};
-    for (let c = 0; c < CSV_COLUMNS.length; c++) row[CSV_COLUMNS[c]] = cols[c]?.trim();
+    for (let c = 0; c < headers.length; c++) row[headers[c]] = (cols[c] ?? "").trim();
     rows.push(row);
   }
   return rows;
 }
 
-async function downloadSecurityMaster() {
-  console.log("[hdfcsky] downloading Security Master (CompactScrip.csv, ~17 MB uncompressed)");
-  const res = await fetch(SECURITY_MASTER_URL, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok) throw new Error(`HDFC Sky Security Master download failed [${res.status}]`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  const csvText = unzipFirstCsv(buf);
-  return parseCsv(csvText);
+async function download() {
+  const res = await brokerFetch(SECURITY_MASTER_URL, { headers: { "User-Agent": USER_AGENT }, redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`HDFC Sky security master download failed [${res.status}]`);
+  const buf = await readBodyCapped(res, { label: "HDFC Sky security master" });
+  // A ZIP starts with "PK"; accept a plain CSV body too (the download is served as a ZIP today).
+  const text = buf[0] === 0x50 && buf[1] === 0x4b ? unzipFirstCsv(buf) : buf.toString("utf8");
+  return parseCsv(text);
 }
 
-/** Cached once/day, shared across all users' credentials — the master is a public download. */
 export async function getInstrumentMaster() {
-  return getCachedOrFetch("hdfcsky:security-master", downloadSecurityMaster, ONE_DAY_MS);
+  if (!memoryOnly) return getCachedOrFetch("hdfcsky:security-master:v2", download, ONE_DAY_MS);
+  if (mem && Date.now() - mem.at < ONE_DAY_MS) return mem.rows;
+  if (!inflight) inflight = download().then((rows) => { mem = { rows, at: Date.now() }; return rows; }).finally(() => { inflight = null; });
+  return inflight;
 }
 
-function normalizeName(s) {
-  return String(s || "").replace(/\s+/g, "").toUpperCase();
+export function isIndexRow(r) {
+  const ex = String(r.exchange).toUpperCase();
+  return INDEX_SEGMENT[ex] !== undefined && String(r.segment).toUpperCase() === INDEX_SEGMENT[ex];
 }
 
-/** Distinct ascending ISO expiry dates for an app symbol's option contracts. */
-export function listExpiries(master, symbol) {
-  const cfg = UNDERLYING_MAP[symbol];
-  if (!cfg) throw new Error(`Unknown symbol: ${symbol}`);
-  const set = new Set();
-  for (const r of master) {
-    if (r.exchange !== cfg.exchange || r.company_name !== cfg.name) continue;
-    if (r.option_type !== "CE" && r.option_type !== "PE") continue;
-    const iso = expiryToIso(r.expiry);
-    if (iso) set.add(iso);
+/** Canonical index name for an index row (NIFTY, BANKNIFTY, ..., else the upper-cased display name). */
+export function indexNameOf(r) {
+  return CANONICAL_INDEX_BY_KEY[`${String(r.exchange).toUpperCase()}:${r.exchange_token}`] ?? String(r.trading_symbol).toUpperCase().replace(/\s+/g, "");
+}
+
+/** Master row -> contract Instrument, or null for rows out of scope (MCX, CDS, sentinel rows). */
+export function toInstrument(r) {
+  const exchange = String(r.exchange).toUpperCase();
+  const token = String(r.exchange_token ?? "");
+  if (!/^\d+$/.test(token) || !["NSE", "BSE", "NFO", "BFO"].includes(exchange)) return null;
+  const tick = Number(r.tick_size);
+  const tickSize = Number.isFinite(tick) && tick > 0 ? tick : 0.05;
+  const lot = Number(r.lot_size);
+  const lotSize = Number.isFinite(lot) && lot > 0 ? lot : 1;
+  if (exchange === "NSE" || exchange === "BSE") {
+    if (isIndexRow(r)) {
+      const name = indexNameOf(r);
+      return { token, exchange, tradingSymbol: name, underlying: name, instrumentType: "INDEX", expiry: null, strike: null, optionType: null, lotSize: 1, tickSize };
+    }
+    const sym = String(r.trading_symbol ?? "");
+    if (!sym) return null;
+    const dash = sym.lastIndexOf("-");
+    const underlying = dash > 0 ? sym.slice(0, dash) : sym;
+    return { token, exchange, tradingSymbol: sym, underlying, instrumentType: "EQ", expiry: null, strike: null, optionType: null, lotSize, tickSize };
   }
-  return [...set].sort();
+  const instrumentType = INSTRUMENT_TYPE[String(r.instrument_name).toUpperCase()];
+  const expiry = expiryToIso(r.expiry);
+  const underlying = String(r.company_name ?? "").trim();
+  if (!instrumentType || !expiry || !underlying) return null;
+  const isOpt = instrumentType.startsWith("OPT");
+  const optionType = String(r.option_type).toUpperCase();
+  const strike = Number(r.strike);
+  if (isOpt && (!(strike > 0) || (optionType !== "CE" && optionType !== "PE"))) return null;
+  return {
+    token, exchange, tradingSymbol: String(r.trading_symbol), underlying, instrumentType, expiry,
+    strike: isOpt ? strike : null, optionType: isOpt ? optionType : null, lotSize, tickSize,
+  };
 }
 
-/** CE/PE rows for symbol+expiry: [{ token, strike, type: "ce"|"pe", exchange }]. */
+function optionRows(master, symbol) {
+  const cfg = SYMBOL_CONFIG[symbol];
+  if (!cfg) throw new Error(`HDFC Sky: unknown symbol ${symbol}`);
+  return master.filter((r) => r.exchange === cfg.derivExchange && r.company_name === symbol && (r.option_type === "CE" || r.option_type === "PE"));
+}
+
+/** Distinct ascending ISO expiry dates for an app symbol's options. */
+export function listExpiries(master, symbol) {
+  return [...new Set(optionRows(master, symbol).map((r) => expiryToIso(r.expiry)).filter(Boolean))].sort();
+}
+
+/** CE/PE rows for symbol + expiry: [{ token, strike, type: "ce"|"pe", exchange }]. */
 export function optionRowsForExpiry(master, symbol, expiryIso) {
-  const cfg = UNDERLYING_MAP[symbol];
-  if (!cfg) throw new Error(`Unknown symbol: ${symbol}`);
-  const rows = [];
-  for (const r of master) {
-    if (r.exchange !== cfg.exchange || r.company_name !== cfg.name) continue;
-    if (r.option_type !== "CE" && r.option_type !== "PE") continue;
+  const out = [];
+  for (const r of optionRows(master, symbol)) {
     if (expiryToIso(r.expiry) !== expiryIso) continue;
     const strike = Number(r.strike);
     if (!(strike > 0)) continue;
-    rows.push({ token: r.exchange_token, strike, type: r.option_type.toLowerCase(), exchange: cfg.exchange });
+    out.push({ token: String(r.exchange_token), strike, type: r.option_type.toLowerCase(), exchange: r.exchange });
   }
-  return rows;
+  return out;
 }
 
-/** { token, ltpExchange } for the underlying's live index-spot quote, or null if not found in the master. */
+/** { token, ltpExchange } for an app symbol's index spot. */
 export function indexSpotRow(master, symbol) {
-  const cfg = INDEX_SPOT_MAP[symbol];
+  const cfg = SYMBOL_CONFIG[symbol];
   if (!cfg) return null;
-  const wanted = cfg.names.map(normalizeName);
-  for (const r of master) {
-    if (r.exchange !== cfg.exchange || r.segment !== cfg.segment) continue;
-    if (wanted.includes(normalizeName(r.trading_symbol))) {
-      return { token: r.exchange_token, ltpExchange: cfg.ltpExchange };
-    }
-  }
-  return null;
+  const row = master.find((r) => r.exchange === cfg.indexExchange && String(r.exchange_token) === cfg.indexToken && isIndexRow(r));
+  return row ? { token: cfg.indexToken, ltpExchange: `${cfg.indexExchange}_INDEX` } : null;
+}
+
+export function findRow(master, exchange, token) {
+  const ex = String(exchange).toUpperCase();
+  return master.find((r) => String(r.exchange_token) === String(token) && String(r.exchange).toUpperCase() === ex) ?? null;
 }

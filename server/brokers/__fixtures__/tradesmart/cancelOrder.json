@@ -1,0 +1,32 @@
+{
+  "args": [
+    "26101700000017"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/CancelOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\"}"
+      },
+      "json": {
+        "request_time": "14:14:10 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

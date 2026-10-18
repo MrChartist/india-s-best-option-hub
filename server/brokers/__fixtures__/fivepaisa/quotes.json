@@ -1,0 +1,72 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "args": [
+    [
+      {
+        "token": "2885",
+        "exchange": "NSE"
+      },
+      {
+        "token": "1660",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/MarketSnapshot",
+      "json": {
+        "body": {
+          "CacheTime": 5,
+          "Data": [
+            {
+              "Chg": 62.1,
+              "ChgPcnt": 2.18,
+              "Exch": "N",
+              "ExchType": "C",
+              "High": 2949.8,
+              "LastRate": 2915.4,
+              "Low": 2866.35,
+              "PClose": 2853.3,
+              "Symbol": "RELIANCE",
+              "TickDt": "/Date(1706956047000+0530)/",
+              "Time": 35847,
+              "Token": 2885,
+              "TotalQty": 0
+            },
+            {
+              "Chg": -2.8,
+              "ChgPcnt": -0.63,
+              "Exch": "N",
+              "ExchType": "C",
+              "High": 447.2,
+              "LastRate": 440.1,
+              "Low": 439.5,
+              "PClose": 442.9,
+              "Symbol": "ITC",
+              "TickDt": "/Date(1706956150000+0530)/",
+              "Time": 35950,
+              "Token": 1660,
+              "TotalQty": 0
+            }
+          ],
+          "Message": "Success",
+          "Status": 0,
+          "TimeStamp": "/Date(1792471500000+0530)/"
+        },
+        "head": {
+          "responseCode": "5PMFV1",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

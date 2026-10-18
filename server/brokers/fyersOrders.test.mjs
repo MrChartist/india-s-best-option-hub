@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildOrderBody, capabilities } from "./fyersOrders.mjs";
+import { buildOrderBody, buildModifyBody, ORDER_FEATURES as capabilities } from "./fyersOrders.mjs";
 
 // lotSize is deliberately NOT part of the order object — it is resolved from the
 // exchange instrument master and passed separately. See buildOrderBody's header.
@@ -84,8 +84,9 @@ describe("buildOrderBody — payload shape", () => {
     expect(() => buildOrderBody({ ...baseOrder, productType: "MTF" }, LOT_SIZE)).toThrow(/Unsupported Fyers productType/);
   });
 
-  it("rejects IOC validity until independently verified", () => {
-    expect(() => buildOrderBody({ ...baseOrder, validity: "IOC" }, LOT_SIZE)).toThrow(/Unsupported Fyers validity/);
+  it("accepts IOC (documented validity) and rejects anything else", () => {
+    expect(buildOrderBody({ ...baseOrder, validity: "IOC" }, LOT_SIZE).validity).toBe("IOC");
+    expect(() => buildOrderBody({ ...baseOrder, validity: "GTC" }, LOT_SIZE)).toThrow(/Unsupported Fyers validity/);
   });
 
   it("rejects zero or negative lots", () => {
@@ -110,10 +111,10 @@ describe("buildOrderBody — payload shape", () => {
 });
 
 describe("capabilities — must not overstate what's confirmed", () => {
-  it("declares bracket/cover/ioc/mtf/nativeMarketProtection as false pending verification", () => {
+  it("declares bracket/cover/mtf/nativeMarketProtection as false; IOC is documented", () => {
     expect(capabilities.bracket).toBe(false);
     expect(capabilities.cover).toBe(false);
-    expect(capabilities.ioc).toBe(false);
+    expect(capabilities.ioc).toBe(true);
     expect(capabilities.mtf).toBe(false);
     expect(capabilities.nativeMarketProtection).toBe(false);
   });
@@ -122,5 +123,20 @@ describe("capabilities — must not overstate what's confirmed", () => {
     for (const p of capabilities.products) {
       expect(() => buildOrderBody({ ...baseOrder, productType: p }, LOT_SIZE)).not.toThrow();
     }
+  });
+});
+
+describe("buildModifyBody", () => {
+  it("always sends id + type, and only the prices the order type uses", () => {
+    expect(buildModifyBody("8102710298291", { orderType: "LIMIT", limitPrice: 61049, qty: 1 })).toEqual({ id: "8102710298291", type: 1, limitPrice: 61049, qty: 1 });
+    expect(buildModifyBody("1", { orderType: "STOPLIMIT", limitPrice: 10, stopPrice: 9 })).toEqual({ id: "1", type: 4, limitPrice: 10, stopPrice: 9 });
+    expect(buildModifyBody("1", { orderType: "MARKET" })).toEqual({ id: "1", type: 2 });
+  });
+
+  it("rejects bad ids, types, prices and quantities", () => {
+    expect(() => buildModifyBody("", { orderType: "LIMIT", limitPrice: 1 })).toThrow(/order id/);
+    expect(() => buildModifyBody("1", { orderType: "SL" })).toThrow(/orderType/);
+    expect(() => buildModifyBody("1", { orderType: "LIMIT" })).toThrow(/limitPrice/);
+    expect(() => buildModifyBody("1", { orderType: "MARKET", qty: 1.5 })).toThrow(/qty/);
   });
 });

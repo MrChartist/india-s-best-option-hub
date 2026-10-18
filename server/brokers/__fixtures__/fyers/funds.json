@@ -1,0 +1,75 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/funds$",
+      "json": {
+        "code": 200,
+        "message": "",
+        "s": "ok",
+        "fund_limit": [
+          {
+            "id": 1,
+            "title": "Total Balance",
+            "equityAmount": 58.15,
+            "commodityAmount": 0
+          },
+          {
+            "id": 2,
+            "title": "Utilized Amount",
+            "equityAmount": 0.3,
+            "commodityAmount": 0
+          },
+          {
+            "id": 3,
+            "title": "Clear Balance",
+            "equityAmount": 58.15,
+            "commodityAmount": 0
+          },
+          {
+            "id": 4,
+            "title": "Realized Profit and Loss",
+            "equityAmount": -0.3,
+            "commodityAmount": 0
+          },
+          {
+            "id": 5,
+            "title": "Collaterals",
+            "equityAmount": 0,
+            "commodityAmount": 0
+          },
+          {
+            "id": 6,
+            "title": "Fund Transfer",
+            "equityAmount": 0,
+            "commodityAmount": 0
+          },
+          {
+            "id": 7,
+            "title": "Receivables",
+            "equityAmount": 0,
+            "commodityAmount": 0
+          },
+          {
+            "id": 8,
+            "title": "Adhoc Limit",
+            "equityAmount": 0,
+            "commodityAmount": 0
+          },
+          {
+            "id": 9,
+            "title": "Limit at start of the day",
+            "equityAmount": 58.45,
+            "commodityAmount": 0
+          },
+          {
+            "id": 10,
+            "title": "Available Balance",
+            "equityAmount": 58.15,
+            "commodityAmount": 0
+          }
+        ]
+      }
+    }
+  ]
+}

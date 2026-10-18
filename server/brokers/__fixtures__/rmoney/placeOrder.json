@@ -1,0 +1,42 @@
+{
+  "args": [
+    {
+      "exchange": "NFO",
+      "token": "40003",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 199.5,
+      "tag": "mrchub"
+    },
+    75
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/orders",
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 2190766863,
+          "OrderUniqueIdentifier": "mrchub",
+          "ClientID": "DUMMY1"
+        }
+      },
+      "expectBody": {
+        "exchangeSegment": "NSEFO",
+        "exchangeInstrumentID": 40003,
+        "productType": "NRML",
+        "orderType": "Limit",
+        "orderSide": "BUY",
+        "timeInForce": "DAY",
+        "orderQuantity": 150,
+        "limitPrice": 199.5,
+        "stopPrice": 0
+      }
+    }
+  ]
+}

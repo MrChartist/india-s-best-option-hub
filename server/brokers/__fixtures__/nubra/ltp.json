@@ -1,0 +1,18 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/optionchains/NIFTY/price?exchange=NSE",
+      "json": {
+        "message": "current price",
+        "exchange": "NSE",
+        "price": 2501215,
+        "prev_close": 2496080,
+        "change": 0.2057
+      }
+    }
+  ]
+}

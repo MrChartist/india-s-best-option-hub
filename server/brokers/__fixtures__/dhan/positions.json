@@ -1,0 +1,74 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/positions",
+      "status": 200,
+      "json": [
+        {
+          "dhanClientId": "1000000001",
+          "tradingSymbol": "TCS",
+          "securityId": "11536",
+          "positionType": "LONG",
+          "exchangeSegment": "NSE_EQ",
+          "productType": "CNC",
+          "buyAvg": 3345.8,
+          "buyQty": 40,
+          "costPrice": 3215.0,
+          "sellAvg": 0.0,
+          "sellQty": 0,
+          "netQty": 40,
+          "realizedProfit": 0.0,
+          "unrealizedProfit": 6122.0,
+          "rbiReferenceRate": 1.0,
+          "multiplier": 1,
+          "carryForwardBuyQty": 0,
+          "carryForwardSellQty": 0,
+          "carryForwardBuyValue": 0.0,
+          "carryForwardSellValue": 0.0,
+          "dayBuyQty": 40,
+          "daySellQty": 0,
+          "dayBuyValue": 133832.0,
+          "daySellValue": 0.0,
+          "drvExpiryDate": "0001-01-01",
+          "drvOptionType": null,
+          "drvStrikePrice": 0.0,
+          "crossCurrency": false
+        },
+        {
+          "dhanClientId": "1000000001",
+          "tradingSymbol": "NIFTY-Oct2026-25000-CE",
+          "securityId": "40001",
+          "positionType": "SHORT",
+          "exchangeSegment": "NSE_FNO",
+          "productType": "INTRADAY",
+          "buyAvg": 0.0,
+          "buyQty": 0,
+          "costPrice": 190.0,
+          "sellAvg": 190.0,
+          "sellQty": 75,
+          "netQty": -75,
+          "realizedProfit": 0.0,
+          "unrealizedProfit": 570.0,
+          "rbiReferenceRate": 1.0,
+          "multiplier": 1,
+          "carryForwardBuyQty": 0,
+          "carryForwardSellQty": 0,
+          "carryForwardBuyValue": 0.0,
+          "carryForwardSellValue": 0.0,
+          "dayBuyQty": 0,
+          "daySellQty": 75,
+          "dayBuyValue": 0.0,
+          "daySellValue": 14250.0,
+          "drvExpiryDate": "2026-10-20",
+          "drvOptionType": "CALL",
+          "drvStrikePrice": 25000.0,
+          "crossCurrency": false
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

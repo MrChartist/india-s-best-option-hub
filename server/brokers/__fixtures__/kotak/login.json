@@ -1,0 +1,62 @@
+{
+  "secrets": {
+    "mpin": "246810",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://mis.kotaksecurities.com/login/1.0/tradeApiLogin",
+      "expectBody": {
+        "mobileNumber": "+919999999999",
+        "ucc": "ABC12",
+        "totp": "123456"
+      },
+      "status": 200,
+      "json": {
+        "data": {
+          "token": "dummy.view.token",
+          "sid": "dummy-view-sid",
+          "status": "success",
+          "kType": "View"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://mis.kotaksecurities.com/login/1.0/tradeApiValidate",
+      "expectBody": {
+        "mpin": "246810"
+      },
+      "status": 200,
+      "json": {
+        "data": {
+          "token": "dummy.trade.token",
+          "sid": "dummy-trade-sid",
+          "rid": "dummy-rid",
+          "hsServerId": "server1",
+          "isUserPwdExpired": false,
+          "ucc": "ABC12",
+          "greetingName": "TRADER",
+          "isTrialAccount": false,
+          "dataCenter": "E21",
+          "searchAPIKey": "",
+          "derivativesRiskDisclosure": "",
+          "mfAccess": 1,
+          "dataCenterMap": null,
+          "dormancyStatus": "A",
+          "asbaStatus": "",
+          "clientType": "RI",
+          "isNRI": false,
+          "kId": "",
+          "kType": "Trade",
+          "status": "success",
+          "incRange": 0,
+          "incUpdFlag": "",
+          "clientGroup": "",
+          "baseUrl": "https://cis.kotaksecurities.com"
+        }
+      }
+    }
+  ]
+}

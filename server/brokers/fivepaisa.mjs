@@ -1,161 +1,152 @@
 /**
- * 5paisa broker integration. See registry.mjs for the shared contract.
+ * 5paisa adapter on the broker contract (server/brokers/contract.mjs).
  *
- * 5paisa has no native, reliable option-chain endpoint, so this module builds
- * the chain itself: a daily instrument (scrip) master resolves strike/expiry
- * -> ScripCode (fivepaisaInstruments.mjs), a TOTP-based two-step login yields a
- * session token good until 23:59 IST (fivepaisaAuth.mjs), and batched
- * MarketSnapshot quote calls fill in price/OI/volume. IV + Greeks aren't
- * returned by 5paisa at all, so every leg is back-solved via Black-Scholes.
+ * Official docs: https://xstream.5paisa.com/dev-docs/ (checked 2026-10). OpenAlgo (AGPL) was read for facts
+ * only; where it disagrees with the official pages we follow the official pages (see fivepaisaPortfolio.mjs and
+ * fivepaisaMarket.mjs headers).
+ *
+ *  - Auth: session login (PIN + current TOTP code typed per session, never stored), fivepaisaAuth.mjs.
+ *  - Instruments: the public daily scrip master (fivepaisaInstruments.mjs); index cash rows give spot tokens.
+ *  - Option chain: built from the master + batched MarketSnapshot quotes. 5paisa returns no IV/Greeks over REST
+ *    (its option-greeks feed is a WebSocket, NSE only), so they are solved locally with Black-Scholes; snapshots
+ *    carry no bid/ask, so those stay 0 rather than one depth call per strike.
+ *    Open interest: the official MarketSnapshot field table and sample have no OI field, so `capabilities.optionChain.oi`
+ *    is false and a leg carries `oi` only when a response really includes OpenInterest. We never send OI as 0, which
+ *    would make PCR, max pain and OI views look valid while being empty. A leg with no snapshot row is left out.
+ *    5paisa's SDKs also call V2/GetExpiryForSymbolOptions and GetOptionsForSymbol (py5paisa get_expiry /
+ *    get_option_chain), but neither is in the official dev-docs (checked 2026-10) and no official page gives their
+ *    response fields, so they are not wired here until 5paisa documents them.
+ *  - Portfolio reads and gated orders: fivepaisaPortfolio.mjs, fivepaisaOrders.mjs.
+ *  - Not declared: feed (5paisa's WebSocket feed is not wired here).
  */
 
-import { ensureSession, authenticatedPost } from "./fivepaisaAuth.mjs";
-import { getInstrumentMaster, listExpiries, strikeMapForExpiry, indexScripInfo, INDEX_ROOTS } from "./fivepaisaInstruments.mjs";
-import { batchWithDelay } from "../lib/batch.mjs";
+import { BrokerError, normaliseError as baseNormalise } from "./contract.mjs";
+import { authenticatedPost, ensureSession, LOGIN_FIELDS, SESSION_FIELDS } from "./fivepaisaAuth.mjs";
+import {
+  assertSymbol, getInstrumentMaster, indexInstrument, listExpiries, spotScripInfo, strikeMapForExpiry, toInstrument,
+} from "./fivepaisaInstruments.mjs";
+import { fetchSnapshotMap, lookup } from "./fivepaisaMarket.mjs";
+import { ORDER_FEATURES } from "./fivepaisaOrders.mjs";
 import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
 
 export const id = "fivepaisa";
-export const credentialFields = ["appName", "appSource", "userKey", "encryptionKey", "userId", "clientCode", "pin", "totpSecret"];
+export const credentialFields = ["appName", "appSource", "userKey", "encryptionKey", "userId", "clientCode"];
 
-/**
- * Capabilities descriptor — informational only. placeOrder is intentionally
- * NOT implemented for 5paisa in this pass; it stays read-only (market
- * data/quotes) until order code is written and held to the same
- * verification bar as fyersOrders.mjs/zerodhaOrders.mjs.
- *
- * 5paisa's current order-placement platform is "Xstream" (xstream.5paisa.com
- * — the legacy developerapi/order-request-place-order docs URL now 301-
- * redirects there). This session only reached Xstream's marketing/landing
- * page, not field-level API docs, so every value below is a WEAKER
- * NEEDS VERIFICATION than Alice Blue/Fyers/Zerodha, which had field-level
- * docs fetched directly.
- */
 export const capabilities = {
-  bracket: false, // Xstream's current (2026) marketing page explicitly advertises "Bracket Order" support — the strongest signal among the three read-only brokers in this pass — but no field-level doc was reached to confirm the payload shape or current exchange-level support. NEEDS VERIFICATION before enabling.
-  cover: false, // Same marketing page advertises "Cover Order" support — same caveat as bracket.
-  ioc: false, // NEEDS VERIFICATION — 5paisa's older SDKs reference an IsIOCOrder/IOCOrder flag, but this was not confirmed against Xstream's current docs.
-  mtf: false, // NEEDS VERIFICATION — no MTF evidence found.
-  nativeMarketProtection: false, // NEEDS VERIFICATION — no equivalent field found in what was reviewed.
-  maxLegQty: null, // NEEDS VERIFICATION — the marketing page states an order-RATE limit (10/sec, 25/sec max, 10,000/day), which is not the same thing as a per-leg quantity cap; no qty cap was found. The NSE exchange-wide freeze quantity (spec §8 slicing) is the only confirmed ceiling.
-  products: ["CNC", "MIS", "NRML"], // Universal Indian-broker vocabulary; 5paisa's own wire-format field names (its older SDK uses "DelivIntra") were NOT independently confirmed against Xstream's current docs this session.
+  auth: { kind: "sessionLogin", loginFields: LOGIN_FIELDS, sessionFields: SESSION_FIELDS },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "computed", oi: false },
+  ltp: true,
+  quotes: true,
+  depth: true,
+  historical: { intervals: ["1m", "5m", "15m", "30m", "60m", "1d"] },
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+  ...ORDER_FEATURES,
 };
 
-// 5paisa's MarketSnapshot endpoint silently returns empty results above ~50
-// instruments per call (confirmed in openalgo's production adapter) — never raise this.
-const QUOTE_BATCH_SIZE = 50;
-const QUOTE_BATCH_DELAY_MS = 500;
+export { login } from "./fivepaisaAuth.mjs";
+export { fetchQuotes, fetchDepth, fetchHistorical } from "./fivepaisaMarket.mjs";
+export { fetchPositions, fetchHoldings, fetchFunds, fetchOrderBook, fetchTradeBook } from "./fivepaisaPortfolio.mjs";
+export { placeOrder, modifyOrder, cancelOrder, buildOrderBody, buildModifyBody } from "./fivepaisaOrders.mjs";
 
-function assertKnownSymbol(symbol) {
-  if (!INDEX_ROOTS[symbol]) throw new Error(`Unknown symbol for 5paisa: ${symbol}`);
+/** Contract error normaliser: our refusals stay 422; 5paisa rate limits and auth failures get their own codes. */
+export function normaliseError(err, opts = {}) {
+  const base = baseNormalise(err, opts);
+  if (err instanceof BrokerError) return base;
+  if (/HTTP 429|rate limit/i.test(base.message)) return { ...base, code: "UPSTREAM_RATE_LIMIT" };
+  if (/HTTP 401|invalid token/i.test(base.message)) return { ...base, code: "UPSTREAM_AUTH" };
+  return base;
 }
 
-/** Batched MarketSnapshot lookup -> Map<scripCode string, raw quote item>. */
-async function fetchQuotesMap(creds, items) {
-  if (items.length === 0) return new Map();
-  const chunkResults = await batchWithDelay(items, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    // buildBody is re-invoked against a fresh session if authenticatedPost has to
-    // re-login mid-call (e.g. ClientCode must match whichever session actually authenticated).
-    const json = await authenticatedPost(creds, "/MarketSnapshot", (session) => ({
-      head: { key: creds.userKey }, // lowercase "key" for data calls (TOTPLogin/GetAccessToken use capital "Key")
-      body: {
-        ClientCode: session.clientCode,
-        Data: chunk.map((it) => ({
-          Exchange: it.exch,
-          ExchangeType: it.exchType,
-          ScripCode: Number(it.scripCode),
-          ScripData: "",
-        })),
-      },
-    }));
-    return json?.body?.Data || [];
-  });
-
-  const map = new Map();
-  for (const rows of chunkResults) {
-    for (const row of rows) {
-      if (row?.ScripCode != null) map.set(String(row.ScripCode), row);
-    }
-  }
-  return map;
-}
-
-/**
- * MarketSnapshot has no bid/ask (confirmed — 5paisa only exposes depth via a
- * separate per-scrip V2/MarketDepth call). Issuing one depth call per strike on
- * every chain refresh would multiply request volume across a full chain and risk
- * 5paisa's per-minute rate limit, so v1 leaves bid/ask at 0 rather than doing that
- * — matches the tradeoff openalgo's own production adapter makes for this endpoint.
- */
-function buildLeg(quote, strike, type, spot, daysToExpiry) {
-  const ltp = Number(quote?.LastTradedPrice) || 0;
-  const oi = Number(quote?.OpenInterest) || 0;
-  const volume = Number(quote?.Volume) || 0;
-  const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
-  return { last_price: ltp, oi, volume, bid_price: 0, ask_price: 0, ...greeks };
-}
-
+/** One cheap authenticated call (V4/Margin) proves the stored session is alive. */
 export async function testConnection(creds = {}) {
   try {
-    await ensureSession(creds);
+    ensureSession(creds);
+    const json = await authenticatedPost(creds, "/V4/Margin", (session) => ({ ClientCode: session.clientCode }));
+    if (Number(json?.body?.Status) !== 0) return { status: "error", message: `5paisa: ${json?.body?.Message || "margin check failed"}` };
     return { status: "success", message: "5paisa session authenticated" };
   } catch (e) {
-    return { status: "error", message: e.message };
+    return { status: "error", message: normaliseError(e).message };
   }
+}
+
+export async function fetchInstruments(creds) {
+  ensureSession(creds);
+  const master = await getInstrumentMaster();
+  const data = master.indices.map(indexInstrument);
+  for (const d of master.derivatives) {
+    const inst = toInstrument(d);
+    if (inst) data.push(inst);
+  }
+  return { status: "success", data };
 }
 
 export async function fetchExpiryList(creds, symbol) {
-  assertKnownSymbol(symbol);
-  // The scrip master CSV is public (no auth) — no need to log in just to list expiries.
+  const sym = assertSymbol(symbol);
+  ensureSession(creds); // refuse before the master download when not logged in
   const master = await getInstrumentMaster();
-  return { status: "success", data: listExpiries(master, symbol) };
+  return { status: "success", data: listExpiries(master, sym) };
+}
+
+/** One chain leg from a snapshot row, or null when 5paisa returned no row for it (never a made-up zero leg). */
+function buildLeg(row, strike, type, spot, daysToExpiry) {
+  if (!row) return null;
+  const ltp = row.ltp ?? 0;
+  const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
+  const leg = { last_price: ltp, volume: row.volume ?? 0, bid_price: 0, ask_price: 0, security_id: row.token, ...greeks };
+  if (row.oi !== null && row.oi !== undefined) leg.oi = row.oi;
+  return leg;
 }
 
 export async function fetchOptionChain(creds, symbol, expiry) {
-  assertKnownSymbol(symbol);
-
-  await ensureSession(creds); // throws on bad/expired credentials — fail fast before touching the instrument master
+  const sym = assertSymbol(symbol);
+  ensureSession(creds);
   const master = await getInstrumentMaster();
-
-  let expiryIso = expiry;
-  if (!expiryIso) {
-    const expiries = listExpiries(master, symbol);
-    expiryIso = expiries[0];
-  }
+  const expiryIso = expiry || listExpiries(master, sym)[0];
   if (!expiryIso) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const strikes = strikeMapForExpiry(master, symbol, expiryIso);
-  const indexInfo = indexScripInfo(master, symbol);
+  const strikes = strikeMapForExpiry(master, sym, expiryIso);
   if (strikes.size === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
 
-  const quoteItems = indexInfo ? [indexInfo] : [];
+  const spotInfo = spotScripInfo(master, sym);
+  const items = spotInfo ? [spotInfo] : [];
   for (const legs of strikes.values()) {
-    if (legs.ce) quoteItems.push(legs.ce);
-    if (legs.pe) quoteItems.push(legs.pe);
+    if (legs.ce) items.push(legs.ce);
+    if (legs.pe) items.push(legs.pe);
   }
-
-  const quotes = await fetchQuotesMap(creds, quoteItems);
-  const spot = indexInfo ? Number(quotes.get(String(indexInfo.scripCode))?.LastTradedPrice) || 0 : 0;
+  const quotes = await fetchSnapshotMap(creds, items);
+  const spot = spotInfo ? lookup(quotes, spotInfo.exch, spotInfo.scripCode)?.ltp ?? 0 : 0;
   const daysToExpiry = daysBetween(new Date(), expiryIso);
 
   const oc = {};
-  for (const [strike, legs] of strikes.entries()) {
+  for (const [strike, legs] of [...strikes.entries()].sort((a, b) => Number(a[0]) - Number(b[0]))) {
     const entry = {};
-    if (legs.ce) entry.ce = buildLeg(quotes.get(String(legs.ce.scripCode)), Number(strike), "CE", spot, daysToExpiry);
-    if (legs.pe) entry.pe = buildLeg(quotes.get(String(legs.pe.scripCode)), Number(strike), "PE", spot, daysToExpiry);
-    if (entry.ce || entry.pe) oc[strike] = entry;
+    const ce = legs.ce ? buildLeg(lookup(quotes, legs.ce.exch, legs.ce.scripCode), Number(strike), "CE", spot, daysToExpiry) : null;
+    const pe = legs.pe ? buildLeg(lookup(quotes, legs.pe.exch, legs.pe.scripCode), Number(strike), "PE", spot, daysToExpiry) : null;
+    if (ce) entry.ce = ce;
+    if (pe) entry.pe = pe;
+    if (ce || pe) oc[strike] = entry;
   }
-
   return { status: "success", data: { oc, last_price: spot } };
 }
 
 export async function fetchLTP(creds, symbol) {
-  assertKnownSymbol(symbol);
-  await ensureSession(creds);
+  const sym = assertSymbol(symbol);
+  ensureSession(creds);
   const master = await getInstrumentMaster();
-  const indexInfo = indexScripInfo(master, symbol);
-  if (!indexInfo) return { status: "success", data: { last_price: 0 } };
-
-  const quotes = await fetchQuotesMap(creds, [indexInfo]);
-  const last_price = Number(quotes.get(String(indexInfo.scripCode))?.LastTradedPrice) || 0;
+  const info = spotScripInfo(master, sym);
+  if (!info) throw new BrokerError(`5paisa: no spot instrument for ${sym} in the scrip master.`);
+  const quotes = await fetchSnapshotMap(creds, [info]);
+  const last_price = lookup(quotes, info.exch, info.scripCode)?.ltp ?? 0;
+  if (!(last_price > 0)) throw new BrokerError(`5paisa returned no last price for ${sym}.`);
   return { status: "success", data: { last_price } };
 }

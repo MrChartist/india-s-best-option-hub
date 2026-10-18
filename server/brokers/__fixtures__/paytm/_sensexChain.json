@@ -1,0 +1,152 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/scrips/option_security_master.csv",
+      "status": 200,
+      "text": "\"security_id\",\"symbol\",\"name\",\"series\",\"tick_size\",\"lot_size\",\"instrument_type\",\"segment\",\"exchange\",\"upper_limit\",\"lower_limit\",\"expiry_date\",\"strike_price\",\"freeze_quantity\"\n\"58445\",\"NIFTY-Oct2026-25000-CE\",\"NIFTY 27 OCT 25000 CALL\",\"\",\"5.0000\",\"65\",\"OPTIDX\",\"D\",\"NSE\",\"900.0000\",\"0.0500\",\"2026-10-27 14:00:00\",\"25000.0\",\"1755\"\n\"58446\",\"NIFTY-Oct2026-25000-PE\",\"NIFTY 27 OCT 25000 PUT\",\"\",\"5.0000\",\"65\",\"OPTIDX\",\"D\",\"NSE\",\"900.0000\",\"0.0500\",\"2026-10-27 14:00:00\",\"25000.0\",\"1755\"\n\"47001\",\"NIFTY-Nov2026-25000-CE\",\"NIFTY 03 NOV 25000 CALL\",\"\",\"5.0000\",\"65\",\"OPTIDX\",\"D\",\"NSE\",\"900.0000\",\"0.0500\",\"2026-11-03 14:00:00\",\"25000.0\",\"1755\"\n\"61001\",\"BANKNIFTY-Oct2026-56000-CE\",\"BANKNIFTY 27 OCT 56000 CALL\",\"\",\"5.0000\",\"30\",\"OPTIDX\",\"D\",\"NSE\",\"2000.0000\",\"0.0500\",\"2026-10-27 14:00:00\",\"56000.0\",\"900\"\n\"61101\",\"FINNIFTY-Oct2026-27000-PE\",\"FINNIFTY 27 OCT 27000 PUT\",\"\",\"5.0000\",\"60\",\"OPTIDX\",\"D\",\"NSE\",\"900.0000\",\"0.0500\",\"2026-10-27 14:00:00\",\"27000.0\",\"1800\"\n\"61201\",\"MIDCPNIFTY-Oct2026-13000-CE\",\"MIDCPNIFTY 27 OCT 13000 CALL\",\"\",\"5.0000\",\"120\",\"OPTIDX\",\"D\",\"NSE\",\"900.0000\",\"0.0500\",\"2026-10-27 14:00:00\",\"13000.0\",\"2800\"\n\"844454\",\"SENSEX-Oct2026-82000-CE\",\"SENSEX 29 OCT 82000 CALL\",\"\",\"5.0000\",\"20\",\"OPTIDX\",\"D\",\"BSE\",\"3996.3000\",\"1283.0000\",\"2026-10-29 00:00:00\",\"82000.0\",\"1000\"\n\"844455\",\"SENSEX-Oct2026-82000-PE\",\"SENSEX 29 OCT 82000 PUT\",\"\",\"5.0000\",\"20\",\"OPTIDX\",\"D\",\"BSE\",\"3996.3000\",\"1283.0000\",\"2026-10-29 00:00:00\",\"82000.0\",\"1000\"\n\"844460\",\"SENSEX-Nov2026-82000-CE\",\"SENSEX 05 NOV 82000 CALL\",\"\",\"5.0000\",\"20\",\"OPTIDX\",\"D\",\"BSE\",\"3996.3000\",\"1283.0000\",\"2026-11-05 00:00:00\",\"82000.0\",\"1000\"\n\"864500\",\"BANKEX-Oct2026-60000-PE\",\"BANKEX 29 OCT 60000 PUT\",\"\",\"5.0000\",\"30\",\"OPTIDX\",\"D\",\"BSE\",\"3000.0000\",\"10.0000\",\"2026-10-29 00:00:00\",\"60000.0\",\"900\"\n\"106593\",\"RELIANCE-Oct2026-1400-CE\",\"RELIANCE 27 OCT 1400 CALL\",\"\",\"5.0000\",\"500\",\"OPTSTK\",\"D\",\"NSE\",\"120.0500\",\"0.0500\",\"2026-10-27 14:00:00\",\"1400.0\",\"20000\"\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/scrips/index_security_master.csv",
+      "status": 200,
+      "text": "\"security_id\",\"symbol\",\"name\",\"series\",\"tick_size\",\"lot_size\",\"instrument_type\",\"segment\",\"exchange\",\"upper_limit\",\"lower_limit\",\"expiry_date\",\"strike_price\",\"freeze_quantity\"\n\"13\",\"\",\"NIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"25\",\"\",\"BANKNIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"27\",\"\",\"FINNIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"442\",\"\",\"NIFTY MID SELECT\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"51\",\"\",\"SENSEX\",\"\",\"\",\"\",\"I\",\"\",\"BSE\",\"\",\"\",\"\",\"\",\"\"\n\"69\",\"\",\"BANKEX\",\"\",\"\",\"\",\"I\",\"\",\"BSE\",\"\",\"\",\"\",\"\",\"\"\n\"21\",\"\",\"INDIA VIX\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/price/live?mode=LTP&pref=BSE%3A51%3AINDEX",
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "tradable": false,
+            "mode": "LTP",
+            "security_id": 51,
+            "last_price": 82110.27,
+            "change_percent": 0.1,
+            "change_absolute": 80.1,
+            "last_update_time": 1792404600,
+            "found": true
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/price/live?mode=FULL&pref=BSE%3A844454%3AOPTION%2CBSE%3A844455%3AOPTION",
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "tradable": true,
+            "mode": "FULL",
+            "security_id": 844454,
+            "last_price": 512.3,
+            "last_traded_quantity": 1,
+            "average_traded_price": 512.3,
+            "volume_traded": 8780591,
+            "total_buy_quantity": 1115999,
+            "total_sell_quantity": 1787096,
+            "ohlc": {
+              "open": 509.3,
+              "high": 517.3,
+              "low": 506.3,
+              "close": 511.3
+            },
+            "change_percent": 1.83,
+            "change_absolute": 7.6,
+            "52_week_high": 536.7,
+            "52_week_low": 366.2,
+            "last_trade_time": 1792404600,
+            "oi": 120340,
+            "change_oi": 0,
+            "depth": {
+              "buy": [
+                {
+                  "quantity": 1628,
+                  "price": 512.25,
+                  "orders": 13
+                },
+                {
+                  "quantity": 5880,
+                  "price": 512.2,
+                  "orders": 27
+                }
+              ],
+              "sell": [
+                {
+                  "quantity": 33,
+                  "price": 512.35,
+                  "orders": 1
+                },
+                {
+                  "quantity": 3335,
+                  "price": 512.4,
+                  "orders": 6
+                }
+              ]
+            },
+            "found": true
+          },
+          {
+            "tradable": true,
+            "mode": "FULL",
+            "security_id": 844455,
+            "last_price": 488.1,
+            "last_traded_quantity": 1,
+            "average_traded_price": 488.1,
+            "volume_traded": 8780591,
+            "total_buy_quantity": 1115999,
+            "total_sell_quantity": 1787096,
+            "ohlc": {
+              "open": 485.1,
+              "high": 493.1,
+              "low": 482.1,
+              "close": 487.1
+            },
+            "change_percent": 1.83,
+            "change_absolute": 7.6,
+            "52_week_high": 536.7,
+            "52_week_low": 366.2,
+            "last_trade_time": 1792404600,
+            "oi": 98210,
+            "change_oi": 0,
+            "depth": {
+              "buy": [
+                {
+                  "quantity": 1628,
+                  "price": 488.05,
+                  "orders": 13
+                },
+                {
+                  "quantity": 5880,
+                  "price": 488.0,
+                  "orders": 27
+                }
+              ],
+              "sell": [
+                {
+                  "quantity": 33,
+                  "price": 488.15,
+                  "orders": 1
+                },
+                {
+                  "quantity": 3335,
+                  "price": 488.2,
+                  "orders": 6
+                }
+              ]
+            },
+            "found": true
+          }
+        ]
+      }
+    }
+  ]
+}

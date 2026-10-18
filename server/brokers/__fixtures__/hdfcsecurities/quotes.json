@@ -1,0 +1,56 @@
+{
+  "args": [
+    [
+      {
+        "token": "51288",
+        "exchange": "NFO"
+      },
+      {
+        "token": "26000",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://developer.hdfcsec.com/oapi/v1/fetch-ltp?api_key=dummy-ir-api-key",
+      "expectBody": {
+        "data": [
+          {
+            "exchange": "NFO",
+            "token": "51288"
+          },
+          {
+            "exchange": "NSE_INDEX",
+            "token": "26000"
+          }
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "prev_close": 190.1,
+            "ltp": 182.4,
+            "exchange": "NFO",
+            "token": 51288
+          },
+          {
+            "prev_close": 25012.35,
+            "ltp": 25061.4,
+            "exchange": "NSE_INDEX",
+            "token": 26000
+          }
+        ],
+        "meta": {
+          "statusCode": "OK",
+          "statusMsg": "OK"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,315 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/auth/login",
+      "expectBody": {
+        "appKey": "dummyMdAppKey01",
+        "secretKey": "dummyMdSecret01",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Provided Valid Credentials",
+        "result": {
+          "token": "dummy.md.jwt.token",
+          "userID": "DUMMY1",
+          "appVersion": "1.0",
+          "application_expiry_date": "2027-01-01"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/master",
+      "expectBody": {
+        "exchangeSegmentList": [
+          "NSEFO"
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Data found successfully",
+        "result": "NSEFO|40001|2|NIFTY|NIFTY26O2024900CE|OPTIDX|NIFTY-OPTIDX|2400010000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|24900|3|NIFTY 20OCT2026 CE 24900|1|1|NIFTY26O2024900CE\nNSEFO|40002|2|NIFTY|NIFTY26O2024900PE|OPTIDX|NIFTY-OPTIDX|2400020000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|24900|4|NIFTY 20OCT2026 PE 24900|1|1|NIFTY26O2024900PE\nNSEFO|40003|2|NIFTY|NIFTY26O2025000CE|OPTIDX|NIFTY-OPTIDX|2400030000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25000|3|NIFTY 20OCT2026 CE 25000|1|1|NIFTY26O2025000CE\nNSEFO|40004|2|NIFTY|NIFTY26O2025000PE|OPTIDX|NIFTY-OPTIDX|2400040000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25000|4|NIFTY 20OCT2026 PE 25000|1|1|NIFTY26O2025000PE\nNSEFO|40005|2|NIFTY|NIFTY26O2025100CE|OPTIDX|NIFTY-OPTIDX|2400050000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25100|3|NIFTY 20OCT2026 CE 25100|1|1|NIFTY26O2025100CE\nNSEFO|40006|2|NIFTY|NIFTY26O2025100PE|OPTIDX|NIFTY-OPTIDX|2400060000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25100|4|NIFTY 20OCT2026 PE 25100|1|1|NIFTY26O2025100PE\nNSEFO|40011|2|NIFTY|NIFTY26OCT25000CE|OPTIDX|NIFTY-OPTIDX|2400110000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-27T14:30:00|25000|3|NIFTY 27OCT2026 CE 25000|1|1|NIFTY26OCT25000CE\nNSEFO|40012|2|NIFTY|NIFTY26OCT25000PE|OPTIDX|NIFTY-OPTIDX|2400120000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-27T14:30:00|25000|4|NIFTY 27OCT2026 PE 25000|1|1|NIFTY26OCT25000PE\nNSEFO|40021|1|NIFTY|NIFTY26OCTFUT|FUTIDX|NIFTY-FUTIDX|2400210000000|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-27T14:30:00|-1|1|NIFTY 27OCT2026|1|1|NIFTY26OCTFUT\nNSEFO|40031|2|NIFTYNXT50|NIFTYNXT5026OCT70000CE|OPTIDX|NIFTYNXT50-OPTIDX|2400310000000|999.95|0.05|1801|0.05|25|1|-1|Nifty Next 50|2026-10-27T14:30:00|70000|3|NIFTYNXT50 27OCT2026 CE 70000|1|1|NIFTYNXT5026OCT70000CE\nNSEFO|50001|2|RELIANCE|RELIANCE26OCT1400CE|OPTSTK|RELIANCE-OPTSTK|2500010000000|999.95|0.05|1801|0.05|500|1|1100100002885|RELIANCE|2026-10-27T14:30:00|1400|3|RELIANCE 27OCT2026 CE 1400|1|1|RELIANCE26OCT1400CE\nNSEFO|50002|2|RELIANCE|RELIANCE26OCT1400PE|OPTSTK|RELIANCE-OPTSTK|2500020000000|999.95|0.05|1801|0.05|500|1|1100100002885|RELIANCE|2026-10-27T14:30:00|1400|4|RELIANCE 27OCT2026 PE 1400|1|1|RELIANCE26OCT1400PE\nNSEFO|50011|1|RELIANCE|RELIANCE26OCTFUT|FUTSTK|RELIANCE-FUTSTK|2500110000000|999.95|0.05|1801|0.05|500|1|1100100002885|RELIANCE|2026-10-27T14:30:00|-1|1|RELIANCE 27OCT2026|1|1|RELIANCE26OCTFUT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/master",
+      "expectBody": {
+        "exchangeSegmentList": [
+          "BSEFO"
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Data found successfully",
+        "result": "BSEFO|1140001|2|SENSEX|SENSEX26O2282000CE|IO|SENSEX-IO|2114000100000|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82000|3|SENSEX 22OCT2026 CE 82000|1|1|SENSEX26O2282000CE\nBSEFO|1140002|2|SENSEX|SENSEX26O2282000PE|IO|SENSEX-IO|2114000200000|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82000|4|SENSEX 22OCT2026 PE 82000|1|1|SENSEX26O2282000PE\nBSEFO|1140003|2|SENSEX|SENSEX26O2282100CE|IO|SENSEX-IO|2114000300000|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82100|3|SENSEX 22OCT2026 CE 82100|1|1|SENSEX26O2282100CE\nBSEFO|1140004|2|SENSEX|SENSEX26O2282100PE|IO|SENSEX-IO|2114000400000|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82100|4|SENSEX 22OCT2026 PE 82100|1|1|SENSEX26O2282100PE\nBSEFO|1150001|2|BANKEX|BANKEX26OCT63000CE|OPTIDX|BANKEX-OPTIDX|2115000100000|999.95|0.05|1801|0.05|30|1|-1|BANKEX|2026-10-29T14:30:00|63000|3|BANKEX 29OCT2026 CE 63000|1|1|BANKEX26OCT63000CE\nBSEFO|1150002|2|BANKEX|BANKEX26OCT63000PE|OPTIDX|BANKEX-OPTIDX|2115000200000|999.95|0.05|1801|0.05|30|1|-1|BANKEX|2026-10-29T14:30:00|63000|4|BANKEX 29OCT2026 PE 63000|1|1|BANKEX26OCT63000PE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/indexlist?exchangeSegment=1",
+      "json": {
+        "type": "success",
+        "code": "s-instrument-0007",
+        "description": "Index List successfully",
+        "result": {
+          "exchangeSegment": 1,
+          "indexList": [
+            "NIFTY 50_26000",
+            "NIFTY BANK_26001",
+            "INDIA VIX_26002",
+            "NIFTY IT_26003",
+            "NIFTY 100_26004",
+            "NIFTY FIN SERVICE_26037",
+            "NIFTY MID SELECT_26074"
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/indexlist?exchangeSegment=11",
+      "json": {
+        "type": "success",
+        "code": "s-instrument-0007",
+        "description": "Index List successfully",
+        "result": {
+          "exchangeSegment": 11,
+          "indexList": [
+            "SENSEX_26065",
+            "BANKEX_26118"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 1,
+            "exchangeInstrumentID": 2885
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":1,\"ExchangeInstrumentID\":2885,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":1412.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":1412.2,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":1412.15,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":1412.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":1412.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":1413,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":1413.05,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":1413.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":1413.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":1413.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":1412.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":1413,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":1412.6,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":0,\"AverageTradedPrice\":1412.6,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":1405,\"High\":1418.9,\"Low\":1401.2,\"Close\":1404.3,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 1,
+            "exchangeInstrumentID": 26000
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":1,\"ExchangeInstrumentID\":26000,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":25012,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":25011.95,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":25011.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":25011.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":25011.8,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":25012.75,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":25012.8,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":25012.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":25012.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":25012.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":25012,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":25012.75,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":25012.35,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":0,\"AverageTradedPrice\":25012.35,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":24950.1,\"High\":25060.4,\"Low\":24931.05,\"Close\":24978.6,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 11,
+            "exchangeInstrumentID": 26065
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":11,\"ExchangeInstrumentID\":26065,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":82044.34999999999,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":82044.3,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":82044.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":82044.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":82044.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":82045.09999999999,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":82045.15,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":82045.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":82045.25,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":82045.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":82044.34999999999,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":82045.09999999999,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":82044.7,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":0,\"AverageTradedPrice\":82044.7,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":81900.2,\"High\":82190.55,\"Low\":81850.3,\"Close\":81960.1,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 11,
+            "exchangeInstrumentID": 26118
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":11,\"ExchangeInstrumentID\":26118,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":63120.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":63120.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":63120,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":63119.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":63119.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":63120.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":63120.9,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":63120.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":63121,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":63121.05,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":63120.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":63120.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":63120.45,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":0,\"AverageTradedPrice\":63120.45,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":63000,\"High\":63210,\"Low\":62950.5,\"Close\":63010.2,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 2
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40001,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":182.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":182.2,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":182.15,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":182.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":182.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":182.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":182.55,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":182.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":182.65,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":182.7,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":182.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":182.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":182.4,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":1250475,\"AverageTradedPrice\":182.4,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":182.4,\"High\":187.4,\"Low\":177.4,\"Close\":180.4,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40002,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":64,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":63.95,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":63.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":63.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":63.8,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":64.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":64.3,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":64.35,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":64.4,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":64.45,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":64,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":64.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":64.15,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":2104425,\"AverageTradedPrice\":64.15,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":64.15,\"High\":69.15,\"Low\":59.150000000000006,\"Close\":62.150000000000006,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40003,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":118.75,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":118.7,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":118.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":118.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":118.55,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":119,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":119.05,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":119.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":119.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":119.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":118.75,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":119,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":118.9,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":3389250,\"AverageTradedPrice\":118.9,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":118.9,\"High\":123.9,\"Low\":113.9,\"Close\":116.9,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40004,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":98.2,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":98.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":98.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":98.05,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":98,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":98.45,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":98.5,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":98.55,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":98.6,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":98.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":98.2,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":98.45,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":98.35,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":3012600,\"AverageTradedPrice\":98.35,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":98.35,\"High\":103.35,\"Low\":93.35,\"Close\":96.35,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40005,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":71.05,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":71,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":70.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":70.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":70.85,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":71.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":71.35,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":71.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":71.45,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":71.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":71.05,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":71.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":71.2,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":2245800,\"AverageTradedPrice\":71.2,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":71.2,\"High\":76.2,\"Low\":66.2,\"Close\":69.2,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40006,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":150.45,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":150.4,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":150.35,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":150.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":150.25,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":150.7,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":150.75,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":150.8,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":150.85,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":150.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":150.45,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":150.7,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":150.6,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":1180725,\"AverageTradedPrice\":150.6,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":150.6,\"High\":155.6,\"Low\":145.6,\"Close\":148.6,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40011,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":236.35,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":236.3,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":236.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":236.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":236.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":236.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":236.65,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":236.7,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":236.75,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":236.8,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":236.35,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":236.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":236.5,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":845250,\"AverageTradedPrice\":236.5,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":236.5,\"High\":241.5,\"Low\":231.5,\"Close\":234.5,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40012,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":213.95,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":213.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":213.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":213.8,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":213.75,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":214.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":214.25,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":214.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":214.35,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":214.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":213.95,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":214.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":214.1,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":790125,\"AverageTradedPrice\":214.1,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":214.1,\"High\":219.1,\"Low\":209.1,\"Close\":212.1,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":50001,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":31.3,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":31.25,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":31.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":31.15,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":31.1,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":31.55,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":31.6,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":31.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":31.7,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":31.75,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":31.3,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":31.55,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":31.45,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":912500,\"AverageTradedPrice\":31.45,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":31.45,\"High\":36.45,\"Low\":26.45,\"Close\":29.45,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":50002,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":18.05,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":18,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":17.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":17.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":17.85,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":18.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":18.35,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":18.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":18.45,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":18.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":18.05,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":18.3,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":18.2,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":645000,\"AverageTradedPrice\":18.2,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":18.2,\"High\":23.2,\"Low\":13.2,\"Close\":16.2,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1510,
+        "instruments": [
+          {
+            "exchangeSegment": 2
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1510,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40001,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1000000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40002,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1037500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40003,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1075000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40004,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1112500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40005,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1150000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40006,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1187500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40011,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1225000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40012,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1262500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":50001,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1300000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":50002,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1337500}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "instruments": [
+          {
+            "exchangeSegment": 12
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140001,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":412.15,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":412.1,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":412.05,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":412,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":411.95,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":412.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":412.45,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":412.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":412.55,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":412.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":412.15,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":412.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":412.3,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":182340,\"AverageTradedPrice\":412.3,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":412.3,\"High\":417.3,\"Low\":407.3,\"Close\":410.3,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140002,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":365.65,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":365.6,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":365.55,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":365.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":365.45,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":365.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":365.95,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":366,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":366.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":366.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":365.65,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":365.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":365.8,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":165220,\"AverageTradedPrice\":365.8,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":365.8,\"High\":370.8,\"Low\":360.8,\"Close\":363.8,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140003,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":360,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":359.95,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":359.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":359.85,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":359.8,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":360.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":360.3,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":360.35,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":360.4,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":360.45,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":360,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":360.25,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":360.15,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":140180,\"AverageTradedPrice\":360.15,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":360.15,\"High\":365.15,\"Low\":355.15,\"Close\":358.15,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140004,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":414.75,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":414.7,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":414.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":414.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":414.55,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":415,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":415.05,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":415.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":415.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":415.2,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":414.75,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":415,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":414.9,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":120460,\"AverageTradedPrice\":414.9,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":414.9,\"High\":419.9,\"Low\":409.9,\"Close\":412.9,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1150001,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":702.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":702.2,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":702.15,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":702.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":702.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":702.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":702.55,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":702.6,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":702.65,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":702.7,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":702.25,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":702.5,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":702.4,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":22650,\"AverageTradedPrice\":702.4,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":702.4,\"High\":707.4,\"Low\":697.4,\"Close\":700.4,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}",
+            "{\"MessageCode\":1502,\"MessageVersion\":4,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1150002,\"ExchangeTimeStamp\":1476513284,\"Bids\":[{\"Size\":975,\"Price\":584.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":450,\"Price\":584.05,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":584,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":583.95,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":583.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":525,\"Price\":584.35,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":600,\"Price\":584.4,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":75,\"Price\":584.45,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":584.5,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":900,\"Price\":584.55,\"TotalOrders\":1,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":975,\"Price\":584.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":525,\"Price\":584.35,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":584.25,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":150573,\"TotalSellQuantity\":356995,\"TotalTradedQuantity\":19830,\"AverageTradedPrice\":584.25,\"LastTradedTime\":1476513284,\"LastUpdateTime\":1476513284,\"PercentChange\":0.11,\"Open\":584.25,\"High\":589.25,\"Low\":579.25,\"Close\":582.25,\"TotalValueTraded\":null,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1,\"SequenceNumber\":555886964773282}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1510,
+        "instruments": [
+          {
+            "exchangeSegment": 12
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-quotes-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1510,
+          "quotesList": [],
+          "listQuotes": [
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140001,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1000000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140002,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1037500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140003,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1075000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1140004,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1112500}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1150001,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1150000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":0,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":12,\"ExchangeInstrumentID\":1150002,\"ExchangeTimeStamp\":0,\"XTSMarketType\":0,\"OpenInterest\":1187500}"
+          ]
+        }
+      }
+    }
+  ]
+}

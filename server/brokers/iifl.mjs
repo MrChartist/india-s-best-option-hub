@@ -1,127 +1,57 @@
 /**
- * IIFL Securities — real broker integration (see registry.mjs for the shared contract).
+ * IIFL Securities on the broker contract. IIFL runs Symphony Fintech's XTS platform ("IIFL Blaze") at
+ * https://ttblaze.iifl.com; the engine is rmoneyXtsFamily.mjs (shared with rmoney and wisdom) and this
+ * file holds only what is specific to IIFL.
  *
- * IIFL's API (ttblaze.iifl.com) is a white-labelled Symphony Fintech "XTS"
- * deployment — see iiflAuth.mjs for the broader note on which other brokers
- * share this same backend. Auth model: active login, not paste-a-token. The
- * user pastes their IIFL "Market Data" app's App Key + Secret Key (a
- * separate credential pair from IIFL's Interactive/trading app — this
- * integration is read-only and never touches the Interactive API), and the
- * module logs in server-side, caching the resulting feed token in memory
- * (see iiflAuth.mjs).
+ * Official docs (IIFL's own deployment): https://ttblaze.iifl.com/doc/interactive/ and
+ * https://ttblaze.iifl.com/doc/apimarketdata/.
  *
- * IIFL's Market Data API has no native option-chain endpoint, so the chain
- * is built from the daily XTS instrument master + batched /instruments/quotes
- * calls (see iiflInstruments.mjs), with IV/Greeks filled in via Black-Scholes
- * since XTS quotes carry neither.
+ *  - Market data: https://ttblaze.iifl.com/apibinarymarketdata (Binary Market Data API; its REST routes
+ *    answer publishFormat "JSON"). The Market Data App Key + Secret Key (apiKey / apiSecret) are swapped
+ *    server-side for a token that lasts 24 hours.
+ *  - Trading (Interactive API), official v2 flow: open
+ *    https://ttblaze.iifl.com/interactive/thirdparty?appKey=<Interactive App Key>&returnURL=<registered URL>,
+ *    sign in (user ID, password, then PIN/OTP on IIFL's own page) and copy the `accessToken` from the return
+ *    URL into Broker Settings as `requestToken`. The adapter then calls POST /hostlookup for the UniqueKey
+ *    and connectionString and POST {connectionString}/user/session {appKey, secretKey, accessToken, uniqueKey}.
+ *    A used or rejected token raises SessionRequiredError; there is no automatic re-login.
+ *    With no requestToken saved, the plain key-pair login (POST /interactive/user/session
+ *    {appKey, secretKey, source:"WebAPI"}, the official SDK route that OpenAlgo also uses) is tried instead.
+ *
+ * Where OpenAlgo differs from IIFL's official docs we follow the docs:
+ *  - market data path: OpenAlgo uses /apimarketdata, the docs give /apibinarymarketdata;
+ *  - trading login: OpenAlgo posts only {appKey, secretKey, source} to /interactive/user/session; the docs
+ *    require the OAuth accessToken and the host-lookup uniqueKey (kept as the fallback described above);
+ *  - masters and index list: OpenAlgo calls them without a token; the docs require the token.
+ * The previous adapter matched NIFTY options on UnderlyingIndexName because it believed the Name column
+ * said "INIFTY"; the official master sample shows Name "NIFTY", so Name is used with UnderlyingIndexName
+ * as a fallback.
  */
 
-import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
-import { getSession, xtsGet } from "./iiflAuth.mjs";
-import {
-  getOptionRows,
-  distinctExpiriesAscending,
-  getIndexToken,
-  fetchTouchlineQuotes,
-  fetchOpenInterestQuotes,
-  instrumentKey,
-} from "./iiflInstruments.mjs";
+import { createXtsFamilyBroker, xtsFamilyCapabilities } from "./rmoneyXtsFamily.mjs";
 
 export const id = "iifl";
-export const credentialFields = ["apiKey", "apiSecret"];
+export const credentialFields = ["apiKey", "apiSecret", "interactiveApiKey", "interactiveApiSecret", "requestToken", "clientId"];
+export const LOGIN_URL = "https://ttblaze.iifl.com/interactive/thirdparty";
 
-export async function testConnection(creds = {}) {
-  try {
-    if (!creds.apiKey || !creds.apiSecret) {
-      return { status: "error", message: "Missing apiKey or apiSecret (IIFL Market Data App Key/Secret)" };
-    }
-    await getSession(creds);
-    // Confirm the token actually works against a real market-data endpoint,
-    // not just that login itself succeeded.
-    await xtsGet(creds, "/instruments/indexlist", { exchangeSegment: "1" });
-    return { status: "success", message: "IIFL Securities connected" };
-  } catch (e) {
-    return { status: "error", message: e.message };
-  }
-}
+const broker = createXtsFamilyBroker({
+  id,
+  label: "IIFL Securities",
+  host: "https://ttblaze.iifl.com",
+  marketDataPath: "/apibinarymarketdata",
+  interactiveMode: "oauthHostLookup",
+  hostLookupUrl: "https://ttblaze.iifl.com/hostlookup",
+  loginHint: `Log in again at ${LOGIN_URL}?appKey=<your Interactive App Key>&returnURL=<your registered URL> and save the new accessToken as the request token in Broker Settings.`,
+});
 
-export async function fetchExpiryList(creds, symbol) {
-  const rows = await getOptionRows(creds, symbol);
-  return { status: "success", data: distinctExpiriesAscending(rows) };
-}
+export const capabilities = xtsFamilyCapabilities("requestTokenExchange");
+export const BASE_URLS = broker.urls;
 
-/**
- * Resolves the underlying's spot LTP, or 0 if the index token/quote can't be
- * resolved — matches the graceful last_price:0 fallback every other
- * XTS-family sibling (ibulls/rmoney/jainamxts/wisdom/compositedge) uses
- * instead of failing the whole option chain over one unresolved index quote.
- */
-async function fetchSpot(creds, symbol) {
-  const indexToken = await getIndexToken(creds, symbol);
-  if (!indexToken) return 0;
-  const { segment, token } = indexToken;
-  const quotes = await fetchTouchlineQuotes(creds, [{ segment, token }]);
-  const quote = quotes.get(instrumentKey(segment, token));
-  return Number(quote?.Touchline?.LastTradedPrice) || 0;
-}
+export const {
+  testConnection, fetchInstruments, fetchExpiryList, fetchOptionChain, fetchLTP, fetchQuotes, fetchDepth, fetchHistorical,
+  fetchPositions, fetchHoldings, fetchFunds, fetchOrderBook, fetchTradeBook, placeOrder, modifyOrder, cancelOrder,
+  normaliseError,
+} = broker;
 
-export async function fetchLTP(creds, symbol) {
-  const last_price = await fetchSpot(creds, symbol);
-  return { status: "success", data: { last_price } };
-}
-
-function buildLeg({ touchline, oi, spot, strike, daysToExpiry, type }) {
-  const ltp = touchline?.Touchline?.LastTradedPrice || 0;
-  const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
-  return {
-    last_price: ltp,
-    oi: oi?.OpenInterest || 0,
-    volume: touchline?.Touchline?.TotalTradedQuantity || 0,
-    ...greeks,
-    bid_price: touchline?.Touchline?.BidInfo?.Price || 0,
-    ask_price: touchline?.Touchline?.AskInfo?.Price || 0,
-  };
-}
-
-export async function fetchOptionChain(creds, symbol, expiry) {
-  let rows = await getOptionRows(creds, symbol);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const targetExpiry = expiry || distinctExpiriesAscending(rows)[0];
-  if (!targetExpiry) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  rows = rows.filter((r) => r.expiry === targetExpiry);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const spot = await fetchSpot(creds, symbol);
-  const daysToExpiry = daysBetween(new Date(), targetExpiry);
-
-  const instruments = rows.map((r) => ({ segment: r.segment, token: r.token }));
-  const touchlineQuotes = await fetchTouchlineQuotes(creds, instruments);
-
-  let oiQuotes = new Map();
-  try {
-    oiQuotes = await fetchOpenInterestQuotes(creds, instruments);
-  } catch (e) {
-    console.log(`[iifl] open-interest fetch failed, continuing with oi=0: ${e.message}`);
-  }
-
-  const oc = {};
-  for (const row of rows) {
-    const key = instrumentKey(row.segment, row.token);
-    const touchline = touchlineQuotes.get(key);
-    if (!touchline) continue;
-    const strikeKey = String(row.strike);
-    if (!oc[strikeKey]) oc[strikeKey] = {};
-    oc[strikeKey][row.type.toLowerCase()] = buildLeg({
-      touchline,
-      oi: oiQuotes.get(key),
-      spot,
-      strike: row.strike,
-      daysToExpiry,
-      type: row.type,
-    });
-  }
-
-  return { status: "success", data: { oc, last_price: spot } };
-}
+/** Test-only: clear cached sessions and set throttle spacing. */
+export const resetForTests = broker.resetForTests;

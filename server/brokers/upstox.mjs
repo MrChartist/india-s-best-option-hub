@@ -1,172 +1,169 @@
 /**
- * Upstox API v2 — paste-token model, same UX as Dhan. The user completes
- * Upstox's OAuth2 browser login externally once per trading day and pastes
- * the resulting accessToken here; this module never performs a login call
- * itself, it just sends `Authorization: Bearer <accessToken>` on every
- * request. accessToken always expires at a fixed 3:30 AM IST cutoff the next
- * calendar day (not a rolling TTL) — on 401 we surface a clear
- * "generate a fresh token" error instead of trying to auto-recover.
+ * Upstox on the canonical adapter contract (server/brokers/contract.mjs).
  *
- * Option chain uses Upstox's native /v2/option/chain endpoint, which already
- * returns LTP/OI/bid-ask/Greeks/IV per strike in one call — no instrument
- * master + batched-quotes workaround needed there. See registry.mjs for the
- * shared broker-module contract.
+ * Official docs (checked October 2026): https://upstox.com/developer/api-documentation/ — authentication,
+ * get-profile, get-option-contracts, get-pc-option-chain, ltp-v3, get-full-market-quote,
+ * v3/get-historical-candle-data, instruments, get-positions, get-holdings, get-user-fund-margin,
+ * get-order-book, get-trade-history, v3/place-order, v3/modify-order, v3/cancel-order,
+ * v3/get-market-data-feed, error-codes, rate-limiting. OpenAlgo was read for facts only.
+ *
+ * Auth: oauthRedirect (OAuth 2.0 authorization code). The user is sent to
+ * https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=<apiKey>&redirect_uri=...,
+ * Upstox redirects back with a single-use `code`, and POST /v2/login/authorization/token (form: code,
+ * client_id, client_secret, redirect_uri, grant_type=authorization_code) returns the access_token.
+ * Today the user pastes the access token; exchangeAuthCode() is the server half for a future callback
+ * route. Tokens expire at 3:30 AM IST the next day; 401 / UDAPI100050 surface as UPSTREAM_AUTH.
+ *
+ * Option chain: native GET /v2/option/chain (instrument_key + expiry_date) with LTP, OI, previous OI,
+ * bid/ask and broker Greeks per strike. option_greeks.iv is already a percentage (the official sample
+ * shows 262.31 and 50.78), so it is passed through unchanged; the old "< 2 means fraction" rescaling
+ * was wrong and is gone. Black-Scholes is only a fallback when Upstox sends no IV for a leg.
  */
 
 import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
-import { resolveInstrumentKey } from "./upstoxInstruments.mjs";
-
-const UPSTOX_BASE = "https://api.upstox.com/v2";
+import { BrokerError, BrokerInputError, normaliseError as baseNormalise } from "./contract.mjs";
+import { UPSTOX_API, upstoxFetch } from "./upstoxClient.mjs";
+import { INDEX_KEYS } from "./upstoxInstruments.mjs";
+import { orderFeatures } from "./upstoxOrders.mjs";
 
 export const id = "upstox";
 export const credentialFields = ["apiKey", "apiSecret", "accessToken"];
 
-async function upstoxFetch(path, params, accessToken) {
-  if (!accessToken) throw new Error("Upstox accessToken is not configured.");
+export const capabilities = {
+  auth: {
+    kind: "oauthRedirect",
+    loginUrl: `${UPSTOX_API}/v2/login/authorization/dialog?response_type=code&client_id={apiKey}&redirect_uri={redirectUri}`,
+    tokenExpiry: "03:30 IST next day",
+  },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "broker" },
+  ltp: true,
+  quotes: true,
+  depth: true,
+  historical: { intervals: ["1m", "3m", "5m", "15m", "30m", "60m", "1d"] },
+  feed: true,
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+  ...orderFeatures,
+};
 
-  const qs = new URLSearchParams(params || {});
-  const url = `${UPSTOX_BASE}${path}${qs.toString() ? `?${qs.toString()}` : ""}`;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
-  });
-
-  if (res.status === 401) {
-    throw new Error("Upstox access token expired — generate a fresh one (tokens expire daily at 3:30 AM IST).");
-  }
-
-  const body = await res.json().catch(() => null);
-  if (!res.ok || !body || body.status !== "success") {
-    const msg = body?.errors?.[0]?.message || body?.message || `HTTP ${res.status}`;
-    throw new Error(`Upstox API error [${res.status}]: ${msg}`);
-  }
-  return body;
+function indexKey(symbol) {
+  const key = INDEX_KEYS[symbol];
+  if (!key) throw new Error(`Unknown symbol for Upstox: ${symbol}. Supported: ${Object.keys(INDEX_KEYS).join(", ")}`);
+  return key;
 }
 
-/**
- * Upstox's option_greeks.iv has been observed reported both as a percentage
- * (e.g. 14.2) and as a raw decimal fraction (e.g. 0.142) depending on API
- * version — unverified against a live account, so we sanity-check against a
- * known-liquid strike's typical 10-25% range and scale up if it looks like a
- * decimal.
- */
-function normalizeIv(rawIv) {
-  if (!(rawIv > 0)) return 0;
-  return rawIv < 2 ? rawIv * 100 : rawIv;
-}
-
-function buildLeg(marketData, greeks, ctx) {
-  const md = marketData || {};
-  const ltp = Number(md.ltp) || 0;
-  const oi = Number(md.oi) || 0;
-  const hasPrevOi = typeof md.prev_oi === "number";
-
-  const rawIv = Number(greeks?.iv) || 0;
-  const ivGreeks =
-    rawIv > 0
-      ? {
-          iv: normalizeIv(rawIv),
-          delta: Number(greeks.delta) || 0,
-          gamma: Number(greeks.gamma) || 0,
-          theta: Number(greeks.theta) || 0,
-          vega: Number(greeks.vega) || 0,
-        }
-      : computeIVAndGreeks({
-          ltp,
-          spot: ctx.spot,
-          strike: ctx.strike,
-          daysToExpiry: ctx.daysToExpiry,
-          type: ctx.type,
-        });
-
-  const leg = {
-    last_price: ltp,
-    oi,
-    volume: Number(md.volume) || 0,
-    ...ivGreeks,
-    bid_price: Number(md.bid_price) || 0,
-    ask_price: Number(md.ask_price) || 0,
-  };
-  if (hasPrevOi) leg.oi_chg = oi - md.prev_oi;
-  return leg;
-}
-
+/** One cheap authenticated call: GET /v2/user/profile. */
 export async function testConnection(creds = {}) {
   try {
-    const instrumentKey = await resolveInstrumentKey("NIFTY");
-    await upstoxFetch("/option/contract", { instrument_key: instrumentKey }, creds.accessToken);
-    return { status: "success", message: "Upstox API connected" };
+    if (!creds.accessToken) return { status: "error", message: "Missing access token." };
+    const body = await upstoxFetch("/v2/user/profile", creds);
+    if (body.data?.is_active === false) return { status: "error", message: "Upstox account is not active." };
+    const fno = Array.isArray(body.data?.exchanges) && body.data.exchanges.includes("NFO");
+    return { status: "success", message: `Upstox API connected${fno ? "" : " — note: NFO is not enabled on this account"}.` };
   } catch (e) {
     return { status: "error", message: e.message };
   }
 }
 
 export async function fetchExpiryList(creds, symbol) {
-  const instrumentKey = await resolveInstrumentKey(symbol);
-  const body = await upstoxFetch("/option/contract", { instrument_key: instrumentKey }, creds?.accessToken);
-  const expiries = Array.from(new Set((body.data || []).map((c) => c.expiry).filter(Boolean)));
-  expiries.sort();
-  return { status: "success", data: expiries };
+  const body = await upstoxFetch("/v2/option/contract", creds, { query: { instrument_key: indexKey(symbol) } });
+  const expiries = [...new Set((body.data ?? []).map((c) => String(c.expiry ?? "").slice(0, 10)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))];
+  return { status: "success", data: expiries.sort() };
+}
+
+function buildLeg(side, ctx) {
+  const md = side?.market_data ?? {};
+  const g = side?.option_greeks ?? {};
+  const ltp = Number(md.ltp) || 0;
+  const oi = Number(md.oi) || 0;
+  const iv = Number(g.iv);
+  const greeks = iv > 0
+    ? { iv, delta: Number(g.delta) || 0, gamma: Number(g.gamma) || 0, theta: Number(g.theta) || 0, vega: Number(g.vega) || 0 }
+    : computeIVAndGreeks({ ltp, spot: ctx.spot, strike: ctx.strike, daysToExpiry: ctx.daysToExpiry, type: ctx.type });
+  const leg = {
+    last_price: ltp,
+    oi,
+    volume: Number(md.volume) || 0,
+    ...greeks,
+    bid_price: Number(md.bid_price) || 0,
+    ask_price: Number(md.ask_price) || 0,
+    security_id: side?.instrument_key,
+  };
+  if (Number.isFinite(Number(md.prev_oi)) && md.prev_oi !== null) leg.oi_chg = oi - Number(md.prev_oi);
+  return leg;
 }
 
 export async function fetchOptionChain(creds, symbol, expiry) {
-  const instrumentKey = await resolveInstrumentKey(symbol);
-
-  let resolvedExpiry = expiry;
-  if (!resolvedExpiry) {
-    const list = await fetchExpiryList(creds, symbol);
-    resolvedExpiry = list.data?.[0];
-    if (!resolvedExpiry) return { status: "success", data: { oc: {}, last_price: 0 } };
+  const key = indexKey(symbol);
+  let resolved = expiry;
+  if (!resolved) {
+    resolved = (await fetchExpiryList(creds, symbol)).data[0];
+    if (!resolved) return { status: "success", data: { oc: {}, last_price: 0 } };
   }
-
-  const body = await upstoxFetch(
-    "/option/chain",
-    { instrument_key: instrumentKey, expiry_date: resolvedExpiry },
-    creds?.accessToken
-  );
-  const rows = body.data || [];
+  const body = await upstoxFetch("/v2/option/chain", creds, { query: { instrument_key: key, expiry_date: resolved } });
+  const rows = Array.isArray(body.data) ? body.data : [];
   if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
   const spot = Number(rows[0].underlying_spot_price) || 0;
-  const daysToExpiry = daysBetween(new Date(), resolvedExpiry);
-
+  const daysToExpiry = daysBetween(new Date(), resolved);
   const oc = {};
   for (const row of rows) {
     const strike = Number(row.strike_price);
-    const strikeKey = String(strike);
+    if (!(strike > 0)) continue;
     const entry = {};
-    if (row.call_options) {
-      entry.ce = buildLeg(row.call_options.market_data, row.call_options.option_greeks, {
-        spot,
-        strike,
-        daysToExpiry,
-        type: "CE",
-      });
-    }
-    if (row.put_options) {
-      entry.pe = buildLeg(row.put_options.market_data, row.put_options.option_greeks, {
-        spot,
-        strike,
-        daysToExpiry,
-        type: "PE",
-      });
-    }
-    oc[strikeKey] = entry;
+    if (row.call_options) entry.ce = buildLeg(row.call_options, { spot, strike, daysToExpiry, type: "CE" });
+    if (row.put_options) entry.pe = buildLeg(row.put_options, { spot, strike, daysToExpiry, type: "PE" });
+    oc[String(strike)] = entry;
   }
-
   return { status: "success", data: { oc, last_price: spot } };
 }
 
-// Not covered by the Upstox research brief (which only verified /option/chain
-// and /option/contract) — unverified against a live account. Best-effort per
-// Upstox's public v2 docs: response data is keyed by "EXCHANGE:Name" (colon,
-// not the pipe-based instrument_key used in the request), but each row's own
-// `instrument_token` field echoes back the pipe-based instrument_key we sent,
-// which is what we match on below.
+/** LTP V3: data keyed "SEGMENT:SYMBOL", each row echoing instrument_token (= the key we sent). */
 export async function fetchLTP(creds, symbol) {
-  const instrumentKey = await resolveInstrumentKey(symbol);
-  const body = await upstoxFetch("/market-quote/ltp", { instrument_key: instrumentKey }, creds?.accessToken);
-  const rows = Object.values(body.data || {});
-  const match = rows.find((r) => r.instrument_token === instrumentKey) || rows[0];
-  return { status: "success", data: { last_price: Number(match?.last_price) || 0 } };
+  const key = indexKey(symbol);
+  const body = await upstoxFetch("/v3/market-quote/ltp", creds, { query: { instrument_key: key } });
+  const rows = Object.values(body.data ?? {});
+  const match = rows.find((r) => r?.instrument_token === key) ?? (rows.length === 1 ? rows[0] : null);
+  const lastPrice = Number(match?.last_price);
+  if (!(lastPrice > 0)) throw new BrokerError(`Upstox returned no LTP for ${key}`);
+  return { status: "success", data: { last_price: lastPrice } };
 }
+
+/**
+ * Server half of the OAuth login: swap the single-use authorization code for an access token.
+ * Returns only { accessToken }. Not wired to a route yet.
+ */
+export async function exchangeAuthCode(creds, { code, redirectUri } = {}) {
+  if (!creds?.apiKey || !creds?.apiSecret) throw new BrokerInputError("Upstox: API key and API secret are required.");
+  if (!/^[A-Za-z0-9_-]{4,128}$/.test(String(code ?? ""))) throw new BrokerInputError("Upstox: the authorization code looks malformed.");
+  if (!/^https?:\/\//.test(String(redirectUri ?? ""))) throw new BrokerInputError("Upstox: the redirect URI must match the one registered for the app.");
+  const body = await upstoxFetch("/v2/login/authorization/token", creds, {
+    method: "POST", auth: false,
+    form: { code, client_id: creds.apiKey, client_secret: creds.apiSecret, redirect_uri: redirectUri, grant_type: "authorization_code" },
+  });
+  if (!body?.access_token) throw new BrokerError("Upstox did not return an access token.");
+  return { accessToken: String(body.access_token) };
+}
+
+/** Upstox errors already carry contract codes (UpstoxApiError); this adds redaction and a fallback. */
+export function normaliseError(err, opts = {}) {
+  const base = baseNormalise(err, opts);
+  if (err instanceof BrokerError) return base;
+  if (/UDAPI100050|\[401/.test(base.message)) return { ...base, code: "UPSTREAM_AUTH" };
+  if (/UDAPI10005\b|\[429/.test(base.message)) return { ...base, code: "UPSTREAM_RATE_LIMIT" };
+  return base;
+}
+
+export { resolveInstrumentKey, fetchInstruments } from "./upstoxInstruments.mjs";
+export { fetchQuotes, fetchDepth, fetchHistorical, fetchPositions, fetchHoldings, fetchFunds } from "./upstoxData.mjs";
+export { buildOrderBody, buildModifyBody, placeOrder, modifyOrder, cancelOrder, fetchOrderBook, fetchTradeBook } from "./upstoxOrders.mjs";
+export { createFeed } from "./upstoxFeed.mjs";

@@ -1,0 +1,48 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/tradeBook",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "Trade history data received",
+        "data": [
+          {
+            "exchange": "NSE",
+            "exchangeUpdateTime": "16-10-2026 09:30:02",
+            "exchordid": "1200000006968574",
+            "fillId": "401070025",
+            "fillPrice": 2837,
+            "fillQuantity": "1",
+            "fillTime": "16-10-2026 09:30:02",
+            "fillshares": "1",
+            "lotSize": "1",
+            "orderNumber": "26101600002340",
+            "orderTime": "09:30:02 16-10-2026",
+            "priceFactor": "1.000000",
+            "pricePrecision": "2",
+            "priceType": "MKT",
+            "product": "C",
+            "quantity": "1",
+            "retention": "DAY",
+            "tickSize": "0.05",
+            "token": "21001",
+            "tradingSymbol": "PSB-EQ",
+            "transactionType": "B",
+            "userId": "AB1234"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

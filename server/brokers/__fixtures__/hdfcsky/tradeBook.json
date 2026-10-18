@@ -1,0 +1,52 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsky.com/oapi/v1/trades?api_key=dummy-sky-api-key&client_id=DEMO1",
+      "status": 200,
+      "json": {
+        "data": {
+          "trades": [
+            {
+              "book_type": "0",
+              "broker_id": "12345",
+              "client_id": "DEMO1",
+              "disclosed_vol": 0,
+              "disclosed_vol_remaining": 0,
+              "exchange": "NSE",
+              "exchange_order_id": "1300000005790553",
+              "exchange_time": 1605677129,
+              "fill_number": {},
+              "filled_quantity": 1,
+              "good_till_date": 0,
+              "instrument_token": 11915,
+              "login_id": "DEMO1",
+              "oms_order_id": "200018000000003",
+              "order_entry_time": 1605677128,
+              "order_price": 14.7,
+              "order_side": "BUY",
+              "order_type": "MARKET",
+              "original_vol": 1,
+              "pro_cli": 0,
+              "product": "MIS",
+              "remaining_quantity": 0,
+              "trade_number": "76817533",
+              "trade_price": 14.7,
+              "trade_quantity": 1,
+              "trade_time": 1605677129,
+              "trading_symbol": "YESBANK-EQ",
+              "trigger_price": {},
+              "v_login_id": {},
+              "vol_filled_today": 1
+            }
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

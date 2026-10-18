@@ -1,0 +1,149 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/quick/user/positions?sId=server1",
+      "json": {
+        "stat": "ok",
+        "stCode": 200,
+        "data": [
+          {
+            "actId": "",
+            "algCat": "NA",
+            "algId": "NA",
+            "brdLtQty": 65,
+            "exSeg": "nse_fo",
+            "exp": "20 Oct, 2026",
+            "expDt": "20 Oct, 2026",
+            "genDen": "1",
+            "genNum": "1",
+            "hsUpTm": "2026/10/20 10:05:16",
+            "lotSz": "65",
+            "multiplier": "1",
+            "optTp": "CE",
+            "posFlg": "true",
+            "prcDen": "1",
+            "prcNum": "1",
+            "precision": "2",
+            "prod": "NRML",
+            "series": "XX",
+            "stkPrc": "25000.00",
+            "sym": "NIFTY",
+            "trdSym": "NIFTY26O2025000CE",
+            "tok": "40001",
+            "type": "",
+            "upldPrc": "0.00",
+            "usrId": "AAAPZ0000Z",
+            "buyAmt": "13585.00",
+            "cfBuyAmt": "0.00",
+            "cfBuyQty": "0",
+            "cfSellAmt": "0.00",
+            "cfSellQty": "0",
+            "flBuyQty": "130",
+            "flSellQty": "0",
+            "sellAmt": "0.00"
+          },
+          {
+            "actId": "",
+            "algCat": "NA",
+            "algId": "NA",
+            "brdLtQty": 65,
+            "exSeg": "nse_cm",
+            "exp": "20 Oct, 2026",
+            "expDt": "20 Oct, 2026",
+            "genDen": "1",
+            "genNum": "1",
+            "hsUpTm": "2026/10/20 10:05:16",
+            "lotSz": "1",
+            "multiplier": "1",
+            "optTp": "- ",
+            "posFlg": "true",
+            "prcDen": "1",
+            "prcNum": "1",
+            "precision": "2",
+            "prod": "CNC",
+            "series": "EQ",
+            "stkPrc": "0.00",
+            "sym": "IDEA",
+            "trdSym": "IDEA-EQ",
+            "tok": "14366",
+            "type": "",
+            "upldPrc": "0.00",
+            "usrId": "AAAPZ0000Z",
+            "buyAmt": "9.39",
+            "cfBuyAmt": "0.00",
+            "cfBuyQty": "0",
+            "cfSellAmt": "0.00",
+            "cfSellQty": "0",
+            "flBuyQty": "1",
+            "flSellQty": "1",
+            "sellAmt": "9.60"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/quotes/neosymbol/nse_fo%7C40001/all",
+      "json": [
+        {
+          "exchange_token": "40001",
+          "display_symbol": "NIFTY 20 OCT 2026 CE 25000.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "104.95",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "543025",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "165900",
+          "ohlc": {
+            "open": "100.95",
+            "high": "110.95",
+            "low": "95.95",
+            "close": "102.95"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "104.55",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "104.5",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "104.85",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "104.89999999999999",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

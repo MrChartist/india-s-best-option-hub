@@ -1,121 +1,141 @@
 /**
- * Pocketful — see registry.mjs for the shared broker-module contract.
+ * Pocketful adapter (contract v1, server/brokers/contract.mjs).
  *
- * Auth: full OAuth2 authorization-code flow (browser consent + client_secret
- * exchange, no redirect endpoint this server can host) — same paste-token UX
- * as Upstox/Fyers in this codebase: the user completes that flow externally
- * once and pastes the resulting long-lived `access_token` here
- * (pocketfulAuth.mjs auto-derives the client_id the WS feed needs from it).
+ * Official docs: https://api.pocketful.in/docs/curl (checked 2026-10) and the official JavaScript SDK
+ * (github.com/pocketful-tech/pocketfulapi-javascript). Base URL https://algo.pocketful.in.
  *
- * Data: Pocketful's REST API has no option-chain or multi-symbol quote
- * endpoint at all — every quote, including this module's, has to come from
- * its authenticated WebSocket feed (pocketfulWs.mjs), same shape as this
- * codebase's Alice Blue integration. Strike/expiry/index token resolution
- * comes from Pocketful's daily contract-master ZIP (pocketfulInstruments.mjs).
- * The feed carries OI/volume/bid/ask/LTP but no IV/Greeks, so those are
- * computed locally via blackScholes.mjs.
+ * Auth (pocketfulAuth.mjs): the user generates an access token on the Pocketful API portal each day (valid until
+ * midnight) and pastes it with their client id; contract auth.kind "apiKeyToken". No password, PIN or TOTP is handled.
+ * Market data (pocketfulMarket.mjs): REST LTP and quotes; chain prices from the WebSocket feed (pocketfulWs.mjs) over
+ * contract-master strikes (pocketfulInstruments.mjs) with locally computed IV/greeks; 1-minute F&O history.
+ * Portfolio (pocketfulPortfolio.mjs) and gated LIMIT/SL orders (pocketfulOrders.mjs).
+ * Not declared: depth (the snapquote feed mode is not wired in v1).
  *
- * Not observed to share a backend with any other broker already integrated
- * in this codebase (no XTS/Omnesys-style endpoint paths or field names) —
- * Pocketful's WebSocket wire format is its own bespoke binary protocol.
- *
- * NEVER log creds.accessToken — only field names / presence / status codes.
+ * Differences from OpenAlgo (official sources followed): base URL algo.pocketful.in (OpenAlgo: trade.pocketful.in);
+ * `x-authorization-token` header (OpenAlgo: Authorization: Bearer; both are sent); MARKET/SL-M are refused rather than
+ * converted (the annexure forbids them over the API).
  */
 
-import { resolveClientId } from "./pocketfulAuth.mjs";
-import { resolveIndexToken, resolveExpiries, resolveStrikeMap } from "./pocketfulInstruments.mjs";
-import { subscribeAndCollect } from "./pocketfulWs.mjs";
-import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
+import { BrokerError, BrokerInputError, normaliseError as baseNormalise } from "./contract.mjs";
+import { pfRequest, resolveClientId } from "./pocketfulAuth.mjs";
+import { findByRef } from "./pocketfulInstruments.mjs";
+import { getConnection, subscribe, tickKey, unsubscribe } from "./pocketfulWs.mjs";
+import { ORDER_FEATURES } from "./pocketfulOrders.mjs";
+
+export { fetchInstruments, fetchExpiryList, fetchOptionChain, fetchLTP, fetchQuotes, fetchHistorical } from "./pocketfulMarket.mjs";
+export { fetchPositions, fetchHoldings, fetchFunds, fetchOrderBook, fetchTradeBook } from "./pocketfulPortfolio.mjs";
+export { buildOrderBody, buildModifyBody, placeOrder, modifyOrder, cancelOrder } from "./pocketfulOrders.mjs";
 
 export const id = "pocketful";
-export const credentialFields = ["accessToken"];
+export const credentialFields = ["accessToken", "clientId"];
 
-function tickKey(entry) {
-  return `${entry.exchangeCode}|${entry.token}`;
-}
+export const capabilities = {
+  ...ORDER_FEATURES,
+  auth: { kind: "apiKeyToken" },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "computed" },
+  ltp: true,
+  quotes: true,
+  historical: { intervals: ["1m"], segments: ["NFO"] },
+  feed: true,
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+};
 
+/** One cheap authenticated call: GET /api/v1/user/profile?client_id. Never throws. */
 export async function testConnection(creds = {}) {
   try {
-    await resolveClientId(creds);
+    const client_id = await resolveClientId(creds);
+    await pfRequest(creds, "/api/v1/user/profile", { query: { client_id } });
     return { status: "success", message: "Pocketful account connected" };
   } catch (e) {
-    return { status: "error", message: e.message };
+    return { status: "error", message: normaliseError(e, { secrets: [creds.accessToken] }).message };
   }
 }
 
-export async function fetchExpiryList(creds, symbol) {
-  const data = await resolveExpiries(symbol);
-  return { status: "success", data };
+/** Feed tick (paise already scaled by the decoder) -> contract Quote. */
+function tickQuote(row, t) {
+  return {
+    token: row.token,
+    exchange: row.exchange,
+    ltp: t.lastTradedPrice,
+    open: t.openPrice,
+    high: t.highPrice,
+    low: t.lowPrice,
+    close: t.closePrice,
+    volume: t.tradeVolume,
+    oi: t.currentOpenInterest,
+    bid: t.bestBidPrice,
+    ask: t.bestAskPrice,
+  };
 }
 
-export async function fetchOptionChain(creds, symbol, expiry) {
-  const expiryISO = expiry || (await resolveExpiries(symbol))[0];
-  if (!expiryISO) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const strikeMap = await resolveStrikeMap(symbol, expiryISO);
-  if (strikeMap.size === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  let spotEntry = null;
-  try {
-    spotEntry = await resolveIndexToken(symbol);
-  } catch (e) {
-    console.warn(`[pocketful] index token resolution failed for ${symbol}: ${e.message}`);
-  }
-  const spotKey = spotEntry ? tickKey(spotEntry) : null;
-
-  const legKeys = [];
-  const legMeta = new Map(); // key -> { strike, type: "ce"|"pe" }
-  for (const [strike, legs] of strikeMap) {
-    if (legs.ce) {
-      const k = tickKey(legs.ce);
-      legKeys.push(k);
-      legMeta.set(k, { strike, type: "ce" });
+/** Live feed over the detailed-marketdata stream. refs are { token, exchange } from the contract master. */
+export function createFeed(creds, { onTick, onStatus } = {}) {
+  const mine = new Map(); // tickKey -> row
+  let entry = null;
+  let closed = false;
+  const tickFn = (k, t) => { const row = mine.get(k); if (row) onTick?.(tickQuote(row, t)); };
+  const statusFn = (s) => onStatus?.(s);
+  const ready = getConnection(creds).then((e) => {
+    entry = e;
+    if (!closed) { e.tickListeners.add(tickFn); e.statusListeners.add(statusFn); onStatus?.({ connected: true }); }
+    return e;
+  });
+  ready.catch((e) => onStatus?.({ connected: false, reason: e.message }));
+  const rows = async (refs) => {
+    const out = [];
+    for (const ref of refs || []) {
+      const r = await findByRef(ref);
+      if (!r) throw new BrokerInputError(`Pocketful: unknown instrument ${ref?.exchange}:${ref?.token}`);
+      out.push(r);
     }
-    if (legs.pe) {
-      const k = tickKey(legs.pe);
-      legKeys.push(k);
-      legMeta.set(k, { strike, type: "pe" });
-    }
-  }
-
-  const allKeys = spotKey ? [...legKeys, spotKey] : legKeys;
-  const ticks = await subscribeAndCollect(creds, allKeys);
-
-  const spotPrice = spotKey ? ticks.get(spotKey)?.lastTradedPrice || 0 : 0;
-  const daysToExpiry = daysBetween(new Date(), expiryISO);
-
-  const oc = {};
-  for (const key of legKeys) {
-    const meta = legMeta.get(key);
-    const tick = ticks.get(key);
-    if (!tick) continue; // no tick arrived in the collection window — omit this leg rather than fake zeros
-
-    const ltp = tick.lastTradedPrice || 0;
-    const leg = {
-      last_price: ltp,
-      oi: tick.currentOpenInterest || 0,
-      volume: tick.tradeVolume || 0,
-      bid_price: tick.bestBidPrice || 0,
-      ask_price: tick.bestAskPrice || 0,
-      ...computeIVAndGreeks({
-        ltp,
-        spot: spotPrice,
-        strike: Number(meta.strike),
-        daysToExpiry,
-        type: meta.type.toUpperCase(),
-      }),
-    };
-
-    if (!oc[meta.strike]) oc[meta.strike] = {};
-    oc[meta.strike][meta.type] = leg;
-  }
-
-  return { status: "success", data: { oc, last_price: spotPrice } };
+    return out;
+  };
+  return {
+    subscribe(refs) {
+      rows(refs).then(async (rs) => {
+        const e = await ready;
+        rs.forEach((r) => mine.set(tickKey(r.exchangeCode, r.token), r));
+        if (!closed) await subscribe(e, rs.map((r) => tickKey(r.exchangeCode, r.token)));
+      }).catch((err) => onStatus?.({ connected: Boolean(entry?.connected), reason: err.message }));
+    },
+    unsubscribe(refs) {
+      rows(refs).then(async (rs) => {
+        const e = await ready;
+        const keys = rs.map((r) => tickKey(r.exchangeCode, r.token));
+        keys.forEach((k) => mine.delete(k));
+        unsubscribe(e, keys);
+      }).catch(() => {});
+    },
+    close() {
+      closed = true;
+      if (entry) { entry.tickListeners.delete(tickFn); entry.statusListeners.delete(statusFn); unsubscribe(entry, [...mine.keys()]); }
+      mine.clear();
+    },
+  };
 }
 
-export async function fetchLTP(creds, symbol) {
-  const spotEntry = await resolveIndexToken(symbol);
-  const key = tickKey(spotEntry);
-  const ticks = await subscribeAndCollect(creds, [key]);
-  return { status: "success", data: { last_price: ticks.get(key)?.lastTradedPrice || 0 } };
+/**
+ * Pocketful errors arrive as "Pocketful error [<http>] <error_code?>: <message>". 401/403 = token invalid or expired
+ * (UPSTREAM_AUTH, already tagged by pfRequest); 429 = rate limit; error codes 44000/45000/45010 = bad parameters,
+ * price/quantity or instrument (UPSTREAM_INPUT). All stay 502; our own refusals keep 422.
+ */
+export function normaliseError(err, opts = {}) {
+  const base = baseNormalise(err, opts);
+  if (err instanceof BrokerError && (err.statusCode === 422 || err.code !== "UPSTREAM_ERROR")) return base;
+  const m = base.message;
+  if (/\[429\]|rate limit/i.test(m)) return { ...base, code: "UPSTREAM_RATE_LIMIT" };
+  if (/\b4[45]0[01]0\b/.test(m)) return { ...base, code: "UPSTREAM_INPUT" };
+  if (/\b40000\b/.test(m)) return { ...base, code: "UPSTREAM_AUTH" };
+  return base;
 }

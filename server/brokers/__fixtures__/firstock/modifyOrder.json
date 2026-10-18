@@ -1,0 +1,92 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "args": [
+    "26101600007328",
+    {
+      "price": 96.5
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/orderBook",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "Order book",
+        "data": [
+          {
+            "averagePrice": "0.00",
+            "exchange": "NSE",
+            "fillShares": "",
+            "lotSize": "1",
+            "orderNumber": "26101600013102",
+            "orderTime": "1792141654",
+            "price": "0.00",
+            "priceType": "MKT",
+            "product": "C",
+            "quantity": "13",
+            "rejectReason": "RED:Margin Shortfall:INR 4,301.68 Available:INR 77.09 for C-AB1234 [ONLINE]",
+            "remarks": "",
+            "retention": "DAY",
+            "status": "REJECTED",
+            "tickSize": "0.01",
+            "token": "14366",
+            "tradingSymbol": "IDEA-EQ",
+            "transactionType": "S",
+            "userId": "AB1234"
+          },
+          {
+            "averagePrice": "0.00",
+            "exchange": "NFO",
+            "fillShares": "0",
+            "lotSize": "65",
+            "orderNumber": "26101600007328",
+            "orderTime": "1792127268",
+            "price": "95.00",
+            "priceType": "LMT",
+            "product": "M",
+            "quantity": "130",
+            "rejectReason": "",
+            "remarks": "",
+            "retention": "DAY",
+            "status": "OPEN",
+            "tickSize": "0.05",
+            "token": "40003",
+            "tradingSymbol": "NIFTY20OCT26C25000",
+            "transactionType": "B",
+            "userId": "AB1234"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/modifyOrder",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken",
+        "orderNumber": "26101600007328",
+        "product": "M",
+        "priceType": "LMT",
+        "tradingSymbol": "NIFTY20OCT26C25000",
+        "price": "96.5",
+        "quantity": "130",
+        "retention": "DAY"
+      },
+      "json": {
+        "status": "success",
+        "message": "Order modification details",
+        "data": {
+          "orderNumber": "26101600007328",
+          "requestTime": "18:07:09 16-10-2026"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 104.5,
+      "correlationId": "mrc-0001"
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/PlaceOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"dscqty\":\"0\",\"prc\":\"104.5\",\"prd\":\"M\",\"trantype\":\"B\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\",\"remarks\":\"mrc-0001\"}"
+      },
+      "json": {
+        "request_time": "10:48:03 17-10-2026",
+        "stat": "Ok",
+        "norenordno": "26101700000017"
+      }
+    }
+  ]
+}

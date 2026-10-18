@@ -1,51 +1,33 @@
 /**
- * Broker module contract + registry.
+ * Broker module registry: all 33 adapters, keyed by the broker id the frontend sends.
  *
- * Every module below exports:
- *   id: string
- *   credentialFields: string[]   — informational, mirrors src/lib/brokerConfig.ts BROKERS[].fields
- *   async testConnection(creds) -> { status: "success"|"error", message: string }
- *   async fetchExpiryList(creds, symbol) -> { status: string, data: string[] }   // ISO "YYYY-MM-DD", ascending
- *   async fetchOptionChain(creds, symbol, expiry) -> {
- *     status: "success",
- *     data: {
- *       oc: { "<strike>": { ce?: Leg, pe?: Leg } },
- *       last_price: number   // underlying spot price
- *     }
- *   }
- *   // Leg = { last_price, oi, oi_chg?, volume, iv, delta, gamma, theta, vega, bid_price, ask_price }
- *   // (iv as a percentage e.g. 14.2, not 0.142 — matches Dhan's convention, the app's reference schema)
+ * THE CONTRACT lives in server/brokers/contract.mjs (capabilities, normalised shapes, order gate,
+ * validateAdapter) with fixture tests via contractHarness.mjs; docs/broker-contract.md has the
+ * per-broker checklist and docs/BROKERS.md the user-facing table. Every adapter below is on the
+ * strict contract: it exports `id`, `credentialFields` (never a password, PIN or TOTP value) and a
+ * `capabilities` object whose keys promise the matching methods (fetchOptionChain, fetchQuotes,
+ * fetchDepth, fetchHistorical, createFeed, fetchPositions, fetchHoldings, fetchFunds,
+ * fetchOrderBook, fetchTradeBook, ...). capabilities.auth.kind is one of apiKeyToken,
+ * oauthRedirect, requestTokenExchange or sessionLogin; session-login brokers also export
+ * login(creds) and are reached through POST /api/broker-session-login.
  *
- *   Optional (only implement if the broker's API genuinely supports it — the
- *   generic /api/broker-proxy path checks for this before calling it, no broker
- *   is required to have it):
- *   async fetchFuturesQuotes(creds, symbols: string[]) -> {
- *     status: "success",
- *     data: Array<{
- *       symbol, instrumentType: "FUTSTK"|"FUTIDX", expiryDate, lotSize,
- *       futuresLtp, priceChangePercent, oi, oiChangePercent, volume, buildupSignal
- *     }>
- *   }
+ * How the proxy reaches them (proxy-server.mjs + brokerProxyRoutes.mjs):
+ *   GET /api/broker-proxy?broker=<id>&endpoint=<e>  — every declared READ capability (option-chain,
+ *       expiry-list, ltp, quotes, depth, historical, instruments, positions, holdings, funds,
+ *       order-book, trade-book). Undeclared capabilities answer 422 CAPABILITY_UNSUPPORTED.
+ *   GET /api/broker-test-connection, GET /api/broker-capabilities.
  *
- *   Order placement (optional, real money). Implemented today for: Dhan
- *   (server/lib/dhanOrders.mjs, static-IP whitelisted, the only one exercised
- *   against a live account); the Noren-family brokers — flattrade, shoonya,
- *   tradesmart, zebu — via the shared server/brokers/oms-noren.mjs; and the
- *   OAuth brokers Zerodha and Fyers (zerodhaOrders.mjs / fyersOrders.mjs).
- *   All of these are structurally complete and covered by pure-function
- *   tests (body-building, capability gating), NOT yet verified against a
- *   live order on their respective brokers. Alice Blue, 5paisa and Kotak Neo
- *   ship only a read-only capabilities descriptor (placeOrder intentionally
- *   absent) pending that same verification bar. Every other broker remains
- *   read-only (market data/quotes) with no order code at all:
- *   async placeOrder(creds, order) -> { orderId: string, orderStatus: string }
- *   async getOrders(creds) -> Array<order>
- *   async getOrderStatus(creds, orderId) -> order
- *   async cancelOrder(creds, orderId) -> { orderId: string, orderStatus: string }
+ * Orders (real money): every adapter's placeOrder/modifyOrder/cancelOrder is wrapped with
+ * withOrderGate() and refuses without a valid, unused, broker- and action-bound gate. No route mints
+ * a gate for any broker here, and /api/broker-proxy answers 403 ORDER_PATH_BLOCKED for order
+ * endpoints, so live orders from these adapters stay blocked pending owner review. Only Dhan places
+ * live orders, through 1Cliq on /api/dhan-proxy (live-trading toggle + armed session), and only Dhan
+ * has been verified against a live account; the other 32 are fixture-tested (beta).
  *
- * `symbol` is one of: NIFTY | BANKNIFTY | FINNIFTY | MIDCPNIFTY | SENSEX
- * `creds` is the raw `values` object the user saved in Broker Settings for that broker
- * (field names match brokerConfig.ts, e.g. { apiKey, apiSecret, accessToken }).
+ * Index underlyings: NIFTY | BANKNIFTY | FINNIFTY | MIDCPNIFTY | SENSEX | BANKEX (CANONICAL_UNDERLYINGS),
+ * plus stock underlyings where the broker offers them.
+ * `creds` is the raw `values` object the user saved in Broker Settings for that broker (field names
+ * match brokerCatalogPart*.ts), plus the session fields a session login returned.
  */
 
 import * as dhan from "./dhan.mjs";

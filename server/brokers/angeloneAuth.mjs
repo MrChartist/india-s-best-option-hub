@@ -1,22 +1,33 @@
 /**
- * Angel One (SmartAPI) authentication.
+ * Angel One (SmartAPI) authentication — session login (contract auth.kind "sessionLogin").
  *
- * SmartAPI has no paste-a-token model — the backend must actively log in
- * with a fresh TOTP code every session. The resulting JWT dies at IST
- * midnight regardless of activity, so we cache it in memory keyed by the
- * creds and only re-login (fresh TOTP) when missing/expired or when the
- * broker tells us the token itself is bad. Re-running TOTP login on every
- * poll would blow through Angel's 1 req/sec login limit within seconds.
+ * Official docs: https://smartapi.angelone.in/docs (User / Exceptions / RateLimit pages, checked 2026-10).
+ * SmartAPI has no paste-a-token model: POST /rest/auth/angelbroking/user/v1/loginByPassword with
+ * { clientcode, password (the account PIN/MPIN), totp } returns { jwtToken, refreshToken, feedToken }.
+ * The user types the PIN and the current 6-digit TOTP code in Broker Settings; login() runs once and
+ * only the returned tokens are kept (by the browser's credential store, sent back as sessionToken /
+ * feedToken / refreshToken). The JWT dies at IST midnight, after which calls throw
+ * SessionRequiredError and the user logs in again. Nothing here stores, caches or logs the PIN or code.
+ *
+ * Every call sends the documented header set: Authorization: Bearer <jwt>, X-PrivateKey: <api key>,
+ * X-UserType USER, X-SourceID WEB, X-ClientLocalIP, X-ClientPublicIP, X-MACAddress.
+ * Rate limits (RateLimit page): loginByPassword 1/s, getProfile 3/s, getRMS 2/s, order book / trade book /
+ * positions / holdings 1/s, quote 10/s (the Market Data page says 1/s for 50-token calls, so callers here
+ * pace quotes at 1/s), getCandleData 3/s, optionGreek 1/s, place/modify/cancel 9/s combined.
  */
 
-import { generateTOTP } from "../lib/totp.mjs";
+import { BrokerError, brokerFetch, SessionRequiredError } from "./contract.mjs";
+import { nextIstMidnightMs, readTotpCode, requireFields, sessionFromCreds } from "./sessionLogin.mjs";
 
 const AUTH_BASE = "https://apiconnect.angelone.in";
 const LOGIN_PATH = "/rest/auth/angelbroking/user/v1/loginByPassword";
+export const PROFILE_PATH = "/rest/secure/angelbroking/user/v1/getProfile";
 
-// In-memory only — never persisted to disk. Server restart forces one fresh
-// TOTP login per active user, which is fine (well under the 1 req/sec cap).
-const sessionCache = new Map();
+export const LOGIN_FIELDS = [
+  { key: "password", label: "PIN / MPIN", kind: "secret" },
+  { key: "totpCode", label: "6-digit TOTP code", kind: "totp" },
+];
+export const SESSION_FIELDS = ["sessionToken", "feedToken", "refreshToken"];
 
 function commonHeaders(apiKey) {
   return {
@@ -31,56 +42,30 @@ function commonHeaders(apiKey) {
   };
 }
 
-/** Epoch ms of the next IST midnight from `now` — Angel JWT sessions expire exactly there. */
-function nextIstMidnightMs(now = Date.now()) {
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-  const istShifted = new Date(now + IST_OFFSET_MS);
-  istShifted.setUTCHours(0, 0, 0, 0);
-  const istMidnightTodayShifted = istShifted.getTime();
-  return istMidnightTodayShifted + 24 * 60 * 60 * 1000 - IST_OFFSET_MS;
-}
-
-/** In-process cache key only. Never logged, never persisted. */
-function credsKey(creds) {
-  return JSON.stringify({
-    a: creds?.apiKey,
-    c: creds?.clientId,
-    p: creds?.password,
-    t: creds?.totpSecret,
-  });
-}
-
-async function loginFresh(creds) {
-  const totp = generateTOTP(creds.totpSecret);
-  const res = await fetch(`${AUTH_BASE}${LOGIN_PATH}`, {
+/** One login with the user-typed PIN + current TOTP code. Returns only the session tokens. */
+export async function login(creds) {
+  requireFields(creds, ["apiKey", "clientId", "password"], "Angel One");
+  const totp = readTotpCode(creds);
+  const res = await brokerFetch(`${AUTH_BASE}${LOGIN_PATH}`, {
     method: "POST",
     headers: commonHeaders(creds.apiKey),
     body: JSON.stringify({ clientcode: creds.clientId, password: creds.password, totp }),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.status || !json?.data?.jwtToken) {
-    const msg = json?.message || `HTTP ${res.status}`;
-    console.log(`[angelone] login failed: ${msg}`);
-    throw new Error(`Angel One login failed: ${msg}`);
+    const code = json?.errorcode ? ` (${json.errorcode})` : "";
+    throw new BrokerError(`Angel One login failed${code}: ${json?.message || `HTTP ${res.status}`}`, { code: "UPSTREAM_AUTH" });
   }
-  const session = {
-    jwtToken: json.data.jwtToken,
-    refreshToken: json.data.refreshToken || null,
-    expiresAt: nextIstMidnightMs(),
-  };
-  sessionCache.set(credsKey(creds), session);
-  return session;
+  const session = { sessionToken: String(json.data.jwtToken) };
+  if (json.data.feedToken) session.feedToken = String(json.data.feedToken);
+  if (json.data.refreshToken) session.refreshToken = String(json.data.refreshToken);
+  return { session, expiresAt: nextIstMidnightMs() };
 }
 
-/** Returns a valid cached session, logging in fresh (new TOTP) if missing/expired. */
-export async function getSession(creds) {
-  if (!creds?.apiKey || !creds?.clientId || !creds?.password || !creds?.totpSecret) {
-    throw new Error("Angel One credentials incomplete — need apiKey, clientId, password, totpSecret");
-  }
-  const key = credsKey(creds);
-  const cached = sessionCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached;
-  return loginFresh(creds);
+/** The stored session ({ jwtToken }). Throws SessionRequiredError when absent or expired. */
+export function getSession(creds) {
+  requireFields(creds, ["apiKey", "clientId"], "Angel One");
+  return { jwtToken: sessionFromCreds(creds, SESSION_FIELDS, "Angel One").sessionToken };
 }
 
 function isRateLimitBody(text) {
@@ -89,46 +74,40 @@ function isRateLimitBody(text) {
 }
 
 /**
- * Authenticated POST against apiconnect.angelone.in. On a genuine auth-403
- * (body does NOT mention rate limiting) forces a fresh TOTP login and retries
- * once. A rate-limit 403 is never retried here — it's surfaced as an error so
- * the caller's own batching/backoff handles pacing instead of compounding it.
+ * Authenticated call against apiconnect.angelone.in (`body === undefined` means GET). A genuine auth
+ * 401/403 (body does NOT mention rate limiting) means the session is dead: SessionRequiredError, so the
+ * user logs in again (there is no stored secret to re-login with). A rate-limit answer becomes
+ * UPSTREAM_RATE_LIMIT and is never retried here.
  */
 export async function authFetch(creds, path, body) {
-  let session = await getSession(creds);
+  const session = getSession(creds);
+  const res = await brokerFetch(`${AUTH_BASE}${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { ...commonHeaders(creds.apiKey), Authorization: `Bearer ${session.jwtToken}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
 
-  const doCall = async (sess) => {
-    const res = await fetch(`${AUTH_BASE}${path}`, {
-      method: "POST",
-      headers: {
-        ...commonHeaders(creds.apiKey),
-        Authorization: `Bearer ${sess.jwtToken}`,
-      },
-      body: JSON.stringify(body),
-    });
-    const text = await res.text();
-    let json = null;
-    try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-    return { res, text, json };
-  };
-
-  let { res, text, json } = await doCall(session);
-
-  if (res.status === 403 && !isRateLimitBody(text)) {
-    console.log(`[angelone] token rejected on ${path} (status 403) — re-logging in`);
-    sessionCache.delete(credsKey(creds));
-    session = await loginFresh(creds);
-    ({ res, text, json } = await doCall(session));
+  if ((res.status === 401 || res.status === 403) && !isRateLimitBody(text)) {
+    throw new SessionRequiredError("Angel One rejected the session. Log in again from Broker Settings.");
   }
-
-  if (res.status === 403 && isRateLimitBody(text)) {
-    throw new Error(`Angel One API rate limit exceeded on ${path}`);
+  if (res.status === 429 || (res.status === 403 && isRateLimitBody(text))) {
+    throw new BrokerError(`Angel One API rate limit exceeded on ${path}`, { code: "UPSTREAM_RATE_LIMIT" });
   }
   if (!res.ok) {
-    throw new Error(`Angel One API error [${res.status}] on ${path}: ${json?.message || text.slice(0, 200)}`);
+    throw new BrokerError(`Angel One API error [${res.status}] on ${path}: ${String(json?.message || text).slice(0, 200)}`);
   }
-  if (json && json.status === false) {
-    throw new Error(`Angel One API error on ${path}: ${json.message || json.errorcode || "unknown"}`);
+  // Documented SmartAPI token errors arrive as HTTP 200 + status:false: AG8001 invalid, AG8002 expired, AG8003 missing.
+  // Seen with both casings in the wild (errorcode / errorCode, status / success).
+  const failed = json && (json.status === false || json.success === false);
+  const errCode = String(json?.errorcode ?? json?.errorCode ?? "");
+  if (failed && /^AG800[123]$/.test(errCode)) {
+    throw new SessionRequiredError("Angel One session expired. Log in again from Broker Settings.");
+  }
+  if (failed) {
+    throw new BrokerError(`Angel One API error on ${path}${errCode ? ` (${errCode})` : ""}: ${json.message || "unknown"}`);
   }
   return json;
 }

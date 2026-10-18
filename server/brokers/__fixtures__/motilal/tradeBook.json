@@ -1,0 +1,44 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/book/v4/gettradebook",
+      "json": {
+        "status": "SUCCESS",
+        "message": "Trade Data",
+        "errorcode": "",
+        "data": [
+          {
+            "clientid": "EMUM123456",
+            "exchange": "NSEFO",
+            "symboltoken": "52826",
+            "producttype": "NORMAL",
+            "symbol": "NIFTY",
+            "instrumenttype": "OPTIDX",
+            "series": "XX",
+            "strikeprice": 25000,
+            "optiontype": "CE",
+            "expirydate": "20/10/2026",
+            "lotsize": 65,
+            "precision": 2,
+            "multiplier": 1,
+            "tradeprice": 10450,
+            "tradeqty": 130,
+            "tradevalue": 1358500,
+            "buyorsell": "Buy",
+            "orderid": "1120001",
+            "tradeno": "12343",
+            "tradetime": "20/10/2026",
+            "uniqueorderid": "2400155AA020"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

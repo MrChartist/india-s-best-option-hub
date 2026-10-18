@@ -1,0 +1,236 @@
+{
+  "args": [
+    [
+      {
+        "token": "408065",
+        "exchange": "NSE"
+      },
+      {
+        "token": "12010242",
+        "exchange": "NFO"
+      },
+      {
+        "token": "NSE:NIFTY 50",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/NSE",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n256265,1001,NIFTY 50,\"NIFTY 50\",0,,0,0,0,EQ,INDICES,NSE\n260105,1016,NIFTY BANK,\"NIFTY BANK\",0,,0,0,0,EQ,INDICES,NSE\n738561,2885,RELIANCE,\"RELIANCE INDUSTRIES\",0,,0,0.1,1,EQ,NSE,NSE\n408065,1594,INFY,\"INFOSYS\",0,,0,0.05,1,EQ,NSE,NSE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/NFO",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n12010242,46915,NIFTY26OCT25000CE,\"NIFTY\",0,2026-10-27,25000,0.05,65,CE,NFO-OPT,NFO\n12010498,46916,NIFTY26OCT25000PE,\"NIFTY\",0,2026-10-27,25000,0.05,65,PE,NFO-OPT,NFO\n12010754,46917,NIFTY26OCT25050CE,\"NIFTY\",0,2026-10-27,25050,0.05,65,CE,NFO-OPT,NFO\n12011010,46918,NIFTY26OCT25050PE,\"NIFTY\",0,2026-10-27,25050,0.05,65,PE,NFO-OPT,NFO\n12011266,46919,NIFTY26OCT25100CE,\"NIFTY\",0,2026-10-27,25100,0.05,65,CE,NFO-OPT,NFO\n12011522,46920,NIFTY26OCT25100PE,\"NIFTY\",0,2026-10-27,25100,0.05,65,PE,NFO-OPT,NFO\n12090370,47228,NIFTY26N0325000CE,\"NIFTY\",0,2026-11-03,25000,0.05,65,CE,NFO-OPT,NFO\n12090626,47229,NIFTY26N0325000PE,\"NIFTY\",0,2026-11-03,25000,0.05,65,PE,NFO-OPT,NFO\n12601602,49225,NIFTY26OCTFUT,\"NIFTY\",0,2026-10-27,0,0.1,65,FUT,NFO-FUT,NFO\n13502978,52746,BANKNIFTY26OCT56000CE,\"BANKNIFTY\",0,2026-10-27,56000,0.05,30,CE,NFO-OPT,NFO\n17105410,66818,RELIANCE26OCT1400CE,\"RELIANCE\",0,2026-10-27,1400,0.05,500,CE,NFO-OPT,NFO\n17105666,66819,RELIANCE26OCT1400PE,\"RELIANCE\",0,2026-10-27,1400,0.05,500,PE,NFO-OPT,NFO\n14400002,56250,NIFTYNXT5026DEC81600CE,\"NIFTYNXT50\",0,2026-12-29,81600,0.05,25,CE,NFO-OPT,NFO\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.kite\\.trade/quote\\?i=",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE:NIFTY 50": {
+            "instrument_token": 256265,
+            "timestamp": "2026-10-16 15:30:00",
+            "last_trade_time": null,
+            "last_price": 25041.35,
+            "last_quantity": 0,
+            "buy_quantity": 0,
+            "sell_quantity": 0,
+            "volume": 0,
+            "average_price": 0,
+            "oi": 0,
+            "oi_day_high": 0,
+            "oi_day_low": 0,
+            "net_change": 105.2,
+            "lower_circuit_limit": 0,
+            "upper_circuit_limit": 0,
+            "ohlc": {
+              "open": 24950.1,
+              "high": 25080.4,
+              "low": 24921.3,
+              "close": 24936.15
+            },
+            "depth": {
+              "buy": [],
+              "sell": []
+            }
+          },
+          "NSE:INFY": {
+            "instrument_token": 408065,
+            "timestamp": "2026-10-16 15:29:59",
+            "last_trade_time": "2026-10-16 15:29:58",
+            "last_price": 1412.95,
+            "last_quantity": 65,
+            "buy_quantity": 0,
+            "sell_quantity": 5191,
+            "volume": 7360198,
+            "average_price": 1412.95,
+            "oi": 0,
+            "oi_day_high": 0,
+            "oi_day_low": 0,
+            "net_change": 0,
+            "lower_circuit_limit": 0.05,
+            "upper_circuit_limit": 4238.85,
+            "ohlc": {
+              "open": 1396,
+              "high": 1421.75,
+              "low": 1395.55,
+              "close": 1389.65
+            },
+            "depth": {
+              "buy": [
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ],
+              "sell": [
+                {
+                  "price": 1412.95,
+                  "quantity": 5191,
+                  "orders": 13
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ]
+            }
+          },
+          "NFO:NIFTY26OCT25000CE": {
+            "instrument_token": 12010242,
+            "timestamp": "2026-10-16 15:29:59",
+            "last_trade_time": "2026-10-16 15:29:58",
+            "last_price": 182.4,
+            "last_quantity": 65,
+            "buy_quantity": 0,
+            "sell_quantity": 5191,
+            "volume": 2500000,
+            "average_price": 182.4,
+            "oi": 5123400,
+            "oi_day_high": 5123400,
+            "oi_day_low": 0,
+            "net_change": 0,
+            "lower_circuit_limit": 0.05,
+            "upper_circuit_limit": 547.2,
+            "ohlc": {
+              "open": 170,
+              "high": 190,
+              "low": 160.5,
+              "close": 200.6
+            },
+            "depth": {
+              "buy": [
+                {
+                  "price": 181.9,
+                  "quantity": 150,
+                  "orders": 3
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ],
+              "sell": [
+                {
+                  "price": 182.9,
+                  "quantity": 75,
+                  "orders": 2
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

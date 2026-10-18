@@ -1,30 +1,30 @@
 /**
- * Nubra (Nuvama Nubra) REST API V3 authentication.
+ * Nubra (Zanskar Securities) REST API V3 authentication and transport.
+ *
+ * Official sources (checked 2026-10): https://nubra.io/products/api/docs/rest-api-v3/authentication.html ,
+ * errors_and_exceptions.html, RateLimits.html, and Nubra's own Python SDK (nubra-sdk 0.5.4 on PyPI,
+ * nubra_python_sdk/start_sdk.py `_totp_login`). The REST page documents only the SMS-OTP path
+ * (/sendphoneotp -> /verifyphoneotp -> /verifypin); the TOTP path below (POST /totp/login with
+ * { phone, totp: <int>, otp: "" }, HTTP 201 -> auth_token) is the one the official SDK uses.
  *
  * Nubra has no paste-a-token model — the session_token used on every
  * authenticated call only comes from an active login, and it is short-lived
- * (a JWT with its own `exp` claim). Two login paths exist per the V3 docs:
+ * (a JWT with its own `exp` claim). Two login paths exist (REST docs + official SDK):
  *   - phone-OTP (SMS code) — inherently interactive, cannot run headless.
- *   - TOTP (authenticator-app code) — non-interactive once TOTP has been
- *     enabled on the account, which is a one-time step the user does
- *     themselves (Nubra's app/site walks them through
- *     /totp/generate-secret + /totp/enable and hands them a base32 secret to
- *     add to an authenticator app — that same secret is what this module's
- *     `totpSecret` credential field expects).
+ *   - TOTP (authenticator-app code), once TOTP is enabled on the account.
  *
- * This mirrors marketcalls/openalgo's `authenticate_broker_totp()`:
+ * Session login (contract auth.kind "sessionLogin") uses the TOTP path with the CURRENT 6-digit code
+ * the user types in Broker Settings, plus their MPIN:
  *   1. POST /totp/login   {phone, totp, otp:""}  -> auth_token
  *   2. POST /verifypin    {pin: mpin}             -> session_token
- * headers/base URL match openalgo's broker/nubra/api/baseurl.py, which is the
- * verified-working header set (Authorization + x-device-id [+ Content-Type]).
- *
- * The session is cached in-memory keyed by the raw creds; the session_token's
- * own JWT `exp` claim (unix seconds) sizes the cache instead of a guessed
- * fixed lifetime, with a small safety margin so we re-login slightly before
- * the token actually dies rather than racing an in-flight request against it.
+ * (headers: Authorization + x-device-id [+ Content-Type]). login() returns only { sessionToken };
+ * its expiresAt comes from the JWT's own `exp` claim minus a safety margin. HTTP 440 (Nubra's
+ * documented "re-auth needed") throws SessionRequiredError. The MPIN and code are never stored,
+ * cached or logged.
  */
 
-import { generateTOTP } from "../lib/totp.mjs";
+import { BrokerError, brokerFetch, SessionRequiredError } from "./contract.mjs";
+import { readTotpCode, requireFields, sessionFromCreds } from "./sessionLogin.mjs";
 
 export const NUBRA_BASE = "https://api.nubra.io";
 
@@ -38,13 +38,11 @@ export const SESSION_EXPIRED_STATUS = 440; // Nubra's documented "re-auth needed
 const SAFETY_MARGIN_MS = 60_000; // re-login 60s before the JWT's own exp
 const FALLBACK_SESSION_MS = 6 * 60 * 60 * 1000; // only used if the JWT can't be decoded
 
-// In-memory only — never persisted. A server restart forces one fresh TOTP
-// login per active user, which is fine (TOTP login is not a hot path).
-const sessionCache = new Map();
-
-function credsKey(creds) {
-  return JSON.stringify({ p: creds?.phone, m: creds?.mpin, t: creds?.totpSecret });
-}
+export const LOGIN_FIELDS = [
+  { key: "mpin", label: "Nubra MPIN", kind: "secret" },
+  { key: "totpCode", label: "6-digit TOTP code", kind: "totp" },
+];
+export const SESSION_FIELDS = ["sessionToken"];
 
 function buildHeaders({ withJson = true, authToken } = {}) {
   const h = { "x-device-id": DEVICE_ID };
@@ -65,12 +63,6 @@ function decodeJwtExpMs(token) {
   }
 }
 
-/** TOTP codes are 6 digits where a leading zero is significant; pad, and reject anything else. */
-function normalizeTotp(code) {
-  const s = String(code ?? "").trim();
-  return /^\d{1,6}$/.test(s) ? s.padStart(6, "0") : null;
-}
-
 async function readJson(res) {
   try {
     return await res.json();
@@ -80,112 +72,97 @@ async function readJson(res) {
 }
 
 async function totpLogin(creds) {
-  const totpStr = normalizeTotp(generateTOTP(creds.totpSecret));
-  if (!totpStr) throw new Error("Nubra: could not derive a valid TOTP code from totpSecret");
-
-  // Docs show `totp` as a JSON integer; int() on a leading-zero code drops the
-  // zero, which some servers then reject as a string mismatch — hedge with
-  // the zero-padded string as a fallback (same trick openalgo's client uses).
-  const candidates = [Number(totpStr)];
-  if (String(Number(totpStr)) !== totpStr) candidates.push(totpStr);
-
-  let lastError = "TOTP login failed";
-  for (const totpVal of candidates) {
-    const res = await fetch(`${NUBRA_BASE}/totp/login`, {
+  const totpStr = readTotpCode(creds);
+  let res;
+  try {
+    // The official SDK sends `totp` as a JSON integer (int(totp)); the docs never show a string form.
+    res = await brokerFetch(`${NUBRA_BASE}/totp/login`, {
       method: "POST",
       headers: buildHeaders(),
-      body: JSON.stringify({ phone: creds.phone, totp: totpVal, otp: "" }),
+      body: JSON.stringify({ phone: String(creds.phone).trim(), totp: Number(totpStr), otp: "" }),
     });
-    const json = await readJson(res);
-    if (json?.auth_token) return json.auth_token;
-    lastError = json?.error || json?.message || `HTTP ${res.status}`;
+  } catch (e) {
+    throw new BrokerError(`Nubra login: network error (${e?.message || e})`);
   }
-  throw new Error(`Nubra TOTP login failed: ${lastError}`);
+  const json = await readJson(res);
+  if (json?.auth_token) return String(json.auth_token);
+  if (res.status >= 500) throw new BrokerError(`Nubra login: HTTP ${res.status}`);
+  throw new SessionRequiredError(`Nubra TOTP login failed (${json?.error || json?.message || `HTTP ${res.status}`}). Check that TOTP is enabled on your Nubra account and enter a fresh code.`);
 }
 
 async function verifyPin(creds, authToken) {
-  const res = await fetch(`${NUBRA_BASE}/verifypin`, {
-    method: "POST",
-    headers: buildHeaders({ authToken }),
-    body: JSON.stringify({ pin: String(creds.mpin) }),
-  });
-  const json = await readJson(res);
-  if (!json?.session_token) {
-    throw new Error(`Nubra PIN verification failed: ${json?.error || json?.message || `HTTP ${res.status}`}`);
+  let res;
+  try {
+    res = await brokerFetch(`${NUBRA_BASE}/verifypin`, {
+      method: "POST",
+      headers: buildHeaders({ authToken }),
+      body: JSON.stringify({ pin: String(creds.mpin) }),
+    });
+  } catch (e) {
+    throw new BrokerError(`Nubra login: network error (${e?.message || e})`);
   }
-  return json.session_token;
+  const json = await readJson(res);
+  if (json?.session_token) return String(json.session_token);
+  if (res.status >= 500) throw new BrokerError(`Nubra login: HTTP ${res.status}`);
+  throw new SessionRequiredError(`Nubra MPIN verification failed (${json?.error || json?.message || `HTTP ${res.status}`}).`);
 }
 
-async function loginFresh(creds) {
+/** One TOTP + PIN login with the user-typed values. Returns only the session token. */
+export async function login(creds) {
+  requireFields(creds, ["phone", "mpin"], "Nubra");
+  readTotpCode(creds); // refuse a malformed code before any network call
   const authToken = await totpLogin(creds);
   const sessionToken = await verifyPin(creds, authToken);
   const expMs = decodeJwtExpMs(sessionToken);
-  const session = {
-    sessionToken,
+  return {
+    session: { sessionToken: String(sessionToken) },
     expiresAt: (expMs || Date.now() + FALLBACK_SESSION_MS) - SAFETY_MARGIN_MS,
   };
-  sessionCache.set(credsKey(creds), session);
-  console.log(`[nubra] logged in fresh, session valid until ${new Date(session.expiresAt).toISOString()}`);
-  return session;
 }
 
-/** Returns a valid cached session, logging in fresh (new TOTP) only if missing/expired. */
-export async function getSession(creds) {
-  if (!creds?.phone || !creds?.mpin || !creds?.totpSecret) {
-    throw new Error("Nubra credentials incomplete — need phone, mpin, totpSecret");
-  }
-  const key = credsKey(creds);
-  const cached = sessionCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached;
-  return loginFresh(creds);
+/** The stored session { sessionToken }. Throws SessionRequiredError when absent or expired. */
+export function getSession(creds) {
+  return sessionFromCreds(creds, SESSION_FIELDS, "Nubra");
 }
 
 /**
- * Authenticated Nubra V3 REST call. Retries 429 with exponential backoff (the
- * broker's own documented behaviour under load) and re-logs in once on HTTP
- * 440 (session expired/invalid per the V3 "Errors & Exceptions" docs).
+ * Authenticated Nubra V3 REST call. 429 is retried twice with backoff; HTTP 440 (documented "session expired,
+ * invalid or no longer usable") and 401 throw SessionRequiredError; other failures throw BrokerError with
+ * Nubra's `error` text ({ error, nubra_error_code } is the documented V3 error shape).
  */
-export async function nubraFetch(creds, path, { method = "GET", body } = {}) {
-  let session = await getSession(creds);
-
-  const attempt = async (sess) => {
-    let delayMs = 1000;
-    for (let i = 0; i < 3; i++) {
-      const res = await fetch(`${NUBRA_BASE}${path}`, {
+export async function nubraFetch(creds, path, { method = "GET", body, what = path } = {}) {
+  const { sessionToken } = getSession(creds);
+  let res;
+  let delayMs = 1000;
+  for (let i = 0; ; i++) {
+    try {
+      res = await brokerFetch(`${NUBRA_BASE}${path}`, {
         method,
-        headers: buildHeaders({ authToken: sess.sessionToken }),
-        body: body != null ? JSON.stringify(body) : undefined,
+        headers: buildHeaders({ withJson: body !== undefined, authToken: sessionToken }),
+        body: body !== undefined ? JSON.stringify(body) : undefined,
       });
-      if (res.status === 429 && i < 2) {
-        console.log(`[nubra] rate limited on ${path}, retrying in ${delayMs}ms`);
-        await new Promise((r) => setTimeout(r, delayMs));
-        delayMs *= 2;
-        continue;
-      }
-      return res;
+    } catch (e) {
+      throw new BrokerError(`Nubra ${what}: network error (${e?.message || e})`);
     }
-    throw new Error(`Nubra API rate limit exceeded on ${path}`);
-  };
-
-  let res = await attempt(session);
-  if (res.status === SESSION_EXPIRED_STATUS) {
-    console.log(`[nubra] session expired (HTTP 440) on ${path}, re-authenticating`);
-    sessionCache.delete(credsKey(creds));
-    session = await loginFresh(creds);
-    res = await attempt(session);
+    if (res.status !== 429 || i >= 2) break;
+    await new Promise((r) => setTimeout(r, delayMs));
+    delayMs *= 2;
   }
-
+  if (res.status === SESSION_EXPIRED_STATUS || res.status === 401) {
+    throw new SessionRequiredError("Nubra session expired. Log in again from Broker Settings.");
+  }
   const text = await res.text();
   let json = null;
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : null;
   } catch {
-    /* non-JSON error body */
+    json = null;
   }
-
+  if (res.status === 429) throw new BrokerError(`Nubra ${what}: rate limit reached. Try again shortly.`, { code: "UPSTREAM_RATE_LIMIT" });
   if (!res.ok) {
-    const detail = json?.error || json?.message || text.slice(0, 200) || `HTTP ${res.status}`;
-    throw new Error(`Nubra API error [${res.status}] on ${path}: ${detail}`);
+    const detail = json?.error || json?.message || text.slice(0, 160) || `HTTP ${res.status}`;
+    throw new BrokerError(`Nubra ${what} failed (HTTP ${res.status}): ${detail}`);
   }
+  if (json === null) throw new BrokerError(`Nubra ${what}: unexpected non-JSON response`);
   return json;
 }

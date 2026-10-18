@@ -1,0 +1,119 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "args": [
+    [
+      {
+        "token": "43210",
+        "exchange": "NFO"
+      },
+      {
+        "token": "22",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/quotes/NFO/43210",
+      "json": {
+        "status": "SUCCESS",
+        "lotsize": "65",
+        "exchange": "NFO",
+        "tradingsymbol": "NIFTY20OCT26C25000",
+        "company_name": "NIFTY20OCT26C25000",
+        "symbol_name": "NIFTY",
+        "segment": "DER",
+        "instrument_name": "OPTIDX",
+        "isin": "",
+        "ticksize": "0.05",
+        "price_precision": "2",
+        "multiplier": "1",
+        "upper_circuit": "900.00",
+        "lower_circuit": "0.05",
+        "price_factor": "(1 / 1 ) * (1 / 1)",
+        "ltp": "104.95",
+        "day_high": "0",
+        "day_low": "0",
+        "volume": "12070630",
+        "last_traded_qty": "65",
+        "last_trade_time": "15:29:59",
+        "day_open": "0",
+        "average_traded_price": "104.95",
+        "best_bid_price1": "104.90",
+        "best_ask_price1": "105.00",
+        "best_bid_qty1": "65",
+        "best_ask_qty1": "130",
+        "best_bid_orders1": "1",
+        "best_ask_orders1": "2",
+        "best_bid_price2": "104.85",
+        "best_ask_price2": "105.05",
+        "best_bid_qty2": "130",
+        "best_ask_qty2": "260",
+        "best_bid_orders2": "2",
+        "best_ask_orders2": "3",
+        "best_bid_price3": "104.80",
+        "best_ask_price3": "105.10",
+        "best_bid_qty3": "195",
+        "best_ask_qty3": "390",
+        "best_bid_orders3": "3",
+        "best_ask_orders3": "4",
+        "best_bid_price4": "104.75",
+        "best_ask_price4": "105.15",
+        "best_bid_qty4": "260",
+        "best_ask_qty4": "520",
+        "best_bid_orders4": "4",
+        "best_ask_orders4": "5",
+        "best_bid_price5": "104.70",
+        "best_ask_price5": "105.20",
+        "best_bid_qty5": "325",
+        "best_ask_qty5": "650",
+        "best_bid_orders5": "5",
+        "best_ask_orders5": "6"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/quotes/NSE/22",
+      "json": {
+        "status": "SUCCESS",
+        "lotsize": "1",
+        "exchange": "NSE",
+        "tradingsymbol": "ACC-EQ",
+        "company_name": "ACC LIMITED",
+        "symbol_name": "ACC",
+        "segment": "EQT",
+        "instrument_name": "EQ",
+        "isin": "INE012A01025",
+        "ticksize": "0.05",
+        "price_precision": "2",
+        "multiplier": "1",
+        "upper_circuit": "2165.10",
+        "lower_circuit": "1673.05",
+        "price_factor": "(1 / 1 ) * (1 / 1)",
+        "ltp": "1858.00",
+        "day_high": "2008.50",
+        "day_low": "1750.00",
+        "volume": "4839643",
+        "last_traded_qty": "2",
+        "last_trade_time": "15:29:59",
+        "best_bid_price1": "1858.00",
+        "best_ask_price1": "1859.00",
+        "best_bid_qty1": "8",
+        "best_ask_qty1": "94",
+        "best_bid_orders1": "1",
+        "best_ask_orders1": "4",
+        "day_open": "1999.50",
+        "average_traded_price": "1858.91"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

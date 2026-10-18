@@ -1,0 +1,42 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 95
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/PlaceOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\",\"actid\":\"Z12345\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"prc\":\"95\",\"dscqty\":\"0\",\"prd\":\"M\",\"trantype\":\"B\",\"prctyp\":\"LMT\",\"ret\":\"DAY\"}"
+      },
+      "json": {
+        "request_time": "10:48:03 16-10-2026",
+        "stat": "Ok",
+        "norenordno": "26101600000002"
+      }
+    }
+  ]
+}

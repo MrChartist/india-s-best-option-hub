@@ -12,6 +12,7 @@ import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
 import { batchWithDelay } from "../lib/batch.mjs";
 import { classifyBuildup } from "../lib/futuresUtils.mjs";
 import { recordSnapshot, getPreviousValue } from "../lib/dailySnapshotStore.mjs";
+import { brokerFetch } from "./contract.mjs";
 
 const INSTRUMENT_CSV_URL = "https://images.dhan.co/api-data/api-scrip-master.csv";
 
@@ -19,7 +20,7 @@ const INSTRUMENT_CSV_URL = "https://images.dhan.co/api-data/api-scrip-master.csv
 // instrument master used by the "instruments" endpoint, then batches real quotes. ──
 
 async function downloadFuturesInstruments() {
-  const res = await fetch(INSTRUMENT_CSV_URL);
+  const res = await brokerFetch(INSTRUMENT_CSV_URL, { redirect: "follow" }, { kind: "master" });
   if (!res.ok) throw new Error(`Failed to download instrument master: ${res.status}`);
   const csvText = await res.text();
   const lines = csvText.split("\n");
@@ -66,7 +67,7 @@ async function getFuturesInstruments() {
 // of approximating a date. The CSV download itself needs no auth token. ──
 
 async function downloadMCXInstruments() {
-  const res = await fetch(INSTRUMENT_CSV_URL);
+  const res = await brokerFetch(INSTRUMENT_CSV_URL, { redirect: "follow" }, { kind: "master" });
   if (!res.ok) throw new Error(`Failed to download instrument master: ${res.status}`);
   const csvText = await res.text();
   const lines = csvText.split("\n");

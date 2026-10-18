@@ -105,6 +105,12 @@ describe("buildOrderBody — payload shape", () => {
     expect(() => buildOrderBody({ ...baseOrder, lots: -1 }, LOT_SIZE)).toThrow(/lots/i);
   });
 
+  it("rejects fractional lots instead of rounding them", () => {
+    expect(() => buildOrderBody({ ...baseOrder, lots: 0.5 }, LOT_SIZE)).toThrow(/whole number/);
+    expect(() => buildOrderBody({ ...baseOrder, lots: 1.004 }, LOT_SIZE)).toThrow(/whole number/);
+    expect(() => buildOrderBody({ ...baseOrder, lots: "2" }, LOT_SIZE)).toThrow(/lots/);
+  });
+
   it("rejects a missing tradingsymbol", () => {
     const { tradingsymbol, ...rest } = baseOrder;
     expect(() => buildOrderBody(rest, LOT_SIZE)).toThrow(/tradingsymbol/i);

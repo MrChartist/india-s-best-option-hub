@@ -1,0 +1,19 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/fundlimit",
+      "status": 200,
+      "json": {
+        "dhanClientId": "1000000001",
+        "availabelBalance": 98440.0,
+        "sodLimit": 113642,
+        "collateralAmount": 0.0,
+        "receiveableAmount": 0.0,
+        "utilizedAmount": 15202.0,
+        "blockedPayoutAmount": 0.0,
+        "withdrawableBalance": 98310.0
+      }
+    }
+  ]
+}

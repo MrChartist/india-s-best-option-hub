@@ -1,88 +1,123 @@
 /**
- * Kotak Securities (Neo) — batched quote fetching via the neosymbol Quotes API
- * (broker-api-docs/kotak-api-docs/05-market-data-quotes.md).
+ * Kotak Securities (Neo) quotes via the neosymbol Quotes API.
  *
- * GET {baseUrl}/script-details/1.0/quotes/neosymbol/<exch>|<instrument>[,<exch>|<instrument>...]/<filter>
- * authenticated with just the plain Authorization: <accessToken> header — the
- * trade token/sid from login are not involved in reads at all.
- *
- * Kotak doesn't document a hard per-call symbol cap. marketcalls/openalgo's
- * production Kotak plugin (broker/kotak/api/data.py) notes 42 symbols returns
- * 200 but 50 returns HTTP 400 "Please set the Neo symbol max value to 50.",
- * and settled on 25/batch with a 200ms gap between batches (~5 req/s) as a
- * safe margin — reused verbatim here since it comes from an observed live cap,
- * not the (silent) official docs.
+ * Official source: https://github.com/Kotak-Neo/Kotak-neo-api-v2 docs/Quotes.md and
+ * neo_api_client/api/quotes_neo_symbol_api.py (checked 2026-10):
+ *   GET <baseUrl>/script-details/1.0/quotes/neosymbol/<seg>|<token>[,<seg>|<token>...]/<quote_type>
+ *   header Authorization: <app access token>; quote_type all|depth|ohlc|ltp|oi|52w|circuit_limits|scrip_details.
+ *   The SDK URL-encodes the whole "<seg>|<token>,..." list (urllib.parse.quote), which we follow (the previous
+ *   module sent "|" and "," raw; Kotak decodes both forms).
+ * The docs publish no response sample. Field names used here (exchange, exchange_token, display_symbol, ltp,
+ * last_volume, open_int, ohlc{open,high,low,close}, depth{buy[],sell[]} with price/quantity/orders) are the ones
+ * this repo's previous module and OpenAlgo read; a bad query answers HTTP 200 { stat: "Not_Ok", stCode, emsg }.
+ * Limits: no cap is documented. OpenAlgo observed HTTP 400 at 50 symbols per call and HTTP 429 with more than ~4
+ * requests in flight; we send at most 25 symbols per call, one call at a time, 200 ms apart.
  */
 
-import { batchWithDelay } from "../lib/batch.mjs";
+import { BrokerError, brokerFetch, BrokerInputError } from "./contract.mjs";
+import { throwForResponse } from "./kotakAuth.mjs";
+import { kotakSegment } from "./kotakInstruments.mjs";
+import { sleep } from "../lib/batch.mjs";
 
 const QUOTES_PATH = "/script-details/1.0/quotes/neosymbol";
 export const QUOTE_BATCH_SIZE = 25;
 export const QUOTE_BATCH_DELAY_MS = 200;
 
-/** Kotak's neosymbol query only needs spaces escaped — '|' and ',' must stay literal (they're the query's own separators). */
-function encodeNeoQuery(query) {
-  return query.replace(/ /g, "%20");
-}
+const numOrNull = (v) => (v === undefined || v === null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+const num = (v) => numOrNull(v) ?? 0;
 
-async function requestBatch(session, queries) {
-  const combined = queries.join(",");
-  const url = `${session.baseUrl}${QUOTES_PATH}/${encodeNeoQuery(combined)}/all`;
-  const res = await fetch(url, {
-    headers: { Authorization: session.accessToken, "Content-Type": "application/json" },
+async function requestBatch(session, targets, quoteType = "all") {
+  const list = encodeURIComponent(targets.map((t) => `${t.exchSeg}|${t.query}`).join(","));
+  const res = await brokerFetch(`${session.baseUrl}${QUOTES_PATH}/${list}/${quoteType}`, {
+    headers: { Authorization: session.accessToken, accept: "application/json" },
   });
   const text = await res.text();
   let json = null;
-  try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-
-  if (!res.ok) {
-    throw new Error(`Kotak Neo quotes API error [${res.status}]: ${text.slice(0, 200)}`);
+  try { json = JSON.parse(text); } catch { /* handled below */ }
+  if (!res.ok || json === null) throwForResponse(res, json, text, "quotes", { sessionCall: false });
+  if (!Array.isArray(json)) {
+    if (json?.stat === "Not_Ok") return []; // unresolvable query: no rows for this batch
+    throw new BrokerError("Kotak Neo quotes: unexpected response shape");
   }
-  // Kotak returns HTTP 200 with {"stat":"Not_Ok", ...} for a bad/unresolvable query.
-  if (json && !Array.isArray(json) && json.stat === "Not_Ok") {
-    console.log(`[kotak] quotes API rejected batch (stCode=${json.stCode})`);
-    return [];
-  }
-  return Array.isArray(json) ? json : [];
+  return json;
 }
 
 /**
- * Fetches quotes for `targets` ({exchSeg, query} where `query` is the exact
- * instrument portion of `<exchSeg>|<query>` — pSymbol token or index name),
- * batched + rate-limited. Returns Map<"exchSeg|query", quoteObject>.
+ * Quotes for [{ exchSeg, query }] -> Map<"seg|query", quote>. Rows are matched by exchange + exchange_token;
+ * when a batch answers with the same number of rows but different keys (index names), they are matched by position.
  */
 export async function fetchQuotesBatched(session, targets) {
   const map = new Map();
-  if (!targets.length) return map;
-
-  const chunkResults = await batchWithDelay(targets, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    const queries = chunk.map((t) => `${t.exchSeg}|${t.query}`);
-    return requestBatch(session, queries);
-  });
-
-  // Match results back to requested keys by exchange + exchange_token (Kotak
-  // echoes exchange_token as the pSymbol/index-name that was actually queried).
-  for (const items of chunkResults) {
-    for (const q of items) {
-      if (!q?.exchange || q?.exchange_token == null) continue;
-      map.set(`${q.exchange}|${q.exchange_token}`, q);
-    }
+  for (let i = 0; i < targets.length; i += QUOTE_BATCH_SIZE) {
+    if (i > 0) await sleep(QUOTE_BATCH_DELAY_MS);
+    const chunk = targets.slice(i, i + QUOTE_BATCH_SIZE);
+    const rows = await requestBatch(session, chunk);
+    const keyed = new Map(rows.filter((q) => q?.exchange && q?.exchange_token != null).map((q) => [`${q.exchange}|${q.exchange_token}`, q]));
+    const keys = chunk.map((t) => `${t.exchSeg}|${t.query}`);
+    const byPosition = rows.length === chunk.length && !keys.some((k) => keyed.has(k));
+    keys.forEach((key, j) => {
+      const q = keyed.get(key) ?? (byPosition ? rows[j] : undefined);
+      if (q) map.set(key, q);
+    });
   }
   return map;
 }
 
-/** Parses one Kotak quote object into {ltp, oi, volume, bid, ask}. */
+/** First spot candidate that answers with a positive ltp (index names can differ by spelling). */
+export async function fetchSpotQuote(session, candidates) {
+  for (const c of candidates) {
+    const q = (await fetchQuotesBatched(session, [c])).get(`${c.exchSeg}|${c.query}`);
+    if (q && num(q.ltp) > 0) return q;
+  }
+  return null;
+}
+
+/** One Kotak quote -> { ltp, oi, volume, bid, ask }. */
 export function parseQuote(q) {
   if (!q) return { ltp: 0, oi: 0, volume: 0, bid: 0, ask: 0 };
-  const ltp = Number(q.ltp) || 0;
-  const depth = q.depth || {};
-  const buy = Array.isArray(depth.buy) ? depth.buy : [];
-  const sell = Array.isArray(depth.sell) ? depth.sell : [];
+  const buy = Array.isArray(q.depth?.buy) ? q.depth.buy : [];
+  const sell = Array.isArray(q.depth?.sell) ? q.depth.sell : [];
   return {
-    ltp,
-    oi: Number(q.open_int) || 0,
-    volume: Number(q.last_volume) || 0,
-    bid: buy[0]?.price != null ? Number(buy[0].price) : 0,
-    ask: sell[0]?.price != null ? Number(sell[0].price) : 0,
+    ltp: num(q.ltp),
+    oi: num(q.open_int),
+    volume: num(q.last_volume),
+    bid: buy[0]?.price != null ? num(buy[0].price) : 0,
+    ask: sell[0]?.price != null ? num(sell[0].price) : 0,
   };
+}
+
+function refTarget(ref) {
+  const token = String(ref?.token ?? "");
+  if (!/^[A-Za-z0-9 ]{1,30}$/.test(token)) throw new BrokerInputError("Kotak Neo: invalid instrument token");
+  return { exchSeg: kotakSegment(ref.exchange), query: token, exchange: ref.exchange };
+}
+
+/** Contract quotes for [{ token, exchange }]. */
+export async function fetchQuotes(session, refs = []) {
+  const targets = refs.map(refTarget);
+  const map = await fetchQuotesBatched(session, targets);
+  const data = [];
+  for (const t of targets) {
+    const q = map.get(`${t.exchSeg}|${t.query}`);
+    if (!q) continue;
+    const p = parseQuote(q);
+    data.push({
+      token: t.query, exchange: t.exchange, ltp: p.ltp,
+      open: numOrNull(q.ohlc?.open), high: numOrNull(q.ohlc?.high), low: numOrNull(q.ohlc?.low), close: numOrNull(q.ohlc?.close),
+      volume: numOrNull(q.last_volume), oi: numOrNull(q.open_int),
+      bid: Array.isArray(q.depth?.buy) && q.depth.buy.length ? p.bid : null,
+      ask: Array.isArray(q.depth?.sell) && q.depth.sell.length ? p.ask : null,
+    });
+  }
+  return { status: "success", data };
+}
+
+/** Five-level depth for one { token, exchange } (quote_type "all": the "depth" filter drops nothing we need). */
+export async function fetchDepth(session, ref) {
+  const t = refTarget(ref);
+  const q = (await fetchQuotesBatched(session, [t])).get(`${t.exchSeg}|${t.query}`);
+  const level = (l) => ({ price: num(l?.price), qty: num(l?.quantity), orders: numOrNull(l?.orders) });
+  const bids = (Array.isArray(q?.depth?.buy) ? q.depth.buy : []).map(level);
+  const asks = (Array.isArray(q?.depth?.sell) ? q.depth.sell : []).map(level);
+  return { status: "success", data: { bids, asks } };
 }

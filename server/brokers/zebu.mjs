@@ -1,214 +1,77 @@
 /**
- * Zebu (Mynt) — real broker integration (see registry.mjs for the shared
- * contract).
+ * Zebu (MYNT) adapter on the broker contract (server/brokers/contract.mjs).
  *
- * Zebu runs the same Noren OMS that powers Flattrade/Shoonya/Tradesmart — the
- * `jData=<json>` POST envelope, `stat`/`emsg` response shape, and GetQuotes
- * field names (lp/oi/v/bp1/sp1/...) all match that family, confirmed against
- * openalgo's zebu adapter. Worth knowing for whoever builds Shoonya/Tradesmart
- * next: this module's request/response shapes (zebuAuth.mjs, zebuInstruments.mjs)
- * are a close starting template there too — the one real difference is Zebu
- * fronts its Noren layer with an actual OAuth authorize/token exchange
- * (zebuAuth.mjs) instead of Flattrade's bare request_code.
+ * Official docs: https://zebumyntapi.web.app/ (OAuth section: Authentication, Masters, Market Quotes,
+ * Order, Portfolio, Limits, Users, Web Socket). Zebu runs Kambala's Noren OMS behind an OAuth front door.
+ * OpenAlgo (AGPL) was read for facts only; where it differs from the docs the docs are followed and the
+ * module concerned says so.
  *
- * Auth model: hybrid handshake, not a pure paste-token. The user completes a
- * one-time OAuth login on Zebu's own hosted pages (see zebuAuth.mjs for the
- * exact URLs) and pastes userId + clientId + apiSecret + the resulting
- * one-time authCode into Broker Settings; this module exchanges that code for
- * an access_token and caches the session per Zebu's own documented
- * `expires_in` — never re-exchanging the same authCode (it's single-use).
+ * Auth (requestTokenExchange): the user saves the trading user ID, OAuth Client ID, Secret Code and the
+ * one-time authorisation code; the first call exchanges the code (GenAcsTok) and the session is kept in
+ * this process and renewed with the documented refresh token (zebuAuth.mjs).
+ * Market data (zebuMarket.mjs): symbol masters (zebuInstruments.mjs) windowed around spot + one GetQuotes
+ * call per contract; IV/Greeks solved locally. Candles: TPSeries (intraday) and EODChartData (daily).
+ * Portfolio and books: zebuPortfolio.mjs. Orders (gated): zebuOrders.mjs.
  *
- * No native option-chain endpoint returns live prices, and GetQuotes takes
- * exactly one contract per call (no bulk endpoint) — same shape as Flattrade.
- * So the chain is built from the daily instrument master
- * (zebuInstruments.mjs) windowed to strikes near spot + batched,
- * rate-limited GetQuotes calls, with IV/Greeks filled in via Black-Scholes
- * since GetQuotes carries neither.
+ * Fixed here (against the earlier version): parallel chain quotes could each try to exchange the single-use
+ * code; masters are now downloaded with the Bearer token the docs require; the 1-hour token is refreshed
+ * instead of failing; SENSEX/BANKEX/stock option chains; real-money calls are gated.
+ *
+ * Not declared: feed. The OAuth WebSocket page documents the message format but not the endpoint or which
+ * token goes in `susertoken` for OAuth sessions, so it is not wired without a live check.
  */
 
-import { postJData } from "./zebuAuth.mjs";
-import { getOptionRows, distinctExpiriesAscending, resolveIndexToken } from "./zebuInstruments.mjs";
-import { batchWithDelay } from "../lib/batch.mjs";
-import { computeIVAndGreeks, daysBetween } from "../lib/blackScholes.mjs";
-import * as omsNoren from "./oms-noren.mjs";
+import { ensureSession, postJData, expectOk, OAUTH_LOGIN_URL } from "./zebuAuth.mjs";
+import { getMaster, MASTER_EXCHANGES } from "./zebuInstruments.mjs";
+import { ORDER_FEATURES } from "./zebuOrders.mjs";
 
 export const id = "zebu";
 export const credentialFields = ["userId", "clientId", "apiSecret", "authCode"];
 
-// Zebu's documented rate limit is 10 requests/second/user (confirmed in
-// openalgo's broker/zebu/api/data.py: "Zebu API Rate Limit: 10 requests per
-// second per user", batching 10 symbols/sec). GetQuotes has no bulk endpoint,
-// so 10 contracts every 1.1s stays comfortably under that cap.
-const QUOTE_BATCH_SIZE = 10;
-const QUOTE_BATCH_DELAY_MS = 1100;
+export const capabilities = {
+  auth: { kind: "requestTokenExchange" },
+  testConnection: true,
+  instruments: true,
+  expiries: true,
+  optionChain: { greeks: "computed" },
+  ltp: true,
+  quotes: true,
+  depth: true,
+  historical: { intervals: ["1m", "3m", "5m", "15m", "30m", "60m", "1d"] },
+  positions: true,
+  holdings: true,
+  funds: true,
+  orderBook: true,
+  tradeBook: true,
+  placeOrder: true,
+  modifyOrder: true,
+  cancelOrder: true,
+  normaliseError: true,
+  ...ORDER_FEATURES,
+};
 
-// A full expiry's master-file rows can span hundreds of strikes deep into
-// illiquid OTM territory. With no bulk-quote endpoint, fetching all of them
-// would blow well past the rate-limit budget. Instead, center on the strike
-// nearest spot and take this many strikes on each side (~41 strikes total).
-const STRIKE_HALF_WIDTH = 20;
+export { normaliseError } from "./contract.mjs";
+export { fetchExpiryList, fetchOptionChain, fetchLTP, fetchQuotes, fetchDepth, fetchHistorical } from "./zebuMarket.mjs";
+export { fetchPositions, fetchHoldings, fetchFunds, fetchOrderBook, fetchTradeBook } from "./zebuPortfolio.mjs";
+export { placeOrder, modifyOrder, cancelOrder, buildOrderBody, buildModifyBody } from "./zebuOrders.mjs";
 
-function selectStrikeWindow(rows, spot, halfWidth) {
-  const strikes = Array.from(new Set(rows.map((r) => r.strike))).sort((a, b) => a - b);
-  if (strikes.length === 0) return [];
+/** Where the user gets an authorisation code (for Broker Settings help text). */
+export const loginUrl = (clientId) => `${OAUTH_LOGIN_URL}?client_id=${encodeURIComponent(clientId || "")}`;
 
-  let atmIdx = 0;
-  let minDiff = Infinity;
-  for (let i = 0; i < strikes.length; i++) {
-    const diff = Math.abs(strikes[i] - spot);
-    if (diff < minDiff) {
-      minDiff = diff;
-      atmIdx = i;
-    }
-  }
-
-  const lo = Math.max(0, atmIdx - halfWidth);
-  const hi = Math.min(strikes.length - 1, atmIdx + halfWidth);
-  const keep = new Set(strikes.slice(lo, hi + 1));
-  return rows.filter((r) => keep.has(r.strike));
-}
-
-async function fetchQuotesForContracts(creds, contracts) {
-  const map = new Map();
-  // authCode is single-use — once postJData reports the session as dead (see
-  // zebuAuth.mjs's isSessionError), re-authenticating for any remaining
-  // contract would just re-exchange the same already-consumed code and fail
-  // again. Skip the rest of the chunks instead of hammering the
-  // token-exchange endpoint with doomed retries for every leg still to fetch.
-  let sessionDead = false;
-  await batchWithDelay(contracts, QUOTE_BATCH_SIZE, QUOTE_BATCH_DELAY_MS, async (chunk) => {
-    if (sessionDead) return [];
-    const results = await Promise.all(
-      chunk.map(async (c) => {
-        try {
-          const json = await postJData(creds, "/GetQuotes", { exch: c.exch, token: c.token });
-          return json?.stat === "Ok" ? { token: c.token, quote: json } : null;
-        } catch (e) {
-          if (e?.isSessionError) sessionDead = true;
-          return null; // one bad contract shouldn't fail the whole chain
-        }
-      })
-    );
-    for (const r of results) {
-      if (r) map.set(r.token, r.quote);
-    }
-  });
-  return map;
-}
-
-function buildLeg(quote, spot, strike, daysToExpiry, type) {
-  const ltp = Number(quote?.lp) || 0;
-  const oi = Number(quote?.oi) || 0;
-  const volume = Number(quote?.v) || 0;
-  const bid_price = Number(quote?.bp1) || 0;
-  const ask_price = Number(quote?.sp1) || 0;
-  const greeks = computeIVAndGreeks({ ltp, spot, strike, daysToExpiry, type });
-  return { last_price: ltp, oi, volume, bid_price, ask_price, ...greeks };
-}
-
+/** One cheap authenticated call (Limits). Never throws. */
 export async function testConnection(creds = {}) {
   try {
-    if (!creds.userId || !creds.clientId || !creds.apiSecret || !creds.authCode) {
-      return { status: "error", message: "Missing userId, clientId, apiSecret, or authCode" };
-    }
-    const json = await postJData(creds, "/Limits", {});
-    if (json?.stat !== "Ok") {
-      return { status: "error", message: json?.emsg || "Zebu did not return a success status" };
-    }
+    await ensureSession(creds);
+    expectOk(await postJData(creds, "/Limits", {}), "Limits");
     return { status: "success", message: `Zebu connected (account ${creds.userId})` };
   } catch (e) {
-    return { status: "error", message: e.message };
+    return { status: "error", message: e?.message || "Zebu connection failed" };
   }
 }
 
-export async function fetchExpiryList(creds, symbol) {
-  const rows = await getOptionRows(symbol);
-  return { status: "success", data: distinctExpiriesAscending(rows) };
+/** NSE equities + indices, NFO and BFO derivatives from the daily masters. */
+export async function fetchInstruments(creds) {
+  const lists = [];
+  for (const exchange of MASTER_EXCHANGES) lists.push(await getMaster(creds, exchange));
+  return { status: "success", data: lists.flat() };
 }
-
-export async function fetchLTP(creds, symbol) {
-  const { exch, token } = await resolveIndexToken(symbol);
-  const json = await postJData(creds, "/GetQuotes", { exch, token });
-  if (json?.stat !== "Ok") {
-    throw new Error(`Zebu GetQuotes failed for ${symbol}: ${json?.emsg || "unknown error"}`);
-  }
-  return { status: "success", data: { last_price: Number(json.lp) || 0 } };
-}
-
-async function fetchSpot(creds, symbol) {
-  const { data } = await fetchLTP(creds, symbol);
-  return data.last_price;
-}
-
-export async function fetchOptionChain(creds, symbol, expiry) {
-  let rows = await getOptionRows(symbol);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const expiries = distinctExpiriesAscending(rows);
-  const targetExpiry = expiry || expiries[0];
-  if (!targetExpiry) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  rows = rows.filter((r) => r.expiryIso === targetExpiry);
-  if (rows.length === 0) return { status: "success", data: { oc: {}, last_price: 0 } };
-
-  const spot = await fetchSpot(creds, symbol);
-  const daysToExpiry = daysBetween(new Date(), targetExpiry);
-
-  const windowedRows = selectStrikeWindow(rows, spot, STRIKE_HALF_WIDTH);
-  const contracts = windowedRows.map((r) => ({ token: r.token, exch: r.exch, strike: r.strike, optionType: r.optionType }));
-  const quotes = await fetchQuotesForContracts(creds, contracts);
-
-  const oc = {};
-  for (const c of contracts) {
-    const quote = quotes.get(c.token);
-    if (!quote) continue;
-    const strikeKey = String(c.strike);
-    if (!oc[strikeKey]) oc[strikeKey] = {};
-    const side = c.optionType === "CE" ? "ce" : "pe";
-    oc[strikeKey][side] = buildLeg(quote, spot, c.strike, daysToExpiry, c.optionType);
-  }
-
-  return { status: "success", data: { oc, last_price: spot } };
-}
-
-// ── Order placement — shared Noren OMS glue lives in oms-noren.mjs; this
-// block is just the field map (uid comes from `userId`, matches the uid/
-// actid this module's own postJData() already injects above) plus the
-// capability facts this repo can actually verify.
-//
-// No static IP required for Zebu's order endpoints per the build spec
-// (1CLIQ-TRADE-SPEC.md §8) — that requirement is Dhan-specific.
-
-const NOREN_CONFIG = { label: "Zebu", postJData, uidField: "userId" };
-
-export const placeOrder = (creds, order, resolvedLotSize) =>
-  omsNoren.placeOrder(NOREN_CONFIG, creds, order, resolvedLotSize);
-export const getOrders = (creds) => omsNoren.getOrders(NOREN_CONFIG, creds);
-export const getOrderStatus = (creds, orderId) => omsNoren.getOrderStatus(NOREN_CONFIG, creds, orderId);
-export const cancelOrder = (creds, orderId) => omsNoren.cancelOrder(NOREN_CONFIG, creds, orderId);
-
-export const capabilities = {
-  // Noren's PlaceOrder documents product codes "B" (bracket) and "H" (cover),
-  // but SEBI's 2021 circular led most brokers to withdraw BO/CO from retail
-  // order APIs. NEEDS VERIFICATION against a live Zebu account — nothing in
-  // this repo confirms either is still live for Zebu specifically.
-  bracket: false,
-  cover: false,
-  // IOC is a standard `ret` validity value on the Noren OMS this broker runs
-  // (exchange-level order attribute, not broker-added) — same jData shape
-  // already confirmed for GetQuotes/Limits at the top of this file.
-  ioc: true,
-  // Margin Trade Funding isn't documented anywhere in this repo for Zebu,
-  // and PRODUCT_CODE_MAP in oms-noren.mjs has no distinct Noren code for it.
-  // NEEDS VERIFICATION.
-  mtf: false,
-  // Whether Zebu's own OMS exposes a configurable market-protection band
-  // beyond NSE's own default operating range is unconfirmed from any doc
-  // cited in this repo. NEEDS VERIFICATION.
-  nativeMarketProtection: false,
-  // No Zebu-specific per-order quantity ceiling is documented in this repo
-  // below NSE's own per-symbol freeze-quantity limit. NEEDS VERIFICATION
-  // before treating this as anything but "exchange limit only".
-  maxLegQty: null,
-  products: ["CNC", "INTRADAY", "MARGIN"],
-};

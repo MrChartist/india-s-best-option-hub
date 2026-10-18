@@ -1,0 +1,37 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/portfolio/v1/holdings",
+      "json": {
+        "data": [
+          {
+            "displaySymbol": "IDEA",
+            "averagePrice": 9.5699,
+            "quantity": 35,
+            "exchangeSegment": "nse_cm",
+            "exchangeIdentifier": "14366",
+            "holdingCost": 334.9475,
+            "mktValue": 327.6,
+            "scripId": "746a0ebbc6295a002ab27e42a3e06a6792baeba1",
+            "instrumentToken": 8658,
+            "instrumentType": "Equity",
+            "isAlternateScrip": false,
+            "closingPrice": 9.36,
+            "symbol": "IDEA",
+            "sellableQuantity": 35
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

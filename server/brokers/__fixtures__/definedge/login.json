@@ -1,0 +1,49 @@
+{
+  "secrets": {
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://signin.definedgesecurities.com/auth/realms/debroking/dsbpkc/login/DUMMYTOKEN1",
+      "json": {
+        "otp_token": "dummy-otp-token",
+        "message": "Enter OTP/TOTP"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://signin.definedgesecurities.com/auth/realms/debroking/dsbpkc/token",
+      "expectBody": {
+        "otp_token": "dummy-otp-token",
+        "otp": "123456"
+      },
+      "json": {
+        "request_time": "11:10:23 17-10-2026",
+        "actid": "DUMMY01",
+        "uname": "DUMMY USER",
+        "stat": "Ok",
+        "susertoken": "dummy-ws-key",
+        "email": "user@example.com",
+        "uid": "DUMMY01",
+        "brnchid": "HO",
+        "orarr": [
+          "MKT",
+          "LMT",
+          "SL-LMT",
+          "SL-MKT"
+        ],
+        "exarr": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "CDS",
+          "MCX"
+        ],
+        "brkname": "DEFINEDGE",
+        "lastaccesstime": "1792128000",
+        "api_session_key": "dummy-api-session-key"
+      }
+    }
+  ]
+}

@@ -1,195 +1,144 @@
 /**
- * Tradejini scrip-master handling — daily group discovery + per-group CSV
- * download, symbol -> exchange/token resolution for index spot rows and
- * index option contracts.
+ * Tradejini scrip master (official docs, checked 2026-10: https://developer.tradejini.com/docs/symbol-details/versionDetails
+ * and /docs/symbol-details/getSymbolDetails).
+ *  - GET /api/mkt-data/scrips/symbol-store?version=0 -> d.symbolStore[] { name, idFormat }. Groups include Securities
+ *    (instrument_symbol_series_exchange), FutureContracts (instrument_symbol_exchange_expiry), NSEOptions and
+ *    BSEOptions (instrument_symbol_exchange_expiry_strike_optType) and Index (instrument_excToken_exchange).
+ *  - GET /api/mkt-data/scrips/symbol-store/{group} with Accept: text/plain -> CSV. Live headers (2026-10):
+ *      options/futures: id,dispName,excToken,lot,tick,asset,freezeQty,weekly,undId
+ *      Index:           id,dispName,excToken,asset,symbol,availFlag
+ *      Securities:      id,dispName,excToken,lot,tick,asset,freezeQty,isin,desc
+ *    The `id` (symId, e.g. OPTIDX_NIFTY_NFO_2026-10-20_25000_CE) is what orders and chart data take; expiry inside it is
+ *    ISO. The stream symbol is "<excToken>_<last id segment>" (WebSocket SDK docs, "Building Stream Symbols"), and index
+ *    tokens are negative (IDX_-1_NSE -> "-1_NSE").
+ * Both endpoints are public; the data changes once a day (BOD), so it is cached for a day and shared by every user.
  *
- * Endpoints, response shape, and the id/idFormat scheme are verified against
- * marketcalls/openalgo's production broker/tradejini/database/master_contract_db.py
- * and mapping/transform_data.py — no public docs mirror exists for this broker.
- * Both endpoints are unauthenticated public data (openalgo's own client sends
- * no Authorization header to them), so this file never needs creds.
- *
- * Each scrip group (e.g. "NSEOptions") declares its own `idFormat`
- * (e.g. "instrument_symbol_exchange_expiry_strike_optType") describing how its
- * composite `id` field is laid out; we use that as a fallback whenever a named
- * CSV column is missing, mirroring openalgo's parse_scrip_id/process_scrip_data.
- * Per openalgo's verified NSE/BSE index symbol maps, Tradejini's raw index
- * `symbol` values for our five underlyings are already the bare uppercase
- * names (e.g. "NIFTY", "BANKNIFTY", "SENSEX") with no reshaping needed.
+ * Contract Instrument.token is the symId (unique, and what orders need); `streamKey` carries the feed symbol.
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";
+import { brokerFetch, BrokerInputError } from "./contract.mjs";
+import { BASE_URL } from "./tradejiniAuth.mjs";
 
-const BASE = "https://api.tradejini.com/v2";
-const GROUPS_URL = `${BASE}/api/mkt-data/scrips/symbol-store`;
-const groupDataUrl = (group) => `${BASE}/api/mkt-data/scrips/symbol-store/${encodeURIComponent(group)}`;
-
-// NIFTY/BANKNIFTY/FINNIFTY/MIDCPNIFTY options trade on NSE F&O; SENSEX options
-// trade on BSE F&O — different scrip group and a different WS exchange segment.
-export const OPTIONS_GROUP = {
-  NIFTY: { group: "NSEOptions", exch: "NFO" },
-  BANKNIFTY: { group: "NSEOptions", exch: "NFO" },
-  FINNIFTY: { group: "NSEOptions", exch: "NFO" },
-  MIDCPNIFTY: { group: "NSEOptions", exch: "NFO" },
-  SENSEX: { group: "BSEOptions", exch: "BFO" },
+const GROUPS_URL = `${BASE_URL}/api/mkt-data/scrips/symbol-store`;
+const DEFAULT_ID_FORMAT = {
+  Securities: "instrument_symbol_series_exchange",
+  FutureContracts: "instrument_symbol_exchange_expiry",
+  NSEOptions: "instrument_symbol_exchange_expiry_strike_optType",
+  BSEOptions: "instrument_symbol_exchange_expiry_strike_optType",
+  Index: "instrument_excToken_exchange",
 };
+const GROUPS = Object.keys(DEFAULT_ID_FORMAT);
+export const CANONICAL = new Set(["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "SENSEX", "BANKEX"]);
+const EXCHANGES = new Set(["NSE", "BSE", "NFO", "BFO"]);
+const TYPES = new Set(["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"]);
 
-export const INDEX_SPOT = {
-  NIFTY: { exch: "NSE" },
-  BANKNIFTY: { exch: "NSE" },
-  FINNIFTY: { exch: "NSE" },
-  MIDCPNIFTY: { exch: "NSE" },
-  SENSEX: { exch: "BSE" },
-};
-
-/** No embedded-comma/quoting in these CSVs per openalgo's own naive split — matched here. */
-function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+export function parseCsv(text) {
+  const lines = String(text).trim().split(/\r?\n/).filter(Boolean);
   if (!lines.length) return [];
   const headers = lines[0].split(",").map((h) => h.trim());
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",");
-    if (values.length !== headers.length) continue;
+    const v = lines[i].split(",");
+    if (v.length < headers.length) continue;
     const row = {};
-    headers.forEach((h, j) => { row[h] = values[j].trim(); });
+    headers.forEach((h, j) => { row[h] = (v[j] ?? "").trim(); });
     rows.push(row);
   }
   return rows;
 }
 
-/** Case-insensitive column lookup across candidate names. */
-function field(row, ...names) {
-  for (const n of names) {
-    if (row[n]) return row[n];
-    const found = Object.keys(row).find((k) => k.toLowerCase() === n.toLowerCase());
-    if (found && row[found]) return row[found];
-  }
-  return undefined;
-}
-
-/** Split a scrip id into named components per the group's idFormat (e.g. "instrument_symbol_exchange_expiry_strike_optType"). */
-function parseScripId(id, idFormat) {
-  const parts = String(id || "").split("_");
-  const names = String(idFormat || "").split("_").filter(Boolean);
-  if (!names.length || parts.length < names.length) return {};
+/** Split a symId by its group's idFormat. */
+export function splitId(id, idFormat) {
+  const parts = String(id ?? "").split("_");
+  const names = String(idFormat ?? "").split("_").filter(Boolean);
+  if (!names.length || parts.length < names.length) return null;
   const out = {};
-  names.forEach((n, i) => { out[n] = parts[i]; });
+  names.forEach((n, i) => { out[n] = i === names.length - 1 ? parts.slice(i).join("_") : parts[i]; });
   return out;
 }
 
-/** Ids carry ISO "YYYY-MM-DD" per openalgo's docs comment; a couple of common broker shapes accepted defensively. */
-function parseExpiryToISO(raw) {
-  if (!raw) return null;
-  const s = String(raw).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/^(\d{1,2})[-\s]?([A-Za-z]{3})[-\s]?(\d{2,4})$/);
-  if (m) {
-    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-    const mi = months.indexOf(m[2].toUpperCase());
-    if (mi !== -1) {
-      let year = parseInt(m[3], 10);
-      if (year < 100) year += 2000;
-      return `${year}-${String(mi + 1).padStart(2, "0")}-${String(m[1]).padStart(2, "0")}`;
-    }
+/** One CSV row of a group -> contract Instrument (+ streamKey), or null. */
+export function toInstrument(group, row, idFormat = DEFAULT_ID_FORMAT[group]) {
+  const c = splitId(row.id, idFormat);
+  if (!c || !row.excToken) return null;
+  const exchange = String(c.exchange ?? "").toUpperCase();
+  if (!EXCHANGES.has(exchange)) return null;
+  const streamKey = `${row.excToken}_${exchange}`;
+  const base = { token: row.id, exchange, lotSize: Number(row.lot) > 0 ? Number(row.lot) : 1, tickSize: Number(row.tick) > 0 ? Number(row.tick) : 0.05, streamKey };
+  if (group === "Index") {
+    const underlying = String(row.symbol || row.dispName || "").toUpperCase();
+    return { ...base, tradingSymbol: row.dispName || underlying, underlying, instrumentType: "INDEX", expiry: null, strike: null, optionType: null };
   }
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (group === "Securities") {
+    if (c.instrument !== "EQT" || exchange !== "NSE" || c.series !== "EQ") return null;
+    return { ...base, tradingSymbol: c.symbol, underlying: c.symbol, instrumentType: "EQ", expiry: null, strike: null, optionType: null };
   }
-  return null;
+  const instrumentType = c.instrument;
+  if (!TYPES.has(instrumentType) || !/^\d{4}-\d{2}-\d{2}$/.test(String(c.expiry))) return null;
+  const isIndex = instrumentType.endsWith("IDX");
+  if (isIndex && !CANONICAL.has(c.symbol)) return null;
+  const isOpt = instrumentType.startsWith("OPT");
+  const strike = isOpt ? Number(c.strike) : null;
+  const optionType = isOpt ? c.optType : null;
+  if (isOpt && (!(strike > 0) || (optionType !== "CE" && optionType !== "PE"))) return null;
+  return { ...base, tradingSymbol: row.dispName || row.id, underlying: c.symbol, instrumentType, expiry: c.expiry, strike, optionType };
 }
 
-async function fetchGroupIdFormats() {
-  return getCachedOrFetch("tradejini:groups", async () => {
-    const res = await fetch(`${GROUPS_URL}?version=0`);
-    if (!res.ok) throw new Error(`Tradejini scrip-groups fetch failed: HTTP ${res.status}`);
-    const json = await res.json().catch(() => ({}));
-    const list = json?.d?.symbolStore || [];
-    const map = {};
-    for (const g of list) if (g?.name) map[g.name] = g.idFormat || "";
-    return map;
-  }, ONE_DAY_MS);
-}
-
-async function fetchGroupRows(group) {
-  return getCachedOrFetch(`tradejini:group:${group}`, async () => {
-    const res = await fetch(`${groupDataUrl(group)}?version=0`);
-    if (!res.ok) throw new Error(`Tradejini scrip data fetch failed for ${group}: HTTP ${res.status}`);
-    return parseCsv(await res.text());
-  }, ONE_DAY_MS);
-}
-
-async function getOptionRows(symbol) {
-  const cfg = OPTIONS_GROUP[symbol];
-  if (!cfg) throw new Error(`Tradejini: unknown symbol ${symbol}`);
-  const [idFormats, rows] = await Promise.all([fetchGroupIdFormats(), fetchGroupRows(cfg.group)]);
-  const idFormat = idFormats[cfg.group];
-
-  const out = [];
-  for (const row of rows) {
-    const id = field(row, "id");
-    const components = id ? parseScripId(id, idFormat) : {};
-
-    const rowSymbol = (field(row, "symbol") || components.symbol || "").trim().toUpperCase();
-    if (rowSymbol !== symbol) continue;
-    // Skip spot/underlying rows if a group ever mixes them in (mirrors openalgo's guard).
-    if (id && id.toLowerCase().includes("spot")) continue;
-
-    const optType = (field(row, "optType", "optiontype") || components.optType || "").trim().toUpperCase();
-    if (optType !== "CE" && optType !== "PE") continue;
-
-    const expiryISO = parseExpiryToISO(field(row, "expiry") || components.expiry);
-    const strike = Number(field(row, "strike") || components.strike);
-    const token = String(field(row, "excToken", "token") || "").trim();
-    if (!expiryISO || !Number.isFinite(strike) || !token) continue;
-
-    out.push({ expiry: expiryISO, strike, optType, token, exch: cfg.exch });
-  }
-  return out;
-}
-
-export async function fetchExpiries(symbol) {
-  const rows = await getOptionRows(symbol);
-  return Array.from(new Set(rows.map((r) => r.expiry))).sort();
-}
-
-export async function resolveNearestExpiry(symbol) {
-  const list = await fetchExpiries(symbol);
-  if (!list.length) throw new Error(`Tradejini: no expiries found for ${symbol}`);
-  return list[0];
-}
-
-/** Map<strikeString, { ce?: {token, exch}, pe?: {token, exch} }> for one symbol+expiry. */
-export async function resolveStrikeTokens(symbol, expiryISO) {
-  const rows = await getOptionRows(symbol);
-  const map = new Map();
-  for (const r of rows) {
-    if (r.expiry !== expiryISO) continue;
-    const key = String(r.strike);
-    if (!map.has(key)) map.set(key, {});
-    map.get(key)[r.optType.toLowerCase()] = { token: r.token, exch: r.exch };
-  }
+async function fetchIdFormats() {
+  const res = await brokerFetch(`${GROUPS_URL}?version=0`, { headers: { Accept: "application/json" }, redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`Tradejini scrip groups fetch failed: HTTP ${res.status}`);
+  const json = await res.json().catch(() => ({}));
+  const map = { ...DEFAULT_ID_FORMAT };
+  for (const g of json?.d?.symbolStore || []) if (g?.name && g.idFormat) map[g.name] = g.idFormat;
   return map;
 }
 
-export async function resolveIndexSpotToken(symbol) {
-  const spot = INDEX_SPOT[symbol];
-  if (!spot) throw new Error(`Tradejini: no index spot mapping for ${symbol}`);
-  const [idFormats, rows] = await Promise.all([fetchGroupIdFormats(), fetchGroupRows("Index")]);
-  const idFormat = idFormats["Index"];
+async function fetchGroup(group, idFormat) {
+  const res = await brokerFetch(`${GROUPS_URL}/${encodeURIComponent(group)}`, { headers: { Accept: "text/plain" }, redirect: "follow" }, { kind: "master" });
+  if (!res.ok) throw new Error(`Tradejini scrip data fetch failed for ${group}: HTTP ${res.status}`);
+  return parseCsv(await res.text()).map((r) => toInstrument(group, r, idFormat)).filter(Boolean);
+}
 
-  for (const row of rows) {
-    const id = field(row, "id");
-    const components = id ? parseScripId(id, idFormat) : {};
-    const rowSymbol = (field(row, "symbol") || components.symbol || "").trim().toUpperCase();
-    if (rowSymbol !== symbol) continue;
+async function downloadAll() {
+  const formats = await fetchIdFormats();
+  const out = [];
+  for (const g of GROUPS) out.push(...(await fetchGroup(g, formats[g])));
+  return out;
+}
 
-    const rowExch = (components.exchange || (id ? id.split("_").pop() : "") || "").trim().toUpperCase();
-    if (rowExch && rowExch !== spot.exch) continue;
+/** Every usable instrument (indices, NSE equities, NFO/BFO futures and options). Cached once a day. */
+export function getInstruments() {
+  return getCachedOrFetch("tradejini:instruments:v2", downloadAll, ONE_DAY_MS);
+}
 
-    const token = String(field(row, "excToken", "token") || "").trim();
-    if (token) return { token, exch: spot.exch };
-  }
-  throw new Error(`Tradejini: index spot token not found for ${symbol}`);
+export function resolveUnderlying(symbol) {
+  const s = String(symbol ?? "").trim().toUpperCase();
+  if (CANONICAL.has(s)) return { symbol: s, isIndex: true };
+  if (/^[A-Z0-9&-]{1,20}$/.test(s)) return { symbol: s, isIndex: false };
+  throw new BrokerInputError(`Tradejini: unknown symbol ${symbol}`);
+}
+
+export async function optionRows(symbol) {
+  const u = resolveUnderlying(symbol);
+  const rows = await getInstruments();
+  return rows.filter((r) => r.underlying === u.symbol && (r.instrumentType === "OPTIDX" || r.instrumentType === "OPTSTK"));
+}
+
+export function distinctExpiries(rows) {
+  return Array.from(new Set(rows.map((r) => r.expiry))).sort();
+}
+
+/** The spot row for an index (Index group) or a stock (NSE EQ). */
+export async function spotRow(symbol) {
+  const u = resolveUnderlying(symbol);
+  const rows = await getInstruments();
+  const hit = rows.find((r) => r.underlying === u.symbol && r.instrumentType === (u.isIndex ? "INDEX" : "EQ"));
+  if (!hit) throw new BrokerInputError(`Tradejini: no spot instrument for ${u.symbol}`);
+  return hit;
+}
+
+export async function findByToken(token) {
+  const rows = await getInstruments();
+  return rows.find((r) => r.token === String(token)) || null;
 }
