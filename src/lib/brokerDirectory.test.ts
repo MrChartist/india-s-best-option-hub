@@ -41,8 +41,8 @@ describe("capabilityMatrix", () => {
 });
 
 describe("filterBrokers", () => {
-  it("returns all 33 with no filter and narrows by search words", () => {
-    expect(filterBrokers(BROKERS, EMPTY_FILTER)).toHaveLength(33);
+  it("returns all 41 with no filter and narrows by search words", () => {
+    expect(filterBrokers(BROKERS, EMPTY_FILTER)).toHaveLength(41);
     expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, query: "kite" }).map((b) => b.id)).toEqual(["zerodha"]);
     expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, query: "  XTS   wisdom " }).map((b) => b.id)).toEqual(["wisdom"]);
     expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, query: "zzzz-nothing" })).toEqual([]);
@@ -55,7 +55,8 @@ describe("filterBrokers", () => {
     const feed = filterBrokers(BROKERS, { ...EMPTY_FILTER, capability: "feed" });
     expect(feed.map((b) => b.id)).toContain("upstox");
     expect(feed.map((b) => b.id)).not.toContain("kotak");
-    expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, capability: "orders" })).toHaveLength(33);
+    expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, capability: "orders" }).map((b) => b.id)).not.toContain("axisdirect");
+    expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, capability: "orders" })).toHaveLength(40);
     expect(filterBrokers(BROKERS, { ...EMPTY_FILTER, savedOnly: true }, new Set(["samco"])).map((b) => b.id)).toEqual(["samco"]);
   });
 });

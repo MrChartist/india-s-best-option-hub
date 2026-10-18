@@ -1,0 +1,40 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://welcome-api.axisdirect.in/handshake",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyOA9By2klDcoiVEZI8+9EFf/JyGuzmAL9xUuehyGeW+BqHx3F/ynLBc+pr2fmFRxcrP6Skt3x9nsltoxunQFEgpZV6jRn+sRPzJBScIuCKx5dBoVYfD9Tdkle/guhoEnNh/V1WcPsdJ+1tRp2JC0SSjHOEL9PDFtcYdMqz2Tzvka8G89gUoIXqc/U/UCoKvYl78zyEdne34tChFEcn3eDFUssa/Y87lx4UyS4jfSLn9V8DjnNdhge2pJnhLvq5R1BHEA8uwqnCZkGfwzWiyBDUmMCIgCGRg3lekcYWA47zxd6psiQoS6BAJNW8mJEsAj9PcD6V3RlyH5RbIHxHF5AwIDAQAB"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://welcome-api.axisdirect.in/sso/authenticate",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "payload": "AAAAAAAAAAAAAAAAAAAAAQ==.qfBkIQr/Lp9cMNFGxrdT6g==.rYhvne7cCtsGUZ/0mW/8Xd5uLz6KJKBfD38TIm8Nf7rmnxrVCLaFg5W2MOxcmjMYy11XfaShE9iG1VA1mfhHtmZR5bTP9fMTK+XUaMo5wV0f5GBcUvbU1Yqt+b7RzpxdZfkBAyjAXhabjgM0EqKJGbnOH61MCAaeXsM0jDlSbxjMngX5JoBXacrnO242wa2VxG/f8nFIRpV8zWXSPvErpcmQ/OKNwxn6ULhvqxRc5BQfsJAH2jE9fq30BPSb5qIGmVrhFRq4DlSWiFc+RrSVcErUiMCKQhQtCyPkMPc6RC6GLo3ZzyUAAk5MxTyg0X3jymZBfJTdaHiLvjIN8h1jOoFCi4aZD3t7xgBiLMpuhi0MrJn+6MtLwsauGyYfRoBfxO4LQDHmiY5uFuyLrtvqY9dcwII9PWL4Z4r4jhtFOQVy138nEVbTgI2lbH8dZo3HWoWvfrFkkF/zJKXA0uNcui5u40YXK9QlVgxqCJ4AsHFNn7eFPAtp2E1ZYPqP5jsMkMdk5wv9qOxsq8XR7/B524uukep7SeXTSDb08HDKvecUuK0EnZX0un7i2GG1kY8YoEufGEYsU6tmp/JreHUbnBxM+fEoeOphqjclM4T2c+9a0s9cwdgMwcacvL6ucLICIWsks1CU6ThmKw4nz4lC9NnA+7+P5FAXSYwV/l5Xv9gwePvRKDuWtA=="
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://invest-api.axisdirect.in/markettracking/tracking/get-market-status",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "payload": "AAAAAAAAAAAAAAAAAAAAAg==.D+7HydOzXsbcvna8Ak8l0Q==.JaMXTjpYXd//Kcp/idg5Zot3yqiccbXVG+ys8l37XtJCKo8mX7nrVKNqld7bpaBAtkqMNp/GtVjVNZkt+gSyBQQckDNDshbzuUU/J6FtzbuCe71TLV4zNHMwaP9D5ltYHQB3XvVNxRCpKpThMt5f7s8PPP2n8CGJh5LgXLYZvPgDTCenqBg8XFcIxXQcMek/57iG0Y/dJuk4L/nfUMrlbRtMAx3d2Y9+AksX3yLYeHGs+HqlvvCNY/6AcNtJWztOZ3ymybrklPHiPSeLo/uQEPy6diHgatHwZ0WKse4y6QXxoWvoo2rCwRP80V+jYYks1+CTcF+qGQkG7ANfdSiQzEZeeS+AzQuEqI3W0xJRER/YnuZW7rk3FD5eguVUOpHJCN90riAS9DQ="
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

@@ -1,5 +1,5 @@
 /**
- * Broker module registry: all 33 adapters, keyed by the broker id the frontend sends.
+ * Broker module registry: all 41 adapters, keyed by the broker id the frontend sends.
  *
  * THE CONTRACT lives in server/brokers/contract.mjs (capabilities, normalised shapes, order gate,
  * validateAdapter) with fixture tests via contractHarness.mjs; docs/broker-contract.md has the
@@ -22,7 +22,7 @@
  * a gate for any broker here, and /api/broker-proxy answers 403 ORDER_PATH_BLOCKED for order
  * endpoints, so live orders from these adapters stay blocked pending owner review. Only Dhan places
  * live orders, through 1Cliq on /api/dhan-proxy (live-trading toggle + armed session), and only Dhan
- * has been verified against a live account; the other 32 are fixture-tested (beta).
+ * has been verified against a live account; the other 40 are fixture-tested (beta).
  *
  * Index underlyings: NIFTY | BANKNIFTY | FINNIFTY | MIDCPNIFTY | SENSEX | BANKEX (CANONICAL_UNDERLYINGS),
  * plus stock underlyings where the broker offers them.
@@ -63,6 +63,14 @@ import * as tradejini from "./tradejini.mjs";
 import * as tradesmart from "./tradesmart.mjs";
 import * as wisdom from "./wisdom.mjs";
 import * as zebu from "./zebu.mjs";
+import * as anandrathi from "./anandrathi.mjs";
+import * as axisdirect from "./axisdirect.mjs";
+import * as bigul from "./bigul.mjs";
+import * as fivepaisaxts from "./fivepaisaxts.mjs";
+import * as goodwill from "./goodwill.mjs";
+import * as icicidirect from "./icicidirect.mjs";
+import * as profitmart from "./profitmart.mjs";
+import * as rupeezy from "./rupeezy.mjs";
 
 // Keys MUST match the broker `id` values in src/lib/brokerConfig.ts — the
 // frontend sends this id verbatim as the `broker` query param / dispatch key.
@@ -72,6 +80,8 @@ const MODULES = {
   hdfcsecurities, hdfcsky, ibulls, iifl, iiflcapital, indmoney,
   jainamxts, kotak, motilal, mstock, nubra, paytm, pocketful,
   rmoney, samco, shoonya, tradejini, tradesmart, wisdom, zebu,
+  anandrathi, axisdirect, bigul, fivepaisaxts, goodwill, icicidirect,
+  profitmart, rupeezy,
 };
 
 export function createBrokerRegistry() {

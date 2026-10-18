@@ -1,0 +1,55 @@
+{
+  "args": [
+    "NXAAE00003K3"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "url": "https://vortex-api.rupeezy.in/v2/trading/orders/regular/NXAAE00003K3",
+      "json": {
+        "status": "success",
+        "code": "s-101",
+        "message": "Order Cancellation Sent to OMS",
+        "data": {
+          "order_id": "NXAAE00003K3"
+        }
+      }
+    }
+  ]
+}

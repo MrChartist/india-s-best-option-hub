@@ -1,6 +1,6 @@
 # Broker adapter contract (v1)
 
-How every one of the 33 broker adapters in `server/brokers/` should look, how to prove it, and what each broker engineer fills in. The code is the source of truth: `server/brokers/contract.mjs` (with `orderGate.mjs`), `contractShapes.mjs`, `contractHarness.mjs` and `sessionLogin.mjs`. Dhan (`dhan.mjs` + `dhanContract.mjs`, fixtures in `__fixtures__/dhan/`) is the reference adapter.
+How every one of the 41 broker adapters in `server/brokers/` should look, how to prove it, and what each broker engineer fills in. The code is the source of truth: `server/brokers/contract.mjs` (with `orderGate.mjs`), `contractShapes.mjs`, `contractHarness.mjs` and `sessionLogin.mjs`. Dhan (`dhan.mjs` + `dhanContract.mjs`, fixtures in `__fixtures__/dhan/`) is the reference adapter.
 
 ## 0. Licence rule (read first)
 
@@ -21,8 +21,8 @@ OpenAlgo (`scratchpad/ref/openalgo`) is **AGPL-3.0**; this project is **MIT**.
 | `server/brokers/contractHarness.mjs` | `loadFixtures`, `createFetchStub`, `runContractHarness`, `runLoginContract`, `harnessFailures`. |
 | `server/brokers/sessionLogin.mjs` | Helpers for session-login adapters (`readTotpCode`, `requireFields`, `sessionFromCreds`, `nextIstMidnightMs`) and the `/api/broker-session-login` handler and rate limiter. |
 | `server/brokers/__fixtures__/<id>/` | `manifest.json` + one `<capability>.json` per declared capability (+ `login.json` for session login). |
-| `server/brokers/contract.test.mjs` | The harness proven on Dhan, plus gate and `validateAdapter` rules. Also checks that **all 33** adapters pass the lenient contract. |
-| `server/brokers/sessionLogin.test.mjs` | All 8 session-login brokers: strict contract, login fixture, no network before login, UI prompts match the adapter. |
+| `server/brokers/contract.test.mjs` | The harness proven on Dhan, plus gate and `validateAdapter` rules. Also checks that **all 41** adapters pass the lenient contract. |
+| `server/brokers/sessionLogin.test.mjs` | All 11 session-login brokers: strict contract, login fixture, no network before login, UI prompts match the adapter. |
 | `src/lib/brokerConfig.ts` | `SESSION_LOGIN_BROKER_IDS`, `sessionLogin.prompts`, `getBrokerSessionState`, `withSession`. |
 | `src/components/BrokerSessionLoginDialog.tsx` | The "Log in" dialog. |
 
@@ -91,7 +91,7 @@ Field lists for `Position`, `Holding`, `Order`, `Trade`, `Quote` and `Instrument
 - Without a gate, with a forged object or with a reused or stale gate (5 s), the method throws `OrderGateError` **before any network call**. The harness checks all three cases.
 - Gates are minted only by `issueOrderGate({ verdict, liveArmed: true, action, brokerId })` after `validateOrder()` has passed. **No route mints gates for non-Dhan brokers today.** The browser order path stays blocked pending owner review. Do not add one.
 - The existing Dhan 1Cliq routes keep calling `server/lib/dhanOrders.mjs` behind `validateOrder` and live arming. The risk engine and basket-deploy never place real orders. Panic close/cancel always re-fetch authoritative broker state.
-- Resolved: every adapter's `placeOrder`/`modifyOrder`/`cancelOrder` is now wrapped with `withOrderGate()` (all 33 are strict). No route mints a gate for them and `/api/broker-proxy` answers `403 ORDER_PATH_BLOCKED` for order endpoints.
+- Resolved: every adapter's `placeOrder`/`modifyOrder`/`cancelOrder` is now wrapped with `withOrderGate()` (all 41 are strict). No route mints a gate for them and `/api/broker-proxy` answers `403 ORDER_PATH_BLOCKED` for order endpoints.
 
 ## 5. Session login (password/PIN + current TOTP)
 
@@ -149,14 +149,14 @@ OpenAlgo's `broker/<name>/` covers: `api/auth_api.py` → `auth`/`login`; `api/d
 
 ## 8. Current status
 
-All 33 adapters are on the strict contract with a full fixture harness (`validateAdapter` strict, `runContractHarness` with no failures). Only Dhan has been verified against a live account; the rest are beta. The user-facing table, with capabilities and docs links, is in [BROKERS.md](BROKERS.md); `src/lib/brokerCapabilities.generated.ts` is generated from the adapters (`node scripts/generate-broker-capabilities.mjs`).
+All 41 adapters are on the strict contract with a full fixture harness (`validateAdapter` strict, `runContractHarness` with no failures). Only Dhan has been verified against a live account; the rest are beta. The user-facing table, with capabilities and docs links, is in [BROKERS.md](BROKERS.md); `src/lib/brokerCapabilities.generated.ts` is generated from the adapters (`node scripts/generate-broker-capabilities.mjs`).
 
 | `auth.kind` | Brokers |
 |---|---|
-| apiKeyToken | dhan, groww, hdfcsecurities, hdfcsky, ibulls, jainamxts, paytm, pocketful, rmoney, samco, wisdom |
+| apiKeyToken | dhan, anandrathi, fivepaisaxts, groww, hdfcsecurities, hdfcsky, ibulls, jainamxts, paytm, pocketful, rmoney, samco, wisdom |
 | oauthRedirect | zerodha, upstox, fyers |
-| requestTokenExchange | aliceblue, arrow, compositedge, flattrade, iifl, iiflcapital, shoonya, tradesmart, zebu |
-| sessionLogin | angelone, definedge, fivepaisa, firstock, indmoney, kotak, motilal, mstock, nubra, tradejini |
+| requestTokenExchange | aliceblue, arrow, axisdirect, compositedge, flattrade, goodwill, icicidirect, iifl, iiflcapital, profitmart, rupeezy, shoonya, tradesmart, zebu |
+| sessionLogin | angelone, bigul, definedge, fivepaisa, firstock, indmoney, kotak, motilal, mstock, nubra, tradejini |
 
 Known follow-ups (not blocking): OAuth/third-party callback routes (zerodha, upstox, compositedge) so users need not paste tokens; streaming feeds for the brokers that do not declare `feed`; `server/lib/batch.mjs` swallows `SessionRequiredError` (the brokers that hit this stopped using it); `server/lib/dhanPacketParser.mjs` differs from the official v2 feed layout (SENSEX id 51, BANKEX 69, float32 prices) but only its `tickKey` helper is used in production, the proxy has its own float32 decoder.
 

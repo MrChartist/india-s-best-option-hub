@@ -1,0 +1,47 @@
+{
+  "creds": {
+    "sessionToken": "dummy.bigul.jwt.token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/get-holdings",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "prod": "CNC"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": {
+          "hldVal": [
+            {
+              "clprc": "1211.20",
+              "bseTrdSym": "RELIANCE",
+              "nseTrdSym": "RELIANCE-EQ",
+              "ex1": "nse_cm",
+              "ex2": "bse_cm",
+              "usdQty": "0",
+              "hldQty": "1000",
+              "scripCode": "500325",
+              "series": "EQ",
+              "prod": "CNC",
+              "colTp": "1",
+              "prc": "1300.00",
+              "hrCutPrc": "330000.00",
+              "tok1": "2885",
+              "tok2": "500325",
+              "slbQty": "1000"
+            }
+          ]
+        },
+        "error": null
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

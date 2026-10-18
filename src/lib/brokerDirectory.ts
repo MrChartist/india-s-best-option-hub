@@ -1,7 +1,7 @@
 /**
  * Presentation logic for the broker directory in Broker Settings: the capability matrix (derived from
  * each server adapter's declared capabilities, never hand-written), auth-method copy, search/filter
- * across all 33 brokers and credential-form validation. Pure functions, unit-tested.
+ * across all 41 brokers and credential-form validation. Pure functions, unit-tested.
  */
 import type { BrokerAuthKind, BrokerCapability, BrokerInfo } from "./brokerConfig";
 

@@ -174,7 +174,7 @@ describe("trading endpoints on /api/dhan-proxy", () => {
 
   it("describes every adapter's capabilities without credentials", async () => {
     const all = await (await fetch(`${base}/api/broker-capabilities`)).json();
-    expect(all.brokers).toHaveLength(33);
+    expect(all.brokers).toHaveLength(41);
     for (const b of all.brokers) {
       expect(b.ordersEnabled).toBe(false);
       expect(b.capabilities).toContain("optionChain");

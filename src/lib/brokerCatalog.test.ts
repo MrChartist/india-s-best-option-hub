@@ -18,11 +18,11 @@ describe("isForbiddenFieldKey", () => {
 });
 
 describe("broker catalogue", () => {
-  it("lists all 33 adapters exactly once", () => {
+  it("lists all 41 adapters exactly once", () => {
     const ids = CATALOG.map((b) => b.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect([...ids].sort()).toEqual(Object.keys(BROKER_ADAPTER_META).sort());
-    expect(BROKERS).toHaveLength(33);
+    expect(BROKERS).toHaveLength(41);
   });
 
   it("offers for saving exactly the adapter's credential fields, and never a secret", () => {

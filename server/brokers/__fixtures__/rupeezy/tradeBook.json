@@ -1,0 +1,101 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://vortex-api.rupeezy.in/v2/trading/trades",
+      "json": {
+        "status": "success",
+        "trades": [
+          {
+            "order_id": "NXAAE00002@6",
+            "ticker": "NSE:ACC",
+            "exchange": "NSE_EQ",
+            "token": 22,
+            "trade_no": "2416756",
+            "exchange_order_no": "1000000016120889",
+            "transaction_type": "SELL",
+            "product": "INTRADAY",
+            "variety": "RL",
+            "trade_quantity": 1,
+            "trade_price": 1856.75,
+            "symbol": "ACC",
+            "series": "EQ",
+            "instrument_name": "",
+            "expiry_date": "",
+            "strike_price": 0,
+            "option_type": "",
+            "traded_at": "2026-10-16 13:06:43",
+            "initiated_by": "API",
+            "modified_by": "API",
+            "order_identifier": "app=DEMO"
+          },
+          {
+            "order_id": "NXAAE00001@6",
+            "ticker": "NSE:ACC",
+            "exchange": "NSE_EQ",
+            "token": 22,
+            "trade_no": "2413994",
+            "exchange_order_no": "1000000016098874",
+            "transaction_type": "BUY",
+            "product": "INTRADAY",
+            "variety": "RL",
+            "trade_quantity": 1,
+            "trade_price": 1857,
+            "symbol": "ACC",
+            "series": "EQ",
+            "instrument_name": "",
+            "expiry_date": "",
+            "strike_price": 0,
+            "option_type": "",
+            "traded_at": "2026-10-16 13:06:17",
+            "initiated_by": "API",
+            "modified_by": "API",
+            "order_identifier": "app=DEMO"
+          }
+        ],
+        "metadata": {
+          "total_records": 2
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/customerdetails",
+      "expectBody": {
+        "SessionToken": "58593123",
+        "AppKey": "8g791N029R47I831B8153O2f7u8g"
+      },
+      "json": {
+        "Success": {
+          "exg_trade_date": {
+            "NSE": "19-Oct-2026",
+            "BSE": "19-Oct-2026",
+            "FNO": "19-Oct-2026",
+            "NDX": "19-Oct-2026"
+          },
+          "exg_status": {
+            "NSE": "O",
+            "BSE": "O",
+            "FNO": "Y",
+            "NDX": "O"
+          },
+          "segments_allowed": {
+            "Trading": "Y",
+            "Equity": "Y",
+            "Derivatives": "Y",
+            "Currency": "Z"
+          },
+          "idirect_userid": "379XTZ300",
+          "session_token": "QUgzNzkzMDA6NDUwNTM0MjI=",
+          "idirect_user_name": "JOHN SMITH",
+          "idirect_ORD_TYP": "N",
+          "idirect_lastlogin_time": "19-Oct-2026 09:50:42",
+          "mf_holding_mode_popup_flg": "N",
+          "commodity_exchange_status": "N",
+          "commodity_trade_date": "19-Oct-2026",
+          "commodity_allowed": "O"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/funds",
+      "json": {
+        "Success": {
+          "bank_account": "123456789012",
+          "total_bank_balance": 800000,
+          "allocated_equity": 200000,
+          "allocated_fno": 200000,
+          "allocated_commodity": 0,
+          "allocated_currency": 0,
+          "block_by_trade_equity": 0,
+          "block_by_trade_fno": 12500.53,
+          "block_by_trade_commodity": 0,
+          "block_by_trade_currency": 0,
+          "block_by_trade_balance": 12500.53,
+          "unallocated_balance": "387499.47"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    }
+  ]
+}

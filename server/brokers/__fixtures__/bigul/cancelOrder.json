@@ -1,0 +1,29 @@
+{
+  "creds": {
+    "sessionToken": "dummy.bigul.jwt.token"
+  },
+  "args": [
+    "1310111902"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/cancel",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "on": "1310111902",
+        "am": "NO"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": {
+          "result": "1310111902"
+        },
+        "error": null
+      }
+    }
+  ]
+}

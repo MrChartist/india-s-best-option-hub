@@ -12,7 +12,7 @@ import { authFetch } from "./angeloneAuth.mjs";
 import { getSession as kotakSession, login as kotakLogin, safeKotakBaseUrl } from "./kotakAuth.mjs";
 import { BROKERS } from "../../src/lib/brokerConfig.ts";
 
-const SESSION_BROKERS = ["angelone", "definedge", "fivepaisa", "firstock", "indmoney", "kotak", "motilal", "mstock", "nubra", "tradejini"];
+const SESSION_BROKERS = ["angelone", "bigul", "definedge", "fivepaisa", "firstock", "indmoney", "kotak", "motilal", "mstock", "nubra", "tradejini"];
 const registry = createBrokerRegistry();
 const realFetch = globalThis.fetch;
 

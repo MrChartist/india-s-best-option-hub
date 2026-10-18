@@ -9,9 +9,9 @@ describe("src/lib/brokerCapabilities.generated.ts", () => {
     expect(onDisk).toBe(renderBrokerCapabilityModule(buildBrokerCapabilityMeta()));
   });
 
-  it("covers all 33 adapters and never lists a secret field as saveable", () => {
+  it("covers all 41 adapters and never lists a secret field as saveable", () => {
     const meta = buildBrokerCapabilityMeta();
-    expect(Object.keys(meta)).toHaveLength(33);
+    expect(Object.keys(meta)).toHaveLength(41);
     for (const [id, m] of Object.entries(meta)) {
       expect(m.credentialFields.filter((f) => /(pass(word)?|mpin|\bpin\b|totp|otp)/i.test(f)), id).toEqual([]);
       expect(m.capabilities, id).toEqual(expect.arrayContaining(["optionChain", "expiries", "ltp"]));

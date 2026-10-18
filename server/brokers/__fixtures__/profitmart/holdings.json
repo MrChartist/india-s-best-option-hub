@@ -1,0 +1,82 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/Holdings",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"actid\":\"PM00000\",\"prd\":\"C\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "15119",
+              "cm_e": "1",
+              "fo_e": "0",
+              "cur_e": "0",
+              "tsym": "BALAJEE-EQ",
+              "pp": "2",
+              "ti": "0.05",
+              "ls": "1",
+              "isin": "INE000A00000",
+              "cname": "DUMMY BALAJEE LTD"
+            },
+            {
+              "exch": "BSE",
+              "token": "500001",
+              "cm_e": "1",
+              "fo_e": "0",
+              "cur_e": "0",
+              "tsym": "BALAJEE",
+              "pp": "2",
+              "ti": "0.05",
+              "ls": "1",
+              "isin": "INE000A00000",
+              "cname": "DUMMY BALAJEE LTD"
+            }
+          ],
+          "upldprc": "400.00",
+          "sell_amt": "0.000000",
+          "holdqty": "10",
+          "hair_cut": "0.00",
+          "brk_hair_cut": "0.00",
+          "dpqty": "0",
+          "benqty": "0",
+          "unplgdqty": "0",
+          "colqty": "0",
+          "brkcolqty": "0",
+          "btstqty": "0",
+          "usedqty": "0",
+          "trdqty": "0",
+          "epi_done_qty": "0",
+          "s_prdt_ali": "CNC",
+          "prd": "C",
+          "c": "500.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

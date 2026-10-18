@@ -1,0 +1,115 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://vortex-api.rupeezy.in/v2/trading/portfolio/positions",
+      "json": {
+        "status": "success",
+        "data": {
+          "net": [
+            {
+              "ticker": "NSE:NIFTY26OCT25000CE",
+              "exchange": "NSE_FO",
+              "symbol": "NIFTY",
+              "expiry_date": "20261027",
+              "option_type": "CE",
+              "token": 51440,
+              "product": "INTRADAY",
+              "quantity": 65,
+              "overnight_buy_value": 0,
+              "overnight_sell_value": 0,
+              "overnight_average_price": 0,
+              "lot_size": 65,
+              "multiplier": 1,
+              "average_price": 104.1,
+              "value": -6766.5,
+              "buy_value": 6766.5,
+              "sell_value": 0,
+              "buy_quantity": 65,
+              "sell_quantity": 0,
+              "buy_price": 104.1,
+              "sell_price": 0
+            },
+            {
+              "ticker": "NSE:ITC",
+              "exchange": "NSE_EQ",
+              "symbol": "ITC",
+              "expiry_date": "",
+              "option_type": "",
+              "token": 1660,
+              "product": "MTF",
+              "quantity": 0,
+              "overnight_buy_value": 380,
+              "overnight_sell_value": 0,
+              "overnight_average_price": 190,
+              "lot_size": 1,
+              "multiplier": 1,
+              "average_price": 357.3,
+              "value": 10,
+              "buy_value": 714.6,
+              "sell_value": 724.6,
+              "buy_quantity": 2,
+              "sell_quantity": 2,
+              "buy_price": 357.3,
+              "sell_price": 362.3
+            }
+          ],
+          "day": []
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://vortex-api.rupeezy.in/v2/data/quotes?q=NSE_FO-51440&mode=ltp",
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE_FO-51440": {
+            "exchange": "NSE_FO",
+            "token": 51440,
+            "last_trade_price": 110.1
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

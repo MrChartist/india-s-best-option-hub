@@ -1,0 +1,103 @@
+{
+  "args": [
+    {
+      "token": "51440",
+      "exchange": "NFO"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://vortex-api.rupeezy.in/v2/data/quotes?q=NSE_FO-51440&mode=full",
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE_FO-51440": {
+            "ticker": "NSE_FO-51440",
+            "exchange": "NSE_FO",
+            "token": 51440,
+            "last_trade_time": 1792040758,
+            "last_update_time": 1792040758,
+            "last_trade_price": 104.1,
+            "volume": 23700,
+            "average_trade_price": 104.1,
+            "total_buy_quantity": 19500,
+            "total_sell_quantity": 12450,
+            "open_price": 100.1,
+            "high_price": 114.1,
+            "low_price": 92.1,
+            "close_price": 101.1,
+            "depth": {
+              "buy": [
+                {
+                  "price": 102.15,
+                  "quantity": 150,
+                  "orders": 1
+                },
+                {
+                  "price": 102.1,
+                  "quantity": 150,
+                  "orders": 1
+                },
+                {},
+                {},
+                {}
+              ],
+              "sell": [
+                {
+                  "price": 106.55,
+                  "quantity": 150
+                },
+                {
+                  "price": 106.6,
+                  "quantity": 150,
+                  "orders": 1
+                },
+                {},
+                {},
+                {}
+              ]
+            },
+            "open_interest": 15450
+          }
+        }
+      }
+    }
+  ]
+}

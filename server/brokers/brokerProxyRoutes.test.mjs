@@ -45,9 +45,9 @@ describe("endpoint table", () => {
     expect(capabilityMethod({ fetchQuotes() {} }, "quotes")).toBe("fetchQuotes");
   });
 
-  it("describes all 33 adapters with orders disabled", () => {
+  it("describes all 41 adapters with orders disabled", () => {
     const list = registry.list().map((id) => describeAdapter(registry.get(id)));
-    expect(list).toHaveLength(33);
+    expect(list).toHaveLength(41);
     for (const d of list) {
       expect(d.ordersEnabled).toBe(false);
       expect(d.authKind).toMatch(/apiKeyToken|oauthRedirect|requestTokenExchange|sessionLogin/);

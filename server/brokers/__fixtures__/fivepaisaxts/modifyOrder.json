@@ -1,0 +1,86 @@
+{
+  "args": [
+    "648468730",
+    {
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "quantity": 75,
+      "price": 117.9
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xtsmum.5paisa.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey05",
+        "secretKey": "dummyIaSecret05",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://xtsmum.5paisa.com/interactive/orders",
+      "expectBody": {
+        "appOrderID": 648468730,
+        "modifiedProductType": "NRML",
+        "modifiedOrderType": "Limit",
+        "modifiedOrderQuantity": 75,
+        "modifiedDisclosedQuantity": 0,
+        "modifiedLimitPrice": 117.9,
+        "modifiedStopPrice": 0,
+        "modifiedTimeInForce": "DAY"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 648468730,
+          "OrderUniqueIdentifier": "mrchub",
+          "ClientID": "DUMMY1"
+        }
+      }
+    }
+  ]
+}

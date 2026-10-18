@@ -12,23 +12,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 const get = (id: string) => getBrokerInfo(id) as BrokerInfo;
-// Card-view tests render a few brokers: 32 full cards are slow under coverage instrumentation.
+// Card-view tests render a few brokers: 41 full cards are slow under coverage instrumentation.
 const FEW = ["dhan", "angelone", "samco", "zerodha"].map(get);
 
 describe("BrokerDirectory", () => {
-  it("shows a capability matrix of all 33 brokers and filters it by search", () => {
+  it("shows a capability matrix of all 41 brokers and filters it by search", () => {
     render(<BrokerDirectory brokers={BROKERS} saved={[]} locked={false} />);
-    expect(screen.getByRole("heading", { name: /all brokers \(33\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /all brokers \(41\)/i })).toBeInTheDocument();
     const table = screen.getByRole("table");
-    // header row + 33 broker rows
-    expect(within(table).getAllByRole("row")).toHaveLength(34);
+    // header row + 41 broker rows
+    expect(within(table).getAllByRole("row")).toHaveLength(42);
     for (const col of ["Option chain", "Quotes", "Live feed", "Portfolio", "Orders"]) {
       expect(within(table).getByRole("columnheader", { name: col })).toBeInTheDocument();
     }
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 33 of 33 brokers");
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 41 of 41 brokers");
+    for (const name of ["Rupeezy (Vortex)", "ICICI Direct (Breeze)", "Goodwill (GWC)", "Bigul (Bigul Connect)", "Anand Rathi (Algozy, XTS)", "5paisa (XTS)", "Profitmart (ProfitMax API)", "Axis Direct (RAPID APIs)"]) {
+      expect(within(table).getByRole("button", { name }), name).toBeInTheDocument();
+    }
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "upstox" } });
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 1 of 33 brokers");
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1 of 41 brokers");
     const row = within(screen.getByRole("table")).getAllByRole("row")[1];
     expect(row).toHaveTextContent("Upstox");
     expect(row).toHaveTextContent("OAuth login");
@@ -36,7 +39,7 @@ describe("BrokerDirectory", () => {
     expect(row).toHaveTextContent("Beta");
 
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 33 of 33 brokers");
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 41 of 41 brokers");
   });
 
   it("filters by sign-in method and capability, and says when nothing matches", () => {

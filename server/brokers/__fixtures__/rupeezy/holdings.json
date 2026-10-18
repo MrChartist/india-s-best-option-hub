@@ -1,0 +1,91 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://vortex-api.rupeezy.in/v2/trading/portfolio/holdings",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "isin": "IN0020210244",
+            "nse": {
+              "ticker": "NSE:654GS2032",
+              "token": 7843,
+              "exchange": "NSE_EQ",
+              "symbol": "654GS2032"
+            },
+            "bse": {
+              "ticker": "BSE:654GS2032",
+              "token": 800440,
+              "exchange": "BSE_EQ",
+              "symbol": "654GS2032"
+            },
+            "total_free": 1,
+            "dp_free": 1,
+            "pool_free": 0,
+            "t1_quantity": 0,
+            "average_price": 95,
+            "collateral_quantity": 0,
+            "collateral_value": 0
+          },
+          {
+            "isin": "INE721Z01010",
+            "nse": {
+              "ticker": "NSE:AARON",
+              "token": 1030,
+              "exchange": "NSE_EQ",
+              "symbol": "AARON"
+            },
+            "bse": {},
+            "total_free": 1,
+            "dp_free": 1,
+            "pool_free": 0,
+            "t1_quantity": 0,
+            "average_price": 137.7,
+            "collateral_quantity": 0,
+            "collateral_value": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

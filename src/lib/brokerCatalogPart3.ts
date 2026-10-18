@@ -1,5 +1,5 @@
 /**
- * Broker catalogue, part 3 of 3. See brokerCatalogPart1.ts for the field and feature rules.
+ * Broker catalogue, part 3 of 4. See brokerCatalogPart1.ts for the field and feature rules.
  */
 
 import type { BrokerInfo } from "./brokerCatalogTypes";
