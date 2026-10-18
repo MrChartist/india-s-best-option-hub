@@ -1,0 +1,110 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v2/funds/view?client_id=DUMMY1&type=all",
+      "status": 200,
+      "json": {
+        "data": {
+          "client_id": "DUMMY1",
+          "headers": [
+            "Description",
+            ""
+          ],
+          "values": [
+            [
+              "Available",
+              "109797.50"
+            ],
+            [
+              "Adhoc Deposit",
+              "0.00"
+            ],
+            [
+              "Cash Deposit",
+              "125000.00"
+            ],
+            [
+              "Delivery",
+              "0.00"
+            ],
+            [
+              "DP Collateral Benefit",
+              "0.00"
+            ],
+            [
+              "DP Credit for Sale",
+              "0.00"
+            ],
+            [
+              "DP Pledge Collateral",
+              "0.00"
+            ],
+            [
+              "Manual Collateral",
+              "0.00"
+            ],
+            [
+              "Pay In",
+              "0.00"
+            ],
+            [
+              "Net Margin",
+              "0.00"
+            ],
+            [
+              "Notion Deposit",
+              "0.00"
+            ],
+            [
+              "Overdraft",
+              "0.00"
+            ],
+            [
+              "Pay out",
+              "0.00"
+            ],
+            [
+              "Pool Collateral Benefit",
+              "0.00"
+            ],
+            [
+              "Pool Pledge Collateral",
+              "0.00"
+            ],
+            [
+              "Premium",
+              "0.00"
+            ],
+            [
+              "Sar Collateral Benefit",
+              "0.00"
+            ],
+            [
+              "Sar Credit for Sale",
+              "0.00"
+            ],
+            [
+              "Span Margin",
+              "12000.00"
+            ],
+            [
+              "Var Margin",
+              "0.00"
+            ],
+            [
+              "Extreme Loss Margin",
+              "3202.50"
+            ],
+            [
+              "Option Credit For Sell",
+              "0.00"
+            ]
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ]
+}

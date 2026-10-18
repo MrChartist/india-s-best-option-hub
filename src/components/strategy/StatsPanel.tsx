@@ -20,24 +20,23 @@ interface TileProps {
   help: ReactNode;
   children: ReactNode;
   sub?: ReactNode;
-  tone?: "profit" | "loss";
   className?: string;
   badge?: ReactNode;
   /** Learn lesson linked from the help tip. */
   helpHref?: string;
 }
 
-function Tile({ label, help, children, sub, tone, className, badge, helpHref }: TileProps) {
+function Tile({ label, help, children, sub, className, badge, helpHref }: TileProps) {
   return (
-    <div className={cn("min-w-0 rounded-tile border border-border bg-card p-2.5", tone === "profit" && "bg-wash-profit/40", tone === "loss" && "bg-wash-loss/40", className)}>
-      <div className="flex items-start gap-1 text-label uppercase text-muted-foreground">
+    <div className={cn("min-w-0 rounded-tile border border-separator bg-card px-3 py-2.5 shadow-card", className)}>
+      <div className="flex items-start gap-1 text-label text-muted-foreground">
         <span className="min-w-0 break-words leading-tight">{label}</span>
         <MetricTip label={label} href={helpHref}>
           {help}
         </MetricTip>
         {badge && <span className="ml-auto">{badge}</span>}
       </div>
-      <div className="mt-1 font-num text-base font-bold leading-tight">{children}</div>
+      <div className="mt-1 font-num text-lead font-semibold">{children}</div>
       {sub && <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{sub}</div>}
     </div>
   );
@@ -61,7 +60,7 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
   if (a.empty) {
     return (
       <Card>
-        <CardContent className="py-6 text-center text-sm text-muted-foreground">Stats appear once at least one leg is switched on.</CardContent>
+        <CardContent className="py-6 text-center text-body text-muted-foreground">Stats appear once at least one leg is switched on.</CardContent>
       </Card>
     );
   }
@@ -69,10 +68,10 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
   const beDist = a.breakevens.map((b) => ((b - spot) / spot) * 100);
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-      <Tile label="Max profit" tone="profit" help={a.multiExpiry ? "Highest P&L at the front expiry, with later legs valued by the model." : "Highest P&L at expiry. Unlimited when net call or futures exposure is long."}>
+      <Tile label="Max profit" help={a.multiExpiry ? "Highest P&L at the front expiry, with later legs valued by the model." : "Highest P&L at expiry. Unlimited when net call or futures exposure is long."}>
         {a.unlimitedProfit ? <Unlimited tone="profit" /> : <span className="text-bullish">{formatINR(a.maxProfit, { decimals: 0 })}</span>}
       </Tile>
-      <Tile label="Max loss" tone="loss" help="Worst P&L at expiry. Unlimited when you are net short calls or futures (or naked short puts down to zero).">
+      <Tile label="Max loss" help="Worst P&L at expiry. Unlimited when you are net short calls or futures (or naked short puts down to zero).">
         {a.unlimitedLoss ? <Unlimited tone="loss" /> : <span className="text-bearish">{formatINR(a.maxLoss, { decimals: 0 })}</span>}
       </Tile>
       <Tile label="Reward : risk" help="Max profit divided by max loss. Shown only when both are capped.">
@@ -89,7 +88,7 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
       <Tile
         label="Chance to hit 50% profit"
         helpHref={POP_LESSON}
-        badge={<span className="rounded-chip bg-muted px-1 font-num text-[10px] normal-case tracking-normal text-muted-foreground">P50</span>}
+        badge={<span className="rounded-chip bg-control-track px-1 font-num text-micro text-muted-foreground">P50</span>}
         help="Also called P50: the chance of touching 50% of max profit at any day-end before expiry (Monte-Carlo, 1,200 lognormal paths). Useful for take-profit rules; higher than POP for most credit trades."
         sub={
           <>
@@ -106,8 +105,8 @@ export function StatsPanel({ a, p50, spot, roundTrip }: StatsPanelProps) {
         <span className={a.ev >= 0 ? "text-bullish" : "text-bearish"}>{formatINR(a.ev, { decimals: 0 })}</span>
       </Tile>
       <Tile label="Breakevens" help="Underlying prices where expiry P&L is zero. 'After costs' subtracts round-trip brokerage, STT, exchange fees, stamp duty and GST." className="col-span-2" sub={<>After costs: <span className="font-num">{levels(a.breakevensNet)}</span></>}>
-        <span className="text-sm">{levels(a.breakevens)}</span>
-        {beDist.length > 0 && <span className="ml-2 text-[11px] font-normal text-muted-foreground">({beDist.map((d) => formatPct(d, { decimals: 1, signed: true })).join(", ")})</span>}
+        <span className="text-body">{levels(a.breakevens)}</span>
+        {beDist.length > 0 && <span className="ml-2 text-body-sm font-normal text-muted-foreground">({beDist.map((d) => formatPct(d, { decimals: 1, signed: true })).join(", ")})</span>}
       </Tile>
       <Tile
         label="Funds required"

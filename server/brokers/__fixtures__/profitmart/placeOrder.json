@@ -1,0 +1,48 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 104.5,
+      "correlationId": "mrc-0001"
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/PlaceOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"actid\":\"PM00000\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"dscqty\":\"0\",\"prc\":\"104.5\",\"prd\":\"M\",\"trantype\":\"B\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\",\"remarks\":\"mrc-0001\"}"
+      },
+      "json": {
+        "request_time": "10:48:03 17-10-2026",
+        "stat": "Ok",
+        "norenordno": "26101700000017"
+      }
+    }
+  ]
+}

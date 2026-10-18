@@ -19,7 +19,7 @@ export function ScrollRegion({ label, className, children }: ScrollRegionProps) 
       aria-label={label}
       tabIndex={0}
       className={cn(
-        "min-w-0 max-w-full overflow-x-auto rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "min-w-0 max-w-full overflow-x-auto rounded-[inherit] focus-visible:shadow-focus focus-visible:outline-none",
         className,
       )}
     >
@@ -27,5 +27,3 @@ export function ScrollRegion({ label, className, children }: ScrollRegionProps) 
     </div>
   );
 }
-
-export default ScrollRegion;

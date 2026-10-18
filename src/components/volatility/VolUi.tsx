@@ -19,7 +19,7 @@ export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; la
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[280px] text-xs leading-relaxed">{text}</TooltipContent>
+      <TooltipContent className="max-w-[280px] text-body-sm">{text}</TooltipContent>
     </Tooltip>
   );
 }
@@ -66,9 +66,9 @@ export function StatTile({
     muted: "text-muted-foreground",
   }[tone];
   return (
-    <div className={cn("min-w-0 rounded-tile border border-border bg-surface/60 p-3", className)}>
+    <div className={cn("min-w-0 rounded-tile bg-muted/50 p-3", className)}>
       <div className="flex items-center gap-1.5">
-        <p className="truncate text-label uppercase text-muted-foreground">{label}</p>
+        <p className="truncate text-label text-muted-foreground">{label}</p>
         {help ? <HelpTip text={help} label={`About ${label}`} /> : null}
       </div>
       <p className={cn("mt-1.5 font-num text-title tabular-nums", toneCls)}>{value}</p>
@@ -81,11 +81,11 @@ export function PanelHeader({ icon: Icon, title, subtitle, right }: { icon: Luci
   return (
     <CardHeader className="flex flex-col gap-2 space-y-0 p-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        <h3 className="flex items-center gap-2 font-display text-lead font-bold">
+        <h2 className="flex items-center gap-2 font-display text-[14px] font-bold leading-snug">
           <Icon className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
           {title}
-        </h3>
-        {subtitle ? <p className="mt-1 text-body-sm text-muted-foreground">{subtitle}</p> : null}
+        </h2>
+        {subtitle ? <p className="mt-0.5 text-body-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
       {right ? <div className="flex flex-wrap items-center gap-1.5">{right}</div> : null}
     </CardHeader>
@@ -117,7 +117,7 @@ export { DataState, RetryButton } from "@/components/dashboard/DataState";
 export function SampleWatermark({ label = "Sample data" }: { label?: string }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 flex select-none items-center justify-center overflow-hidden">
-      <span className="-rotate-12 whitespace-nowrap rounded-chip border-2 border-dashed border-warning/40 px-4 py-1 font-display text-title font-bold uppercase tracking-[0.2em] text-warning/40">
+      <span className="-rotate-12 whitespace-nowrap rounded-chip border-2 border-dashed border-warning/40 px-4 py-1 font-display text-title font-bold text-warning/40">
         {label}
       </span>
     </div>
@@ -135,7 +135,7 @@ export function HintChip({ children, hint, variant = "neutral" }: { children: Re
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+      <TooltipContent side="bottom" className="max-w-[260px] text-body-sm">
         {hint}
       </TooltipContent>
     </Tooltip>

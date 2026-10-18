@@ -41,14 +41,14 @@ function ScrollTable({ children }: { children: ReactNode }) {
     };
   }, []);
   return (
-    <div className="relative min-w-0 rounded-tile border border-border">
-      <div ref={ref} className="overflow-x-auto rounded-tile">
+    <div className="relative min-w-0 rounded-md border border-separator">
+      <div ref={ref} className="overflow-x-auto rounded-md">
         {children}
       </div>
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-tile bg-gradient-to-l from-card to-transparent transition-opacity",
+          "pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-md bg-gradient-to-l from-card to-transparent transition-opacity",
           more ? "opacity-100" : "opacity-0",
         )}
       />
@@ -99,18 +99,18 @@ function UpcomingRow({
   const s = q.data?.stats;
   const links = eventLinks(event, today);
   return (
-    <TableRow data-state={selected ? "selected" : undefined} className={cn(selected && "bg-wash-brand/50")}>
+    <TableRow data-state={selected ? "selected" : undefined}>
       <TableCell className="whitespace-nowrap font-num tabular-nums">{shortDate(event.date)}</TableCell>
       <TableCell className="min-w-[8rem]">
         <button
           type="button"
           onClick={() => onSelect(sym)}
           aria-pressed={selected}
-          className="text-left font-semibold text-foreground underline-offset-2 hover:text-primary-ink hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+          className="text-left font-semibold text-foreground underline-offset-2 hover:text-primary-ink hover:underline focus-visible:shadow-focus focus-visible:outline-none"
         >
           {sym}
         </button>
-        <span className="block text-micro uppercase text-muted-foreground">
+        <span className="block text-micro text-muted-foreground">
           {resultsQuarterFor(event.date)}
           {event.source === "sample" ? " · sample date" : ""}
         </span>
@@ -119,7 +119,7 @@ function UpcomingRow({
         <>
           <TableCell className={cn("text-right font-num font-semibold tabular-nums", verdictTone(s))} title={overpricedVerdict(s)}>
             {pct(s.overpricedPct, 0)}
-            <span className="block text-micro font-normal uppercase text-muted-foreground">
+            <span className="block text-micro font-normal text-muted-foreground">
               {s.overpricedCount}/{s.n}
               {q.data.mode === "sample" ? " · sample" : ""}
             </span>
@@ -131,13 +131,13 @@ function UpcomingRow({
       ) : q.isFetching ? (
         <TableCell colSpan={4} className="text-right text-body-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
             Reading bhavcopy…
           </span>
         </TableCell>
       ) : (
         <TableCell colSpan={4} className="text-right">
-          <Button size="sm" variant="outline" className="h-7 text-body-sm" onClick={() => setRequested(true)} aria-label={`Load results history for ${sym}`}>
+          <Button size="sm" variant="outline" onClick={() => setRequested(true)} aria-label={`Load results history for ${sym}`}>
             Load history
           </Button>
         </TableCell>
@@ -146,7 +146,7 @@ function UpcomingRow({
         {links.length ? (
           <span className="inline-flex gap-2">
             {links.map((l) => (
-              <Link key={l.label} to={l.href} title={l.title} className="text-body-sm font-medium text-primary-ink underline-offset-2 hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+              <Link key={l.label} to={l.href} title={l.title} className="text-body-sm font-medium text-primary-ink underline-offset-2 hover:underline focus-visible:shadow-focus focus-visible:outline-none">
                 {l.label}
               </Link>
             ))}
@@ -209,7 +209,7 @@ function SymbolDetail({ symbol, today, liveEvents }: { symbol: string; today: st
       <div className="space-y-3" role="status" aria-busy="true" aria-label={`Loading ${symbol} results history`}>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 2xl:grid-cols-2">
           {["overpriced", "implied", "realised", "pnl"].map((k) => (
-            <Skeleton key={k} className="h-[74px]" />
+            <Skeleton key={k} className="h-[66px] rounded-md" />
           ))}
         </div>
         <Skeleton className="h-[230px]" />
@@ -219,7 +219,7 @@ function SymbolDetail({ symbol, today, liveEvents }: { symbol: string; today: st
   }
   if (q.isError || !q.data) {
     return (
-      <EmptyState icon={<SearchX className="h-6 w-6" aria-hidden="true" />} title="Could not load results history" action={<Button size="sm" variant="outline" onClick={() => void q.refetch()}>Try again</Button>}>
+      <EmptyState icon={<SearchX className="h-6 w-6" aria-hidden="true" />} title="Could not load results history" action={<Button variant="outline" onClick={() => void q.refetch()}>Try again</Button>}>
         Something went wrong while reading the archives.
       </EmptyState>
     );
@@ -236,13 +236,13 @@ function SymbolDetail({ symbol, today, liveEvents }: { symbol: string; today: st
   return (
     <div className="min-w-0 space-y-4" data-testid="results-detail">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-display text-lead font-bold">
+        <h3 className="font-display text-lead font-semibold">
           {symbol}
           {name ? <span className="ml-1.5 text-body font-normal text-muted-foreground">{name}</span> : null}
         </h3>
         <ModeBadge data={d} />
       </div>
-      {d.mode === "sample" && d.reason ? <p className="rounded-chip border border-warning/30 bg-wash-warning px-2.5 py-1.5 text-body-sm text-foreground">{d.reason}. The figures below are simulated.</p> : null}
+      {d.mode === "sample" && d.reason ? <p className="rounded-md bg-wash-warning px-2.5 py-1.5 text-body-sm text-foreground">{d.reason}. The figures below are simulated.</p> : null}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 2xl:grid-cols-2">
         <StatTile
           label="Straddle overpriced"
@@ -263,7 +263,7 @@ function SymbolDetail({ symbol, today, liveEvents }: { symbol: string; today: st
         />
       </div>
       {s.unisolatedCount > 0 ? (
-        <p className="rounded-chip border border-warning/30 bg-wash-warning px-2.5 py-1.5 text-body-sm text-foreground">
+        <p className="rounded-md bg-wash-warning px-2.5 py-1.5 text-body-sm text-foreground">
           {s.unisolatedCount} of {s.n} events had no ex-event IV, so their implied move is the full straddle to expiry and leans towards &ldquo;overpriced&rdquo;.
         </p>
       ) : null}
@@ -286,7 +286,7 @@ function SymbolDetail({ symbol, today, liveEvents }: { symbol: string; today: st
               <TableRow key={o.eventDate}>
                 <TableCell className="whitespace-nowrap">
                   <span className="font-num tabular-nums">{shortDate(o.eventDate)}</span>
-                  <span className="block text-micro uppercase text-muted-foreground">
+                  <span className="block text-micro text-muted-foreground">
                     {resultsQuarterFor(o.eventDate)} · {formatStrike(o.strike)} · exp {shortDate(o.expiry)} · {o.dte}d
                   </span>
                 </TableCell>
@@ -351,7 +351,7 @@ export function ResultsMovePanel({ upcoming, today, liveEvents, initialSymbol }:
       subtitle={liveEvents ? "Past quarters from NSE F&O bhavcopy. Live mode loads history on demand because each trading day is a large archive." : "Sample mode: dates and moves are simulated for illustration."}
       actions={
         <Select value={symbol} onValueChange={(v) => setPicked(v)}>
-          <SelectTrigger className="h-8 w-[170px]" aria-label="Stock to analyse">
+          <SelectTrigger className="w-[170px]" aria-label="Stock to analyse">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -366,7 +366,7 @@ export function ResultsMovePanel({ upcoming, today, liveEvents, initialSymbol }:
       bodyClassName="grid min-w-0 gap-5 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
     >
       <div className="min-w-0">
-        <h3 className="mb-2 text-label uppercase text-muted-foreground">Upcoming F&amp;O results{liveEvents ? "" : " (sample dates)"}</h3>
+        <h3 className="mb-1.5 px-0.5 text-label text-muted-foreground">Upcoming F&amp;O results{liveEvents ? "" : " (sample dates)"}</h3>
         {fnoUpcoming.length ? (
           <>
             <ScrollTable>
@@ -391,7 +391,7 @@ export function ResultsMovePanel({ upcoming, today, liveEvents, initialSymbol }:
               </Table>
             </ScrollTable>
             {fnoUpcoming.length > PAGE ? (
-              <Button variant="ghost" size="sm" className="mt-2 h-8" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              <Button variant="ghost" className="mt-1.5" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
                 {showAll ? "Show fewer" : `Show all ${fnoUpcoming.length}`}
               </Button>
             ) : null}

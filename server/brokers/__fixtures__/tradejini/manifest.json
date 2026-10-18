@@ -1,0 +1,27 @@
+{
+  "brokerId": "tradejini",
+  "creds": {
+    "apiKey": "dummyApiKey"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://developer.tradejini.com/docs/api-basics",
+    "https://developer.tradejini.com/docs/authorization/updatedIndividualToken",
+    "https://developer.tradejini.com/docs/account/getUserDetails",
+    "https://developer.tradejini.com/docs/symbol-details/versionDetails",
+    "https://developer.tradejini.com/docs/symbol-details/getSymbolDetails",
+    "https://developer.tradejini.com/docs/funds/retrieveFundsLimits",
+    "https://developer.tradejini.com/docs/orders/getOrders",
+    "https://developer.tradejini.com/docs/orders/placeOrder",
+    "https://developer.tradejini.com/docs/orders/modifyOrder",
+    "https://developer.tradejini.com/docs/orders/cancelOrder",
+    "https://developer.tradejini.com/docs/orders/getTrades",
+    "https://developer.tradejini.com/docs/orders/getPositions",
+    "https://developer.tradejini.com/docs/orders/getHoldings",
+    "https://developer.tradejini.com/docs/chart-data/getIntervalChartData",
+    "https://developer.tradejini.com/docs/websocket-sdks",
+    "https://developer.tradejini.com/docs/rate-limits"
+  ],
+  "notes": "REST field names and envelopes ({ s, d, msg }) come from the official Tradejini API reference; the reference gives schemas rather than sample bodies, so every value is a dummy. Data fixtures add a dummy sessionToken (manifest creds stay logged-out for sessionLogin.test.mjs). Scrip-master CSVs use the live files' header rows with dummy rows. streamTicks feed the fake WebSocket in tradejini.test.mjs (field names from the official WebSocket SDK docs)."
+}

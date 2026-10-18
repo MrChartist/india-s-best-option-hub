@@ -22,8 +22,11 @@ import { PageHeader } from "@/components/PageHeader";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import Glossary from "@/components/learn/Glossary";
 import LessonCard from "@/components/learn/LessonCard";
+import { buttonVariants } from "@/components/ui/button";
 import MetricHelp from "@/components/learn/MetricHelp";
 import NismBanner from "@/components/learn/NismBanner";
+import { BrandCrossLink } from "@/components/brand/ProductCrossLink";
+import { ECOSYSTEM_PAGES } from "@/lib/brand/links";
 import ProgressTracker from "@/components/learn/ProgressTracker";
 import { useLearnProgress } from "@/components/learn/useLearnProgress";
 import { GLOSSARY } from "@/content/learn/glossary";
@@ -80,10 +83,10 @@ export default function Learn() {
           <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:items-end">
             <Link
               to={`/learn/${nextLesson?.slug ?? LESSONS[0].slug}`}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-pill bg-primary px-5 text-lead font-semibold text-primary-foreground shadow-card transition-colors duration-fast hover:bg-primary-hover focus-visible:shadow-ember focus-visible:outline-none active:scale-[.97]"
+              className={buttonVariants({ size: "lg" })}
             >
               {allDone ? "Review from the start" : started ? "Continue learning" : "Start with Options 101"}
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ArrowRight aria-hidden="true" />
             </Link>
             {nextLesson && started ? <span className="text-center text-body-sm text-muted-foreground sm:max-w-[16rem] sm:text-right">Next up: {nextLesson.title}</span> : null}
           </div>
@@ -93,7 +96,7 @@ export default function Learn() {
       {/* At a glance: one quiet orange radial (6%) instead of decorative circles */}
       <section
         aria-label="Course at a glance"
-        className="relative overflow-hidden rounded-card border border-border bg-card bg-[radial-gradient(80%_140%_at_100%_0%,hsl(var(--primary)/0.06),transparent_65%)] p-4 shadow-card sm:p-5"
+        className="relative overflow-hidden rounded-card border border-separator bg-card bg-[radial-gradient(80%_140%_at_100%_0%,hsl(var(--primary)/0.06),transparent_65%)] p-4 shadow-card sm:p-5"
       >
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <p className="max-w-xl font-display text-title font-semibold text-foreground">
@@ -115,15 +118,15 @@ export default function Learn() {
         </div>
       </section>
 
-      <aside role="note" aria-label="Risk notice" className="flex gap-3 rounded-card border border-border bg-card p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-bearish" aria-hidden="true" />
+      <aside role="note" aria-label="Risk notice" className="flex gap-3 rounded-card border border-separator bg-card px-4 py-3 shadow-card">
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-bearish" aria-hidden="true" />
         <p className="text-body text-foreground">
           <span className="font-semibold">Know the odds first.</span> SEBI found that about 9 in 10 individual F&O traders lost money between FY22 and FY24.{" "}
-          <a href={SEBI_STUDY_2024_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-ember focus-visible:outline-none">
+          <a href={SEBI_STUDY_2024_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-focus focus-visible:outline-none">
             Read the SEBI study<span className="sr-only"> (PDF, opens in a new tab)</span>
           </a>{" "}
           or start with the{" "}
-          <Link to="/learn/risk-disclosure" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-ember focus-visible:outline-none">
+          <Link to="/learn/risk-disclosure" className="font-semibold text-foreground underline decoration-bearish/60 underline-offset-4 hover:decoration-bearish focus-visible:shadow-focus focus-visible:outline-none">
             risk disclosure lesson
           </Link>
           .
@@ -150,7 +153,7 @@ export default function Learn() {
           </div>
 
           {visiblePaths.length === 0 ? (
-            <div className="rounded-card border border-dashed border-border bg-surface px-4 py-10 text-center">
+            <div className="rounded-card bg-control-track px-4 py-10 text-center">
               <p className="font-semibold text-foreground">No lessons match “{filter}”</p>
               <p className="mt-1 text-body-sm text-muted-foreground">Try the glossary below for single terms.</p>
             </div>
@@ -160,20 +163,20 @@ export default function Learn() {
               const all = lessonsInPath(path.id);
               return (
                 <div key={path.id} id={`path-${path.id}`} className="scroll-mt-20">
-                  <div className="mb-3 flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-tile bg-wash-brand text-primary-ink" aria-hidden="true">
-                      <Icon className="h-5 w-5" />
+                  <div className="mb-2 flex items-start gap-2.5 px-1">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-primary text-primary-foreground" aria-hidden="true">
+                      <Icon className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0">
-                      <h3 className="font-display text-lead font-bold text-foreground">{path.title}</h3>
+                      <h3 className="font-display text-lead font-semibold text-foreground">{path.title}</h3>
                       <p className="text-body-sm text-muted-foreground">{path.blurb}</p>
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <ul aria-label={`${path.title} lessons`} className="divide-y divide-separator overflow-hidden rounded-tile border border-separator bg-card shadow-card">
                     {lessons.map((l) => (
                       <LessonCard key={l.slug} lesson={l} index={all.indexOf(l)} done={!!progress.completed[l.slug]} quiz={progress.quiz[l.slug]} />
                     ))}
-                  </div>
+                  </ul>
                 </div>
               );
             })
@@ -187,6 +190,14 @@ export default function Learn() {
       </div>
 
       <NismBanner />
+      <BrandCrossLink
+        name="Learn options on mrchartist.com"
+        url={ECOSYSTEM_PAGES.learnOptions}
+        campaign="learn-hub"
+        tag="learn-options"
+        lead="More lessons from Mr. Chartist:"
+        className="-mt-3"
+      />
 
       {/* Simulators */}
       <section aria-labelledby="sims-h">
@@ -194,18 +205,18 @@ export default function Learn() {
           <FlaskConical className="h-5 w-5 text-primary-ink" aria-hidden="true" /> Try the simulators
         </h2>
         <p className="mt-0.5 text-body-sm text-muted-foreground">Each one lives inside a lesson, priced with the terminal's Black-Scholes core on a live or sample NIFTY level.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-3 grid overflow-hidden rounded-tile border border-separator bg-card shadow-card sm:grid-cols-2 lg:grid-cols-3 [&>*]:shadow-[0_0_0_var(--hairline)_hsl(var(--separator))]">
           {SIM_CARDS.map((s) => (
             <Link
               key={s.sim}
               to={`/learn/${firstLessonWithSim(s.sim)}`}
-              className="group flex items-start gap-3 rounded-card border border-border bg-card p-4 shadow-card transition-[box-shadow,border-color] duration-hover ease-expo hover:border-primary/40 hover:shadow-card-hover focus-visible:shadow-ember focus-visible:outline-none"
+              className="group flex items-start gap-3 bg-card px-3 py-2.5 transition-colors duration-fast hover:bg-control-track focus-visible:shadow-[inset_0_0_0_3px_hsl(var(--primary)/0.5)] focus-visible:outline-none"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-tile bg-product-wash text-product" aria-hidden="true">
-                <s.icon className="h-5 w-5" />
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-product text-primary-foreground" aria-hidden="true">
+                <s.icon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="block font-semibold text-foreground group-hover:text-primary-ink">{s.title}</span>
+                <span className="block text-headline text-foreground">{s.title}</span>
                 <span className="mt-0.5 block text-body-sm text-muted-foreground">{s.blurb}</span>
               </span>
             </Link>
@@ -219,9 +230,9 @@ export default function Learn() {
           Every metric, explained
         </h2>
         <p className="mt-0.5 text-body-sm text-muted-foreground">The same explainers appear next to numbers across the terminal. Hover, focus or tap the info icon.</p>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-3 grid overflow-hidden rounded-tile border border-separator bg-card shadow-card sm:grid-cols-2 lg:grid-cols-4 [&>*]:shadow-[0_0_0_var(--hairline)_hsl(var(--separator))]">
           {METRIC_KEYS.map((k) => (
-            <li key={k} className="flex min-w-0 items-start justify-between gap-2 rounded-tile border border-border bg-card px-3 py-2.5">
+            <li key={k} className="flex min-w-0 items-start justify-between gap-2 bg-card px-3 py-2.5">
               <span className="min-w-0">
                 <MetricHelp metric={k} className="font-semibold text-foreground">
                   <span className="truncate">{METRICS[k].title}</span>
@@ -237,7 +248,7 @@ export default function Learn() {
         <Glossary />
       </div>
 
-      <footer className="space-y-1 border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <footer className="hairline-t space-y-1 pt-3 text-body-sm text-muted-foreground">
         <p>Data for education and research. Not investment advice. Examples and simulators are illustrative; lot sizes, charge rates and expiry rules come from dated tables marked for verification against NSE, BSE and SEBI circulars.</p>
         <p>Educational content in partnership with NISMExams.com. Progress is stored only in this browser.</p>
       </footer>

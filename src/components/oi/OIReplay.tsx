@@ -29,7 +29,7 @@ function TimeSlider({ value, max, onChange, labels, ariaLabel }: { value: number
       onValueChange={onChange}
       minStepsBetweenThumbs={0}
     >
-      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-capsule bg-muted">
+      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-capsule bg-control-track">
         <SliderPrimitive.Range className="absolute h-full bg-primary/70" />
       </SliderPrimitive.Track>
       {value.map((v, i) => (
@@ -37,7 +37,7 @@ function TimeSlider({ value, max, onChange, labels, ariaLabel }: { value: number
           key={ariaLabel[i] ?? `thumb-${v}`}
           aria-label={ariaLabel[i]}
           aria-valuetext={labels[v] ?? ""}
-          className="block h-5 w-5 rounded-full border-2 border-primary bg-card shadow-card transition-colors focus-visible:shadow-ember focus-visible:outline-none"
+          className="block h-5 w-5 rounded-capsule border-2 border-primary bg-card shadow-card transition-colors focus-visible:shadow-focus focus-visible:outline-none"
         />
       ))}
     </SliderPrimitive.Root>
@@ -171,12 +171,12 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
               {recordingBadge}
               {dayKeys.length > 1 && (
                 <Select value={activeDay} onValueChange={setDay}>
-                  <SelectTrigger className="h-8 w-[136px] text-xs" aria-label="Replay day">
+                  <SelectTrigger className="w-[136px] text-body-sm" aria-label="Replay day">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {dayKeys.map((d) => (
-                      <SelectItem key={d} value={d} className="text-xs">
+                      <SelectItem key={d} value={d} className="text-body-sm">
                         {formatDateIST(d)}
                       </SelectItem>
                     ))}
@@ -195,7 +195,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
                   { value: "diff", label: "T1 vs T2" },
                 ]}
               />
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={downloadCSV} aria-label="Download this day's snapshots as CSV">
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadCSV} aria-label="Download this day's snapshots as CSV">
                 <Download className="h-3.5 w-3.5" /> CSV
               </Button>
             </>
@@ -208,7 +208,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
                 <Button
                   size="icon"
                   variant="outline"
-                  className="h-8 w-8 shrink-0"
+                  className="shrink-0"
                   onClick={() => {
                     if (!playing && tIdx >= last) setT(0);
                     setPlaying((p) => !p);
@@ -217,7 +217,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
                 >
                   {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setPlaying(false); setT(null); }} aria-label="Jump to latest snapshot">
+                <Button size="icon" variant="ghost" className="shrink-0" onClick={() => { setPlaying(false); setT(null); }} aria-label="Jump to latest snapshot">
                   <RotateCcw className="h-4 w-4" />
                 </Button>
               </>
@@ -228,7 +228,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
               ) : (
                 <TimeSlider value={[r1, r2]} max={last} onChange={(v) => setRange([v[0], v[1]])} labels={labels} ariaLabel={["Time T1", "Time T2"]} />
               )}
-              <div className="mt-1 flex justify-between font-num text-[11px] text-muted-foreground">
+              <div className="mt-1 flex justify-between font-num text-body-sm text-muted-foreground">
                 <span>{labels[0]}</span>
                 <span className="font-semibold text-foreground" aria-live="polite">
                   {mode === "single" ? `T = ${labels[tIdx] ?? ""}` : `T1 ${labels[r1] ?? ""} → T2 ${labels[r2] ?? ""}`}
@@ -248,7 +248,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
 
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <p className="mb-1 text-label uppercase text-muted-foreground">OI by strike at {mode === "single" ? "T" : "T2"}</p>
+              <p className="mb-1 text-label text-muted-foreground">OI by strike at {mode === "single" ? "T" : "T2"}</p>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={bars} barGap={0} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
@@ -264,7 +264,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
               </div>
             </div>
             <div>
-              <p className="mb-1 text-label uppercase text-muted-foreground">ΔOI {mode === "single" ? "since first snapshot" : "T1 → T2"}</p>
+              <p className="mb-1 text-label text-muted-foreground">ΔOI {mode === "single" ? "since first snapshot" : "T1 → T2"}</p>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={bars} barGap={0} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
@@ -303,7 +303,7 @@ export function OIReplay({ symbol, expiry }: { symbol: string; expiry: string })
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className={cn("mt-2 text-[11px] text-muted-foreground")}>Recorded only while this tab was open. Gaps mean the tab was closed or the feed was not live.</p>
+          <p className={cn("mt-2 text-body-sm text-muted-foreground")}>Recorded only while this tab was open. Gaps mean the tab was closed or the feed was not live.</p>
         </CardContent>
       </Card>
     </div>

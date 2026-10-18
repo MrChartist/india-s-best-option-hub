@@ -1,0 +1,23 @@
+{
+  "brokerId": "angelone",
+  "creds": {
+    "apiKey": "dummyApiKey",
+    "clientId": "A123456"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://smartapi.angelone.in/docs (SPA; sections: User, Orders, Portfolio, MarketData, Historical, OptionGreeks, Instruments, RateLimit, Exceptions)",
+    "https://smartapi.angelone.in/docs/User",
+    "https://smartapi.angelone.in/docs/Orders",
+    "https://smartapi.angelone.in/docs/Portfolio",
+    "https://smartapi.angelone.in/docs/MarketData",
+    "https://smartapi.angelone.in/docs/Historical",
+    "https://smartapi.angelone.in/docs/OptionGreeks",
+    "https://smartapi.angelone.in/docs/Instruments",
+    "https://smartapi.angelone.in/docs/RateLimit",
+    "https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json",
+    "https://www.angelone.in/news/market-updates/what-s-changing-in-angel-one-s-smartapi-access-from-april-1-2026"
+  ],
+  "notes": "Login request/response match the official SmartAPI docs (loginByPassword). Data payloads use the field names and envelope of the docs' samples (quote FULL mode, getRMS, getPosition, getAllHolding, getOrderBook, getTradeBook, getCandleData, optionGreek, placeOrder/modifyOrder/cancelOrder); the docs' samples are for SBIN/TCS/RELIANCE, so option rows carry NIFTY tokens in the scrip-master format. Session tokens are added per fixture (creds.sessionToken) so manifest.creds stays logged-out for sessionLogin.test.mjs. Every token, id and name is a dummy."
+}

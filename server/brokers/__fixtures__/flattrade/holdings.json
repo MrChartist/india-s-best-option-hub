@@ -1,0 +1,64 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/Holdings",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"prd\":\"C\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "13",
+              "tsym": "ABB-EQ"
+            }
+          ],
+          "holdqty": "20",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1800.00"
+        },
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "22",
+              "tsym": "ACC-EQ"
+            }
+          ],
+          "holdqty": "15",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1400.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

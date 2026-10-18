@@ -1,0 +1,50 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/user/profile",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "user_id": "AB1234",
+          "user_type": "individual",
+          "email": "user@example.com",
+          "user_name": "Test User",
+          "user_shortname": "Test",
+          "broker": "ZERODHA",
+          "exchanges": [
+            "BFO",
+            "MCX",
+            "NSE",
+            "CDS",
+            "BSE",
+            "BCD",
+            "MF",
+            "NFO"
+          ],
+          "products": [
+            "CNC",
+            "NRML",
+            "MIS",
+            "BO",
+            "CO"
+          ],
+          "order_types": [
+            "MARKET",
+            "LIMIT",
+            "SL",
+            "SL-M"
+          ],
+          "avatar_url": null,
+          "meta": {
+            "demat_consent": "physical"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

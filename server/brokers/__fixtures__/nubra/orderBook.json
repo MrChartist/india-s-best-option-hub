@@ -1,0 +1,161 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/sentinel/orders",
+      "json": {
+        "orders": {
+          "cancelled": [
+            {
+              "intentOrderId": 11303,
+              "exchange": "NSE",
+              "status": "CANCELLED",
+              "isMulti": false,
+              "legs": null,
+              "refId": 72329,
+              "refData": {
+                "displayName": "ICICIBANK",
+                "asset": "ICICIBANK",
+                "exchange": "NSE",
+                "derivativeType": "STOCK",
+                "optionType": "N/A",
+                "lotSize": 1,
+                "tickSize": 10
+              },
+              "filledQty": 0,
+              "orderQty": 1,
+              "deliveryType": "CNC",
+              "priceType": "LIMIT",
+              "validityType": "DAY",
+              "executionMode": "ENTRY",
+              "ltp": 136010,
+              "orderPrice": 120000,
+              "timestamps": {
+                "intentCreatedAt": "2026-10-16T05:00:45.054721358Z"
+              },
+              "intentOrderType": "REGULAR",
+              "side": "BUY"
+            }
+          ],
+          "executed": [
+            {
+              "intentOrderId": 11344,
+              "exchange": "NSE",
+              "status": "EXECUTED",
+              "isMulti": true,
+              "legs": [
+                {
+                  "refId": 1504439,
+                  "refData": {
+                    "displayName": "NIFTY 23 JUN 26 24050 CE",
+                    "asset": "NIFTY",
+                    "exchange": "NSE",
+                    "derivativeType": "OPT",
+                    "optionType": "CE",
+                    "lotSize": 65,
+                    "tickSize": 5
+                  },
+                  "unitQty": 1,
+                  "orderQty": 65,
+                  "filledQty": 65,
+                  "filledPrice": 11895
+                }
+              ],
+              "filledQty": 65,
+              "orderQty": 65,
+              "deliveryType": "IDAY",
+              "priceType": "MARKET",
+              "validityType": "IOC",
+              "executionMode": "ENTRY",
+              "ltp": 11780,
+              "filledPrice": 11895,
+              "intentOrderType": "REGULAR",
+              "side": "BUY"
+            },
+            {
+              "intentOrderId": 11290,
+              "exchange": "NSE",
+              "status": "EXECUTED",
+              "isMulti": false,
+              "legs": null,
+              "refId": 739119,
+              "refData": {
+                "displayName": "NIFTY 20 OCT 26 25000 CE",
+                "asset": "NIFTY",
+                "exchange": "NSE",
+                "derivativeType": "OPT",
+                "optionType": "CE",
+                "lotSize": 65,
+                "tickSize": 5
+              },
+              "filledQty": 65,
+              "orderQty": 65,
+              "deliveryType": "IDAY",
+              "priceType": "LIMIT",
+              "validityType": "DAY",
+              "executionMode": "ENTRY",
+              "stratTags": [
+                "momentum-breakout"
+              ],
+              "ltp": 10495,
+              "orderPrice": 9850,
+              "timestamps": {
+                "intentCreatedAt": "2026-10-16T05:00:45.054721358Z",
+                "sentToColoAt": "2026-10-16T05:00:45.060222428Z"
+              },
+              "intentOrderType": "REGULAR",
+              "side": "BUY",
+              "filledPrice": 9850,
+              "positionId": "739119_IDAY"
+            }
+          ],
+          "expired": [],
+          "gtt": [],
+          "open": [
+            {
+              "intentOrderId": 11304,
+              "exchange": "NSE",
+              "status": "OPEN",
+              "isMulti": false,
+              "legs": null,
+              "refId": 739119,
+              "refData": {
+                "displayName": "NIFTY 20 OCT 26 25000 CE",
+                "asset": "NIFTY",
+                "exchange": "NSE",
+                "derivativeType": "OPT",
+                "optionType": "CE",
+                "lotSize": 65,
+                "tickSize": 5
+              },
+              "filledQty": 65,
+              "orderQty": 130,
+              "deliveryType": "IDAY",
+              "priceType": "LIMIT",
+              "validityType": "DAY",
+              "executionMode": "ENTRY",
+              "stratTags": [
+                "momentum-breakout"
+              ],
+              "ltp": 10495,
+              "orderPrice": 9850,
+              "timestamps": {
+                "intentCreatedAt": "2026-10-16T05:00:45.054721358Z",
+                "sentToColoAt": "2026-10-16T05:00:45.060222428Z"
+              },
+              "intentOrderType": "REGULAR",
+              "side": "BUY"
+            }
+          ],
+          "rejected": []
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

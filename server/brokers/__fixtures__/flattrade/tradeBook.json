@@ -1,0 +1,59 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/TradeBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "norenordno": "20121300065715",
+          "uid": "FZ00000",
+          "actid": "FZ00000",
+          "exch": "NSE",
+          "prctyp": "LMT",
+          "ret": "DAY",
+          "prd": "M",
+          "flid": "102",
+          "fltm": "13-12-2020 19:59:32",
+          "trantype": "S",
+          "tsym": "ACCELYA-EQ",
+          "qty": "180",
+          "token": "7053",
+          "fillshares": "180",
+          "flqty": "180",
+          "pp": "2",
+          "ls": "1",
+          "ti": "0.05",
+          "prc": "800.00",
+          "flprc": "800.00",
+          "norentm": "19:59:32 13-12-2020",
+          "exch_tm": "00:00:00 01-01-1980",
+          "remarks": "WC TEST Order",
+          "exchordid": "6857"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

@@ -110,7 +110,7 @@ function SimpleSelect<T extends string>({
 }) {
   return (
     <Select key={options.map((o) => o.value).join("|")} value={value} onValueChange={(v) => v && onChange(v as T)}>
-      <SelectTrigger id={id} className="h-9 text-body-sm">
+      <SelectTrigger id={id} className="text-body-sm">
         <SelectValue />
       </SelectTrigger>
       <SelectContent className="max-h-72">
@@ -200,13 +200,13 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
               setD((x) => retypeDraft(x, v as AlertRuleType, flowStore.getState().feeds[x.symbol]?.spot));
             }}
           >
-            <SelectTrigger id={id("type")} className="h-9 text-body-sm">
+            <SelectTrigger id={id("type")} className="text-body-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-80">
               {CATEGORIES.map((c) => (
                 <SelectGroup key={c}>
-                  <SelectLabel className="text-micro uppercase text-muted-foreground">{CATEGORY_LABEL[c]}</SelectLabel>
+                  <SelectLabel className="text-micro text-muted-foreground">{CATEGORY_LABEL[c]}</SelectLabel>
                   {RULE_TYPES.filter((t) => RULE_CATEGORY[t] === c).map((t) => (
                     <SelectItem key={t} value={t}>
                       {RULE_TYPE_LABEL[t]}
@@ -223,7 +223,7 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
             value={d.symbol}
             onValueChange={(v) => v && set("symbol", v)}
           >
-            <SelectTrigger id={id("symbol")} className="h-9 text-body-sm" aria-invalid={bad("symbol") || undefined}>
+            <SelectTrigger id={id("symbol")} className="text-body-sm" aria-invalid={bad("symbol") || undefined}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-72">
@@ -327,7 +327,7 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
           <div className="grid grid-cols-2 gap-3">
             <Field id={id("expiry")} label="Expiry">
               <Select value={d.expiry} onValueChange={(v) => v && set("expiry", v)}>
-                <SelectTrigger id={id("expiry")} className="h-9 text-body-sm" aria-invalid={bad("expiry") || undefined}>
+                <SelectTrigger id={id("expiry")} className="text-body-sm" aria-invalid={bad("expiry") || undefined}>
                   <SelectValue placeholder="Pick expiry" />
                 </SelectTrigger>
                 <SelectContent>
@@ -362,10 +362,10 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
               className="justify-start"
               aria-labelledby={id("opt-label")}
             >
-              <ToggleGroupItem value="CE" className="h-9 px-4 text-body-sm">
+              <ToggleGroupItem value="CE" className="px-4 text-body-sm">
                 CE (call)
               </ToggleGroupItem>
-              <ToggleGroupItem value="PE" className="h-9 px-4 text-body-sm">
+              <ToggleGroupItem value="PE" className="px-4 text-body-sm">
                 PE (put)
               </ToggleGroupItem>
             </ToggleGroup>
@@ -388,10 +388,10 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
               onValueChange={(v) => v && set("op", v as RuleDraft["op"])}
               aria-label="Condition"
             >
-              <ToggleGroupItem value="gte" className="h-9 w-9" aria-label="at or above">
+              <ToggleGroupItem value="gte" className="w-7 px-0" aria-label="at or above">
                 ≥
               </ToggleGroupItem>
-              <ToggleGroupItem value="lte" className="h-9 w-9" aria-label="at or below">
+              <ToggleGroupItem value="lte" className="w-7 px-0" aria-label="at or below">
                 ≤
               </ToggleGroupItem>
             </ToggleGroup>
@@ -550,7 +550,7 @@ export function RuleEditor({ rule, initial, onSave, onCancel, compact = false, s
       </div>
 
       {!compact ? (
-        <fieldset className="space-y-2 rounded-tile border border-border p-3">
+        <fieldset className="space-y-2 rounded-tile border border-separator p-3">
           <legend className="px-1 text-body-sm font-medium">Channels for this rule</legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {(Object.keys(CHANNEL_NAMES) as ChannelKey[]).map((k) => (

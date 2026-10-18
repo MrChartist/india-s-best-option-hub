@@ -35,13 +35,13 @@ export function ChangeText({
   const body = compact ? formatCompactIN(Math.abs(value)) : formatNumberIN(Math.abs(value), 2, { minDecimals: 2 });
   return (
     <span className={cn("whitespace-nowrap", stacked && "inline-flex flex-col items-end leading-none [[data-side=PE]_&]:items-start", up && "text-bullish", down && "text-bearish", !up && !down && "text-muted-foreground", className)}>
-      <span className={cn(stacked && "leading-[15px]")}>
+      <span className={cn(stacked && "leading-[14px]")}>
         <span aria-hidden="true" className="mr-0.5 text-[10px]">{up ? "▲" : down ? "▼" : ""}</span>
         {up ? "+" : down ? MINUS : ""}
         {body}
       </span>
       {pct !== undefined && pct !== null && fin(pct) && (
-        <span className={cn("text-[10px]", stacked ? "leading-[12px]" : "ml-1")}>
+        <span className={cn("text-[10px]", stacked ? "leading-[11px]" : "ml-1")}>
           ({pct > 0 ? "+" : pct < 0 ? MINUS : ""}
           {Math.abs(pct) >= 1000 ? ">999" : Math.abs(pct).toFixed(1)}%)
         </span>
@@ -94,8 +94,8 @@ export function LtpCell({ lv, ctx }: { lv: LegView; ctx: CellContext }) {
   const pct = lv.ltpChgPct;
   return (
     <div className={cn("flex flex-col leading-none", ctx.side === "CE" ? "items-end" : "items-start")}>
-      <span className="font-semibold leading-[15px] text-foreground">{lv.leg.ltp > 0 ? num(lv.leg.ltp) : DASH}</span>
-      {pct !== null && fin(pct) ? <ChangePct pct={pct} className="text-[10px] leading-[12px]" /> : null}
+      <span className="font-semibold leading-[14px] text-foreground">{lv.leg.ltp > 0 ? num(lv.leg.ltp) : DASH}</span>
+      {pct !== null && fin(pct) ? <ChangePct pct={pct} className="text-[10px] leading-[11px]" /> : null}
     </div>
   );
 }
@@ -116,7 +116,7 @@ export interface TradeButtonsProps {
 export function TradeButtons({ strike, side, onTrade, near }: TradeButtonsProps) {
   const label = `${strike} ${side}`;
   const btn =
-    "grid h-6 w-6 place-items-center rounded-chip border text-[10px] font-bold transition-[transform,background-color,color] duration-fast active:scale-95 focus-visible:shadow-ember focus-visible:outline-none [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:text-[11px]";
+    "grid h-6 w-6 place-items-center rounded-[5px] text-[10px] font-bold transition-[background-color,color,filter] duration-fast active:brightness-95 focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-7 [@media(pointer:coarse)]:text-[11px]";
   return (
     <div
       className={cn(
@@ -131,7 +131,7 @@ export function TradeButtons({ strike, side, onTrade, near }: TradeButtonsProps)
           e.stopPropagation();
           onTrade(strike, side, "BUY");
         }}
-        className={cn(btn, "border-bullish/35 bg-wash-profit text-bullish hover:bg-bullish hover:text-bullish-foreground")}
+        className={cn(btn, "bg-wash-profit text-bullish shadow-[inset_0_0_0_var(--hairline)_hsl(var(--bullish)/0.35)] hover:bg-bullish hover:text-bullish-foreground")}
         aria-label={`Buy ${label}: add to basket`}
         title={`Buy ${label}`}
       >
@@ -143,7 +143,7 @@ export function TradeButtons({ strike, side, onTrade, near }: TradeButtonsProps)
           e.stopPropagation();
           onTrade(strike, side, "SELL");
         }}
-        className={cn(btn, "border-bearish/35 bg-wash-loss text-bearish hover:bg-bearish hover:text-bearish-foreground")}
+        className={cn(btn, "bg-wash-loss text-bearish shadow-[inset_0_0_0_var(--hairline)_hsl(var(--bearish)/0.35)] hover:bg-bearish hover:text-bearish-foreground")}
         aria-label={`Sell ${label}: add to basket`}
         title={`Sell ${label}`}
       >
@@ -158,7 +158,7 @@ export function LiquidityDots({ score }: { score: number }) {
   return (
     <span className="inline-flex items-center gap-[3px]" role="img" aria-label={`Liquidity ${score} of 5`} title={`Liquidity ${score}/5 (spread and volume rank)`}>
       {[1, 2, 3, 4, 5].map((level) => (
-        <span key={level} className={cn("h-1.5 w-1.5 rounded-full", level <= score ? (score >= 4 ? "bg-bullish" : score >= 3 ? "bg-warning" : "bg-bearish") : "bg-muted")} />
+        <span key={level} className={cn("h-1.5 w-1.5 rounded-full", level <= score ? (score >= 4 ? "bg-bullish" : score >= 3 ? "bg-warning" : "bg-bearish") : "bg-control-track")} />
       ))}
     </span>
   );

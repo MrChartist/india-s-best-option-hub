@@ -1,0 +1,138 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/user/orders",
+      "json": {
+        "data": [
+          {
+            "userID": "AJ0001",
+            "accountID": "AJ0001",
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C25000",
+            "id": "26101602000013",
+            "price": "98.5",
+            "quantity": "130",
+            "product": "M",
+            "orderStatus": "OPEN",
+            "reportType": "NewAck",
+            "transactionType": "B",
+            "order": "LMT",
+            "cumulativeFillQty": "65",
+            "fillShares": "65",
+            "averagePrice": "98.5",
+            "exchangeOrderID": "1400000055208129",
+            "cancelQuantity": "0",
+            "validity": "DAY",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65",
+            "token": "51450",
+            "orderTime": "2026-10-16T10:16:16",
+            "exchangeUpdateTime": "2026-10-16T10:16:16",
+            "exchangeTime": "2026-10-16T10:16:16",
+            "orderSource": "WEB",
+            "isAck": true,
+            "leavesQuantity": "65",
+            "twap": {},
+            "gorilla": {},
+            "vwap": {},
+            "slicer": {},
+            "pov": {}
+          },
+          {
+            "userID": "AJ0001",
+            "accountID": "AJ0001",
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26P25000",
+            "id": "26101602000012",
+            "price": "82.95",
+            "quantity": "65",
+            "product": "M",
+            "orderStatus": "REJECTED",
+            "reportType": "Rejected",
+            "transactionType": "S",
+            "order": "LMT",
+            "cumulativeFillQty": "0",
+            "fillShares": "0",
+            "averagePrice": "0",
+            "exchangeOrderID": "1400000055208129",
+            "cancelQuantity": "0",
+            "validity": "DAY",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65",
+            "token": "51451",
+            "orderTime": "2026-10-16T10:16:16",
+            "exchangeUpdateTime": "2026-10-16T10:16:16",
+            "exchangeTime": "2026-10-16T10:16:16",
+            "orderSource": "WEB",
+            "isAck": true,
+            "leavesQuantity": "0",
+            "twap": {},
+            "gorilla": {},
+            "vwap": {},
+            "slicer": {},
+            "pov": {},
+            "rejectReason": "<err>MARGIN ERROR: MARGIN BREACH,SHORTFALL=40091.080000"
+          },
+          {
+            "userID": "AJ0001",
+            "accountID": "AJ0001",
+            "exchange": "BFO",
+            "symbol": "SENSEX22OCT26C82000",
+            "id": "26101602000009",
+            "price": "138.95",
+            "quantity": "20",
+            "product": "M",
+            "orderStatus": "COMPLETE",
+            "reportType": "Fill",
+            "transactionType": "S",
+            "order": "LMT",
+            "cumulativeFillQty": "20",
+            "fillShares": "20",
+            "averagePrice": "139.9",
+            "exchangeOrderID": "1400000055208129",
+            "cancelQuantity": "0",
+            "validity": "DAY",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65",
+            "token": "2131475",
+            "orderTime": "2026-10-16T10:16:16",
+            "exchangeUpdateTime": "2026-10-16T10:16:16",
+            "exchangeTime": "2026-10-16T10:16:16",
+            "orderSource": "WEB",
+            "isAck": true,
+            "leavesQuantity": "0",
+            "twap": {},
+            "gorilla": {},
+            "vwap": {},
+            "slicer": {},
+            "pov": {}
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

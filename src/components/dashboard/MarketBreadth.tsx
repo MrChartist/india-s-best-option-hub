@@ -59,7 +59,7 @@ export function MarketBreadth() {
   const head = (icon: ReactNode, title: string, extra?: ReactNode) => (
     <div className={cn("flex items-center gap-2", d.headPad)}>
       <span className="text-primary-ink" aria-hidden="true">{icon}</span>
-      <h3 className="font-display text-lead font-bold">{title}</h3>
+      <h3 className="font-display text-headline">{title}</h3>
       {extra ? <div className="ml-auto">{extra}</div> : null}
     </div>
   );
@@ -92,15 +92,15 @@ export function MarketBreadth() {
             <>
               <dl className="grid grid-cols-3 text-center">
                 <div>
-                  <dt className="text-label uppercase text-muted-foreground">Advances</dt>
+                  <dt className="text-label text-muted-foreground">Advances</dt>
                   <dd className="font-num text-title tabular-nums text-bullish">▲ {formatNumberIN(advances)}</dd>
                 </div>
                 <div>
-                  <dt className="text-label uppercase text-muted-foreground">Unchanged</dt>
+                  <dt className="text-label text-muted-foreground">Unchanged</dt>
                   <dd className="font-num text-title tabular-nums text-muted-foreground">{formatNumberIN(unchanged)}</dd>
                 </div>
                 <div>
-                  <dt className="text-label uppercase text-muted-foreground">Declines</dt>
+                  <dt className="text-label text-muted-foreground">Declines</dt>
                   <dd className="font-num text-title tabular-nums text-bearish">▼ {formatNumberIN(declines)}</dd>
                 </div>
               </dl>
@@ -131,7 +131,7 @@ export function MarketBreadth() {
             ) : null}
           </div>
           {regime ? (
-            <div className="rounded-tile bg-surface p-2.5">
+            <div className="rounded-md bg-surface p-2.5">
               <p className={cn("text-body font-semibold", TONE_TEXT[regime.tone])}>{regime.label}</p>
               <p className="text-body-sm text-muted-foreground">{regime.note}</p>
             </div>
@@ -148,13 +148,13 @@ export function MarketBreadth() {
           {stocks.length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-tile bg-wash-profit p-2.5 text-center">
+                <div className="rounded-md bg-wash-profit p-2.5 text-center">
                   <p className="font-num text-title tabular-nums text-bullish">{formatNumberIN(up)}</p>
-                  <p className="text-label uppercase text-muted-foreground">Stocks up</p>
+                  <p className="text-label text-muted-foreground">Stocks up</p>
                 </div>
-                <div className="rounded-tile bg-wash-loss p-2.5 text-center">
+                <div className="rounded-md bg-wash-loss p-2.5 text-center">
                   <p className="font-num text-title tabular-nums text-bearish">{formatNumberIN(down)}</p>
-                  <p className="text-label uppercase text-muted-foreground">Stocks down</p>
+                  <p className="text-label text-muted-foreground">Stocks down</p>
                 </div>
               </div>
               <div className="relative h-2 overflow-hidden rounded-full bg-bearish/30" aria-hidden="true">
@@ -173,5 +173,3 @@ export function MarketBreadth() {
     </div>
   );
 }
-
-export default MarketBreadth;

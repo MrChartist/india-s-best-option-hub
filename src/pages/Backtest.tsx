@@ -75,13 +75,13 @@ function ProgressPanel({ state, onCancel }: { state: RunnerState; onCancel: () =
     label = !p || p.phase === "prepare" ? "Preparing the dataset…" : p.phase === "stats" ? "Crunching the statistics…" : `Simulating session ${p.done} of ${p.total} · ${p.trades} trade${p.trades === 1 ? "" : "s"} so far`;
   }
   return (
-    <div className="space-y-2 rounded-card border border-border bg-card p-3 shadow-card" aria-busy="true">
+    <div className="space-y-2 rounded-tile border border-separator bg-card p-3 shadow-card" aria-busy="true">
       <div className="flex items-center justify-between gap-2">
         <p className="flex min-w-0 items-center gap-2 text-body-sm font-semibold" role="status" aria-live="polite">
           <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-primary-ink motion-reduce:animate-none" aria-hidden="true" />
           <span className="min-w-0 truncate">{label}</span>
         </p>
-        <Button size="pill" variant="outline" onClick={onCancel}>
+        <Button size="pill" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
       </div>
@@ -98,19 +98,19 @@ function ResultsSkeleton() {
           <Skeleton key={k} className="h-[66px] rounded-tile" />
         ))}
       </div>
-      <Skeleton className="h-[340px] rounded-card" />
-      <Skeleton className="h-[220px] rounded-card" />
+      <Skeleton className="h-[340px] rounded-tile" />
+      <Skeleton className="h-[220px] rounded-tile" />
     </div>
   );
 }
 
 function EmptyState({ onPreset }: { onPreset: (patch: Partial<BacktestSettings>) => void }) {
   return (
-    <div className="rounded-card border border-dashed border-border bg-card px-4 py-8 text-center shadow-card sm:px-8">
-      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-wash-brand">
-        <History className="h-5 w-5 text-primary-ink" aria-hidden="true" />
+    <div className="rounded-tile border border-separator bg-card px-4 py-8 text-center shadow-card sm:px-8">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-[9px] bg-primary">
+        <History className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
       </div>
-      <h2 className="mt-3 font-display text-[17px] font-bold">Test a strategy on past expiries</h2>
+      <h2 className="mt-3 font-display text-title">Test a strategy on past expiries</h2>
       <p className="mx-auto mt-1 max-w-md text-body-sm text-muted-foreground">
         Choose a template, entry rule and exits on the left, then run. Every trade is filled at the end-of-day close, net of Indian charges, with the lot size each contract actually had.
       </p>
@@ -120,13 +120,13 @@ function EmptyState({ onPreset }: { onPreset: (patch: Partial<BacktestSettings>)
             key={p.id}
             type="button"
             onClick={() => onPreset(p.patch)}
-            className="group rounded-tile border border-border bg-surface/60 p-3 text-left transition-colors duration-fast hover:border-primary/40 hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+            className="rounded-md bg-control-track p-3 text-left transition-colors duration-fast hover:bg-selection-unfocused focus-visible:shadow-focus focus-visible:outline-none"
           >
             <span className="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
               <Play className="h-3.5 w-3.5 text-primary-ink" aria-hidden="true" />
               {p.label}
             </span>
-            <span className="mt-1 block text-[12px] leading-snug text-muted-foreground">{p.description}</span>
+            <span className="mt-1 block text-body-sm text-muted-foreground">{p.description}</span>
           </button>
         ))}
       </div>
@@ -140,11 +140,11 @@ function Assumptions({ result }: { result: RunResult }) {
   const broker = getBrokerPreset(c.brokerId);
   const lots = o.lotSizes.map((l, i) => (i === 0 ? `${l.lotSize}` : `${l.lotSize} from the ${formatDateIST(l.expiry)} expiry`)).join(", then ");
   return (
-    <section className="rounded-card border border-border bg-card p-3 shadow-card" aria-labelledby="bt-method-h">
-      <h2 id="bt-method-h" className="flex items-center gap-1.5 font-display text-[14px] font-bold">
+    <section className="rounded-tile border border-separator bg-card p-4 shadow-card" aria-labelledby="bt-method-h">
+      <h2 id="bt-method-h" className="flex items-center gap-1.5 font-display text-headline">
         <Info className="h-4 w-4 text-primary-ink" aria-hidden="true" /> How this was tested
       </h2>
-      <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-[12px] leading-relaxed text-muted-foreground sm:grid-cols-2">
+      <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-body-sm text-muted-foreground sm:grid-cols-2">
         <li>
           <span className="font-semibold text-foreground">Fills:</span> end-of-day closes with {formatNumberIN(c.slippagePct, 1)}% slippage on every fill. Stops and targets are checked only at the close, so live losses on a gap can be larger.
         </li>
@@ -169,7 +169,7 @@ function Assumptions({ result }: { result: RunResult }) {
         </li>
       </ul>
       {o.warnings.length > 0 ? (
-        <ul className="mt-2 space-y-1 border-t border-border pt-2 text-[12px] text-warning">
+        <ul className="hairline-t mt-3 space-y-1 pt-2 text-body-sm text-warning">
           {o.warnings.map((w) => (
             <li key={w} className="flex items-start gap-1.5">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -178,7 +178,7 @@ function Assumptions({ result }: { result: RunResult }) {
           ))}
         </ul>
       ) : null}
-      <p className="mt-2 text-[11px] text-muted-foreground">Past results, real or simulated, do not predict future returns. This is an educational tool, not investment advice.</p>
+      <p className="mt-2 text-body-sm text-muted-foreground">Past results, real or simulated, do not predict future returns. This is an educational tool, not investment advice.</p>
     </section>
   );
 }
@@ -189,9 +189,9 @@ function Results({ result, stale }: { result: RunResult; stale: boolean }) {
   const [tab, setTab] = useState("trades");
   if (o.trades.length === 0) {
     return (
-      <div className="rounded-card border border-border bg-card px-4 py-8 text-center shadow-card">
+      <div className="rounded-tile border border-separator bg-card px-4 py-8 text-center shadow-card">
         <AlertTriangle className="mx-auto h-6 w-6 text-warning" aria-hidden="true" />
-        <h2 className="mt-2 font-display text-[16px] font-bold">No trades matched these rules</h2>
+        <h2 className="mt-2 font-display text-lead font-semibold">No trades matched these rules</h2>
         <p className="mx-auto mt-1 max-w-md text-body-sm text-muted-foreground">
           Between {formatDateIST(o.range.from)} and {formatDateIST(o.range.to)} no session met the entry rule. Try a smaller DTE, clear the weekday filter, or switch the expiry to Weekly.
         </p>
@@ -201,27 +201,27 @@ function Results({ result, stale }: { result: RunResult; stale: boolean }) {
   return (
     <div className={stale ? "space-y-3 opacity-60 transition-opacity" : "space-y-3 transition-opacity"}>
       <BacktestSummary stats={o.stats} capital={o.config.capital} />
-      <section className="rounded-card border border-border bg-card p-3 shadow-card" aria-labelledby="bt-equity-h">
+      <section className="rounded-tile border border-separator bg-card p-4 shadow-card" aria-labelledby="bt-equity-h">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="bt-equity-h" className="font-display text-[14px] font-bold">
+          <h2 id="bt-equity-h" className="font-display text-headline">
             Equity curve and drawdown
           </h2>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-body-sm text-muted-foreground">
             Net of charges, open trades marked at each close{sample ? " · sample data" : ""}
           </p>
         </div>
         <EquityChart points={o.equity} capital={o.config.capital} sample={sample} />
       </section>
-      <section className="rounded-card border border-border bg-card p-3 shadow-card" aria-label="Trade breakdown">
+      <section className="rounded-tile border border-separator bg-card p-4 shadow-card" aria-label="Trade breakdown">
         <Tabs value={tab} onValueChange={setTab}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <TabsList className="h-auto flex-wrap">
+            <TabsList className="h-auto min-h-7 flex-wrap">
               <TabsTrigger value="trades">Trades ({o.trades.length})</TabsTrigger>
               <TabsTrigger value="vix">VIX regime</TabsTrigger>
               <TabsTrigger value="weekday">Weekday</TabsTrigger>
               <TabsTrigger value="exit">Exit reason</TabsTrigger>
             </TabsList>
-            <Button size="pill" variant="outline" onClick={() => downloadCsv(result)}>
+            <Button size="pill" variant="secondary" onClick={() => downloadCsv(result)}>
               <Download aria-hidden="true" /> Export CSV
             </Button>
           </div>
@@ -294,7 +294,6 @@ export default function Backtest() {
     <div className="space-y-3 pb-4">
       <PageHeader
         icon={History}
-        eyebrow="Strategy"
         title="Backtester"
         description="Replay an options strategy over past expiries using end-of-day closes: entries by DTE, weekday, delta or premium, exits by target, stop or time, all net of charges."
         source={
@@ -322,7 +321,7 @@ export default function Backtest() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(300px,360px)_1fr]">
-        <aside className="h-fit rounded-card border border-border bg-card p-3 shadow-card lg:sticky lg:top-4" aria-label="Backtest settings panel">
+        <aside className="h-fit rounded-tile border border-separator bg-card p-3 shadow-card lg:sticky lg:top-3" aria-label="Backtest settings panel">
           <BacktestForm
             settings={settings}
             onChange={change}
@@ -341,14 +340,14 @@ export default function Backtest() {
 
         <section className="min-w-0 space-y-3" aria-labelledby="bt-results-h">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="bt-results-h" className="flex min-w-0 items-center gap-1.5 font-display text-[16px] font-bold">
+            <h2 id="bt-results-h" className="flex min-w-0 items-center gap-1.5 font-display text-lead font-semibold">
               <Sparkles className="h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
               <span className="min-w-0 truncate">
                 {result ? `${result.output.templateName} on ${result.output.symbol}` : "Results"}
               </span>
             </h2>
             {result ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-body-sm text-muted-foreground">
                 {formatDateIST(result.output.range.from)} – {formatDateIST(result.output.range.to)} · {result.output.range.days} sessions
               </p>
             ) : null}
@@ -356,19 +355,19 @@ export default function Backtest() {
 
           {busy ? <ProgressPanel state={state} onCancel={cancel} /> : null}
           {settingsChanged ? (
-            <p className="flex items-center gap-1.5 rounded-tile border border-info/30 bg-wash-info px-3 py-2 text-body-sm text-info" role="status">
-              <Info className="h-4 w-4 shrink-0" aria-hidden="true" /> Settings changed since this run. Press Run backtest to update.
+            <p className="flex items-center gap-1.5 rounded-md bg-wash-info px-3 py-2 text-body-sm text-info" role="status">
+              <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Settings changed since this run. Press Run backtest to update.
             </p>
           ) : null}
           {state.status === "error" ? (
-            <div role="alert" className="flex flex-wrap items-start justify-between gap-2 rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+            <div role="alert" className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-wash-loss px-3 py-2 text-body-sm text-bearish">
               <p className="flex min-w-0 items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
                   <span className="font-semibold">The backtest stopped.</span> {state.message}
                 </span>
               </p>
-              <Button size="pill" variant="outline" onClick={() => runWith(settings)}>
+              <Button size="pill" variant="secondary" onClick={() => runWith(settings)}>
                 <RefreshCw aria-hidden="true" /> Try again
               </Button>
             </div>

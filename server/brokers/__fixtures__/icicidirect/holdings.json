@@ -1,0 +1,75 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/customerdetails",
+      "expectBody": {
+        "SessionToken": "58593123",
+        "AppKey": "8g791N029R47I831B8153O2f7u8g"
+      },
+      "json": {
+        "Success": {
+          "exg_trade_date": {
+            "NSE": "19-Oct-2026",
+            "BSE": "19-Oct-2026",
+            "FNO": "19-Oct-2026",
+            "NDX": "19-Oct-2026"
+          },
+          "exg_status": {
+            "NSE": "O",
+            "BSE": "O",
+            "FNO": "Y",
+            "NDX": "O"
+          },
+          "segments_allowed": {
+            "Trading": "Y",
+            "Equity": "Y",
+            "Derivatives": "Y",
+            "Currency": "Z"
+          },
+          "idirect_userid": "379XTZ300",
+          "session_token": "QUgzNzkzMDA6NDUwNTM0MjI=",
+          "idirect_user_name": "JOHN SMITH",
+          "idirect_ORD_TYP": "N",
+          "idirect_lastlogin_time": "19-Oct-2026 09:50:42",
+          "mf_holding_mode_popup_flg": "N",
+          "commodity_exchange_status": "N",
+          "commodity_trade_date": "19-Oct-2026",
+          "commodity_allowed": "O"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://directlink.icicidirect.com/NewSecurityMaster/SecurityMaster.zip",
+      "text": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`tj!+\u0000\u0000\u0000+\u0000\u0000\u0000\u0012\u0000\u0000\u0000BSEScripMaster.txt\"Token\",\"ShortName\"\n\"500325\",\"RELIND\"\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001eLxA}\u0002\u0000\u0000}\u0002\u0000\u0000\u0014\u0000\u0000\u0000CDNSEScripMaster.txt\"Token\",\"ShortName\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000G\fW\u001e<\u0000\u0000\u0000<\u0000\u0000\u0000\u0014\u0000\u0000\u0000FOBSEScripMaster.txt\"Token\",\"InstrumentName\",\"ShortName\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000jRG@_\u0006\u0000\u0000_\u0006\u0000\u0000\u0014\u0000\u0000\u0000FONSEScripMaster.txt\"Token\",\"InstrumentName\",\"ShortName\",\"Series\",\"ExpiryDate\",\"StrikePrice\",\"OptionType\",\"LotSize\",\"TickSize\",\"CompanyName\",\"ExchangeCode\"\n\"51440\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"51441\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35008\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25000\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35009\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25000\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35010\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25050\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35011\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25050\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"61471\",\"FUTIDX\",\"NIFTY\",\"FUTURE\",\"27-Oct-2026\",\"0\",\"XX\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35000\",\"OPTIDX\",\"CNXBAN\",\"OPTION\",\"27-Oct-2026\",\"56000\",\"CE\",\"35\",\"5\",\"NIFTY BANK\",\"NIFTY BANK\"\n\"36001\",\"OPTIDX\",\"NIFFIN\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"CE\",\"60\",\"5\",\"NIFTY FINANCIAL\",\"NIFTY FIN SERVICE\"\n\"35004\",\"OPTIDX\",\"NIFSEL\",\"OPTION\",\"27-Oct-2026\",\"13000\",\"PE\",\"120\",\"5\",\"NIFTY MIDCAP SELECT\",\"NIFTY MID SELECT\"\n\"37001\",\"OPTIDX\",\"NIFNEX\",\"OPTION\",\"27-Oct-2026\",\"70000\",\"CE\",\"25\",\"5\",\"NIFTY NEXT 50\",\"NIFTY NEXT 50\"\n\"36342\",\"OPTSTK\",\"RELIND\",\"OPTION\",\"27-Oct-2026\",\"1400\",\"CE\",\"500\",\"5\",\"RELIANCE INDUSTRIES\",\"RELIANCE\"\n\"36343\",\"OPTSTK\",\"RELIND\",\"OPTION\",\"27-Oct-2026\",\"1400\",\"PE\",\"500\",\"5\",\"RELIANCE INDUSTRIES\",\"RELIANCE\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0015\\_\r\u000e\u0002\u0000\u0000\u000e\u0002\u0000\u0000\u0012\u0000\u0000\u0000NSEScripMaster.txt\"Token\", \"ShortName\", \"Series\", \"CompanyName\", \"ticksize\", \"Lotsize\", \"ISINCode\", \"Symbol\", \"ExchangeCode\"\n\"NIFTY 50\",\"NIFTY\",\"0\",\"NIFTY 50\",\"0.01\",\"1\",\"\",\"\",\"NIFTY 50\"\n\"2885\",\"RELIND\",\"EQ\",\"RELIANCE INDUSTRIES\",\"0.1\",\"1\",\"INE002A01018\",\"\",\"RELIANCE\"\n\"1660\",\"ITC\",\"EQ\",\"ITC LIMITED\",\"0.05\",\"1\",\"INE154A01025\",\"\",\"ITC\"\n\"7075\",\"UNITEC\",\"EQ\",\"UNITECH LIMITED\",\"0.01\",\"1\",\"INE694A01020\",\"\",\"UNITECH\"\n\"0\",\"ACRTEC\",\"BE\",\"ACROPETAL TECHNOLOGIES LIMITED\",\"0.01\",\"1\",\"INE055L01013\",\"\",\"ACROPETAL\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`tj!+\u0000\u0000\u0000+\u0000\u0000\u0000\u0012\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000BSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001eLxA}\u0002\u0000\u0000}\u0002\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000[\u0000\u0000\u0000CDNSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000G\fW\u001e<\u0000\u0000\u0000<\u0000\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\n\u0003\u0000\u0000FOBSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000jRG@_\u0006\u0000\u0000_\u0006\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000x\u0003\u0000\u0000FONSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0015\\_\r\u000e\u0002\u0000\u0000\u000e\u0002\u0000\u0000\u0012\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\t\n\u0000\u0000NSEScripMaster.txtPK\u0005\u0006\u0000\u0000\u0000\u0000\u0005\u0000\u0005\u0000F\u0001\u0000\u0000G\f\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/dematholdings",
+      "json": {
+        "Success": [
+          {
+            "stock_code": "UNITEC",
+            "stock_ISIN": "INE694A01020",
+            "quantity": "1",
+            "demat_total_bulk_quantity": "1",
+            "demat_avail_quantity": "0",
+            "blocked_quantity": "0",
+            "demat_allocated_quantity": "1"
+          }
+        ],
+        "Status": 200,
+        "Error": null
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

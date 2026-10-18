@@ -1,0 +1,36 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "args": [
+    "26101600000013",
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "price": 99,
+      "qty": 130
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/modify",
+      "expectBody": {
+        "order_id": "26101600000013",
+        "price": 99,
+        "quantity": 130,
+        "price_type": "LIMIT"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "order_id": "26101600000013"
+      }
+    }
+  ]
+}

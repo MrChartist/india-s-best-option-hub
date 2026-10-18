@@ -11,7 +11,7 @@ import {
   estimateMargin,
   expectedValue,
   forwardFromSpot,
-  greeks76,
+  greeks76Spot,
   marginFundsRequired,
   maxProfitLoss,
   netPremium,
@@ -104,10 +104,8 @@ function legLabelGreeks(l: Leg, o: { spot: number; now: Date; r: number; q: numb
   const T = timeToExpiryYears(l.expiry, o.now);
   if (!(T > 0)) return { ...ZERO_GREEKS };
   const F = forwardFromSpot(o.spot, T, o.r, o.q);
-  const g = greeks76({ F, K: l.strike, T, r: o.r, sigma: Math.max(l.iv ?? 0.15, 0.001), type: l.type });
-  // greeks76 returns dV/dF; convert to spot greeks (dF/dS = F/S = e^{(r−q)T}) to match the Position Tracker.
-  const k = F / o.spot;
-  return { ...g, delta: g.delta * k, gamma: g.gamma * k * k };
+  // Spot-held Greeks (theta, charm and rho included) so legs match the option chain and the Position Tracker.
+  return greeks76Spot({ F, K: l.strike, T, r: o.r, sigma: Math.max(l.iv ?? 0.15, 0.001), type: l.type }, o.spot);
 }
 
 const EMPTY_MARGIN: MarginEstimate = {
@@ -209,7 +207,8 @@ export function analyseStrategy(input: AnalysisInput): StrategyAnalysis {
  * P50: chance of touching 50% of max profit before expiry (Monte-Carlo, seeded so it is stable).
  * Single-expiry strategies only; NaN otherwise or when max profit is unlimited/zero.
  */
-export function computeP50(a: StrategyAnalysis, spot: number, sigma: number, r: number): number {
+export function computeP50(a: StrategyAnalysis, spot: number, sigma: number, r: number, q: number): number {
   if (a.empty || a.multiExpiry || !(a.T > 0) || !Number.isFinite(a.maxProfit) || !(a.maxProfit > 0)) return NaN;
-  return probOfReachingProfit(a.active, { S: spot, T: a.T, sigma, target: 0.5 * a.maxProfit, paths: 1200, seed: 50, r });
+  // Same carry (q) the legs, T+0 curve and pnlNow were priced with, so the t≈0 mark matches entry.
+  return probOfReachingProfit(a.active, { S: spot, T: a.T, sigma, target: 0.5 * a.maxProfit, paths: 1200, seed: 50, r, q });
 }

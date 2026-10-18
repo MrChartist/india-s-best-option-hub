@@ -183,7 +183,7 @@ const PCR_CHIP: Record<string, string> = {
 
 /** Band chip: same banding and wording as the PCR suite (0.7 to 1.2 is "Balanced"). */
 function PcrChip({ band, label }: { band: string; label: string }) {
-  return <span className={cn("inline-flex shrink-0 items-center rounded-chip px-1.5 py-0.5 text-micro font-semibold uppercase", PCR_CHIP[band] ?? PCR_CHIP.balanced)}>{band === "balanced" ? "Balanced" : label.split(" · ")[0]}</span>;
+  return <span className={cn("inline-flex shrink-0 items-center rounded-chip px-1.5 py-0.5 text-micro font-semibold", PCR_CHIP[band] ?? PCR_CHIP.balanced)}>{band === "balanced" ? "Balanced" : label.split(" · ")[0]}</span>;
 }
 
 /** PCR gauge with the balanced band shaded; the marker takes the band's colour (neutral inside it). */
@@ -235,7 +235,7 @@ function Metric({ icon, label, metric, metricValue, chip, value, valueClass, sub
     <Card className={cn("relative h-full min-h-[104px] transition-shadow duration-200", to && "hover:shadow-card-hover focus-within:shadow-card-hover", d.pad)}>
       <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
         <span aria-hidden="true">{icon}</span>
-        <p className="min-w-0 truncate text-label uppercase" title={label}>
+        <p className="min-w-0 truncate text-label" title={label}>
           {to ? (
             <Link to={to} aria-label={`${label}: ${value}. Open details`} className="rounded-sm after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none focus-visible:after:shadow-ember">
               {label}
@@ -253,13 +253,13 @@ function Metric({ icon, label, metric, metricValue, chip, value, valueClass, sub
         </div>
       ) : status === "error" || status === "empty" ? (
         <div className="space-y-1.5">
-          <p className="font-num text-[21px] font-bold leading-none text-muted-foreground">—</p>
+          <p className="font-num text-display font-semibold leading-none text-muted-foreground">—</p>
           <p className="text-body-sm text-muted-foreground">{status === "error" ? "Could not load" : "No data yet"}</p>
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <p className={cn("font-num text-[21px] font-bold leading-none tabular-nums", valueClass ?? "text-foreground")}>{value}</p>
+            <p className={cn("font-num text-display font-semibold leading-none tabular-nums", valueClass ?? "text-foreground")}>{value}</p>
             {arrow ? (
               <span className={cn("text-body-sm", arrowClass)} title={arrowTitle} aria-label={arrowTitle ? `${arrow} ${arrowTitle}` : arrow}>
                 {ARROW[arrow]}
@@ -289,5 +289,3 @@ function Metric({ icon, label, metric, metricValue, chip, value, valueClass, sub
     </Card>
   );
 }
-
-export default KeyMetrics;

@@ -1,0 +1,53 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.shoonya.com/NFO_symbols.txt.zip",
+      "text": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0011\u000f\u001dw\u0006\u0005\u0000\u0000\u0006\u0005\u0000\u0000\u000f\u0000\u0000\u0000NFO_symbols.txtExchange,Token,LotSize,Symbol,TradingSymbol,Expiry,Instrument,OptionType,StrikePrice,TickSize,\nNFO,40001,65,NIFTY,NIFTY20OCT26C24950,20-OCT-2026,OPTIDX,CE,24950,0.05,\nNFO,40002,65,NIFTY,NIFTY20OCT26P24950,20-OCT-2026,OPTIDX,PE,24950,0.05,\nNFO,40003,65,NIFTY,NIFTY20OCT26C25000,20-OCT-2026,OPTIDX,CE,25000,0.05,\nNFO,40004,65,NIFTY,NIFTY20OCT26P25000,20-OCT-2026,OPTIDX,PE,25000,0.05,\nNFO,40005,65,NIFTY,NIFTY20OCT26C25050,20-OCT-2026,OPTIDX,CE,25050,0.05,\nNFO,40006,65,NIFTY,NIFTY20OCT26P25050,20-OCT-2026,OPTIDX,PE,25050,0.05,\nNFO,40011,65,NIFTY,NIFTY27OCT26C25000,27-OCT-2026,OPTIDX,CE,25000,0.05,\nNFO,40012,65,NIFTY,NIFTY27OCT26P25000,27-OCT-2026,OPTIDX,PE,25000,0.05,\nNFO,40020,65,NIFTY,NIFTY27OCT26F,27-OCT-2026,FUTIDX,XX,0,0.05,\nNFO,40031,30,BANKNIFTY,BANKNIFTY27OCT26C56000,27-OCT-2026,OPTIDX,CE,56000,0.05,\nNFO,40041,60,FINNIFTY,FINNIFTY27OCT26C26500,27-OCT-2026,OPTIDX,CE,26500,0.05,\nNFO,40051,120,MIDCPNIFTY,MIDCPNIFTY27OCT26P13000,27-OCT-2026,OPTIDX,PE,13000,0.05,\nNFO,40061,25,NIFTYNXT50,NIFTYNXT5027OCT26C68000,27-OCT-2026,OPTIDX,CE,68000,0.05,\nNFO,106743,500,RELIANCE,RELIANCE27OCT26C1460,27-OCT-2026,OPTSTK,CE,1460,0.05,\nNFO,106744,500,RELIANCE,RELIANCE27OCT26P1460,27-OCT-2026,OPTSTK,PE,1460,0.05,\nNFO,106700,500,RELIANCE,RELIANCE27OCT26F,27-OCT-2026,FUTSTK,XX,0,0.05,\n\n\nPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0011\u000f\u001dw\u0006\u0005\u0000\u0000\u0006\u0005\u0000\u0000\u000f\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000NFO_symbols.txtPK\u0005\u0006\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000=\u0000\u0000\u00003\u0005\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.shoonya.com/BFO_symbols.txt.zip",
+      "text": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000e?\u0002\f\r\u0002\u0000\u0000\r\u0002\u0000\u0000\u000f\u0000\u0000\u0000BFO_symbols.txtExchange,Token,LotSize,Symbol,TradingSymbol,Expiry,Instrument,OptionType,StrikePrice,TickSize,\nBFO,825001,20,BSXOPT,SENSEX22OCT2682000CE,22-OCT-2026,OPTIDX,CE,82000,0.05,\nBFO,825002,20,BSXOPT,SENSEX22OCT2682000PE,22-OCT-2026,OPTIDX,PE,82000,0.05,\nBFO,825101,30,BKXOPT,BANKEX29OCT2663000CE,29-OCT-2026,OPTIDX,CE,63000,0.05,\nBFO,825201,60,SX50OPT,SENSEX5022OCT2626900CE,22-OCT-2026,OPTIDX,CE,26900,0.05,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000e?\u0002\f\r\u0002\u0000\u0000\r\u0002\u0000\u0000\u000f\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000BFO_symbols.txtPK\u0005\u0006\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000=\u0000\u0000\u0000:\u0002\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.shoonya.com/NSE_symbols.txt.zip",
+      "text": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000=\u0019w\u0001\b\u0001\u0000\u0000\b\u0001\u0000\u0000\u000f\u0000\u0000\u0000NSE_symbols.txtExchange,Token,LotSize,Symbol,TradingSymbol,Instrument,TickSize,\nNSE,26000,1,NIFTY,NIFTY INDEX,INDEX,0.05,\nNSE,2885,1,RELIANCE,RELIANCE-EQ,EQ,0.05,\nNSE,22,1,ACC,ACC-EQ,EQ,0.05,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000=\u0019w\u0001\b\u0001\u0000\u0000\b\u0001\u0000\u0000\u000f\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000NSE_symbols.txtPK\u0005\u0006\u0000\u0000\u0000\u0000\u0001\u0000\u0001\u0000=\u0000\u0000\u00005\u0001\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 20,
+    "underlyings": [
+      "NIFTY",
+      "BANKNIFTY",
+      "FINNIFTY",
+      "MIDCPNIFTY",
+      "SENSEX",
+      "BANKEX",
+      "RELIANCE"
+    ]
+  }
+}

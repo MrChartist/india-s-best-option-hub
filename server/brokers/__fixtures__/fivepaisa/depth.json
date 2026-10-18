@@ -1,0 +1,104 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "args": [
+    {
+      "token": "2885",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V2/MarketDepth",
+      "expectBody": {
+        "body": {
+          "ClientCode": "55512345",
+          "Exchange": "N",
+          "ExchangeType": "C",
+          "ScripCode": 2885
+        }
+      },
+      "json": {
+        "body": {
+          "CacheTime": 5,
+          "Exch": "N",
+          "ExchType": "C",
+          "MarketDepthData": [
+            {
+              "BbBuySellFlag": 66,
+              "NumberOfOrders": 1,
+              "Price": 2802.05,
+              "Quantity": 212
+            },
+            {
+              "BbBuySellFlag": 66,
+              "NumberOfOrders": 1,
+              "Price": 2802,
+              "Quantity": 4
+            },
+            {
+              "BbBuySellFlag": 66,
+              "NumberOfOrders": 1,
+              "Price": 2801.95,
+              "Quantity": 1
+            },
+            {
+              "BbBuySellFlag": 66,
+              "NumberOfOrders": 1,
+              "Price": 2801.85,
+              "Quantity": 1
+            },
+            {
+              "BbBuySellFlag": 66,
+              "NumberOfOrders": 3,
+              "Price": 2801.75,
+              "Quantity": 9
+            },
+            {
+              "BbBuySellFlag": 83,
+              "NumberOfOrders": 2,
+              "Price": 2803.65,
+              "Quantity": 55
+            },
+            {
+              "BbBuySellFlag": 83,
+              "NumberOfOrders": 2,
+              "Price": 2803.85,
+              "Quantity": 54
+            },
+            {
+              "BbBuySellFlag": 83,
+              "NumberOfOrders": 2,
+              "Price": 2803.9,
+              "Quantity": 30
+            },
+            {
+              "BbBuySellFlag": 83,
+              "NumberOfOrders": 1,
+              "Price": 2804,
+              "Quantity": 12
+            },
+            {
+              "BbBuySellFlag": 83,
+              "NumberOfOrders": 4,
+              "Price": 2804.05,
+              "Quantity": 70
+            }
+          ],
+          "Message": "Success",
+          "ScripCode": "2885",
+          "Status": 0,
+          "TimeStamp": "/Date(1706956047000+0530)/"
+        },
+        "head": {
+          "responseCode": "5PMDV2",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ]
+}

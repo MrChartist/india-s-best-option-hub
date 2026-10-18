@@ -63,6 +63,18 @@ export const SHORTCUT_HELP: ShortcutHelpGroup[] = [
   },
 ];
 
+/** True on macOS / iPadOS, where shortcuts are shown with the ⌘ glyph. */
+export function isMacPlatform(nav: Navigator | undefined = typeof navigator === "undefined" ? undefined : navigator): boolean {
+  if (!nav) return false;
+  const uaPlatform = (nav as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform;
+  return /mac|iphone|ipad|ipod/i.test(uaPlatform || nav.platform || nav.userAgent || "");
+}
+
+/** Display form of the command-palette shortcut: "⌘K" on Apple platforms, "Ctrl K" elsewhere. */
+export function modKeyLabel(key: string, nav?: Navigator): string {
+  return isMacPlatform(nav) ? `⌘${key.toUpperCase()}` : `Ctrl ${key.toUpperCase()}`;
+}
+
 /** True when the event comes from somewhere the user is typing. */
 export function isTypingTarget(target: EventTarget | null): boolean {
   if (!target || typeof (target as HTMLElement).tagName !== "string") return false;
@@ -86,7 +98,7 @@ export function isOverlayOpen(doc: Document | undefined = typeof document === "u
 
 /**
  * Global keyboard shortcuts:
- * - "g" then a letter jumps to a page (from the ROUTES registry: g d, g c, g o, g s, g v, g x, g f, g p, g l)
+ * - "g" then a letter jumps to a page (from the ROUTES registry: g d, g c, g o, g s, g v, g x, g f, g t, g p, g l)
  * - "/" opens search, "?" opens the shortcut overlay, Alt+A opens alerts, Shift+G toggles Greeks
  *
  * Ignored while typing in inputs/contentEditable or while a dialog is open.

@@ -74,15 +74,15 @@ export function ExpiryOIWalls({ chain, spot, snaps, mode, lotSize, expiry, loadi
         ) : (
           <>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              <Stat label="Call wall" value={Number.isFinite(walls.callWall) ? walls.callWall : "—"} tone="text-bearish" hint={walls.calls[0] ? `${formatOI(walls.calls[0].oi)} contracts` : undefined} />
-              <Stat label="Put wall" value={Number.isFinite(walls.putWall) ? walls.putWall : "—"} tone="text-bullish" hint={walls.puts[0] ? `${formatOI(walls.puts[0].oi)} contracts` : undefined} />
-              <Stat
+              <Stat variant="inset" label="Call wall" value={Number.isFinite(walls.callWall) ? walls.callWall : "—"} tone="text-bearish" hint={walls.calls[0] ? `${formatOI(walls.calls[0].oi)} contracts` : undefined} />
+              <Stat variant="inset" label="Put wall" value={Number.isFinite(walls.putWall) ? walls.putWall : "—"} tone="text-bullish" hint={walls.puts[0] ? `${formatOI(walls.puts[0].oi)} contracts` : undefined} />
+              <Stat variant="inset"
                 label="Max pain"
                 value={Number.isFinite(walls.maxPain) ? walls.maxPain : "—"}
                 hint={Number.isFinite(mpDist) ? `Spot ${formatPct(mpDist, { decimals: 2, signed: true })} away` : undefined}
                 help="Strike where option buyers as a group would get the least at expiry. On expiry day spot often drifts towards it in quiet sessions, but it is not a target."
               />
-              <Stat label="PCR (OI)" value={Number.isFinite(walls.pcr) ? walls.pcr.toFixed(2) : "—"} hint="Put OI ÷ call OI" />
+              <Stat variant="inset" label="PCR (OI)" value={Number.isFinite(walls.pcr) ? walls.pcr.toFixed(2) : "—"} hint="Put OI ÷ call OI" />
             </div>
 
             <div className="mt-4 h-[260px] w-full" role="img" aria-label={`Call and put open interest by strike around ${spotStrike}. Call wall ${walls.callWall}, put wall ${walls.putWall}.`}>
@@ -113,7 +113,7 @@ export function ExpiryOIWalls({ chain, spot, snaps, mode, lotSize, expiry, loadi
                 const list = side === "CE" ? walls.calls : walls.puts;
                 return (
                   <div key={side}>
-                    <p className={cn("mb-1 text-label uppercase", side === "CE" ? "text-bearish" : "text-bullish")}>{side === "CE" ? "Call walls" : "Put walls"}</p>
+                    <p className={cn("mb-1 text-label ", side === "CE" ? "text-bearish" : "text-bullish")}>{side === "CE" ? "Call walls" : "Put walls"}</p>
                     <ul className="space-y-1">
                       {list.map((w) => {
                         const ch = wallChange(w.strike, side, w.oiChange);

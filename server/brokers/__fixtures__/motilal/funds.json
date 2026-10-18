@@ -1,0 +1,88 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/report/v3/getreportmarginsummary",
+      "json": {
+        "status": "SUCCESS",
+        "message": "REPORT MARGIN SUMMARY",
+        "errorcode": "",
+        "data": [
+          {
+            "srno": 102,
+            "particulars": "Total Available Margin for Cash",
+            "amount": 250000
+          },
+          {
+            "srno": 103,
+            "particulars": "Total Available Margin for FNO",
+            "amount": 239872.5
+          },
+          {
+            "srno": 104,
+            "particulars": "Total Available Margin for Curr",
+            "amount": 250000
+          },
+          {
+            "srno": 105,
+            "particulars": "Total Available Margin for Comm",
+            "amount": 250000
+          },
+          {
+            "srno": 106,
+            "particulars": "Total Available Margin for Other",
+            "amount": 0
+          },
+          {
+            "srno": 201,
+            "particulars": "Cash deposit",
+            "amount": 250000
+          },
+          {
+            "srno": 220,
+            "particulars": "Non cash deposit",
+            "amount": 0
+          },
+          {
+            "srno": 301,
+            "particulars": "Margin Usage(B) Cash",
+            "amount": 0
+          },
+          {
+            "srno": 321,
+            "particulars": "Margin Usage(B) FO",
+            "amount": 10127.5
+          },
+          {
+            "srno": 340,
+            "particulars": "Margin Usage(B) Currency",
+            "amount": 0
+          },
+          {
+            "srno": 360,
+            "particulars": "Margin Usage(B) Commodity",
+            "amount": 0
+          },
+          {
+            "srno": 381,
+            "particulars": "Margin Usage(B) Brokerage",
+            "amount": 0
+          },
+          {
+            "srno": 600,
+            "particulars": "Total Profit and Loss(MTM)",
+            "amount": 741
+          },
+          {
+            "srno": 700,
+            "particulars": "Total Profit and Loss(BPL)",
+            "amount": 0
+          }
+        ]
+      }
+    }
+  ]
+}

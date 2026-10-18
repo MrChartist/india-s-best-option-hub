@@ -18,8 +18,8 @@ export interface TourStep {
 export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "welcome",
-    title: "Welcome to Mr. Chartist Terminal",
-    body: "A free, open-source options terminal for NSE and BSE. Every number carries a source tag: Live, Delayed, Last saved or Sample. Without the local proxy you see labelled sample data, so you can explore safely.",
+    title: "Welcome to Option Hub by Mr. Chartist",
+    body: "A free options terminal for NSE and BSE, for personal use. Every number carries a source tag: Live, Delayed, Last saved or Sample. Without the local proxy you see labelled sample data, so you can explore safely.",
   },
   {
     id: "chain",

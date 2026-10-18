@@ -33,7 +33,7 @@ export function EquityCurve({ data }: { data: Array<{ i: number; date: string; c
       </div>
       <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-4 rounded-full bg-primary" aria-hidden="true" /> Net after charges
+          <span className="h-0.5 w-4 rounded-capsule bg-primary" aria-hidden="true" /> Net after charges
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-0 w-4 border-t-2 border-dashed border-muted-foreground" aria-hidden="true" /> Gross before charges

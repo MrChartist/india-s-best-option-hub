@@ -158,7 +158,7 @@ export function webhookPayload(e: AlertEvent, test = false): WebhookPayload {
     firedAtIST: formatTimeIST(e.ts, { seconds: true }),
     text: `${test ? "[TEST] " : ""}${e.title}: ${e.message} (${formatTimeIST(e.ts)})`,
     snapshot: e.snapshot,
-    disclaimer: "Educational alert from Mr. Chartist Terminal, not investment advice.",
+    disclaimer: "Educational alert from Option Hub by Mr. Chartist, not investment advice.",
   };
 }
 

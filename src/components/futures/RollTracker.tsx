@@ -57,7 +57,7 @@ export function RollTracker({ points, currentExpiry, priorExpiries }: RollTracke
         </span>
       </div>
       {!hasAvg && !hasCurrent ? (
-        <div className="flex h-[200px] items-center justify-center rounded-tile border border-dashed border-border px-4 text-center text-body-sm text-muted-foreground">
+        <div className="flex h-[200px] items-center justify-center rounded-tile bg-muted/40 px-4 text-center text-body-sm text-muted-foreground">
           No roll-window history yet. Load NSE history to fill the last sessions before each expiry.
         </div>
       ) : (
@@ -114,24 +114,24 @@ export function RollTracker({ points, currentExpiry, priorExpiries }: RollTracke
         </div>
       )}
 
-      <ScrollRegion label="Roll tracker table" className="relative">
-        <table className="w-full min-w-[420px] text-body-sm">
+      <ScrollRegion label="Roll tracker table" className="hairline relative rounded-tile">
+        <table className="w-full min-w-[420px] text-body">
           <caption className="sr-only">Rollover by trading days to expiry, this cycle and the previous cycles</caption>
           <thead>
-            <tr className="border-b border-border text-label uppercase text-muted-foreground">
-              <th scope="col" className="sticky left-0 z-10 bg-card py-1.5 pr-2 text-left">
+            <tr className="border-b border-separator-strong bg-surface text-label text-muted-foreground">
+              <th scope="col" className="sticky left-0 z-10 h-7 bg-surface py-1 pl-3 pr-2 text-left">
                 Day
               </th>
               {hasCurrent ? (
-                <th scope="col" className="px-2 py-1.5 text-right">
+                <th scope="col" className="px-2 py-1 text-right">
                   This cycle
                 </th>
               ) : null}
-              <th scope="col" className="px-2 py-1.5 text-right">
+              <th scope="col" className="px-2 py-1 text-right">
                 Average
               </th>
               {priorExpiries.map((e) => (
-                <th key={e} scope="col" className="px-2 py-1.5 text-right">
+                <th key={e} scope="col" className="px-2 py-1 text-right">
                   {formatDateIST(e).replace(/^\d+\s/, "")}
                 </th>
               ))}
@@ -141,8 +141,8 @@ export function RollTracker({ points, currentExpiry, priorExpiries }: RollTracke
             {points.map((p) => {
               const diff = p.current !== null && p.average !== null ? p.current - p.average : null;
               return (
-                <tr key={p.tdte} className="border-b border-border/60 last:border-0">
-                  <th scope="row" className="sticky left-0 z-10 bg-card py-1.5 pr-2 text-left font-medium">
+                <tr key={p.tdte} className="border-b border-separator last:border-0">
+                  <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-3 pr-2 text-left font-medium">
                     {p.label}
                   </th>
                   {hasCurrent ? (

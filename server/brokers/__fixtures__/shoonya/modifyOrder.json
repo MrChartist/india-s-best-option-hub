@@ -1,0 +1,40 @@
+{
+  "args": [
+    "26101700000017",
+    {
+      "exchange": "NFO",
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "quantity": 130,
+      "price": 105,
+      "orderType": "LIMIT",
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/ModifyOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"prc\":\"105\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\"}"
+      },
+      "json": {
+        "request_time": "14:14:08 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

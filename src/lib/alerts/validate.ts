@@ -3,7 +3,7 @@
  * input (storage, imports, the editor), applies defaults, normalises the symbol and returns either a
  * clean rule or the first problem in plain English.
  */
-import { isValidIsoDate } from "@/lib/options";
+import { isFiniteNumber, isValidIsoDate } from "@/lib/options";
 import { ANY_ALLOWED, RULE_TYPES } from "./describe";
 import {
   ANY_SYMBOL,
@@ -25,7 +25,7 @@ export type ParseResult = { ok: true; rule: AlertRule } | { ok: false; error: st
 type Obj = Record<string, unknown>;
 
 export const isObject = (x: unknown): x is Obj => !!x && typeof x === "object" && !Array.isArray(x);
-export const isFiniteNumber = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
+export { isFiniteNumber };
 const oneOf = <T extends string>(x: unknown, list: readonly T[]): x is T =>
   typeof x === "string" && (list as readonly string[]).includes(x);
 
@@ -71,6 +71,9 @@ const positive =
   (v: number) =>
     v > 0 && v <= max;
 
+/** Look-back window in minutes. The evaluator floors the window at 1 minute, so anything shorter is rejected. */
+const windowMinutes = (v: number) => v >= 1 && v <= 375;
+
 function parseChannels(x: unknown): RuleChannels | undefined {
   if (!isObject(x)) return undefined;
   const out: RuleChannels = {};
@@ -115,7 +118,7 @@ function body(o: Obj, type: AlertRuleType): Obj {
       return {
         type,
         points: num(o, "points", positive(50), "IV rise must be between 0 and 50 points."),
-        windowMin: num(o, "windowMin", positive(375), "Window must be 1 to 375 minutes."),
+        windowMin: num(o, "windowMin", windowMinutes, "Window must be 1 to 375 minutes."),
       };
     case "oi_wall_shift":
       return { type, side: pick(o, "side", SIDES, "Pick a wall.") };
@@ -131,7 +134,7 @@ function body(o: Obj, type: AlertRuleType): Obj {
       return {
         type,
         minHits,
-        windowMin: num(o, "windowMin", positive(375), "Window must be 1 to 375 minutes."),
+        windowMin: num(o, "windowMin", windowMinutes, "Window must be 1 to 375 minutes."),
         minPremium: num(o, "minPremium", positive(), "Enter a minimum premium."),
       };
     }

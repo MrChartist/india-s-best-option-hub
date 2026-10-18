@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { generateSampleChain, greeks76, forwardFromSpot, timeToExpiryYears, type Leg } from "@/lib/options";
-import { estimateMargin, estimateProbOfProfit, type StrategyLeg } from "@/lib/mockData";
 import {
   STRATEGY_TEMPLATES,
   TEMPLATE_VIEWS,
@@ -286,18 +285,5 @@ describe("strategy state", () => {
     expect(isTypingTarget(slider)).toBe(true);
     expect(isTypingTarget(div)).toBe(false);
     expect(isTypingTarget(null)).toBe(false);
-  });
-});
-
-describe("mockData deprecated wrappers", () => {
-  it("estimateProbOfProfit returns a percentage and estimateMargin is positive for shorts", () => {
-    const legs: StrategyLeg[] = [
-      { type: "CE", action: "SELL", strike: 25000, lots: 1, premium: 150 },
-      { type: "PE", action: "SELL", strike: 25000, lots: 1, premium: 140 },
-    ];
-    const pop = estimateProbOfProfit(legs, 65, 25000, 14, 7);
-    expect(pop).toBeGreaterThan(20);
-    expect(pop).toBeLessThan(80);
-    expect(estimateMargin(legs, 65, 25000)).toBeGreaterThan(50_000);
   });
 });

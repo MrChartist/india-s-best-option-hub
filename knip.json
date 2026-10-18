@@ -1,16 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/main.tsx", "proxy-server.mjs", "e2e/**/*.spec.ts", "src/**/*.test.{ts,tsx}"],
+  "entry": ["e2e/**/*.spec.ts", "src/**/*.test.{ts,tsx}"],
   "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "*.{ts,mjs,js}"],
-  "ignore": ["src/components/ui/**", "src/vite-env.d.ts", "dist/**", "coverage/**"],
+  "ignore": ["src/components/ui/**"],
   "ignoreDependencies": [
-    "@radix-ui/.*",
-    "tailwindcss-animate",
-    "@tailwindcss/typography",
-    "autoprefixer",
-    "postcss",
-    "prettier-plugin-tailwindcss",
-    "@testing-library/jest-dom"
+    "fake-indexeddb",
+    "vite-plugin-pwa"
   ],
   "ignoreExportsUsedInFile": true,
   "vite": { "config": ["vite.config.ts"] },

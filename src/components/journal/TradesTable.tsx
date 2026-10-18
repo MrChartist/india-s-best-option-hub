@@ -13,7 +13,7 @@ import { contractName, parseTags, type Annotation, type RoundTrip } from "@/lib/
 import { formatDateIST, formatINR, formatNumberIN, formatTimeIST } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { signedClass, signedINR } from "@/components/positions/helpers";
-import { EmptyState } from "@/components/positions/ui";
+import { EmptyState, STICKY_CELL } from "@/components/positions/ui";
 
 type Filter = "all" | "win" | "loss";
 const PAGE = 100;
@@ -90,9 +90,9 @@ export function TradesTable({ trips, notes, onAnnotate }: { trips: RoundTrip[]; 
       <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search contract, strategy, tag or note" className="h-9 pl-8" aria-label="Search trades" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search contract, strategy, tag or note" className="pl-8" aria-label="Search trades" />
         </div>
-        <ToggleGroup type="single" value={filter} onValueChange={(v) => v && setFilter(v as Filter)} aria-label="Show" size="sm" variant="outline">
+        <ToggleGroup type="single" value={filter} onValueChange={(v) => v && setFilter(v as Filter)} aria-label="Show" size="sm">
           <ToggleGroupItem value="all">All</ToggleGroupItem>
           <ToggleGroupItem value="win">Winners</ToggleGroupItem>
           <ToggleGroupItem value="loss">Losers</ToggleGroupItem>
@@ -123,7 +123,7 @@ export function TradesTable({ trips, notes, onAnnotate }: { trips: RoundTrip[]; 
               const n = notes[t.id];
               return (
                 <TableRow key={t.id}>
-                  <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
+                  <TableCell className={cn(STICKY_CELL, "font-semibold")}>
                     <div className="flex items-center gap-1.5 whitespace-nowrap">
                       {t.underlying} {t.type === "FUT" ? "FUT" : formatNumberIN(t.strike)}
                       {t.type !== "FUT" ? <Badge variant={t.type === "CE" ? "bearish" : "bullish"}>{t.type}</Badge> : null}
@@ -163,7 +163,7 @@ export function TradesTable({ trips, notes, onAnnotate }: { trips: RoundTrip[]; 
                     <button
                       type="button"
                       onClick={() => setEditing(t)}
-                      className="flex min-h-[28px] max-w-[220px] flex-wrap items-center gap-1 rounded-chip px-1 text-left hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+                      className="flex min-h-[28px] max-w-[220px] flex-wrap items-center gap-1 rounded-chip px-1 text-left hover:bg-accent focus-visible:shadow-focus focus-visible:outline-none"
                       aria-label={`Tags and notes for ${contractName(t)} closed ${formatDateIST(t.exitDate)}`}
                       title={n?.note || "Add tags and a note"}
                     >

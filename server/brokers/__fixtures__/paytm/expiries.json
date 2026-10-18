@@ -1,0 +1,28 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/fno/v1/option-chain/config?symbol=NIFTY",
+      "status": 200,
+      "json": {
+        "meta": {
+          "code": "PM_FNO_200",
+          "message": "Success",
+          "displayMessage": "Success"
+        },
+        "data": {
+          "exch_symbol": "NIFTY",
+          "expires": [
+            1793097000000,
+            1792492200000,
+            1793701800000,
+            1793097000000
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

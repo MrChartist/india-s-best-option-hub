@@ -40,7 +40,7 @@ interface AlertSystemProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export function AlertSystem({ open, onOpenChange }: AlertSystemProps = {}) {
+function AlertSystem({ open, onOpenChange }: AlertSystemProps = {}) {
   const [innerOpen, setInnerOpen] = useState(false);
   const controlled = open !== undefined;
   const isOpen = controlled ? open : innerOpen;

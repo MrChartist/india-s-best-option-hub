@@ -59,11 +59,11 @@ export function DataStatus({ status, lastUpdated, source, reason, className, pla
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} aria-label={label} className={cn("inline-flex shrink-0 cursor-default rounded-chip focus-visible:shadow-ember focus-visible:outline-none", className)}>
+        <span tabIndex={0} aria-label={label} className={cn("inline-flex shrink-0 cursor-default rounded-chip focus-visible:shadow-focus focus-visible:outline-none", className)}>
           {badge}
         </span>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+      <TooltipContent side="bottom" className="max-w-[260px] text-body-sm">
         <p className="font-semibold">{text}</p>
         {source ? <p className="text-muted-foreground">Source: {source}</p> : null}
         {time ? <p className="text-muted-foreground">As of {time}</p> : null}
@@ -131,8 +131,8 @@ export function DataState({ status, children, onRetry, emptyText = "No data yet"
 
 export function RetryButton({ onRetry, label = "Retry" }: { onRetry: () => void; label?: string }) {
   return (
-    <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 px-2.5 text-body-sm" onClick={onRetry}>
-      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+    <Button type="button" variant="outline" onClick={onRetry}>
+      <RefreshCw className="!size-3.5" aria-hidden="true" />
       {label}
     </Button>
   );

@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
 import { SymbolSearch } from "@/components/option-chain/SymbolSearch";
 import { SourceBadge } from "@/components/option-chain/SourceBadge";
-import { canonicalSymbol } from "@/components/option-chain/symbols";
+import { resolveFnoSymbol } from "@/components/option-chain/symbols";
+import { UnknownSymbolNotice } from "@/components/option-chain/UnknownSymbolNotice";
 import { ExpiryPills } from "@/components/oi/shared";
 import { EDU_NOTE, fmtStrike } from "@/components/oi/format";
 import { MaxPainCurve } from "@/components/oi/MaxPainCurve";
@@ -27,7 +28,8 @@ import type { OptionData } from "@/lib/mockData";
  */
 export default function MaxPainPCR() {
   const [params, setParams] = useSearchParams();
-  const symbol = canonicalSymbol(params.get("symbol"));
+  // A symbol with no F&O contracts falls back to NIFTY (with a notice) instead of a fake chain.
+  const { symbol, unknown: unknownSymbol } = resolveFnoSymbol(params.get("symbol"));
   const expiryParam = normalizeExpiry(params.get("expiry") || "");
   useDocumentTitle(`Max Pain & PCR · ${symbol}`);
 
@@ -83,14 +85,13 @@ export default function MaxPainPCR() {
     <div className="space-y-4">
       <PageHeader
         icon={Target}
-        eyebrow="Chain & OI"
         title="Max Pain & PCR"
         description="Where option writers lose least at expiry, and how puts stack up against calls."
         source={
           <>
             {live.data && <SourceBadge source={live.data.source} asOf={live.data.asOf} stale={live.data.stale} isLive={live.data.isLive} reason={live.data.reason} />}
             {spot > 0 && (
-              <span className="font-num text-xs text-muted-foreground">
+              <span className="font-num text-body-sm text-muted-foreground">
                 Spot <span className="font-semibold text-foreground">{spot.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
                 {current?.maxPain ? (
                   <>
@@ -106,8 +107,7 @@ export default function MaxPainPCR() {
             <SymbolSearch value={symbol} onSelect={(v) => setParam({ symbol: v, expiry: null })} />
             <Button
               variant="outline"
-              size="pill"
-              className="h-8 gap-1.5"
+              className="gap-1.5"
               onClick={() => {
                 void live.refetch();
                 void multi.refetch();
@@ -118,7 +118,7 @@ export default function MaxPainPCR() {
               {live.isFetching ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               Refresh
             </Button>
-            <Button asChild variant="ghost" size="pill" className="h-8 gap-1">
+            <Button asChild variant="ghost" className="gap-1">
               <Link to={`/oi-analysis?symbol=${encodeURIComponent(symbol)}${expiry ? `&expiry=${expiry}` : ""}`}>
                 OI Analysis <ArrowUpRight />
               </Link>
@@ -126,11 +126,12 @@ export default function MaxPainPCR() {
           </>
         }
       />
+      {unknownSymbol ? <UnknownSymbolNotice symbol={unknownSymbol} /> : null}
       <ExpiryPills expiries={expiries} value={expiry} onChange={selectExpiry} />
 
       {live.isError && !live.data && (
         <Card>
-          <CardContent className="flex items-center gap-2 py-4 text-sm text-bearish" role="alert">
+          <CardContent className="flex items-center gap-2 py-4 text-body text-bearish" role="alert">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Could not load the option chain. Try refresh.
           </CardContent>
         </Card>
@@ -138,7 +139,7 @@ export default function MaxPainPCR() {
 
       {loading ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground" role="status">
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-body text-muted-foreground" role="status">
             <Loader2 className="h-6 w-6 animate-spin text-primary-ink" /> Loading {symbol} option chain…
           </CardContent>
         </Card>
@@ -157,7 +158,7 @@ export default function MaxPainPCR() {
         </>
       )}
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="hairline-t pt-3 text-body-sm text-muted-foreground">
         {EDU_NOTE} Max pain, expected move and PCR are computed in your browser from the option chain; intraday and daily history exist only for the time this terminal was open.
       </p>
     </div>

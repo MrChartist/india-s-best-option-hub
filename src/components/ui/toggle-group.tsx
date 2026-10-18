@@ -14,7 +14,12 @@ const ToggleGroup = React.forwardRef<
   React.ElementRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleVariants>
 >(({ className, variant, size, children, ...props }, ref) => (
-  <ToggleGroupPrimitive.Root ref={ref} className={cn("flex items-center justify-center gap-1", className)} {...props}>
+  <ToggleGroupPrimitive.Root
+    ref={ref}
+    // macOS segmented control tray; the items are the segments.
+    className={cn("inline-flex min-h-7 flex-wrap items-center justify-center gap-px rounded-pill bg-control-track p-0.5", className)}
+    {...props}
+  >
     <ToggleGroupContext.Provider value={{ variant, size }}>{children}</ToggleGroupContext.Provider>
   </ToggleGroupPrimitive.Root>
 ));

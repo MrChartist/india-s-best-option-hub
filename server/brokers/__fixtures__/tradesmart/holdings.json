@@ -1,0 +1,61 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/Holdings",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"prd\":\"C\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "13",
+              "tsym": "ABB-EQ"
+            }
+          ],
+          "holdqty": "20",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1800.00"
+        },
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "22",
+              "tsym": "ACC-EQ"
+            }
+          ],
+          "holdqty": "15",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1400.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

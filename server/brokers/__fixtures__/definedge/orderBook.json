@@ -1,0 +1,106 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/orders",
+      "json": {
+        "status": "SUCCESS",
+        "orders": [
+          {
+            "order_id": "26101600000013",
+            "tradingsymbol": "NIFTY20OCT26C25000",
+            "token": "43210",
+            "quantity": "130",
+            "price_type": "LIMIT",
+            "product_type": "NORMAL",
+            "order_entry_time": "1792128376",
+            "order_status": "OPEN",
+            "order_type": "BUY",
+            "variety": "REGULAR",
+            "lotsize": "65",
+            "exchange_orderid": "1001234567890",
+            "pending_qty": "65",
+            "price": "98.50",
+            "exchange_time": "16-10-2026 10:16:16",
+            "average_traded_price": "98.50",
+            "exchange": "NFO",
+            "filled_qty": "65",
+            "disclosed_quantity": "0",
+            "validity": "DAY",
+            "price_precision": "2",
+            "ticksize": "0.05",
+            "price_factor": "1.000000",
+            "multiplier": "1",
+            "rqty": "130",
+            "required_price": "98.50"
+          },
+          {
+            "order_id": "26101600000011",
+            "tradingsymbol": "NIFTY27OCT26F",
+            "token": "48757",
+            "quantity": "65",
+            "price_type": "MARKET",
+            "product_type": "NORMAL",
+            "order_entry_time": "1792128376",
+            "order_status": "COMPLETE",
+            "order_type": "SELL",
+            "variety": "REGULAR",
+            "lotsize": "65",
+            "exchange_orderid": "1001234567890",
+            "pending_qty": "0",
+            "price": "0.00",
+            "exchange_time": "16-10-2026 10:16:16",
+            "average_traded_price": "25120.00",
+            "exchange": "NFO",
+            "filled_qty": "65",
+            "disclosed_quantity": "0",
+            "validity": "DAY",
+            "price_precision": "2",
+            "ticksize": "0.05",
+            "price_factor": "1.000000",
+            "multiplier": "1",
+            "rqty": "65",
+            "required_price": "0.00"
+          },
+          {
+            "order_id": "26101600000010",
+            "tradingsymbol": "NIFTY20OCT26P25000",
+            "token": "43211",
+            "quantity": "65",
+            "price_type": "SL-LIMIT",
+            "product_type": "NORMAL",
+            "order_entry_time": "1792128376",
+            "order_status": "CANCELED",
+            "order_type": "SELL",
+            "variety": "REGULAR",
+            "lotsize": "65",
+            "exchange_orderid": "1001234567890",
+            "pending_qty": "0",
+            "price": "80.00",
+            "exchange_time": "16-10-2026 10:16:16",
+            "average_traded_price": "0.00",
+            "exchange": "NFO",
+            "filled_qty": "0",
+            "disclosed_quantity": "0",
+            "validity": "DAY",
+            "price_precision": "2",
+            "ticksize": "0.05",
+            "price_factor": "1.000000",
+            "multiplier": "1",
+            "rqty": "65",
+            "required_price": "80.00"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

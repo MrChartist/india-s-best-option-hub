@@ -166,5 +166,3 @@ export function useContractData(key: ContractKey, opts: { dailyDays: number }) {
     daily,
   };
 }
-
-export type ContractData = ReturnType<typeof useContractData>;

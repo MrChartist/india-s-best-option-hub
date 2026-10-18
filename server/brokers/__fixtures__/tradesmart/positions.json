@@ -1,0 +1,68 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/PositionBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "uid": "FZ00000",
+          "actid": "FZ00000",
+          "exch": "NSE",
+          "tsym": "EMIL-EQ",
+          "s_prdt_ali": "MIS",
+          "prd": "I",
+          "token": "11530",
+          "symname": "EMIL",
+          "instname": "EQ",
+          "cname": "ELECTRONICS MART IND LTD",
+          "frzqty": "552883",
+          "pp": "2",
+          "ls": "1",
+          "ti": "0.01",
+          "mult": "1",
+          "prcftr": "1.000000",
+          "daybuyqty": "200",
+          "daysellqty": "200",
+          "daybuyamt": "37060.00",
+          "daybuyavgprc": "185.30",
+          "daysellamt": "36740.00",
+          "daysellavgprc": "183.70",
+          "cfbuyqty": "0",
+          "cfsellqty": "0",
+          "netqty": "0",
+          "netavgprc": "0.00",
+          "upldprc": "0.00",
+          "netupldprc": "0.00",
+          "lp": "184.75",
+          "urmtom": "0.00",
+          "bep": "0.00",
+          "totbuyamt": "37060.00",
+          "totsellamt": "36740.00",
+          "totbuyavgprc": "185.30",
+          "totsellavgprc": "183.70",
+          "rpnl": "-320.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

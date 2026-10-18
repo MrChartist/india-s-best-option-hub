@@ -1,0 +1,46 @@
+{
+  "args": [
+    {
+      "exchange": "NFO",
+      "token": "51630",
+      "side": "BUY",
+      "product": "MARGIN",
+      "orderType": "LIMIT",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 180.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://developer.hdfcsky.com/oapi/v1/orders?api_key=dummy-sky-api-key&client_id=DEMO1",
+      "status": 200,
+      "expectBody": {
+        "client_id": "DEMO1",
+        "device": "WEB",
+        "disclosed_quantity": 0,
+        "execution_type": "REGULAR",
+        "exchange": "NFO",
+        "instrument_token": "51630",
+        "order_side": "BUY",
+        "order_type": "LIMIT",
+        "price": 180.5,
+        "product": "NRML",
+        "quantity": 130,
+        "trigger_price": 0,
+        "validity": "DAY",
+        "amo": false
+      },
+      "json": {
+        "data": {
+          "oms_order_id": "200018000000003",
+          "user_order_id": 10002
+        },
+        "message": "Order place successfully",
+        "status": "success"
+      }
+    }
+  ]
+}

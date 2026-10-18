@@ -33,7 +33,7 @@ export function MostActiveFnO() {
     <Card className="overflow-hidden">
       <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
         <Zap className="h-4 w-4 text-warning" aria-hidden="true" />
-        <h3 className="font-display text-lead font-bold">Most active by volume</h3>
+        <h3 className="font-display text-headline">Most active by volume</h3>
         {!hasOI && rows.length > 0 ? <span className="text-body-sm text-muted-foreground">OI not available from this source</span> : null}
         <div className="ml-auto">
           <DataStatus status={status} lastUpdated={q.data?.asOf} source={sourceName(q.data?.source)} reason={q.data?.reason} />
@@ -44,24 +44,24 @@ export function MostActiveFnO() {
           <table className="w-full min-w-[560px] text-body">
             <caption className="sr-only">Most active F&O stocks by volume</caption>
             <thead>
-              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
-                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Symbol</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>LTP</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Change</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Volume</th>
-                {hasOI ? <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>OI</th> : null}
-                {hasOI ? <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>OI chg</th> : null}
-                {hasOI ? <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Buildup</th> : null}
+              <tr className="text-left text-label text-muted-foreground [&>th]:hairline-b">
+                <th scope="col" className={cn("px-4 font-semibold", d.cell)}>Symbol</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>LTP</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>Change</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>Volume</th>
+                {hasOI ? <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>OI</th> : null}
+                {hasOI ? <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>OI chg</th> : null}
+                {hasOI ? <th scope="col" className={cn("px-4 font-semibold", d.cell)}>Buildup</th> : null}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {rows.map((s) => {
                 const b = BUILDUP[s.oiInterpretation] ?? BUILDUP.Neutral;
                 const dir = s.changePercent > 0 ? "up" : s.changePercent < 0 ? "down" : "flat";
                 return (
-                  <tr key={s.symbol} className="border-b border-border last:border-0 hover:bg-accent/40">
+                  <tr key={s.symbol} className="hover:bg-control-track">
                     <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
-                      <Link to={`/option-chain?symbol=${encodeURIComponent(s.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none" aria-label={`${s.symbol}, open option chain`}>
+                      <Link to={`/option-chain?symbol=${encodeURIComponent(s.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-focus focus-visible:outline-none" aria-label={`${s.symbol}, open option chain`}>
                         {s.symbol}
                       </Link>
                     </th>
@@ -93,5 +93,3 @@ export function MostActiveFnO() {
     </Card>
   );
 }
-
-export default MostActiveFnO;

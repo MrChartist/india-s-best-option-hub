@@ -1,0 +1,47 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://cis.kotaksecurities.com/quick/user/limits?sId=server1",
+      "expectBody": {
+        "jData": "{\"seg\":\"ALL\",\"exch\":\"ALL\",\"prod\":\"ALL\"}"
+      },
+      "json": {
+        "Category": "CLIENT_SPECIAL",
+        "EntityId": "",
+        "BoardLotLimit": "5000",
+        "CollateralValue": "179542.80",
+        "Collateral": "222565.50",
+        "RmsCollateral": "0",
+        "AdhocMargin": "0",
+        "NotionalCash": "0",
+        "CdsSpreadBenefit": "0",
+        "AmountUtilizedPrsnt": "0",
+        "UnrealizedMtomPrsnt": "0",
+        "RealizedMtomPrsnt": "0",
+        "ExposureMarginPrsnt": "0",
+        "SpanMarginPrsnt": "0",
+        "NfospreadBenefit": "0",
+        "PremiumPrsnt": "0",
+        "MarginVarPrsnt": "0",
+        "MarginScripBasketPrsnt": "0.20",
+        "MarginUsed": "0.20",
+        "RmsPayInAmt": "0",
+        "RmsPayOutAmt": "0",
+        "Net": "402108.10",
+        "MarginUsedPrsnt": "0.20",
+        "CashUnRlsMtomPrsnt": "-0.24",
+        "TimeStamp": "1792471500000",
+        "stCode": 200,
+        "stat": "Ok",
+        "RmsIpoAmt": "0"
+      }
+    }
+  ]
+}

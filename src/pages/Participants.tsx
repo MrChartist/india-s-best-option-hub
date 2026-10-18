@@ -2,6 +2,7 @@ import { useCallback, useId, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, CalendarDays, Clock, FlaskConical, Landmark, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { LeadLagPanel } from "@/components/participants/LeadLagPanel";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,7 +23,9 @@ import {
   Panel,
   PanelSkeleton,
   SourceBadge,
+  STRIP_CELL,
   Stat,
+  StatStrip,
 } from "@/components/participants/ui";
 import { arrow, fmtContracts, fmtContractsFull, fmtPct, toneClass } from "@/components/participants/format";
 import { useCashFlows, useNiftyCloses, useParticipantsDashboard } from "@/components/participants/useParticipants";
@@ -107,7 +110,6 @@ export default function Participants() {
     <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
       <PageHeader
         icon={Landmark}
-        eyebrow="Positioning"
         title="FII / DII Positioning"
         description="Who holds which side of NSE F&O: participant-wise open interest and volume for FIIs, DIIs, prop desks and Clients, with FII index-futures long %, its 1-year percentile, the next-day NIFTY link, the Client vs FII mirror and cash-market flows."
         source={
@@ -126,7 +128,7 @@ export default function Participants() {
         actions={
           <>
             <div className="flex items-center gap-1.5">
-              <span id={`${dateInputId}-label`} className="text-label uppercase text-muted-foreground">
+              <span id={`${dateInputId}-label`} className="text-body-sm text-muted-foreground">
                 Report date
               </span>
               {/* The app's date picker: "16 Oct 2026" like everywhere else, not the browser's locale order. */}
@@ -138,7 +140,7 @@ export default function Participants() {
                     aria-haspopup="dialog"
                     aria-labelledby={`${dateInputId}-label ${dateInputId}`}
                     aria-describedby={snapNote ? `${dateInputId}-note` : undefined}
-                    className="inline-flex h-8 items-center gap-2 rounded-tile border border-input bg-background px-2.5 font-num text-body-sm tabular-nums text-foreground transition-[border-color,box-shadow] duration-fast hover:border-foreground/25 focus-visible:shadow-ember focus-visible:outline-none data-[state=open]:border-primary"
+                    className="inline-flex h-7 items-center gap-2 rounded-sm bg-control px-2 font-num text-body tabular-nums text-foreground shadow-control transition-[background-color,box-shadow] duration-fast hover:bg-control/90 focus-visible:shadow-[var(--shadow-control),var(--focus-ring)] focus-visible:outline-none data-[state=open]:shadow-[var(--shadow-control),var(--focus-ring)] [@media(pointer:coarse)]:h-9"
                   >
                     {(date ?? d?.date) ? formatDateIST(date ?? d?.date ?? "") : "Pick a date"}
                     <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -159,7 +161,7 @@ export default function Participants() {
                     weekStartsOn={1}
                     initialFocus
                   />
-                  <p className="border-t border-border px-3 py-2 text-body-sm text-muted-foreground">Dates in IST. Weekends and holidays snap to the previous report.</p>
+                  <p className="px-3 py-2 text-body-sm text-muted-foreground hairline-t">Dates in IST. Weekends and holidays snap to the previous report.</p>
                 </PopoverContent>
               </Popover>
               {date ? (
@@ -175,7 +177,7 @@ export default function Participants() {
               aria-label="History window"
             >
               {WINDOWS.map((w) => (
-                <ToggleGroupItem key={w} value={w} size="sm" className="h-8 px-2.5 text-xs">
+                <ToggleGroupItem key={w} value={w} size="sm">
                   {WINDOW_LABEL[w]}
                 </ToggleGroupItem>
               ))}
@@ -187,6 +189,7 @@ export default function Participants() {
           </>
         }
       />
+      <ProductCrossLink id="fiiDii" campaign="participants" lead="Real-time FII and DII money flows, sector-wise FPI allocation and flow heatmaps:" />
       {snapNote ? (
         <p id={`${dateInputId}-note`} role="status" className="text-body-sm text-muted-foreground">
           {snapNote}
@@ -212,7 +215,7 @@ export default function Participants() {
       {d && d.fellBack && !d.awaitingPublication && d.mode !== "sample" ? (
         <div
           role="status"
-          className="flex items-start gap-2 rounded-tile border border-border bg-surface px-3 py-2 text-body-sm text-muted-foreground"
+          className="flex items-start gap-2 rounded-tile bg-muted/50 px-3 py-2 text-body-sm text-muted-foreground"
         >
           <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
@@ -237,8 +240,9 @@ export default function Participants() {
       ) : null}
 
       {/* Headline stats */}
-      <section aria-label="Headline positioning" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <StatStrip label="Headline positioning" className="grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <Stat
+          className={STRIP_CELL}
           label="FII idx fut long %"
           value={fiiFut ? fmtPct(fiiFut.longPct, 1) : "—"}
           hint={
@@ -251,6 +255,7 @@ export default function Participants() {
           tone={fiiFut?.change ? toneClass(fiiFut.change.longPct) : undefined}
         />
         <Stat
+          className={STRIP_CELL}
           label="FII idx fut net"
           value={fiiFut ? fmtContracts(fiiFut.net, true) : "—"}
           tone={fiiFut ? toneClass(fiiFut.net) : undefined}
@@ -259,6 +264,7 @@ export default function Participants() {
           }
         />
         <Stat
+          className={STRIP_CELL}
           label="Client idx fut net"
           value={client ? fmtContracts(client.products.futIdx.net, true) : "—"}
           tone={client ? toneClass(client.products.futIdx.net) : undefined}
@@ -269,12 +275,14 @@ export default function Participants() {
           }
         />
         <Stat
+          className={STRIP_CELL}
           label="FII idx calls net"
           value={fii ? fmtContracts(fii.products.optIdxCall.net, true) : "—"}
           tone={fii ? toneClass(fii.products.optIdxCall.net) : undefined}
           hint={fii ? `Long ${fmtPct(fii.products.optIdxCall.longPct, 1)}` : undefined}
         />
         <Stat
+          className={STRIP_CELL}
           label="FII idx puts net"
           value={fii ? fmtContracts(fii.products.optIdxPut.net, true) : "—"}
           tone={fii ? toneClass(-fii.products.optIdxPut.net) : undefined}
@@ -282,13 +290,14 @@ export default function Participants() {
           help="Shown red when FIIs are net long puts, since buying puts is a bearish or hedging position."
         />
         <Stat
+          className={STRIP_CELL}
           label="Session"
           value={d ? formatDateIST(d.date) : "—"}
           hint={
             d?.mode === "live" ? `File for ${d.date}` : d?.mode === "cache" ? "Saved copy" : d ? "Simulated" : "Loading"
           }
         />
-      </section>
+      </StatStrip>
 
       {!d ? (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -332,15 +341,15 @@ export default function Participants() {
               {d.fiiStats.length === 0 ? (
                 <p className="text-body-sm text-muted-foreground">No FII row in this file.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="text-body [&_td]:px-2 [&_th]:px-2 [&_th]:whitespace-nowrap">
+                <div className="overflow-hidden rounded-tile hairline">
+                  <Table>
                     <caption className="sr-only">FII open interest and volume by segment</caption>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-label uppercase">Segment</TableHead>
-                        <TableHead className="text-right text-label uppercase">Net OI</TableHead>
-                        <TableHead className="text-right text-label uppercase">Long %</TableHead>
-                        <TableHead className="text-right text-label uppercase">Net vol</TableHead>
+                        <TableHead>Segment</TableHead>
+                        <TableHead className="text-right">Net OI</TableHead>
+                        <TableHead className="text-right">Long %</TableHead>
+                        <TableHead className="text-right">Net vol</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

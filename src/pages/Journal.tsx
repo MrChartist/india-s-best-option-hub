@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { EdgeTable } from "@/components/journal/EdgeTable";
 import { EquityCurve } from "@/components/journal/EquityCurve";
 import { ImportPanel } from "@/components/journal/ImportPanel";
@@ -24,7 +25,7 @@ import { TradesTable } from "@/components/journal/TradesTable";
 import { TurnoverCard } from "@/components/journal/TurnoverCard";
 import { PnLCalendar } from "@/components/paper/PnLCalendar";
 import { signedINR } from "@/components/positions/helpers";
-import { EduNote, EmptyState, Panel, Stat } from "@/components/positions/ui";
+import { EduNote, EmptyState, Panel, STAT_GROUP, Stat } from "@/components/positions/ui";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useNow } from "@/hooks/useNow";
 import {
@@ -51,6 +52,7 @@ import {
 } from "@/lib/journal";
 import { formatINR, formatPct, istDateString } from "@/lib/options";
 import { loadPaper } from "@/lib/paperTrading";
+import { cn } from "@/lib/utils";
 
 type View = JournalState["view"];
 
@@ -169,13 +171,12 @@ export default function Journal() {
     <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
       <PageHeader
         icon={BookOpenCheck}
-        eyebrow="Portfolio"
         title="Trade Journal"
         description="Import your broker tradebook and see what really pays after charges: round trips, expectancy by strategy, DTE, weekday and time of day, a P&L calendar and an ITR-ready turnover CSV."
         source={
           <>
             {sourceBadge}
-            <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as View)} aria-label="Trades to analyse" size="sm" variant="outline" className="[&_svg]:size-3.5 [&>button]:gap-1.5">
+            <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as View)} aria-label="Trades to analyse" size="sm">
               <ToggleGroupItem value="imported">
                 <FileSpreadsheet aria-hidden="true" /> Imported
               </ToggleGroupItem>
@@ -203,6 +204,7 @@ export default function Journal() {
           </>
         }
       />
+      <ProductCrossLink id="tradeBook" campaign="journal" lead="Want a dedicated trading journal for NSE, MCX and F&O? Try" />
 
       {isSample ? (
         <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning/60 px-3 py-2 text-body-sm text-foreground">
@@ -263,7 +265,7 @@ export default function Journal() {
                 Period
               </Label>
               <Select value={activePeriod} onValueChange={setPeriod}>
-                <SelectTrigger id="journal-period" className="h-9 w-40">
+                <SelectTrigger id="journal-period" className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,7 +277,7 @@ export default function Journal() {
                   ))}
                 </SelectContent>
               </Select>
-              <ToggleGroup type="single" value={unit} onValueChange={(v) => v && setUnit(v as "position" | "leg")} aria-label="Count trades by" size="sm" variant="outline">
+              <ToggleGroup type="single" value={unit} onValueChange={(v) => v && setUnit(v as "position" | "leg")} aria-label="Count trades by" size="sm">
                 <ToggleGroupItem value="position" title="A multi-leg structure (for example an iron condor) counts as one trade">
                   Per position
                 </ToggleGroupItem>
@@ -299,8 +301,8 @@ export default function Journal() {
           </div>
 
           {/* Four per row at most: eight across truncated the labels and sub-text at 1440px. */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat label="Net P&L" value={signedINR(s.net)} tone={s.net > 0 ? "bullish" : s.net < 0 ? "bearish" : "muted"} sub={`gross ${signedINR(s.gross)}`} className="col-span-2 sm:col-span-1" />
+          <div className={cn(STAT_GROUP, "grid-cols-2 sm:grid-cols-4")}>
+            <Stat label="Net P&L" value={signedINR(s.net)} tone={s.net > 0 ? "bullish" : s.net < 0 ? "bearish" : "muted"} sub={`gross ${signedINR(s.gross)}`} />
             <Stat label="Charges" value={formatINR(s.charges, { decimals: 0 })} tone={s.chargesPctOfGross > 40 ? "warning" : undefined} sub={Number.isFinite(s.chargesPctOfGross) ? `${formatPct(s.chargesPctOfGross, { decimals: 1 })} of gross` : "—"} help="Brokerage, STT, exchange transaction charges, SEBI fee, stamp duty and GST, from the dated charges table. Shown as a share of absolute gross P&L." />
             <Stat label="Expectancy" value={signedINR(s.expectancy)} tone={s.expectancy > 0 ? "bullish" : s.expectancy < 0 ? "bearish" : "muted"} sub={unit === "position" ? "net per position" : "net per round trip"} help={unit === "position" ? "Average net P&L per position (a multi-leg structure counts once), after charges." : "Average net P&L per round trip, after charges."} />
             <Stat label="Win rate" value={formatPct(s.winRate, { decimals: 0 })} sub={`${s.wins} won · ${s.losses} lost`} />

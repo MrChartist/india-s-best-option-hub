@@ -26,7 +26,7 @@ const OPS: NumericOp[] = ["gt", "gte", "lt", "lte", "between"];
 /** Pressed style per buildup: the shared BuildupBadge palette (LB green, SB red, SC blue, LU amber). */
 function toneOn(b: Buildup): string {
   const kind = BUILDUP_KIND[b];
-  return kind ? BUILDUP_META[kind].className : "border-border bg-muted text-foreground";
+  return kind ? BUILDUP_META[kind].className : "bg-control text-foreground shadow-control";
 }
 
 export interface ScreenerFiltersProps {
@@ -51,12 +51,12 @@ function NumberRuleRow({
   const meta = FIELD_META[rule.field];
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5 rounded-tile border border-border bg-background/60 p-1.5"
+      className="flex flex-wrap items-center gap-1.5 rounded-md bg-control-track p-1.5"
       role="group"
       aria-label={`Rule: ${meta.label}`}
     >
       <Select value={rule.field} onValueChange={(v) => onChange({ ...rule, field: v as NumericField })}>
-        <SelectTrigger className="h-8 w-[170px] text-body-sm" aria-label="Metric">
+        <SelectTrigger className="w-[170px]" aria-label="Metric">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -68,7 +68,7 @@ function NumberRuleRow({
         </SelectContent>
       </Select>
       <Select value={rule.op} onValueChange={(v) => onChange({ ...rule, op: v as NumericOp })}>
-        <SelectTrigger className="h-8 w-[100px] text-body-sm" aria-label="Condition">
+        <SelectTrigger className="w-[100px]" aria-label="Condition">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -89,7 +89,7 @@ function NumberRuleRow({
         step={meta.step}
         value={Number.isFinite(rule.value) ? rule.value : ""}
         onChange={(e) => onChange({ ...rule, value: e.target.value === "" ? NaN : Number(e.target.value) })}
-        className="h-8 w-20 text-body-sm"
+        className="w-20"
       />
       {rule.op === "between" ? (
         <>
@@ -104,7 +104,7 @@ function NumberRuleRow({
             step={meta.step}
             value={rule.value2 !== undefined && Number.isFinite(rule.value2) ? rule.value2 : ""}
             onChange={(e) => onChange({ ...rule, value2: e.target.value === "" ? undefined : Number(e.target.value) })}
-            className="h-8 w-20 text-body-sm"
+            className="w-20"
           />
         </>
       ) : null}
@@ -113,7 +113,7 @@ function NumberRuleRow({
         type="button"
         variant="ghost"
         size="icon"
-        className="ml-auto h-8 w-8"
+        className="ml-auto"
         onClick={onRemove}
         aria-label={`Remove ${meta.label} rule`}
       >
@@ -163,7 +163,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
             Search symbol or sector
           </label>
           <Search
-            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <Input
@@ -171,7 +171,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
             value={value.search}
             onChange={(e) => onChange({ ...value, search: e.target.value })}
             placeholder="Search symbol or sector"
-            className="h-9 pl-8"
+            className="rounded-capsule pl-7"
             autoComplete="off"
             spellCheck={false}
           />
@@ -179,14 +179,14 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1.5">
+            <Button variant="outline" className="gap-1.5">
               <Filter />
               Sector{value.sectors.length ? ` (${value.sectors.length})` : ""}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64 p-0">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2">
-              <span className="text-label uppercase text-muted-foreground">Sectors</span>
+            <div className="hairline-b flex items-center justify-between px-3 py-2">
+              <span className="text-label text-muted-foreground">Sectors</span>
               {value.sectors.length ? (
                 <button
                   type="button"
@@ -205,7 +205,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
                   <label
                     key={s}
                     htmlFor={cid}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-body-sm hover:bg-accent"
+                    className="flex cursor-pointer items-center gap-2 rounded-[5px] px-2 py-1 text-body hover:bg-control-track"
                   >
                     <Checkbox
                       id={cid}
@@ -229,7 +229,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           value={instrumentRule ? instrumentRule.value : "all"}
           onValueChange={(v) => setInstrument(v as "all" | "STOCK" | "INDEX")}
         >
-          <SelectTrigger className="h-9 w-[130px] text-body-sm" aria-label="Instrument type">
+          <SelectTrigger className="w-[140px]" aria-label="Instrument type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -243,7 +243,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           value={bannedRule ? (bannedRule.value ? "only" : "hide") : "all"}
           onValueChange={(v) => setBanned(v as "all" | "hide" | "only")}
         >
-          <SelectTrigger className="h-9 w-[150px] text-body-sm" aria-label="Ban period filter">
+          <SelectTrigger className="w-[160px]" aria-label="Ban period filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -258,19 +258,20 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
             <span className="font-num font-semibold text-foreground">{matchCount}</span> of {totalCount}
           </span>
           {activeCount > 0 ? (
-            <Button variant="ghost" size="sm" onClick={() => onChange({ search: "", sectors: [], rules: [] })}>
+            <Button variant="ghost" onClick={() => onChange({ search: "", sectors: [], rules: [] })}>
               Clear all
             </Button>
           ) : null}
-          <Button variant="outline" size="sm" onClick={onExport} disabled={matchCount === 0} className="gap-1.5">
+          <Button variant="outline" onClick={onExport} disabled={matchCount === 0} className="gap-1.5">
             <Download />
             CSV
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Buildup type">
-        <span className="mr-1 text-label uppercase text-muted-foreground">Buildup</span>
+      {/* Finder-style scope bar */}
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Buildup type">
+        <span className="mr-1.5 text-body-sm font-medium text-muted-foreground">Buildup</span>
         {BUILDUPS.map((b) => {
           const on = selectedBuildups.includes(b);
           return (
@@ -280,8 +281,8 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
               aria-pressed={on}
               onClick={() => toggleBuildup(b)}
               className={cn(
-                "min-h-8 rounded-pill border px-3 text-body-sm transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                on ? toneOn(b) : "border-border bg-card text-muted-foreground hover:text-foreground",
+                "inline-flex h-6 items-center rounded-pill px-2.5 text-body-sm font-medium transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-9",
+                on ? toneOn(b) : "text-foreground/80 hover:bg-control-track hover:text-foreground",
               )}
             >
               {BUILDUP_LABEL[b]}
@@ -298,7 +299,7 @@ export function ScreenerFilters({ value, onChange, sectors, matchCount, totalCou
           type="button"
           variant="ghost"
           size="sm"
-          className="gap-1.5 text-muted-foreground"
+          className="-ml-1 gap-1.5 text-muted-foreground"
           onClick={() =>
             setRules([...value.rules, { id: newRuleId(), kind: "number", field: "atmIv", op: "gte", value: 30 }])
           }

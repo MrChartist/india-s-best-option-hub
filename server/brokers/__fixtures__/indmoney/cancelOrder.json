@@ -1,0 +1,25 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "args": [
+    "EQ-93842477"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.indstocks.com/order/cancel",
+      "expectBody": {
+        "order_id": "EQ-93842477",
+        "segment": "EQUITY"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "EQ-93842477",
+          "order_status": "CANCELLED"
+        }
+      }
+    }
+  ]
+}

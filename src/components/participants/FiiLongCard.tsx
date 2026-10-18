@@ -38,7 +38,7 @@ export default function FiiLongCard() {
     <Card className="flex h-full min-w-0 flex-col p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-1.5 font-display text-lead font-bold">
+          <h3 className="flex items-center gap-1.5 font-display text-[14px] font-bold leading-snug">
             <Landmark className="h-4 w-4 text-primary-ink" aria-hidden="true" />
             FII index futures long
           </h3>
@@ -77,11 +77,11 @@ export default function FiiLongCard() {
 
       <dl className="mt-2 grid grid-cols-2 gap-2 text-body-sm">
         <div>
-          <dt className="text-label uppercase text-muted-foreground">FII net</dt>
+          <dt className="text-label text-muted-foreground">FII net</dt>
           <dd className={cn("font-num tabular-nums", toneClass(fii?.products.futIdx.net ?? NaN))}>{fmtContracts(fii?.products.futIdx.net ?? NaN, true)}</dd>
         </div>
         <div>
-          <dt className="text-label uppercase text-muted-foreground">Client net</dt>
+          <dt className="text-label text-muted-foreground">Client net</dt>
           <dd className={cn("font-num tabular-nums", toneClass(client?.products.futIdx.net ?? NaN))}>{fmtContracts(client?.products.futIdx.net ?? NaN, true)}</dd>
         </div>
       </dl>

@@ -67,7 +67,7 @@ export function DailyStraddleView({ data, loading, error, selection, mult, unit,
       }
     >
       {sample && data?.reason ? (
-        <p className="mb-3 flex items-start gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning">
+        <p className="mb-3 flex items-start gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{data.reason}, so these closes are simulated with the sample chain. They are not market data.</span>
         </p>
@@ -135,7 +135,7 @@ export function DailyStraddleView({ data, loading, error, selection, mult, unit,
               syncId="straddles-daily"
               label={`${symbol} close`}
               formatLabel={(i) => (rows[Math.round(i)] ? formatDateIST(rows[Math.round(i)].date) : "")}
-              className="mt-3 border-t border-border pt-2"
+              className="hairline-t mt-3 pt-2"
             />
             <figcaption className="mt-2 text-body-sm text-muted-foreground">Bars stack the CE and PE closes, so each bar is the pair&apos;s closing premium. The underlying close sits underneath on its own scale.</figcaption>
           </figure>

@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
 export function Panel({ title, subtitle, actions, children, className, bodyClassName, id }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string; id?: string }) {
   return (
     <Card className={cn("min-w-0 overflow-hidden", className)} aria-labelledby={id ? `${id}-title` : undefined} role={id ? "region" : undefined}>
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 hairline-b">
         <div className="min-w-0">
-          <h2 id={id ? `${id}-title` : undefined} className="font-display text-lead font-bold tracking-[-0.01em]">
+          <h2 id={id ? `${id}-title` : undefined} className="font-display text-[14px] font-bold leading-snug">
             {title}
           </h2>
           {subtitle ? <p className="mt-0.5 text-body-sm text-muted-foreground">{subtitle}</p> : null}
@@ -37,7 +37,7 @@ export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; la
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[280px] text-xs leading-relaxed">{text}</TooltipContent>
+      <TooltipContent className="max-w-[280px] text-body-sm">{text}</TooltipContent>
     </Tooltip>
   );
 }
@@ -61,7 +61,7 @@ export function SourceBadge({ mode, label, detail }: { mode: DataMode; label?: s
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[260px] text-xs">
+      <TooltipContent className="max-w-[260px] text-body-sm">
         <p>{m.note}</p>
         {detail ? <p className="mt-1 text-muted-foreground">{detail}</p> : null}
       </TooltipContent>
@@ -77,11 +77,11 @@ export function DerivedBadge({ title = "Derived", note = "Computed in the browse
   );
 }
 
-export function Stat({ label, value, hint, tone, help }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode }) {
+export function Stat({ label, value, hint, tone, help, className }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode; className?: string }) {
   return (
-    <div className="min-w-0 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card">
+    <div className={cn("min-w-0 rounded-tile bg-muted/50 px-3 py-2.5", className)}>
       <div className="flex items-center gap-1">
-        <p className="truncate text-label uppercase text-muted-foreground">{label}</p>
+        <p className="truncate text-label text-muted-foreground">{label}</p>
         {help ? <HelpTip text={help} label={`About ${label}`} /> : null}
       </div>
       <p className={cn("mt-1 truncate font-num text-title tabular-nums", tone)}>{value}</p>
@@ -92,9 +92,9 @@ export function Stat({ label, value, hint, tone, help }: { label: string; value:
 
 export function EmptyState({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-border px-4 py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-tile bg-muted/40 px-4 py-10 text-center">
       {icon ? <div className="text-muted-foreground">{icon}</div> : null}
-      <p className="font-display text-lead font-bold">{title}</p>
+      <p className="text-headline font-semibold">{title}</p>
       {children ? <div className="max-w-md text-body-sm text-muted-foreground">{children}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
@@ -118,3 +118,21 @@ export function LegendDot({ color, label, dashed }: { color: string; label: stri
     </span>
   );
 }
+
+/**
+ * A row of KPI figures as one macOS group box: hairline gutters between cells instead of a
+ * separate bordered card per figure. Pass Stat children with `className={STRIP_CELL}`.
+ */
+export function StatStrip({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+  return (
+    <section
+      aria-label={label}
+      className={cn("grid gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card", className)}
+    >
+      {children}
+    </section>
+  );
+}
+
+/** Cell style for a Stat inside a StatStrip. */
+export const STRIP_CELL = "rounded-none bg-card";

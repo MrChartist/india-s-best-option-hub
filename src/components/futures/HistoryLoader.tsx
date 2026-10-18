@@ -20,7 +20,7 @@ export function HistoryLoader({ symbol, missing, storedDays, state, onRun, onCan
   const pct = state.total ? Math.round((state.done / state.total) * 100) : 0;
   return (
     <div
-      className="flex flex-col gap-2 rounded-tile border border-border bg-surface px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-2 rounded-tile bg-muted/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
       aria-live="polite"
     >
       <div className="min-w-0 text-body-sm">

@@ -4,12 +4,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Segmented as SegmentedControl } from "@/components/strategy/Segmented";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDateIST, istDateString } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import { calendarDateToIso, isoToCalendarDate, symbolOptions, type Tone } from "./calcLogic";
 
-/** Card-like section used by every calculator. */
+/** macOS group box used by every calculator: hairline, near-flat, 10px radius. */
 export function Panel({
   title,
   description,
@@ -24,13 +25,13 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-card border border-border bg-card p-4 shadow-card sm:p-5", className)} aria-label={title}>
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <section className={cn("rounded-tile border border-separator bg-card p-4 shadow-card", className)} aria-label={title}>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h2 data-card-title="" className="font-display text-[15px] font-bold leading-snug text-foreground">{title}</h2>
-          {description ? <p className="mt-1 max-w-3xl text-body-sm text-muted-foreground">{description}</p> : null}
+          <h2 data-card-title="" className="font-display text-headline text-foreground">{title}</h2>
+          {description ? <p className="mt-0.5 max-w-3xl text-body-sm text-muted-foreground">{description}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       {children}
     </section>
@@ -49,7 +50,6 @@ export function NumField({
   className,
   placeholder,
   step,
-  compact,
 }: {
   label: string;
   value: string;
@@ -61,18 +61,17 @@ export function NumField({
   className?: string;
   placeholder?: string;
   step?: string;
-  compact?: boolean;
 }) {
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <Label htmlFor={id} className={cn("block text-label uppercase text-muted-foreground", compact && "text-micro")}>
+      <Label htmlFor={id} className="block text-label text-muted-foreground">
         {label}
       </Label>
       <div className="relative">
         {prefix ? (
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground" aria-hidden="true">
+          <span className="pointer-events-none absolute inset-y-0 left-2 flex items-center text-body-sm text-muted-foreground" aria-hidden="true">
             {prefix}
           </span>
         ) : null}
@@ -86,10 +85,10 @@ export function NumField({
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={invalid || undefined}
           aria-describedby={hintId}
-          className={cn("font-num tabular-nums", prefix && "pl-7", suffix && "pr-10")}
+          className={cn("font-num tabular-nums", prefix && "pl-6", suffix && "pr-8")}
         />
         {suffix ? (
-          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground" aria-hidden="true">
+          <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-body-sm text-muted-foreground" aria-hidden="true">
             {suffix}
           </span>
         ) : null}
@@ -122,7 +121,7 @@ export function SelectField<T extends string>({
   const id = useId();
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <Label htmlFor={id} className={cn("block text-label uppercase text-muted-foreground", compact && "text-micro")}>
+      <Label htmlFor={id} className="block text-label text-muted-foreground">
         {label}
       </Label>
       <Select value={value} onValueChange={(v) => onChange(v as T)}>
@@ -148,7 +147,7 @@ export function SymbolField({ value, onChange, label = "Underlying", className }
   const id = useId();
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <Label htmlFor={id} className="block text-label uppercase text-muted-foreground">
+      <Label htmlFor={id} className="block text-label text-muted-foreground">
         {label}
       </Label>
       <Select value={value} onValueChange={onChange}>
@@ -178,7 +177,7 @@ export function SymbolField({ value, onChange, label = "Underlying", className }
   );
 }
 
-/** Two-option segmented control (radio group semantics). */
+/** Labelled segmented control (radio group semantics). */
 export function Segmented<T extends string>({
   label,
   value,
@@ -194,39 +193,11 @@ export function Segmented<T extends string>({
 }) {
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <span className="block text-label uppercase text-muted-foreground">{label}</span>
-      <div role="radiogroup" aria-label={label} className="inline-flex h-9 w-full items-center gap-0.5 rounded-tile bg-muted p-1">
-        {options.map((o) => {
-          const active = o.value === value;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(o.value)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-                  e.preventDefault();
-                  const idx = options.findIndex((x) => x.value === value);
-                  const next = options[(idx + (e.key === "ArrowRight" ? 1 : options.length - 1)) % options.length];
-                  onChange(next.value);
-                }
-              }}
-              className={cn(
-                "h-7 flex-1 whitespace-nowrap rounded-tab px-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-fast ease-expo focus-visible:shadow-ember focus-visible:outline-none",
-                active ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {o.label}
-            </button>
-          );
-        })}
-      </div>
+      <span className="block text-label text-muted-foreground">{label}</span>
+      <SegmentedControl ariaLabel={label} value={value} onChange={onChange} options={options} size="md" fill />
     </div>
   );
 }
-
 
 const TONE_TEXT: Record<Tone, string> = {
   default: "text-foreground",
@@ -237,12 +208,12 @@ const TONE_TEXT: Record<Tone, string> = {
   brand: "text-primary-ink",
 };
 
-/** Result tile: label, big number, optional sub line. */
+/** Result tile: label, big number, optional sub line. Tone colours the number only. */
 export function Stat({ label, value, sub, tone = "default", emphasis, className }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Tone; emphasis?: boolean; className?: string }) {
   return (
-    <div className={cn("min-w-0 rounded-tile border border-border bg-surface px-3 py-2.5", emphasis && "border-primary/40 bg-wash-brand/40", className)}>
-      <div className="text-label uppercase text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 truncate font-num font-bold tabular-nums", emphasis ? "text-title" : "text-lead", TONE_TEXT[tone])}>{value}</div>
+    <div className={cn("min-w-0 rounded-md bg-control-track px-3 py-2", className)}>
+      <div className="text-label text-muted-foreground">{label}</div>
+      <div className={cn("mt-0.5 truncate font-num font-semibold tabular-nums", emphasis ? "text-title" : "text-lead", TONE_TEXT[tone])}>{value}</div>
       {sub ? <div className="mt-0.5 text-body-sm text-muted-foreground">{sub}</div> : null}
     </div>
   );
@@ -251,13 +222,13 @@ export function Stat({ label, value, sub, tone = "default", emphasis, className 
 /** Inline callout (info / warning). */
 export function Callout({ tone = "info", children, className }: { tone?: "info" | "warning" | "loss"; children: ReactNode; className?: string }) {
   const styles = {
-    info: "border-info/30 bg-wash-info text-info",
-    warning: "border-warning/40 bg-wash-warning text-warning",
-    loss: "border-bearish/40 bg-wash-loss text-bearish",
+    info: "bg-wash-info text-info",
+    warning: "bg-wash-warning text-warning",
+    loss: "bg-wash-loss text-bearish",
   }[tone];
   return (
-    <div role={tone === "info" ? "note" : "alert"} className={cn("flex items-start gap-2 rounded-tile border px-3 py-2 text-body-sm", styles, className)}>
-      <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+    <div role={tone === "info" ? "note" : "alert"} className={cn("flex items-start gap-2 rounded-md px-3 py-2 text-body-sm", styles, className)}>
+      <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <div className="min-w-0">{children}</div>
     </div>
   );
@@ -266,7 +237,7 @@ export function Callout({ tone = "info", children, className }: { tone?: "info" 
 /** Small key/value row for breakdown tables. */
 export function KV({ k, v, strong, className }: { k: ReactNode; v: ReactNode; strong?: boolean; className?: string }) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-3 py-1.5 text-body", strong && "font-semibold", className)}>
+    <div className={cn("flex min-h-7 items-baseline justify-between gap-3 py-1 text-body", strong && "font-semibold", className)}>
       <span className="text-muted-foreground">{k}</span>
       <span className="font-num tabular-nums text-foreground">{v}</span>
     </div>
@@ -311,7 +282,7 @@ export function DateField({
   };
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <Label htmlFor={id} className="block text-label uppercase text-muted-foreground">
+      <Label htmlFor={id} className="block text-label text-muted-foreground">
         {label}
       </Label>
       <Popover open={open} onOpenChange={setOpen}>
@@ -322,10 +293,10 @@ export function DateField({
             lang="en-IN"
             aria-describedby={hintId}
             aria-haspopup="dialog"
-            className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-left text-sm text-foreground transition-[border-color,box-shadow] duration-fast ease-expo hover:border-foreground/25 focus-visible:border-primary focus-visible:shadow-ember focus-visible:outline-none data-[state=open]:border-primary"
+            className="flex h-7 w-full min-w-0 items-center justify-between gap-2 rounded-sm bg-control px-2 text-left text-body text-foreground shadow-control transition-shadow duration-fast ease-out focus-visible:shadow-[var(--shadow-control),var(--focus-ring)] focus-visible:outline-none data-[state=open]:shadow-[var(--shadow-control),var(--focus-ring)] [@media(pointer:coarse)]:h-9"
           >
             <span className={cn("min-w-0 truncate font-num tabular-nums", !value && "text-muted-foreground")}>{value ? formatDateIST(value) : "Pick a date"}</span>
-            <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0" aria-label={`${label} calendar`}>
@@ -340,7 +311,7 @@ export function DateField({
             weekStartsOn={1}
             initialFocus
           />
-          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-body-sm">
+          <div className="hairline-t flex items-center justify-between gap-2 px-3 py-2 text-body-sm">
             {marked.length ? (
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <span className="font-bold text-foreground underline decoration-primary decoration-2 underline-offset-4">Underlined</span>
@@ -353,7 +324,7 @@ export function DateField({
               type="button"
               onClick={() => pick(istDateString())}
               disabled={!!min && istDateString() < min}
-              className="rounded-chip px-2 py-1 font-semibold text-primary-ink hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none disabled:opacity-50"
+              className="h-6 rounded-pill px-2 font-medium text-primary-ink hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-40"
             >
               Today
             </button>

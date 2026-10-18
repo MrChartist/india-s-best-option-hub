@@ -1,0 +1,55 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.iiflcapital.com/v1/profile",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": {
+          "clientId": "3******4",
+          "clientName": "Test User",
+          "isTotpEnabled": "Y",
+          "isPoaProvided": "Y",
+          "accountStatus": "Na",
+          "exchanges": [
+            "BSECURR",
+            "BSEEQ",
+            "BSEFO",
+            "NSECURR",
+            "NSEEQ",
+            "NSEFO"
+          ],
+          "products": [
+            "NORMAL",
+            "INTRADAY",
+            "DELIVERY",
+            "BNPL"
+          ],
+          "orderComplexity": [
+            "REGULAR",
+            "AMO",
+            "BO",
+            "CO"
+          ],
+          "email": "te**********@example.com",
+          "phoneNumber": "8********4"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

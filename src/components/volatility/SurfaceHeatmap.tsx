@@ -37,7 +37,6 @@ export interface SurfaceHeatmapProps {
 
 type Mode = "abs" | "rel" | "chg";
 
-const toggleItem = "h-7 rounded-md px-2.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-card";
 
 function surfaceFor(smiles: Smile[], axis: SurfaceAxis): SurfaceRow[] {
   return axis === "delta" ? deltaSurface(smiles) : moneynessSurface(smiles);
@@ -119,22 +118,22 @@ export function SurfaceHeatmap({ symbol, smiles, isSample, prev }: SurfaceHeatma
           subtitle={`Implied volatility by ${axisNoun} (rows: expiries). Deltas and the forward are Black-76 on put-call parity.`}
           right={
             <>
-              <ToggleGroup type="single" value={axis} onValueChange={(v) => v && setAxis(v as SurfaceAxis)} className="rounded-tab bg-muted p-0.5" aria-label="Surface axis">
-                <ToggleGroupItem value="delta" className={toggleItem}>
+              <ToggleGroup type="single" value={axis} onValueChange={(v) => v && setAxis(v as SurfaceAxis)} aria-label="Surface axis">
+                <ToggleGroupItem value="delta">
                   Delta
                 </ToggleGroupItem>
-                <ToggleGroupItem value="moneyness" className={toggleItem}>
+                <ToggleGroupItem value="moneyness">
                   Moneyness
                 </ToggleGroupItem>
               </ToggleGroup>
-              <ToggleGroup type="single" value={effectiveMode} onValueChange={(v) => v && setMode(v as Mode)} className="rounded-tab bg-muted p-0.5" aria-label="Surface values">
-                <ToggleGroupItem value="abs" className={toggleItem}>
+              <ToggleGroup type="single" value={effectiveMode} onValueChange={(v) => v && setMode(v as Mode)} aria-label="Surface values">
+                <ToggleGroupItem value="abs">
                   IV
                 </ToggleGroupItem>
-                <ToggleGroupItem value="rel" className={toggleItem}>
+                <ToggleGroupItem value="rel">
                   vs ATM
                 </ToggleGroupItem>
-                <ToggleGroupItem value="chg" className={toggleItem} disabled={!yday} title={yday ? undefined : "Needs the previous session's bhavcopy through the proxy"}>
+                <ToggleGroupItem value="chg" disabled={!yday} title={yday ? undefined : "Needs the previous session's bhavcopy through the proxy"}>
                   vs yesterday
                 </ToggleGroupItem>
               </ToggleGroup>
@@ -143,7 +142,7 @@ export function SurfaceHeatmap({ symbol, smiles, isSample, prev }: SurfaceHeatma
           }
         />
         <CardContent className="space-y-3 p-4 pt-0">
-          <div className="relative rounded-tile border border-border">
+          <div className="relative rounded-tile hairline">
             {isSample ? <SampleWatermark label="Sample surface" /> : null}
             <ScrollRegion label={`${symbol} IV surface table`}>
               <table className="w-full min-w-[580px] border-collapse text-body-sm">
@@ -152,12 +151,12 @@ export function SurfaceHeatmap({ symbol, smiles, isSample, prev }: SurfaceHeatma
                   {isSample ? " (sample data, not market prices)" : ""}
                 </caption>
                 <thead>
-                  <tr className="border-b border-border">
-                    <th scope="col" className="px-3 py-2 text-left text-label uppercase text-muted-foreground">
+                  <tr className="border-b border-separator-strong">
+                    <th scope="col" className="px-3 py-2 text-left text-label text-muted-foreground">
                       Expiry
                     </th>
                     {buckets.map((b) => (
-                      <th key={b.key} scope="col" className={`px-2 py-2 text-right text-label uppercase ${b.key === "ATM" ? "text-primary-ink" : "text-muted-foreground"}`}>
+                      <th key={b.key} scope="col" className={`px-2 py-2 text-right text-label ${b.key === "ATM" ? "text-primary-ink" : "text-muted-foreground"}`}>
                         {b.label}
                       </th>
                     ))}
@@ -168,7 +167,7 @@ export function SurfaceHeatmap({ symbol, smiles, isSample, prev }: SurfaceHeatma
                     const atm = r.cells.ATM ?? null;
                     const ch = changeByExp.get(r.expiry);
                     return (
-                      <tr key={r.expiry} className="border-b border-border/60 last:border-0">
+                      <tr key={r.expiry}>
                         <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">
                           {formatDateIST(r.expiry)}
                           <span className="ml-1.5 text-muted-foreground">{dteLabel(r.expiry)}</span>

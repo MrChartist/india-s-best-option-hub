@@ -26,13 +26,13 @@ export function RowActions({ symbol, suggestion, onSuggest }: RowActionsProps) {
         <button
           type="button"
           aria-label={`Actions for ${symbol}`}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-chip text-muted-foreground transition-colors duration-fast hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none data-[state=open]:bg-accent data-[state=open]:text-foreground"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-chip text-muted-foreground transition-colors duration-fast hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none data-[state=open]:bg-control-track data-[state=open]:text-foreground [@media(pointer:coarse)]:h-9 [@media(pointer:coarse)]:w-9"
         >
           <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuLabel className="text-label uppercase text-muted-foreground">{symbol}</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-label text-muted-foreground">{symbol}</DropdownMenuLabel>
         <DropdownMenuItem asChild className="gap-2">
           <Link to={links.chain}>
             <TableProperties className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -56,7 +56,7 @@ export function RowActions({ symbol, suggestion, onSuggest }: RowActionsProps) {
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink" aria-hidden="true" />
           <span className="flex min-w-0 flex-col">
             <span>Suggested structure</span>
-            <span className="text-micro normal-case text-muted-foreground">
+            <span className="text-micro text-muted-foreground">
               {suggestion ? suggestion.title : "No clear signal in this row yet"}
             </span>
           </span>

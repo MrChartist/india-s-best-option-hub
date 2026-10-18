@@ -3,10 +3,12 @@ import { ArrowUpRight, Circle, Clock, Github } from "lucide-react";
 import { useLiveIndices } from "@/hooks/useMarketData";
 import { useProxyStatus } from "@/lib/api/proxyClient";
 import { formatTimeIST } from "@/lib/options";
+import { BRAND, withUtm } from "@/lib/brand/links";
+import { modKeyLabel } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 
-const GITHUB_URL = "https://github.com/MrChartist/india-s-best-option-hub";
-const SITE_URL = "https://mrchartist.com";
+const GITHUB_URL = withUtm(BRAND.repo, "status-footer");
+const SITE_URL = withUtm(BRAND.site, "status-footer");
 
 interface SnapshotStats {
   count: number;
@@ -108,7 +110,8 @@ export const StatusFooter = () => {
 
   return (
     <footer
-      className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border bg-card/60 px-3 py-1.5 text-micro font-medium normal-case tracking-normal text-muted-foreground sm:px-4"
+      // Finder-style status bar: one 24px line on desktop; below lg the disclaimer wraps onto its own line.
+      className="mac-toolbar flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-0.5 px-3 py-1 text-micro text-muted-foreground shadow-[inset_0_var(--hairline)_0_hsl(var(--separator))] lg:h-6 lg:flex-nowrap lg:py-0"
       aria-label="Status and disclaimer"
     >
       <div className="flex min-w-0 items-center gap-3">
@@ -125,15 +128,15 @@ export const StatusFooter = () => {
 
       <div className="flex shrink-0 items-center gap-3">
         <span className="hidden items-center gap-2 xl:flex">
-          <kbd className="rounded-chip bg-muted px-1.5 py-0.5">Ctrl K</kbd> Search
-          <kbd className="rounded-chip bg-muted px-1.5 py-0.5">R</kbd> Refresh
+          <kbd className="rounded-chip bg-control-track px-1 font-sans">{modKeyLabel("K")}</kbd> Search
+          <kbd className="rounded-chip bg-control-track px-1 font-sans">R</kbd> Refresh
         </span>
         <MinuteClock />
         <a
           href={SITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden items-center gap-0.5 rounded-sm transition-colors duration-fast hover:text-primary-ink sm:flex"
+          className="hidden items-center gap-0.5 rounded-sm transition-colors duration-fast hover:text-foreground sm:flex"
         >
           mrchartist.com
           <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
@@ -143,7 +146,7 @@ export const StatusFooter = () => {
           href={GITHUB_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 rounded-sm transition-colors duration-fast hover:text-primary-ink"
+          className="flex items-center gap-1 rounded-sm transition-colors duration-fast hover:text-foreground"
           aria-label="Source code on GitHub (opens in a new tab)"
         >
           <Github className="h-3 w-3" aria-hidden="true" />

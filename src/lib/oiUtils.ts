@@ -138,14 +138,6 @@ export function buildupTone(b: Buildup): "bullish" | "bearish" | "info" | "warni
   }
 }
 
-export const BUILDUP_SHORT: Record<Buildup, string> = {
-  LONG_BUILDUP: "LB",
-  SHORT_BUILDUP: "SB",
-  SHORT_COVERING: "SC",
-  LONG_UNWINDING: "LU",
-  NEUTRAL: "—",
-};
-
 /** Two-letter build-up code for BuildupBadge; null for NEUTRAL (nothing to badge). */
 export function buildupCode(b: Buildup): "LB" | "SB" | "SC" | "LU" | null {
   switch (b) {
@@ -233,9 +225,6 @@ export function getDeltaOI(
     return { strike: o.strikePrice, ceDeltaOI: Math.round(ce), peDeltaOI: Math.round(pe), netDeltaOI: Math.round(ce + pe) };
   });
 }
-
-/** Alias with the descriptive name. */
-export const getWriterDeltaExposure = getDeltaOI;
 
 // ── Strike-wise PCR ──
 
@@ -461,36 +450,6 @@ export function getATMIV(chain: OptionData[], spotPrice: number): { atmIV: numbe
   const row = rows.find((r) => r.strikePrice === atmStrike);
   const iv = row ? legIV(row, spotPrice) : NaN;
   return { atmIV: finite(iv) ? iv : 0, atmStrike: finite(atmStrike) ? atmStrike : 0 };
-}
-
-/**
- * Where ATM IV sits in the cross-strike IV distribution of the current chain. This is a snapshot of
- * the smile, not a historical IV percentile.
- */
-export function getIVPercentileFromChain(chain: OptionData[], spotPrice: number): {
-  percentile: number;
-  rank: number;
-  min: number;
-  max: number;
-  mean: number;
-  atmIV: number;
-} {
-  if (!Array.isArray(chain) || chain.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV: 0 };
-  const { atmIV } = getATMIV(chain, spotPrice);
-  const allIVs = chain.flatMap((o) => [num(o.ce.iv), num(o.pe.iv)]).filter((iv) => iv > 0);
-  if (allIVs.length === 0) return { percentile: 0, rank: 0, min: 0, max: 0, mean: 0, atmIV };
-  const below = allIVs.filter((v) => v < atmIV).length;
-  const min = Math.min(...allIVs);
-  const max = Math.max(...allIVs);
-  const mean = allIVs.reduce((s, v) => s + v, 0) / allIVs.length;
-  return {
-    percentile: Math.round((below / allIVs.length) * 100),
-    rank: max > min ? Math.round(((atmIV - min) / (max - min)) * 100) : 50,
-    min: r2(min),
-    max: r2(max),
-    mean: r2(mean),
-    atmIV: r2(atmIV),
-  };
 }
 
 /** IV smile points; the average ignores a zero IV on either leg. */

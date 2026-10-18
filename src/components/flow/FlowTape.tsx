@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Download, ListFilter, TableProperties } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { formatDateIST, formatNumberIN, formatStrike } from "@/lib/options";
 import { printsToCSV, type FlowPrint } from "@/lib/flow";
@@ -117,56 +118,48 @@ export function FlowTape({ prints, totalCount, isSample, onResetFilters }: FlowT
       </div>
 
       {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-tile border border-border md:block">
-        <table className="w-full min-w-[960px] text-body-sm">
+      <div className="hairline hidden overflow-hidden rounded-tile md:block">
+        <Table className="min-w-[960px] [&_td]:py-1">
           <caption className="sr-only">Derived interval flow prints</caption>
-          <thead className="bg-surface text-left text-label uppercase text-muted-foreground">
-            <tr>
-              <th scope="col" className="px-3 py-2">
-                Time
-              </th>
-              <th scope="col" className="px-3 py-2">
-                Contract
-              </th>
-              <th scope="col" className="px-3 py-2">
-                Side
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Time</TableHead>
+              <TableHead scope="col">Contract</TableHead>
+              <TableHead scope="col">Side</TableHead>
+              <TableHead scope="col" className="text-right">
                 Premium
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+              </TableHead>
+              <TableHead scope="col" className="text-right">
                 Contracts
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+              </TableHead>
+              <TableHead scope="col" className="text-right">
                 LTP
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+              </TableHead>
+              <TableHead scope="col" className="text-right">
                 Bid × Ask
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+              </TableHead>
+              <TableHead scope="col" className="text-right">
                 OI chg
-              </th>
-              <th scope="col" className="px-3 py-2">
-                OI
-              </th>
-              <th scope="col" className="px-3 py-2 text-right">
+              </TableHead>
+              <TableHead scope="col">OI</TableHead>
+              <TableHead scope="col" className="text-right">
                 DTE
-              </th>
-              <th scope="col" className="px-3 py-2">
+              </TableHead>
+              <TableHead scope="col">
                 <span className="sr-only">Links</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((p) => (
-              <tr key={p.id} className="hover:bg-muted/40">
-                <td
-                  className="whitespace-nowrap px-3 py-1.5 tabular-nums text-muted-foreground"
+              <TableRow key={p.id}>
+                <TableCell
+                  className="whitespace-nowrap tabular-nums text-muted-foreground"
                   title={`Interval ${hhmm(p.fromTs, true)} to ${hhmm(p.ts, true)} IST`}
                 >
                   {hhmm(p.ts, true)}
-                </td>
-                <td className="whitespace-nowrap px-3 py-1.5">
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Link
                     to={contractPath(p.symbol, p.expiry, p.strike, p.type)}
                     className={linkCls}
@@ -177,42 +170,42 @@ export function FlowTape({ prints, totalCount, isSample, onResetFilters }: FlowT
                     <span className={p.type === "CE" ? "text-bullish" : "text-bearish"}>{p.type}</span>
                   </Link>
                   <span className="ml-1.5 text-muted-foreground">{formatDateIST(p.expiry).replace(/ \d{4}$/, "")}</span>
-                  <span className="ml-1.5 text-micro uppercase text-muted-foreground">{p.moneyness}</span>
-                </td>
-                <td className="px-3 py-1.5">
+                  <span className="ml-1.5 text-micro text-muted-foreground">{p.moneyness}</span>
+                </TableCell>
+                <TableCell>
                   <SideBadge p={p} />
-                </td>
-                <td className="whitespace-nowrap px-3 py-1.5 text-right font-semibold tabular-nums">
+                </TableCell>
+                <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">
                   {fmtRs(p.premium)}
-                </td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{formatNumberIN(p.dVol)}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{formatNumberIN(p.ltp, 2)}</td>
-                <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-muted-foreground">
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{formatNumberIN(p.dVol)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatNumberIN(p.ltp, 2)}</TableCell>
+                <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
                   {p.bid > 0 && p.ask > 0 ? `${formatNumberIN(p.bid, 2)} × ${formatNumberIN(p.ask, 2)}` : "—"}
-                </td>
-                <td className={cn("px-3 py-1.5 text-right tabular-nums", signClass(p.dOI))}>
+                </TableCell>
+                <TableCell className={cn("text-right tabular-nums", signClass(p.dOI))}>
                   {p.dOI > 0 ? "+" : ""}
                   {formatNumberIN(p.dOI)}
-                </td>
-                <td className="px-3 py-1.5">
+                </TableCell>
+                <TableCell>
                   <TagBadge tag={p.tag} />
-                </td>
-                <td className="px-3 py-1.5 text-right tabular-nums">
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
                   {p.dte === 0 ? <Badge variant="default">0DTE</Badge> : p.dte}
-                </td>
-                <td className="px-3 py-1.5">
+                </TableCell>
+                <TableCell>
                   <ChainLink p={p} compact />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       {/* Mobile cards */}
-      <ul className="space-y-2 md:hidden" aria-label="Derived interval flow prints">
+      <ul className="hairline overflow-hidden rounded-tile md:hidden" aria-label="Derived interval flow prints">
         {rows.map((p) => (
-          <li key={p.id} className="rounded-tile border border-border bg-card p-3">
+          <li key={p.id} className="border-t border-separator p-3 first:border-t-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <Link

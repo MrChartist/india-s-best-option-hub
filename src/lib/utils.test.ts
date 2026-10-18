@@ -6,6 +6,7 @@ describe("cn", () => {
     expect(cn("text-label text-bullish")).toBe("text-label text-bullish");
     expect(cn("h-5 text-label uppercase text-primary-ink")).toBe("h-5 text-label uppercase text-primary-ink");
     expect(cn("text-body-sm text-muted-foreground")).toBe("text-body-sm text-muted-foreground");
+    expect(cn("text-headline text-foreground")).toBe("text-headline text-foreground");
   });
 
   it("still dedupes conflicting custom font sizes", () => {
@@ -17,5 +18,7 @@ describe("cn", () => {
     expect(cn("rounded-md", "rounded-card")).toBe("rounded-card");
     expect(cn("shadow-sm", "shadow-ember")).toBe("shadow-ember");
     expect(cn("rounded-card text-num-hero shadow-card")).toBe("rounded-card text-num-hero shadow-card");
+    expect(cn("shadow-control", "shadow-focus")).toBe("shadow-focus");
+    expect(cn("shadow-card", "shadow-window")).toBe("shadow-window");
   });
 });

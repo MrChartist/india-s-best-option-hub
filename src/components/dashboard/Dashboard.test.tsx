@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
@@ -269,5 +269,30 @@ describe("Watchlist page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
     expect(screen.getByRole("tab", { name: /Banks/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText(/This watchlist is empty/).length).toBeGreaterThan(0);
+  });
+
+  it("reloads when another tab saves, so its next edit does not overwrite that tab's work", () => {
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify({ version: 1, activeId: "main", lists: [{ id: "main", name: "Mine", symbols: ["INFY"] }] }));
+    shell(<Watchlist />);
+    // Tab A adds RELIANCE and saves.
+    const fromA = JSON.stringify({ version: 1, activeId: "main", lists: [{ id: "main", name: "Mine", symbols: ["INFY", "RELIANCE"] }] });
+    localStorage.setItem(WATCHLIST_KEY, fromA);
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: WATCHLIST_KEY, newValue: fromA }));
+    });
+    // This tab (B) then adds TCS.
+    fireEvent.change(screen.getByLabelText("Add symbol"), { target: { value: "TCS" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Add$/ }));
+    const saved = JSON.parse(localStorage.getItem(WATCHLIST_KEY) as string).lists[0].symbols;
+    expect(saved).toEqual(expect.arrayContaining(["INFY", "RELIANCE", "TCS"]));
+  });
+
+  it("does not write the list back just by opening the page", () => {
+    const raw = JSON.stringify({ version: 1, activeId: "main", lists: [{ id: "main", name: "Mine", symbols: ["INFY"] }] });
+    localStorage.setItem(WATCHLIST_KEY, raw);
+    const spy = vi.spyOn(Storage.prototype, "setItem");
+    shell(<Watchlist />);
+    expect(spy.mock.calls.filter((c) => c[0] === WATCHLIST_KEY)).toHaveLength(0);
+    spy.mockRestore();
   });
 });

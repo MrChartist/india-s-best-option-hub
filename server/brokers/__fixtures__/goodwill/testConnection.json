@@ -1,0 +1,96 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.gwcindia.in/v1/login-response",
+      "expectBody": {
+        "api_key": "dummyGwApiKey456",
+        "request_token": "5ca9e0b42c4e94759030e850",
+        "signature": "933ae0dc4f6d7d17f0fd42927c616e8b4a39a332a39c0f2c9f829b88521dfdcf"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "clnt_id": "GQ1A0007",
+          "name": "TEST USER",
+          "email": "TEST@EXAMPLE.COM",
+          "exarr": [
+            "BSE",
+            "NFO",
+            "NSE",
+            "MCX",
+            "ICEX"
+          ],
+          "prarr": [
+            "BO",
+            "CNC",
+            "CO",
+            "MIS",
+            "NRML"
+          ],
+          "orarr": [
+            "L",
+            "MKT",
+            "SL",
+            "SL-M"
+          ],
+          "exchDetail": {
+            "EQUITY": [
+              {
+                "product": [
+                  "BO",
+                  "CNC",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_cm",
+                "exch": "NSE"
+              }
+            ],
+            "DERIVATIVE": [
+              {
+                "product": [
+                  "BO",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_fo",
+                "exch": "NFO"
+              }
+            ]
+          },
+          "usersessionid": "3279379865",
+          "access_token": "8a5e32e1126025fefbcefc88eb6eb9a9"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.gwcindia.in/v1/profile",
+      "json": {
+        "status": "success",
+        "data": {
+          "client_id": "GQ1A0007",
+          "name": "TEST USER",
+          "email": "TEST@EXAMPLE.COM",
+          "exarr": [
+            "NSE",
+            "NFO"
+          ],
+          "prarr": [],
+          "orarr": [
+            "MKT",
+            "LMT",
+            "SL-LMT",
+            "SL-MKT"
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

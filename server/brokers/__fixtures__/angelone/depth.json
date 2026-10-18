@@ -1,0 +1,75 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "args": [
+    {
+      "token": "3045",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/market/v1/quote/$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "fetched": [
+            {
+              "exchange": "NSE",
+              "tradingSymbol": "SBIN-EQ",
+              "symbolToken": "3045",
+              "ltp": 568.2,
+              "open": 567.4,
+              "high": 569.35,
+              "low": 566.1,
+              "close": 567.4,
+              "lastTradeQty": 1,
+              "exchFeedTime": "21-Jun-2023 10:46:10",
+              "exchTradeTime": "21-Jun-2023 10:46:09",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 567.83,
+              "tradeVolume": 3556150,
+              "opnInterest": 0,
+              "lowerCircuit": 510.7,
+              "upperCircuit": 624.1,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "referenceLimitPoint": 0,
+              "52WeekLow": 430.7,
+              "52WeekHigh": 629.55,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 568.2,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 568.15,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 568.25,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            }
+          ],
+          "unfetched": []
+        }
+      }
+    }
+  ]
+}

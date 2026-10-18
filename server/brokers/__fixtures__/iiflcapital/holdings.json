@@ -1,0 +1,44 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.iiflcapital.com/v1/holdings",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "isin": "INE002A01018",
+            "nseInstrumentId": "2885",
+            "bseInstrumentId": "500325",
+            "nseTradingSymbol": "RELIANCE-EQ",
+            "bseTradingSymbol": "RELIANCE",
+            "formattedInstrumentName": "RELIANCE INDUSTRIES LTD.",
+            "product": "DELIVERY",
+            "totalQuantity": 300,
+            "dpQuantity": 300,
+            "collateralQuantity": 0,
+            "t1Quantity": 0,
+            "authorizedQuantity": "0",
+            "averageTradedPrice": "2800.00",
+            "previousDayClose": null
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

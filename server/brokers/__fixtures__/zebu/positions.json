@@ -1,0 +1,78 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/PositionBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\",\"actid\":\"Z12345\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "uid": "Z12345",
+          "actid": "Z12345",
+          "exch": "NSE",
+          "tsym": "ACC-EQ",
+          "token": "22",
+          "prd": "C",
+          "pp": "2",
+          "ls": "1",
+          "ti": "5.00",
+          "mult": "1",
+          "prcftr": "1.000000",
+          "daybuyqty": "2",
+          "daysellqty": "2",
+          "daybuyamt": "2610.00",
+          "daybuyavgprc": "1305.00",
+          "daysellamt": "2610.00",
+          "daysellavgprc": "1305.00",
+          "cfbuyqty": "0",
+          "cfsellqty": "0",
+          "netqty": "0",
+          "netavgprc": "0.00",
+          "lp": "1306.00",
+          "urmtom": "0.00",
+          "rpnl": "0.00",
+          "cforgavgprc": "0.00"
+        },
+        {
+          "stat": "Ok",
+          "uid": "Z12345",
+          "actid": "Z12345",
+          "exch": "NFO",
+          "tsym": "NIFTY20OCT26C25000",
+          "token": "40003",
+          "prd": "M",
+          "pp": "2",
+          "ls": "65",
+          "ti": "0.05",
+          "daybuyqty": "65",
+          "daysellqty": "0",
+          "daybuyavgprc": "96.80",
+          "netqty": "65",
+          "netavgprc": "96.80",
+          "lp": "99.20",
+          "urmtom": "156.00",
+          "rpnl": "0.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

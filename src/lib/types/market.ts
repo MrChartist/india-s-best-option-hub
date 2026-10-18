@@ -345,20 +345,6 @@ export interface ParticipantOIRow {
   futStkShort: number;
 }
 
-export interface LotSizeRow {
-  symbol: string;
-  underlying: string;
-  lotSize: number;
-  byMonth: Array<{ month: string; lotSize: number }>;
-}
-
-export interface HolidayRow {
-  date: string;
-  weekday: string;
-  description: string;
-  segment: string;
-}
-
 export interface FiiStatsRow {
   date: string;
   segment: "Index Futures" | "Index Calls" | "Index Puts" | "Stock Futures";
@@ -371,57 +357,12 @@ export interface FiiStatsRow {
   netVol: number | null;
 }
 
-export interface BanListData {
-  date: string;
-  symbols: string[];
-}
-
-export interface MwplRow {
-  symbol: string;
-  mwplPct: number;
-  mwpl?: number;
-  oi?: number;
-  limitNextDay?: number;
-}
-
 export interface VixHistoryRow {
   date: string;
   close: number;
   open?: number;
   high?: number;
   low?: number;
-}
-
-export interface OiSpurtRow {
-  symbol: string;
-  instrument?: string;
-  expiry?: string;
-  strike?: number;
-  optionType?: "CE" | "PE" | "FUT";
-  category?: string;
-  ltp?: number;
-  pChange?: number;
-  latestOi: number;
-  prevOi: number;
-  chgOi: number;
-  chgOiPct: number;
-  volume: number;
-  underlyingValue?: number;
-}
-
-export interface MostActiveRow {
-  symbol: string;
-  instrument: string;
-  expiry: string;
-  strike: number | null;
-  optionType: "CE" | "PE" | "FUT" | null;
-  ltp: number;
-  pChange: number;
-  contracts: number;
-  turnoverLakh: number;
-  premiumTurnoverLakh: number | null;
-  oi: number;
-  underlyingValue: number;
 }
 
 export interface BhavcopyFoRow {
@@ -435,25 +376,6 @@ export interface BhavcopyFoRow {
   chgOi: number;
   volume: number;
   underlyingClose: number;
-}
-
-export interface EventCalendarRow {
-  symbol: string;
-  company: string;
-  purpose: string;
-  description: string;
-  date: string;
-}
-
-export interface LargeDealRow {
-  date: string;
-  symbol: string;
-  name: string;
-  client: string;
-  side: "BUY" | "SELL";
-  qty: number;
-  price: number;
-  remarks?: string;
 }
 
 export interface ChainMultiExpiryDTO {

@@ -206,9 +206,9 @@ export function VixPanel() {
             const ok = h.n >= 20 && Number.isFinite(h.rate);
             const diff = ok ? h.rate * 100 - 68.3 : NaN;
             return (
-              <div key={label} className="rounded-tile border border-border bg-surface/60 p-3">
+              <div key={label} className="rounded-tile bg-muted/50 p-3">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-label uppercase text-muted-foreground">{label}</p>
+                  <p className="text-label text-muted-foreground">{label}</p>
                   <p className="text-body-sm text-muted-foreground">{Number.isFinite(move.move) ? `now ±${formatNumberIN(move.move, 0)}` : null}</p>
                 </div>
                 <p className="mt-1.5 font-num text-title tabular-nums">{ok ? formatPct(h.rate * 100, { decimals: 0 }) : "—"}</p>
@@ -235,7 +235,7 @@ export function VixPanel() {
           right={sampleBadge}
         />
         <CardContent className="space-y-3 p-4 pt-0">
-          <ScrollRegion label="NIFTY statistics by India VIX bucket" className="rounded-tile border border-border">
+          <ScrollRegion label="NIFTY statistics by India VIX bucket" className="rounded-tile hairline">
             <Table>
               <TableHeader>
                 <TableRow>

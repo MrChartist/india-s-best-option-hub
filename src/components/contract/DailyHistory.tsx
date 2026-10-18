@@ -41,10 +41,10 @@ export function DailyHistory({
     </>
   );
   const actions = (
-    <ToggleGroup type="single" size="sm" value={String(days)} onValueChange={(v) => v && onDaysChange(Number(v))} aria-label="Trading days of history">
-      <ToggleGroupItem value="5">5D</ToggleGroupItem>
-      <ToggleGroupItem value="10">10D</ToggleGroupItem>
-      <ToggleGroupItem value="20">20D</ToggleGroupItem>
+    <ToggleGroup type="single" value={String(days)} onValueChange={(v) => v && onDaysChange(Number(v))} aria-label="Trading days of history">
+      <ToggleGroupItem value="5" size="sm">5D</ToggleGroupItem>
+      <ToggleGroupItem value="10" size="sm">10D</ToggleGroupItem>
+      <ToggleGroupItem value="20" size="sm">20D</ToggleGroupItem>
     </ToggleGroup>
   );
 
@@ -106,30 +106,31 @@ export function DailyHistory({
         </ResponsiveContainer>
       </figure>
 
-      <div className="mt-4 overflow-x-auto rounded-tile border border-border">
-        <table className="w-full min-w-[560px] text-body-sm">
+      {/* Focusable so keyboard users can scroll the table sideways on narrow screens. */}
+      <div className="mt-4 overflow-x-auto rounded-tile border border-separator focus-visible:shadow-focus focus-visible:outline-none" tabIndex={0} role="region" aria-label="Daily history table">
+        <table className="w-full min-w-[560px] text-body">
           <caption className="sr-only">Daily close, settlement, open interest, OI change, volume and underlying close</caption>
-          <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
+          <thead className="bg-surface text-label text-muted-foreground [&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
             <tr>
-              <th scope="col" className="px-3 py-2 text-left font-medium">Date</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Close</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Settle</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">OI</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">OI chg</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Volume</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Underlying</th>
+              <th scope="col" className="!px-3 !py-1 text-left">Date</th>
+              <th scope="col" className="!px-3 !py-1 text-right">Close</th>
+              <th scope="col" className="!px-3 !py-1 text-right">Settle</th>
+              <th scope="col" className="!px-3 !py-1 text-right">OI</th>
+              <th scope="col" className="!px-3 !py-1 text-right">OI chg</th>
+              <th scope="col" className="!px-3 !py-1 text-right">Volume</th>
+              <th scope="col" className="!px-3 !py-1 text-right">Underlying</th>
             </tr>
           </thead>
-          <tbody className="font-num tabular-nums">
+          <tbody className="zebra-rows font-num tabular-nums">
             {[...rows].reverse().map((r) => (
-              <tr key={r.date} className="border-t border-border">
-                <th scope="row" className="whitespace-nowrap px-3 py-1.5 text-left font-medium">{formatDateIST(r.date)}</th>
-                <td className="px-3 py-1.5 text-right">{formatINR(r.close)}</td>
-                <td className="px-3 py-1.5 text-right text-muted-foreground">{formatINR(r.settle)}</td>
-                <td className="px-3 py-1.5 text-right">{formatCompactIN(r.oi)}</td>
-                <td className={cn("px-3 py-1.5 text-right", r.chgOi > 0 ? "text-bullish" : r.chgOi < 0 ? "text-bearish" : "text-muted-foreground")}>{formatSigned(r.chgOi, 0)}</td>
-                <td className="px-3 py-1.5 text-right">{formatCompactIN(r.volume)}</td>
-                <td className="px-3 py-1.5 text-right text-muted-foreground">{r.underlyingClose > 0 ? formatNumberIN(r.underlyingClose, 2) : "—"}</td>
+              <tr key={r.date} className="transition-colors duration-fast hover:bg-control-track">
+                <th scope="row" className="whitespace-nowrap !px-3 !py-1 text-left !font-medium">{formatDateIST(r.date)}</th>
+                <td className="px-3 py-1 text-right">{formatINR(r.close)}</td>
+                <td className="px-3 py-1 text-right text-muted-foreground">{formatINR(r.settle)}</td>
+                <td className="px-3 py-1 text-right">{formatCompactIN(r.oi)}</td>
+                <td className={cn("px-3 py-1 text-right", r.chgOi > 0 ? "text-bullish" : r.chgOi < 0 ? "text-bearish" : "text-muted-foreground")}>{formatSigned(r.chgOi, 0)}</td>
+                <td className="px-3 py-1 text-right">{formatCompactIN(r.volume)}</td>
+                <td className="px-3 py-1 text-right text-muted-foreground">{r.underlyingClose > 0 ? formatNumberIN(r.underlyingClose, 2) : "—"}</td>
               </tr>
             ))}
           </tbody>

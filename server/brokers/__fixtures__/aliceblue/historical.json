@@ -1,0 +1,68 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "26000",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2026-05-19T09:15:00+05:30",
+      "to": "2026-05-19T09:18:00+05:30"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/ChartAPIService/api/chart/history$",
+      "expectBody": {
+        "token": "26000",
+        "resolution": "1",
+        "exchange": "NSE::index"
+      },
+      "json": {
+        "stat": "Ok",
+        "result": [
+          {
+            "volume": 0,
+            "high": 23727.45,
+            "low": 23675.25,
+            "time": "2026-05-19 09:15:59",
+            "close": 23715.65,
+            "open": 23675.3
+          },
+          {
+            "volume": 0,
+            "high": 23727.95,
+            "low": 23693.6,
+            "time": "2026-05-19 09:16:59",
+            "close": 23727.4,
+            "open": 23716.9
+          },
+          {
+            "volume": 0,
+            "high": 23734.3,
+            "low": 23698.3,
+            "time": "2026-05-19 09:17:59",
+            "close": 23731.5,
+            "open": 23723.4
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

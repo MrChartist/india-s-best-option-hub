@@ -1,0 +1,45 @@
+{
+  "args": [
+    "26101700000017",
+    {
+      "exchange": "NFO",
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "quantity": 130,
+      "price": 105,
+      "orderType": "LIMIT",
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/ModifyOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"norenordno\":\"26101700000017\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"prc\":\"105\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\"}"
+      },
+      "json": {
+        "request_time": "16:04:06 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

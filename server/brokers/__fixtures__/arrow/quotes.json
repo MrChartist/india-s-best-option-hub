@@ -1,0 +1,142 @@
+{
+  "args": [
+    [
+      {
+        "token": "51450",
+        "exchange": "NFO",
+        "tradingSymbol": "NIFTY20OCT26C25000"
+      },
+      {
+        "token": "2885",
+        "exchange": "NSE",
+        "tradingSymbol": "RELIANCE-EQ"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/quotes/full",
+      "expectBody": [
+        {
+          "exchange": "NFO",
+          "symbol": "NIFTY20OCT26C25000"
+        },
+        {
+          "exchange": "NSE",
+          "symbol": "RELIANCE-EQ"
+        }
+      ],
+      "json": {
+        "data": [
+          {
+            "asks": [
+              {
+                "orders": 2,
+                "price": 136870,
+                "quantity": 48
+              }
+            ],
+            "avgPrice": 136796,
+            "bids": [
+              {
+                "orders": 2,
+                "price": 136830,
+                "quantity": 237
+              }
+            ],
+            "close": 135880,
+            "high": 137800,
+            "low": 135850,
+            "lowerLimit": 122300,
+            "ltp": 136820,
+            "ltq": 54,
+            "ltt": 1778747141,
+            "netChange": 69,
+            "netChangeIndicator": 43,
+            "oi": 0,
+            "oiDayHigh": 0,
+            "oiDayLow": 0,
+            "open": 136520,
+            "openingOI": 0,
+            "symbol": "RELIANCE-EQ",
+            "time": 1778747141,
+            "token": 2885,
+            "totalBuyQty": 517653,
+            "totalSellQty": 535585,
+            "upperLimit": 149460,
+            "volume": 10552645
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 10500,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 10505,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 10495,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 10490,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 10485,
+                "quantity": 1950
+              }
+            ],
+            "close": 11695,
+            "high": 12995,
+            "low": 7495,
+            "lowerLimit": 5,
+            "ltp": 10495,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 2168400,
+            "oiDayHigh": 2218400,
+            "oiDayLow": 2004195,
+            "open": 11295,
+            "openingOI": 2014195,
+            "symbol": "NIFTY20OCT26C25000",
+            "time": 1792213201,
+            "token": 51450,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 12070630
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

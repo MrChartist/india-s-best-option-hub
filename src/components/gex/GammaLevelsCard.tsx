@@ -162,12 +162,15 @@ export function GammaLevelsPanel({
           </span>
         )}
       </div>
-      <ul className={cn("grid gap-1.5", compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-1")}>
+      {/* One grouped inset list (System Settings style): hairline gutters, not a box per level. */}
+      <ul
+        className={cn(
+          "hairline grid gap-px overflow-hidden rounded-tile bg-separator",
+          compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-1",
+        )}
+      >
         {rows.map((r) => (
-          <li
-            key={r.key}
-            className="flex items-center justify-between gap-3 rounded-tile border border-border bg-surface px-3 py-2"
-          >
+          <li key={r.key} className="flex items-center justify-between gap-3 bg-card px-3 py-2">
             <div className="flex min-w-0 items-center gap-2">
               <r.icon className={cn("h-4 w-4 shrink-0", r.tone)} aria-hidden />
               <div className="min-w-0">
@@ -187,8 +190,8 @@ export function GammaLevelsPanel({
       </ul>
       {totals && !compact && (
         <dl className="grid grid-cols-2 gap-1.5 text-body-sm">
-          <div className="rounded-tile bg-muted px-3 py-2">
-            <dt className="flex items-center gap-1 text-label uppercase text-muted-foreground">
+          <div className="rounded-tile bg-muted/50 px-3 py-2">
+            <dt className="flex items-center gap-1 text-label text-muted-foreground">
               Net GEX <MetricHelp metric="gex" />
             </dt>
             <dd
@@ -200,8 +203,8 @@ export function GammaLevelsPanel({
               {fmtCr(totals.netGex, { signed: true })}
             </dd>
           </div>
-          <div className="rounded-tile bg-muted px-3 py-2">
-            <dt className="text-label uppercase text-muted-foreground">Net DEX</dt>
+          <div className="rounded-tile bg-muted/50 px-3 py-2">
+            <dt className="text-label text-muted-foreground">Net DEX</dt>
             <dd className="font-num text-lead font-semibold">{fmtCr(totals.dex, { signed: true })}</dd>
           </div>
         </dl>
@@ -250,7 +253,7 @@ export default function GammaLevelsCard({ symbol, className }: { symbol: string;
     : null;
 
   return (
-    <Card className={cn("rounded-card", className)}>
+    <Card className={className}>
       <CardHeader className="space-y-1.5 pb-2">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-lead">

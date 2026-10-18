@@ -1,0 +1,106 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v1/contract/Compact?info=download&exchanges=NSE,NFO,BSE,BFO",
+      "status": 200,
+      "text": "PK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000Z@!J/\u0002\u0000\u0000/\u0002\u0000\u0000\u0013\u0000\u0000\u0000NSECompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n26000,Nifty 50,,25001.20,,0.0000,0.0000,0,,,INDICES,NSE,,\n26009,Nifty Bank,,56010.50,,0.0000,0.0000,0,,,INDICES,NSE,,\n26037,Nifty Fin Service,,26364.20,,0.0000,0.0000,0,,,INDICES,NSE,,\n26074,NIFTY MID SELECT,,13722.60,,0.0000,0.0000,0,,,INDICES,NSE,,\n26017,India VIX,,14.03,,0.0000,0.0000,0,,,INDICES,NSE,,\n2885,RELIANCE-EQ,\"RELIANCE INDUSTRIES LTD\",1211.2,,0.0000,0.1000,1,EQ,,EQ,NSE,,\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u000011$]~\u0002\u0000\u0000~\u0002\u0000\u0000\u0013\u0000\u0000\u0000BSECompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n1,SENSEX,SENSEX,82015.61,,0.0000,0.0000,0,,,IDX,BSE,,\n12,BANKEX,BANKEX,62899.26,,0.0000,0.0000,0,,,IDX,BSE,,\n47,SNSX50,SNSX50,24200.62,,0.0000,0.0000,0,,,IDX,BSE,,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000\u001dc_\u0005\u0005\u0005\u0000\u0000\u0005\u0005\u0000\u0000\u0013\u0000\u0000\u0000NFOCompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n40001,NIFTY26O2025000CE,NIFTY,116.5,20-Oct-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n40002,NIFTY26O2025000PE,NIFTY,104,20-Oct-2026,25000.0000,0.0500,65,OPTIDX,PE,XX,NFO,,\n40003,NIFTY26O2025100CE,NIFTY,66,20-Oct-2026,25100.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n40004,NIFTY26O2025100PE,NIFTY,155,20-Oct-2026,25100.0000,0.0500,65,OPTIDX,PE,XX,NFO,,\n40011,NIFTY26OCT25000CE,NIFTY,210,27-Oct-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n48704,NIFTY26OCTFUT,NIFTY,25119.2,27-Oct-2026,-0.0100,0.1000,65,FUTIDX,XX,XX,NFO,,\n41001,BANKNIFTY26OCT56000CE,BANKNIFTY,400,27-Oct-2026,56000.0000,0.0500,30,OPTIDX,CE,XX,NFO,,\n42001,FINNIFTY26OCT26000PE,FINNIFTY,150,27-Oct-2026,26000.0000,0.0500,60,OPTIDX,PE,XX,NFO,,\n43001,MIDCPNIFTY26OCT13000CE,MIDCPNIFTY,80,27-Oct-2026,13000.0000,0.0500,120,OPTIDX,CE,XX,NFO,,\n43501,NIFTYNXT5026OCT70000CE,NIFTYNXT50,80,27-Oct-2026,70000.0000,0.0500,25,OPTIDX,CE,XX,NFO,,\n44001,RELIANCE26OCT1220CE,RELIANCE,18,27-Oct-2026,1220.0000,0.0500,500,OPTSTK,CE,XX,NFO,,\n44002,RELIANCE26OCT1220PE,RELIANCE,22,27-Oct-2026,1220.0000,0.0500,500,OPTSTK,PE,XX,NFO,,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000%2vH\b\u0002\u0000\u0000\b\u0002\u0000\u0000\u0013\u0000\u0000\u0000BFOCompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n1125419,SENSEX26O2282000CE,SENSEX,300,22-Oct-2026,82000.0000,0.0500,20,IO,CE,IO,BFO,BSXOPT,BSX\n1125420,SENSEX26O2282000PE,SENSEX,280,22-Oct-2026,82000.0000,0.0500,20,IO,PE,IO,BFO,BSXOPT,BSX\n1155242,BANKEX26OCT62000CE,BANKEX,500,29-Oct-2026,62000.0000,0.0500,30,IO,CE,IO,BFO,BKXOPT,BKX\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000Z@!J/\u0002\u0000\u0000/\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000NSECompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u000011$]~\u0002\u0000\u0000~\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`\u0002\u0000\u0000BSECompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000\u001dc_\u0005\u0005\u0005\u0000\u0000\u0005\u0005\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u000f\u0005\u0000\u0000NFOCompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000%2vH\b\u0002\u0000\u0000\b\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000E\n\u0000\u0000BFOCompactScrip.csvPK\u0005\u0006\u0000\u0000\u0000\u0000\u0004\u0000\u0004\u0000\u0004\u0001\u0000\u0000~\f\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    }
+  ],
+  "streamTicks": {
+    "1|26000": {
+      "ltp": 25041.35,
+      "open": 24990,
+      "high": 25080,
+      "low": 24950.5,
+      "close": 25001.2,
+      "vol": 0
+    },
+    "2|40001": {
+      "ltp": 120.5,
+      "open": 110,
+      "high": 131,
+      "low": 101,
+      "close": 116.5,
+      "vol": 1620250,
+      "oi": 1312350,
+      "ioi": 1217525,
+      "bid": 120.35,
+      "ask": 120.6
+    },
+    "2|40002": {
+      "ltp": 98.1,
+      "open": 101,
+      "high": 120,
+      "low": 90,
+      "close": 104,
+      "vol": 1320250,
+      "oi": 1012350,
+      "ioi": 1017175,
+      "bid": 98.05,
+      "ask": 98.2
+    },
+    "2|40003": {
+      "ltp": 70,
+      "open": 65,
+      "high": 80,
+      "low": 60,
+      "close": 66,
+      "vol": 920250,
+      "oi": 812350,
+      "ioi": 797525,
+      "bid": 69.9,
+      "ask": 70.1
+    },
+    "6|1": {
+      "ltp": 82100.5,
+      "open": 82000,
+      "high": 82300,
+      "low": 81900,
+      "close": 82015.61,
+      "vol": 0
+    },
+    "7|1125419": {
+      "ltp": 300,
+      "open": 290,
+      "high": 320,
+      "low": 280,
+      "close": 295,
+      "vol": 5000,
+      "oi": 1000,
+      "ioi": 800,
+      "bid": 299.5,
+      "ask": 300.5
+    },
+    "7|1125420": {
+      "ltp": 280,
+      "open": 290,
+      "high": 300,
+      "low": 270,
+      "close": 285,
+      "vol": 4000,
+      "oi": 900,
+      "ioi": 950,
+      "bid": 279.5,
+      "ask": 280.5
+    },
+    "2|40004": {
+      "ltp": 150,
+      "open": 160,
+      "high": 170,
+      "low": 140,
+      "close": 155,
+      "vol": 220250,
+      "oi": 612350,
+      "ioi": 607525,
+      "bid": 149.8,
+      "ask": 150.3
+    }
+  },
+  "expect": {
+    "minStrikes": 2
+  }
+}

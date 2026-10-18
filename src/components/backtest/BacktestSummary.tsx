@@ -80,19 +80,19 @@ export function BacktestSummary({ stats, capital }: { stats: BacktestStats; capi
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="list" aria-label="Backtest summary">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card sm:grid-cols-4" role="list" aria-label="Backtest summary">
       {tiles.map((t) => (
-        <div key={t.id} role="listitem" className="min-w-0 rounded-tile border border-border bg-card px-3 py-2 shadow-card">
+        <div key={t.id} role="listitem" className="min-w-0 bg-card px-3 py-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" className="max-w-full truncate rounded-chip text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground underline decoration-dotted decoration-muted-foreground/50 underline-offset-2 focus-visible:shadow-ember focus-visible:outline-none">
+              <button type="button" className="max-w-full truncate rounded-chip text-left text-label text-muted-foreground underline decoration-dotted decoration-muted-foreground/50 underline-offset-2 focus-visible:shadow-focus focus-visible:outline-none">
                 {t.label}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="max-w-[260px] text-xs">{t.help}</TooltipContent>
+            <TooltipContent className="max-w-[260px] text-body-sm">{t.help}</TooltipContent>
           </Tooltip>
-          <div className={cn("truncate font-num text-[17px] font-bold tabular-nums", t.tone)}>{t.value}</div>
-          {t.sub ? <div className="truncate text-[11px] text-muted-foreground">{t.sub}</div> : null}
+          <div className={cn("truncate font-num text-lead font-semibold tabular-nums", t.tone)}>{t.value}</div>
+          {t.sub ? <div className="truncate text-body-sm text-muted-foreground">{t.sub}</div> : null}
         </div>
       ))}
     </div>

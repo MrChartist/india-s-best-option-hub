@@ -1,0 +1,30 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/profile$",
+      "json": {
+        "s": "ok",
+        "code": 200,
+        "message": "",
+        "data": {
+          "fy_id": "XXXXX86",
+          "name": "JOHN",
+          "display_name": "JD",
+          "pin_change_date": "15-12-2022 09:24:05",
+          "email_id": "dummy@example.com",
+          "pwd_change_date": "None",
+          "PAN": "FYxxxxxx0S",
+          "mobile_number": "99xxxxxx99",
+          "totp": true,
+          "pwd_to_expire": 90,
+          "ddpi_enabled": false,
+          "mtf_enabled": false
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

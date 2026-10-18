@@ -403,7 +403,6 @@ export default function Optimizer() {
     <div className="space-y-3 pb-4">
       <PageHeader
         icon={WandSparkles}
-        eyebrow="Strategy"
         title="Strategy Optimizer"
         description="Set a target price, a date and a budget. We rank liquid NSE strategies by return on funds required and chance of profit."
         source={
@@ -423,8 +422,8 @@ export default function Optimizer() {
         </div>
       )}
 
-      {/* Market strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      {/* Market strip: one group box, hairline-divided cells (six divide evenly at 2, 3 and 6 columns) */}
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card sm:grid-cols-3 xl:grid-cols-6">
         {(
           [
             { id: "spot", label: `${symbol} spot`, value: spot > 0 ? formatNumberIN(spot, 2) : "—" },
@@ -447,13 +446,13 @@ export default function Optimizer() {
             { id: "lot", label: "Lot size", value: lotSize > 0 ? `${lotSize}` : "—" },
           ] as Array<{ id: string; label: string; value: string; tag?: string; sub?: string }>
         ).map((m) => (
-          <div key={m.id} className="min-w-0 rounded-tile border border-border bg-card px-3 py-2 shadow-card">
-            <div className="truncate text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">{m.label}</div>
-            {front ? <div className="truncate font-num text-[15px] font-bold tabular-nums">{m.value}</div> : <Skeleton className="mt-1 h-5 w-20" />}
+          <div key={m.id} className="min-w-0 bg-card px-3 py-2">
+            <div className="truncate text-label text-muted-foreground">{m.label}</div>
+            {front ? <div className="truncate font-num text-lead font-semibold tabular-nums">{m.value}</div> : <Skeleton className="mt-1 h-5 w-20" />}
             {front && (m.tag || m.sub) && (
-              <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-1.5 text-body-sm text-muted-foreground">
                 {/* Method tags keep their case: uppercase would turn σ into Σ. */}
-                {m.tag && <span className="shrink-0 rounded-chip bg-wash-info px-1 text-[10px] font-semibold text-info">{m.tag}</span>}
+                {m.tag && <span className="shrink-0 rounded-chip bg-wash-info px-1 text-micro font-semibold text-info">{m.tag}</span>}
                 {m.sub && <span className="truncate font-num">{m.sub}</span>}
               </div>
             )}
@@ -462,7 +461,7 @@ export default function Optimizer() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(300px,360px)_1fr]">
-        <aside className="h-fit rounded-card border border-border bg-card p-3 shadow-card lg:sticky lg:top-4" aria-label="Optimizer settings">
+        <aside className="h-fit rounded-tile border border-separator bg-card p-3 shadow-card lg:sticky lg:top-3" aria-label="Optimizer settings">
           <OptimizerForm
             symbol={symbol}
             onSymbolChange={changeSymbol}
@@ -497,23 +496,23 @@ export default function Optimizer() {
 
         <section className="min-w-0 space-y-3" aria-labelledby="opt-results-h">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="opt-results-h" className="flex items-center gap-1.5 font-display text-[16px] font-bold">
+            <h2 id="opt-results-h" className="flex items-center gap-1.5 font-display text-lead font-semibold">
               <Sparkles className="h-4 w-4 text-primary-ink" aria-hidden="true" />
               Best strategies for {formatStrike(targetPrice)} by {targetDate ? formatDateIST(targetDate) : "expiry"}
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
-              <ToggleGroup type="single" value={layout} onValueChange={changeLayout} aria-label="Results layout" className="rounded-tab bg-muted p-0.5">
-                <ToggleGroupItem value="table" size="sm" className="h-7 gap-1 px-2 text-xs" aria-label="Table view">
+              <ToggleGroup type="single" value={layout} onValueChange={changeLayout} aria-label="Results layout">
+                <ToggleGroupItem value="table" size="sm" className="gap-1" aria-label="Table view">
                   <Rows3 className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">Table</span>
                 </ToggleGroupItem>
-                <ToggleGroupItem value="cards" size="sm" className="h-7 gap-1 px-2 text-xs" aria-label="Card view">
+                <ToggleGroupItem value="cards" size="sm" className="gap-1" aria-label="Card view">
                   <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">Cards</span>
                 </ToggleGroupItem>
               </ToggleGroup>
               {newerChain && (
-                <Button size="pill" variant="outline" onClick={() => setNonce((n) => n + 1)}>
+                <Button size="pill" variant="secondary" onClick={() => setNonce((n) => n + 1)}>
                   <RefreshCw aria-hidden="true" /> Newer chain · re-run
                 </Button>
               )}
@@ -528,12 +527,12 @@ export default function Optimizer() {
             {running && progress ? (
               <>
                 <Progress value={progress.phase === "enumerate" ? 3 : pctDone} className="h-1.5" aria-label="Optimizer progress" />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-body-sm text-muted-foreground">
                   {progress.phase === "enumerate" ? "Building candidates…" : `Scoring ${formatNumberIN(progress.done)} of ${formatNumberIN(progress.total)} strategies…`}
                 </p>
               </>
             ) : stats ? (
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-body-sm text-muted-foreground">
                 <span>
                   Scanned <b className="font-num text-foreground">{formatNumberIN(stats.enumerated)}</b>
                 </span>
@@ -554,7 +553,7 @@ export default function Optimizer() {
           </div>
 
           {stats?.multiExpirySkipped && settings.categories.includes("calendar_diagonal") && (
-            <p className="flex items-center gap-1.5 text-[11px] text-warning">
+            <p className="flex items-center gap-1.5 text-body-sm text-warning">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               Calendars and diagonals need the next expiry{backExpiry ? ` (${formatDateIST(backExpiry)})` : ""} from the same data source; it is not available right now.
             </p>
@@ -583,13 +582,13 @@ export default function Optimizer() {
           <Tabs value={activeTab} onValueChange={(v) => setTab(v as TabKey)}>
             <div className="-mx-1 overflow-x-auto px-1 pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-1.5rem),transparent)]">
               <TabsList className="h-auto w-max">
-                <TabsTrigger value="top" className="text-xs">
+                <TabsTrigger value="top" className="text-body-sm">
                   Top picks
                 </TabsTrigger>
                 {visibleCats.map((c) => (
-                  <TabsTrigger key={c} value={c} className="gap-1 text-xs" disabled={!!ranked && ranked.counts[c] === 0}>
+                  <TabsTrigger key={c} value={c} className="gap-1 text-body-sm" disabled={!!ranked && ranked.counts[c] === 0}>
                     {CATEGORY_LABELS[c]}
-                    {ranked && <span className="font-num text-[10px] text-muted-foreground">{ranked.counts[c]}</span>}
+                    {ranked && <span className="font-num text-micro text-muted-foreground">{ranked.counts[c]}</span>}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -613,7 +612,7 @@ export default function Optimizer() {
             </TabsContent>
           </Tabs>
 
-          <div className="space-y-1 rounded-tile bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          <div className="hairline-t space-y-1 pt-3 text-body-sm text-muted-foreground">
             <p>
               <span className="font-semibold text-foreground">How this works.</span> Each structure is priced at {settings.pricing === "mid" ? "the bid/ask midpoint" : "natural prices (buy at ask, sell at bid)"}, valued at your
               target with Black-76 (time value kept when the target date is before expiry) and sized to your budget using funds required: a SPAN-style span and exposure estimate,

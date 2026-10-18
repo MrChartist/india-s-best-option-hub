@@ -55,9 +55,9 @@ export function BasketConfirmDialog({
               </p>
             ) : null}
             {preview.groups.map((grp) => (
-              <section key={grp.symbol} className="rounded-tile border border-border" aria-label={`${grp.symbol} legs`}>
-                <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border bg-surface/60 px-3 py-2">
-                  <p className="font-display font-bold">
+              <section key={grp.symbol} className="rounded-tile border border-separator" aria-label={`${grp.symbol} legs`}>
+                <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-separator bg-surface/60 px-3 py-2">
+                  <p className="font-display font-semibold">
                     {grp.symbol}
                     {grp.spot > 0 ? <span className="ml-2 font-sans text-micro font-normal text-muted-foreground">spot {formatNumberIN(grp.spot, 2)}</span> : null}
                   </p>
@@ -66,7 +66,7 @@ export function BasketConfirmDialog({
                     {grp.hedgeBenefit > 0 ? ` · hedge benefit ${formatINR(grp.hedgeBenefit, { decimals: 0 })}` : ""}
                   </p>
                 </header>
-                <ul className="divide-y divide-border">
+                <ul className="divide-y divide-separator">
                   {grp.legs.map((l, i) => (
                     <li key={`${l.key}-${l.input.side}-${i}`} className="flex items-center justify-between gap-2 px-3 py-1.5">
                       <span className="min-w-0">
@@ -95,7 +95,7 @@ export function BasketConfirmDialog({
                   ))}
                 </ul>
                 {grp.elm > 0 ? (
-                  <p className="border-t border-border px-3 py-1.5">
+                  <p className="border-t border-separator px-3 py-1.5">
                     <Badge variant="warning">incl. expiry-day ELM {formatINR(grp.elm, { decimals: 0 })}</Badge>
                   </p>
                 ) : null}
@@ -109,20 +109,20 @@ export function BasketConfirmDialog({
                 ["Charges", formatINR(preview.charges, { decimals: 0 }), "entry orders"],
                 ["Available after", <span key="aa" className={preview.availableAfter < 0 ? "text-bearish" : undefined}>{formatINR(preview.availableAfter, { decimals: 0 })}</span>, `now ${formatINR(preview.availableBefore, { decimals: 0 })}`],
               ].map(([k, v, sub]) => (
-                <div key={k as string} className="rounded-tile border border-border px-2.5 py-2">
-                  <dt className="text-label uppercase text-muted-foreground">{k}</dt>
+                <div key={k as string} className="rounded-tile border border-separator px-2.5 py-2">
+                  <dt className="text-label text-muted-foreground">{k}</dt>
                   <dd className="font-num text-lead font-semibold tabular-nums">{v}</dd>
                   <dd className="text-micro text-muted-foreground">{sub}</dd>
                 </div>
               ))}
             </dl>
 
-            <div className="space-y-1.5 rounded-tile border border-border p-3">
+            <div className="space-y-1.5 rounded-tile border border-separator p-3">
               <Label htmlFor={`${uid}-ml`} className="flex items-center gap-1.5">
                 <ShieldAlert className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Max loss for this basket (₹) <span className="text-bearish" aria-hidden="true">*</span>
               </Label>
               <div className="flex items-center gap-2">
-                <Input id={`${uid}-ml`} type="number" inputMode="numeric" min={1} step={100} required aria-required="true" value={text} onChange={(e) => setText(e.target.value)} placeholder={worst ? `Worst case ${worst}` : "Required"} className="h-9" />
+                <Input id={`${uid}-ml`} type="number" inputMode="numeric" min={1} step={100} required aria-required="true" value={text} onChange={(e) => setText(e.target.value)} placeholder={worst ? `Worst case ${worst}` : "Required"} />
                 {worst && !text ? (
                   <Button type="button" variant="outline" size="sm" className="h-9 shrink-0" onClick={() => setText(String(worst))}>
                     Use {formatINR(worst, { decimals: 0 })}

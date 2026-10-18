@@ -1,0 +1,27 @@
+{
+  "brokerId": "arrow",
+  "creds": {
+    "appId": "AR00001",
+    "appSecret": "dummy-app-secret",
+    "requestToken": "dummy-request-token"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://docs.arrow.trade/rest-api/authentication/",
+    "https://docs.arrow.trade/rest-api/error-codes/",
+    "https://docs.arrow.trade/rest-api/response-structure/",
+    "https://docs.arrow.trade/rest-api/symbols/",
+    "https://docs.arrow.trade/rest-api/symbol-quotes/",
+    "https://docs.arrow.trade/rest-api/utility/",
+    "https://docs.arrow.trade/rest-api/historical-candle-data/",
+    "https://docs.arrow.trade/rest-api/orders/",
+    "https://docs.arrow.trade/rest-api/positions/",
+    "https://docs.arrow.trade/rest-api/holdings/",
+    "https://docs.arrow.trade/rest-api/funds/",
+    "https://docs.arrow.trade/rest-api/user-info/",
+    "https://docs.arrow.trade/rest-api/rate-limits/",
+    "https://docs.arrow.trade/llms-full.txt"
+  ],
+  "notes": "Payload shapes and field names are the official docs' sample responses. The docs' samples use RELIANCE/IDEA/BANKNIFTY-2024 contracts, so the rows here carry NIFTY/SENSEX October 2026 contracts in exactly the documented format (paise-scaled integer prices in market data, rupee strings in portfolio/orders). Every token, id and name is a dummy."
+}

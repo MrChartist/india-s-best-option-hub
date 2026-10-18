@@ -77,16 +77,18 @@ export default function PositionSizeCalculator() {
   const lotSizeUsed = mode === "strategy" ? strategyLot : lot;
   const unlimited = mode === "strategy" && !!legsRisk?.unlimited;
   const res = !unlimited ? positionSize({ capital: cap, riskPct: risk, maxLossPerLot: perLot, lotSize: lotSizeUsed }) : { lots: 0, riskAmount: (cap * risk) / 100, capitalAtRisk: 0 };
-  const inputsOk = isPos(cap) && isPos(risk) && isPos(perLot) && Number.isFinite(perLot);
+  // Risk is a share of capital: above 100% the worst case would exceed the whole account.
+  const riskOk = isPos(risk) && risk <= 100;
+  const inputsOk = isPos(cap) && riskOk && isPos(perLot) && Number.isFinite(perLot);
   const oneLotTooBig = inputsOk && res.lots === 0 && perLot > res.riskAmount;
-  const highRisk = isPos(risk) && risk > 5;
+  const highRisk = riskOk && risk > 5;
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
       <Panel title="Position size" description="Size a trade so that its worst-case loss stays within a fixed share of your capital.">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <NumField label="Trading capital" prefix="₹" value={capital} onChange={setCapital} invalid={!isPos(cap)} hint={isPos(cap) ? formatCompactIN(cap, { symbol: true }) : "Enter your capital"} />
-          <NumField label="Risk per trade" suffix="%" value={riskPct} onChange={setRiskPct} invalid={!isPos(risk)} hint={isPos(cap) && isPos(risk) ? `${formatINR((cap * risk) / 100, { decimals: 0 })} at risk` : "Most traders use 0.5 to 2%"} />
+          <NumField label="Risk per trade" suffix="%" value={riskPct} onChange={setRiskPct} invalid={!riskOk} hint={isPos(risk) && risk > 100 ? "Risk cannot be more than 100% of capital" : isPos(cap) && riskOk ? `${formatINR((cap * risk) / 100, { decimals: 0 })} at risk` : "Most traders use 0.5 to 2%"} />
         </div>
         {highRisk ? (
           <Callout tone="warning" className="mt-3">
@@ -142,7 +144,7 @@ export default function PositionSizeCalculator() {
         </div>
       </Panel>
 
-      <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 space-y-4 xl:sticky xl:top-3 xl:self-start">
         <Panel title="Result">
           {!inputsOk && !unlimited ? (
             <p className="text-body text-muted-foreground">Enter capital, risk % and the loss per lot.</p>
@@ -154,14 +156,14 @@ export default function PositionSizeCalculator() {
                 <Stat label="Lots" value={formatNumberIN(res.lots)} emphasis tone={res.lots > 0 ? "brand" : "bearish"} sub={isPos(lotSizeUsed) ? `${formatNumberIN(res.lots * lotSizeUsed)} units` : undefined} />
                 <Stat label="Capital at risk" value={formatINR(res.capitalAtRisk, { decimals: 0 })} sub={isPos(cap) ? formatPct((res.capitalAtRisk / cap) * 100, { decimals: 2 }) + " of capital" : undefined} />
               </div>
-              <div className="mt-3 divide-y divide-border">
+              <div className="mt-3 divide-y divide-separator">
                 <KV k="Risk budget" v={formatINR(res.riskAmount, { decimals: 0 })} />
                 <KV k="Loss per lot" v={formatINR(perLot, { decimals: 0 })} />
                 <KV k="Unused budget" v={formatINR(res.riskAmount - res.capitalAtRisk, { decimals: 0 })} />
               </div>
               {oneLotTooBig ? (
-                <div role="alert" className="mt-3 flex items-start gap-2 rounded-tile border border-bearish/40 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <div role="alert" className="mt-3 flex items-start gap-2 rounded-md bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+                  <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <p>
                     One lot risks {formatINR(perLot, { decimals: 0 })}, which is {formatPct((perLot / cap) * 100, { decimals: 2 })} of capital and more than your {formatPct(risk, { decimals: 1 })} budget. Skip the trade, tighten the stop or use a hedged structure.
                   </p>
@@ -173,21 +175,21 @@ export default function PositionSizeCalculator() {
         {inputsOk && !unlimited ? (
           <Panel title="Risk ladder" description="Lots at other risk levels for the same loss per lot.">
             <table className="w-full text-body">
-              <thead>
-                <tr className="text-left text-label uppercase text-muted-foreground">
-                  <th className="py-1 font-semibold">Risk</th>
-                  <th className="py-1 text-right font-semibold">Budget</th>
-                  <th className="py-1 text-right font-semibold">Lots</th>
+              <thead className="[&_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                <tr className="text-left">
+                  <th scope="col">Risk</th>
+                  <th scope="col" className="text-right">Budget</th>
+                  <th scope="col" className="text-right">Lots</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="zebra-rows">
                 {RISK_LADDER.map((p) => {
                   const r = positionSize({ capital: cap, riskPct: p, maxLossPerLot: perLot, lotSize: lotSizeUsed });
                   return (
                     <tr key={p} className={cn(Math.abs(p - risk) < 1e-9 && "font-semibold text-primary-ink")}>
-                      <td className="py-1.5">{formatPct(p, { decimals: 1 })}</td>
-                      <td className="py-1.5 text-right tabular-nums">{formatINR(r.riskAmount, { decimals: 0 })}</td>
-                      <td className="py-1.5 text-right tabular-nums">{r.lots}</td>
+                      <td>{formatPct(p, { decimals: 1 })}</td>
+                      <td className="text-right">{formatINR(r.riskAmount, { decimals: 0 })}</td>
+                      <td className="text-right">{r.lots}</td>
                     </tr>
                   );
                 })}

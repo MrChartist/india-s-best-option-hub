@@ -28,7 +28,7 @@ export default function PremiumTideCard({ symbol = "NIFTY", className }: { symbo
       <FlowFeeder symbol={sym} />
       <div className="flex items-start justify-between gap-2 px-4 pt-3">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 font-display text-lead font-bold">
+          <h2 className="flex items-center gap-1.5 font-display text-[14px] font-bold leading-snug">
             <Waves className="h-4 w-4 text-primary-ink" aria-hidden="true" />
             Premium Tide · {sym}
           </h2>
@@ -43,7 +43,7 @@ export default function PremiumTideCard({ symbol = "NIFTY", className }: { symbo
           { label: "Net", v: sum.net },
         ].map((s) => (
           <div key={s.label} className="min-w-0">
-            <p className="text-micro uppercase text-muted-foreground">{s.label}</p>
+            <p className="text-micro text-muted-foreground">{s.label}</p>
             <p
               className={cn(
                 "truncate font-num text-lead font-bold tabular-nums",
@@ -62,7 +62,7 @@ export default function PremiumTideCard({ symbol = "NIFTY", className }: { symbo
           <PremiumTideChart points={points} height={180} compact ariaLabel={`${sym} Premium Tide`} className="flex-1" />
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-2 text-body-sm">
+      <div className="hairline-t flex items-center justify-between gap-2 px-4 py-2 text-body-sm">
         <span className="text-muted-foreground">
           {feed?.mode === "sample" ? "Sample data: simulated session" : "Not trade-level data"}
         </span>

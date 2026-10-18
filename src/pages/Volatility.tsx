@@ -4,6 +4,8 @@ import { FlaskConical, Waves } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
+import { resolveFnoSymbol } from "@/components/option-chain/symbols";
+import { UnknownSymbolNotice } from "@/components/option-chain/UnknownSymbolNotice";
 import { SourceBadge } from "@/components/option-chain/SourceBadge";
 import { IVOverview } from "@/components/volatility/IVOverview";
 import { SmileChart } from "@/components/volatility/SmileChart";
@@ -49,7 +51,8 @@ type TabValue = (typeof TABS)[number]["value"];
 
 export default function Volatility() {
   const [params, setParams] = useSearchParams();
-  const symbol = sanitizeSymbol(params.get("symbol")) || "NIFTY";
+  // A symbol with no F&O contracts falls back to NIFTY (with a notice) instead of a fake chain.
+  const { symbol, unknown: unknownSymbol } = resolveFnoSymbol(sanitizeSymbol(params.get("symbol")) || params.get("symbol"));
   const tabParam = params.get("tab");
   const canUseVix = VIX_SYMBOLS.has(symbol);
   const [basisPref, setBasisPref] = useState<IvBasis>("vix");
@@ -111,7 +114,6 @@ export default function Volatility() {
     <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
       <PageHeader
         icon={Waves}
-        eyebrow="Volatility"
         title="Volatility"
         description="IV rank, smile, term structure, cone, surface, expected move, India VIX and cross-symbol comparison for NSE options. IVs are solved with Black-76 on the put-call parity forward."
         source={
@@ -129,6 +131,8 @@ export default function Volatility() {
 
       <SymbolSwitcher value={symbol} onChange={setSymbol} />
 
+      {unknownSymbol ? <UnknownSymbolNotice symbol={unknownSymbol} /> : null}
+
       {vol.isSample ? (
         <div role="note" className="flex items-start gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -143,7 +147,7 @@ export default function Volatility() {
         <div className="-mx-1.5 overflow-x-auto px-1.5 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+              <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
               </TabsTrigger>
             ))}
@@ -207,7 +211,7 @@ export default function Volatility() {
         </TabsContent>
       </Tabs>
 
-      <p className="border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <p className="pt-3 text-body-sm text-muted-foreground hairline-t">
         Data for education and research. Not investment advice. IV, Greeks, HV and history are computed in your browser from NSE/Dhan quotes, NSE bhavcopy and Yahoo Finance candles via your local proxy.
       </p>
     </div>

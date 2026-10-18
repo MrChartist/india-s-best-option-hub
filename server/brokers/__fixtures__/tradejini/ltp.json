@@ -1,0 +1,178 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store?version=0",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "version": 1741,
+          "updated": true,
+          "symbolStore": [
+            {
+              "name": "Securities",
+              "idFormat": "instrument_symbol_series_exchange",
+              "sortOrder": 1
+            },
+            {
+              "name": "FutureContracts",
+              "idFormat": "instrument_symbol_exchange_expiry",
+              "sortOrder": 3
+            },
+            {
+              "name": "NSEOptions",
+              "idFormat": "instrument_symbol_exchange_expiry_strike_optType",
+              "sortOrder": 4
+            },
+            {
+              "name": "BSEOptions",
+              "idFormat": "instrument_symbol_exchange_expiry_strike_optType",
+              "sortOrder": 5
+            },
+            {
+              "name": "Index",
+              "idFormat": "instrument_excToken_exchange",
+              "sortOrder": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store/Securities",
+      "status": 200,
+      "text": "id,dispName,excToken,lot,tick,asset,freezeQty,isin,desc\nEQT_RELIANCE_EQ_NSE,RELIANCE,2885,1,0.1,equity,81195,INE002A01018,RELIANCE INDUSTRIES LTD\nEQT_RELIANCE_A_BSE,RELIANCE,500325,1,0.05,equity,,INE002A01018,RELIANCE INDUSTRIES LTD.",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store/FutureContracts",
+      "status": 200,
+      "text": "id,dispName,excToken,lot,tick,asset,freezeQty,weekly,undId\nFUTIDX_NIFTY_NFO_2026-10-27,NIFTY 27OCT FUT,48704,65,0.1,future,3510,,IDX_-1_NSE\nFUTSTK_RELIANCE_NFO_2026-10-27,RELIANCE 27OCT FUT,48710,500,0.1,future,20000,,EQT_RELIANCE_EQ_NSE",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store/NSEOptions",
+      "status": 200,
+      "text": "id,dispName,excToken,lot,tick,asset,freezeQty,weekly,undId\nOPTIDX_NIFTY_NFO_2026-10-20_25000_CE,NIFTY 20OCT 25000 CE,47029,65,0.05,option,3510,w3,IDX_-1_NSE\nOPTIDX_NIFTY_NFO_2026-10-20_25000_PE,NIFTY 20OCT 25000 PE,47030,65,0.05,option,3510,w3,IDX_-1_NSE\nOPTIDX_NIFTY_NFO_2026-10-20_25100_CE,NIFTY 20OCT 25100 CE,47031,65,0.05,option,3510,w3,IDX_-1_NSE\nOPTIDX_NIFTY_NFO_2026-10-20_25100_PE,NIFTY 20OCT 25100 PE,47032,65,0.05,option,3510,w3,IDX_-1_NSE\nOPTIDX_NIFTY_NFO_2026-10-27_25000_CE,NIFTY 27OCT 25000 CE,47101,65,0.05,option,3510,,IDX_-1_NSE\nOPTIDX_NIFTY_NFO_2026-10-27_25000_PE,NIFTY 27OCT 25000 PE,47102,65,0.05,option,3510,,IDX_-1_NSE\nOPTIDX_BANKNIFTY_NFO_2026-10-27_56000_CE,BANKNIFTY 27OCT 56000 CE,47201,30,0.05,option,900,,IDX_-20_NSE\nOPTIDX_FINNIFTY_NFO_2026-10-27_26000_PE,FINNIFTY 27OCT 26000 PE,47301,60,0.05,option,1800,,IDX_-21_NSE\nOPTIDX_MIDCPNIFTY_NFO_2026-10-27_13000_CE,MIDCPNIFTY 27OCT 13000 CE,47401,120,0.05,option,2800,,IDX_-18_NSE\nOPTIDX_NIFTYNXT50_NFO_2026-10-27_70000_CE,NIFTYNXT50 27OCT 70000 CE,47501,25,0.05,option,600,,IDX_-90_NSE\nOPTSTK_RELIANCE_NFO_2026-10-27_1220_CE,RELIANCE 27OCT 1220 CE,106599,500,0.05,option,20000,,EQT_RELIANCE_EQ_NSE\nOPTSTK_RELIANCE_NFO_2026-10-27_1220_PE,RELIANCE 27OCT 1220 PE,106600,500,0.05,option,20000,,EQT_RELIANCE_EQ_NSE",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store/BSEOptions",
+      "status": 200,
+      "text": "id,dispName,excToken,lot,tick,asset,freezeQty,weekly,undId\nOPTIDX_SENSEX_BFO_2026-10-22_82000_CE,SENSEX 22OCT 82000 CE,1163531,20,0.05,option,1000,w4,IDX_-51_BSE\nOPTIDX_SENSEX_BFO_2026-10-22_82000_PE,SENSEX 22OCT 82000 PE,1163778,20,0.05,option,1000,w4,IDX_-51_BSE\nOPTIDX_BANKEX_BFO_2026-10-29_62000_CE,BANKEX 29OCT 62000 CE,1158398,30,0.05,option,900,,IDX_-94_BSE",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/mkt-data/scrips/symbol-store/Index",
+      "status": 200,
+      "text": "id,dispName,excToken,asset,symbol,availFlag\nIDX_-1_NSE,Nifty 50,-1,index,NIFTY,Y\nIDX_-20_NSE,BANKNIFTY,-20,index,BANKNIFTY,Y\nIDX_-21_NSE,FINNIFTY,-21,index,FINNIFTY,Y\nIDX_-18_NSE,MIDCPNIFTY,-18,index,MIDCPNIFTY,Y\nIDX_-51_BSE,SENSEX,-51,index,SENSEX,Y\nIDX_-94_BSE,BANKEX,-94,index,BANKEX,Y",
+      "headers": {
+        "content-type": "text/plain"
+      }
+    }
+  ],
+  "streamTicks": {
+    "-1_NSE": {
+      "ltp": 25041.35,
+      "open": 24990,
+      "high": 25080,
+      "low": 24950.5,
+      "close": 25001.2,
+      "vol": 0
+    },
+    "47029_NFO": {
+      "ltp": 120.5,
+      "open": 110,
+      "high": 131,
+      "low": 101,
+      "close": 116.5,
+      "vol": 1620250,
+      "OI": 1312350,
+      "prevOI": 1217525,
+      "bidPrice": 120.35,
+      "askPrice": 120.6,
+      "spotPrice": 25041.35,
+      "iv": 13.13,
+      "delta": 0.53,
+      "gamma": 0.00053,
+      "theta": -7.05,
+      "vega": 10.39
+    },
+    "47030_NFO": {
+      "ltp": 98.1,
+      "open": 101,
+      "high": 120,
+      "low": 90,
+      "close": 104,
+      "vol": 1320250,
+      "OI": 1012350,
+      "prevOI": 1017175,
+      "bidPrice": 98.05,
+      "askPrice": 98.2,
+      "spotPrice": 25041.35,
+      "iv": 0.138,
+      "delta": -0.47,
+      "gamma": 0.00051,
+      "theta": -6.9,
+      "vega": 10.2
+    },
+    "47031_NFO": {
+      "ltp": 70,
+      "open": 65,
+      "high": 80,
+      "low": 60,
+      "close": 66,
+      "vol": 920250,
+      "OI": 812350,
+      "prevOI": 797525,
+      "bidPrice": 69.9,
+      "askPrice": 70.1,
+      "spotPrice": 25041.35
+    },
+    "47032_NFO": {
+      "ltp": 150,
+      "open": 160,
+      "high": 170,
+      "low": 140,
+      "close": 155,
+      "vol": 220250,
+      "OI": 612350,
+      "prevOI": 607525,
+      "bidPrice": 149.8,
+      "askPrice": 150.3,
+      "spotPrice": 25041.35,
+      "iv": 13.5,
+      "delta": -0.62,
+      "gamma": 0.0005,
+      "theta": -6.2,
+      "vega": 9.8
+    },
+    "2885_NSE": {
+      "ltp": 1211.2,
+      "open": 1206,
+      "high": 1215,
+      "low": 1198.1,
+      "close": 1205.5,
+      "vol": 4311783,
+      "bidPrice": 1211.1,
+      "askPrice": 1211.2
+    }
+  }
+}

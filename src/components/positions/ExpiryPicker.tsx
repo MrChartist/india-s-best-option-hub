@@ -39,7 +39,7 @@ export function ExpiryPicker({
           onChange(v);
         }}
       >
-        <SelectTrigger id={id} className="h-9" aria-label="Expiry">
+        <SelectTrigger id={id} aria-label="Expiry">
           <SelectValue placeholder="Choose expiry" />
         </SelectTrigger>
         <SelectContent>

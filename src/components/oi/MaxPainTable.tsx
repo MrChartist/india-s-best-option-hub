@@ -50,17 +50,17 @@ export function MaxPainTable({ rows, spot, selected, onSelect, loading }: { rows
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-label uppercase">Expiry</TableHead>
-                  <TableHead className="text-right text-label uppercase">
+                  <TableHead>Expiry</TableHead>
+                  <TableHead className="text-right">
                     <MetricHelp metric="maxPain">Max pain</MetricHelp>
                   </TableHead>
-                  <TableHead className="text-right text-label uppercase">Distance</TableHead>
-                  <TableHead className="text-right text-label uppercase">%</TableHead>
-                  <TableHead className="text-right text-label uppercase">
+                  <TableHead className="text-right">Distance</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">
                     <MetricHelp metric="em">EM ±</MetricHelp>
                   </TableHead>
-                  <TableHead className="text-right text-label uppercase">× EM</TableHead>
-                  <TableHead className="text-right text-label uppercase">
+                  <TableHead className="text-right">× EM</TableHead>
+                  <TableHead className="text-right">
                     <MetricHelp metric="pcr">PCR</MetricHelp>
                   </TableHead>
                 </TableRow>
@@ -71,7 +71,8 @@ export function MaxPainTable({ rows, spot, selected, onSelect, loading }: { rows
                   return (
                     <TableRow
                       key={r.expiry}
-                      className={cn("font-num text-xs", active && "bg-wash-brand/55 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.45)]", mixed && r.sample && "italic")}
+                      className={cn("font-num text-body-sm", mixed && r.sample && "italic")}
+                      data-state={active ? "selected" : undefined}
                       aria-selected={active}
                       title={mixed && r.sample ? "Sample data for this expiry" : undefined}
                     >
@@ -79,12 +80,12 @@ export function MaxPainTable({ rows, spot, selected, onSelect, loading }: { rows
                         <button
                           type="button"
                           onClick={() => onSelect(r.expiry)}
-                          className={cn("rounded-chip text-left font-semibold hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none", mixed && r.sample && "text-warning")}
+                          className={cn("rounded-chip text-left font-semibold hover:text-primary-ink focus-visible:shadow-focus focus-visible:outline-none", mixed && r.sample && "text-warning")}
                           aria-label={`Show ${formatDateIST(r.expiry)} expiry${r.sample ? " (sample data)" : ""}`}
                         >
                           {formatDateIST(r.expiry)}
                         </button>
-                        <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{dteLabel(r.expiry)}</span>
+                        <span className="ml-1.5 text-body-sm font-normal text-muted-foreground">{dteLabel(r.expiry)}</span>
                       </TableCell>
                       <TableCell className="text-right font-semibold text-warning">{fmtStrike(r.maxPain)}</TableCell>
                       <TableCell className={cn("text-right", r.distance !== null && (r.distance > 0 ? "text-bullish" : r.distance < 0 ? "text-bearish" : ""))}>
@@ -94,7 +95,7 @@ export function MaxPainTable({ rows, spot, selected, onSelect, loading }: { rows
                       <TableCell className="whitespace-nowrap text-right">
                         {r.expectedMove === null ? "—" : r.expectedMove.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                         {r.emSource && (
-                          <span className="ml-1.5 inline-flex rounded-chip bg-muted px-1 py-px text-[10px] font-medium not-italic text-muted-foreground" title={r.emSource === "iv" ? "1σ move from ATM implied volatility" : "0.85 × ATM straddle (IV missing)"}>
+                          <span className="ml-1.5 inline-flex rounded-chip bg-control-track px-1 py-px text-micro font-medium not-italic text-muted-foreground" title={r.emSource === "iv" ? "1σ move from ATM implied volatility" : "0.85 × ATM straddle (IV missing)"}>
                             {emMethodTag(r.emSource)}
                           </span>
                         )}
@@ -108,7 +109,7 @@ export function MaxPainTable({ rows, spot, selected, onSelect, loading }: { rows
             </Table>
           </div>
         )}
-        <p className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+        <p className="hairline-t px-4 py-2 text-body-sm text-muted-foreground">
           Spot {spot > 0 ? spot.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "—"}. Positive distance means max pain sits above spot. EM method: IV 1σ from ATM implied volatility, Straddle ×0.85 where IV was missing.{mixed && " Amber italic rows are sample data."}
         </p>
       </CardContent>

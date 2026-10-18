@@ -160,7 +160,7 @@ export function PCRHistory({ symbol, currentPcr, sample }: { symbol: string; cur
               <StatTile label="Range" value={`${fmtRatio(view.min)}–${fmtRatio(view.max)}`} />
             </div>
             {zone && enough && (
-              <p className={cn("mb-3 rounded-tile border px-3 py-2 text-xs", zone === "high" ? "border-warning/30 bg-wash-warning/50" : "border-bearish/30 bg-wash-loss/50")}>
+              <p className={cn("mb-3 rounded-tile border px-3 py-2 text-body-sm", zone === "high" ? "border-warning/30 bg-wash-warning/50" : "border-bearish/30 bg-wash-loss/50")}>
                 {zone === "high"
                   ? "PCR is in the top 10% of its recent range. Extreme put writing often marks crowded positioning."
                   : "PCR is in the bottom 10% of its recent range. Extreme call writing can precede short covering."}

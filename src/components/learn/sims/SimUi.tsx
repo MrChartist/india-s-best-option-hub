@@ -9,9 +9,9 @@ import { useSimSpot } from "../simSpot";
 export function SimCard({ title, icon, children, footnote, className }: { title: string; icon?: ReactNode; children: ReactNode; footnote?: ReactNode; className?: string }) {
   const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className={cn("rounded-card border border-border bg-card p-4 shadow-card sm:p-5", className)}>
+    <section aria-labelledby={headingId} className={cn("rounded-card border border-separator bg-card p-4 shadow-card sm:p-5", className)}>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="flex items-center gap-2 font-display text-lead font-bold text-foreground">
+        <h3 id={headingId} className="flex items-center gap-2 font-display text-lead font-semibold text-foreground">
           <span className="grid h-7 w-7 place-items-center rounded-tile bg-product-wash text-product" aria-hidden="true">
             {icon ?? <Sigma className="h-4 w-4" />}
           </span>
@@ -25,7 +25,7 @@ export function SimCard({ title, icon, children, footnote, className }: { title:
         </div>
       </header>
       {children}
-      <p className="mt-4 border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <p className="mt-4 border-t border-separator pt-3 text-body-sm text-muted-foreground">
         {footnote ?? "Interactive model for learning. Real premiums differ with skew, bid-ask spreads and demand."}
       </p>
     </section>
@@ -78,7 +78,7 @@ export function SimSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="text-label uppercase text-muted-foreground">
+        <label htmlFor={id} className="text-label text-muted-foreground">
           {label}
         </label>
         <output htmlFor={id} className="font-num text-body font-semibold tabular-nums text-foreground" aria-live="polite">
@@ -100,7 +100,7 @@ export function SimSlider({
           id={id}
           aria-label={label}
           aria-valuetext={text}
-          className="block h-5 w-5 cursor-grab rounded-capsule border-2 border-primary bg-card shadow-card transition-transform duration-fast ease-press focus-visible:shadow-ember focus-visible:outline-none active:scale-110 active:cursor-grabbing"
+          className="block h-5 w-5 cursor-grab rounded-capsule border-2 border-primary bg-card shadow-card transition-transform duration-fast ease-press focus-visible:shadow-focus focus-visible:outline-none active:scale-110 active:cursor-grabbing"
         />
       </SliderPrimitive.Root>
       {hint ? <p className="text-body-sm text-muted-foreground">{hint}</p> : null}
@@ -111,11 +111,11 @@ export function SimSlider({
 /** Small labelled number tile. */
 export function SimStat({ label, value, tone, sub }: { label: string; value: ReactNode; tone?: "bullish" | "bearish" | "warning" | "info"; sub?: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-tile border border-border bg-surface px-3 py-2">
-      <div className="truncate text-label uppercase text-muted-foreground">{label}</div>
+    <div className="min-w-0 rounded-tile border border-separator bg-surface px-3 py-2">
+      <div className="truncate text-label text-muted-foreground">{label}</div>
       <div
         className={cn(
-          "mt-1 truncate font-num text-lead font-bold tabular-nums",
+          "mt-1 truncate font-num text-lead font-semibold tabular-nums",
           tone === "bullish" && "text-bullish",
           tone === "bearish" && "text-bearish",
           tone === "warning" && "text-warning",
@@ -135,7 +135,7 @@ export function SimSegmented<T extends string>({ label, value, options, onChange
   const name = useId();
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-1.5 text-label uppercase text-muted-foreground">{label}</legend>
+      <legend className="mb-1.5 text-label text-muted-foreground">{label}</legend>
       <div className="inline-flex flex-wrap gap-1 rounded-tab bg-muted p-1">
         {options.map((o) => {
           const checked = o.value === value;
@@ -143,7 +143,7 @@ export function SimSegmented<T extends string>({ label, value, options, onChange
             <label
               key={o.value}
               className={cn(
-                "relative cursor-pointer rounded-pill px-2.5 py-1 text-body-sm font-semibold transition-colors duration-fast focus-within:shadow-ember",
+                "relative cursor-pointer rounded-pill px-2.5 py-1 text-body-sm font-semibold transition-colors duration-fast focus-within:shadow-focus",
                 checked ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
               )}
             >

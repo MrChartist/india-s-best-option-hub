@@ -1,0 +1,262 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Nfo_Index_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nNFO,40001,65,NIFTY,NIFTY20OCT26C24950,OPTIDX,20-OCT-2026,24950,CE\nNFO,40002,65,NIFTY,NIFTY20OCT26P24950,OPTIDX,20-OCT-2026,24950,PE\nNFO,40003,65,NIFTY,NIFTY20OCT26C25000,OPTIDX,20-OCT-2026,25000,CE\nNFO,40004,65,NIFTY,NIFTY20OCT26P25000,OPTIDX,20-OCT-2026,25000,PE\nNFO,40005,65,NIFTY,NIFTY20OCT26C25050,OPTIDX,20-OCT-2026,25050,CE\nNFO,40006,65,NIFTY,NIFTY20OCT26P25050,OPTIDX,20-OCT-2026,25050,PE\nNFO,40011,65,NIFTY,NIFTY27OCT26C25000,OPTIDX,27-OCT-2026,25000,CE\nNFO,40012,65,NIFTY,NIFTY27OCT26P25000,OPTIDX,27-OCT-2026,25000,PE\nNFO,40020,65,NIFTY,NIFTY27OCT26F,FUTIDX,27-OCT-2026,0,XX\nNFO,40031,30,BANKNIFTY,BANKNIFTY27OCT26C56000,OPTIDX,27-OCT-2026,56000,CE\nNFO,40041,60,FINNIFTY,FINNIFTY27OCT26C26500,OPTIDX,27-OCT-2026,26500,CE\nNFO,40051,120,MIDCPNIFTY,MIDCPNIFTY27OCT26P13000,OPTIDX,27-OCT-2026,13000,PE\nNFO,40061,25,NIFTYNXT50,NIFTYNXT5027OCT26C68000,OPTIDX,27-OCT-2026,68000,CE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Nfo_Equity_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nNFO,106743,500,RELIANCE,RELIANCE27OCT26C1460,OPTSTK,27-OCT-2026,1460,CE\nNFO,106744,500,RELIANCE,RELIANCE27OCT26P1460,OPTSTK,27-OCT-2026,1460,PE\nNFO,106700,500,RELIANCE,RELIANCE27OCT26F,FUTSTK,27-OCT-2026,0,XX\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Bfo_Index_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nBFO,825001,20,SENSEX,SENSEX22OCT2682000CE,OPTIDX,22-OCT-2026,82000,CE\nBFO,825002,20,SENSEX,SENSEX22OCT2682000PE,OPTIDX,22-OCT-2026,82000,PE\nBFO,825101,30,BANKEX,BANKEX29OCT2663000CE,OPTIDX,29-OCT-2026,63000,CE\nBFO,825201,60,SENSEX50,SENSEX5022OCT2626900CE,OPTIDX,22-OCT-2026,26900,CE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/NSE_Equity.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument\nNSE,2885,1,RELIANCE,RELIANCE-EQ,EQ\nNSE,22,1,ACC,ACC-EQ,EQ\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NSE\",\"token\":\"26000\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NSE",
+        "tsym": "Nifty 50",
+        "token": "26000",
+        "pp": "2",
+        "ls": "1",
+        "ti": "0.05",
+        "lp": "25012.15",
+        "o": "24950.10",
+        "h": "25060.35",
+        "l": "24931.80",
+        "c": "24980.55",
+        "v": "0",
+        "bp1": "0.00",
+        "sp1": "0.00",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40001\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26C24950",
+        "token": "40001",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "141.30",
+        "o": "141.30",
+        "h": "141.30",
+        "l": "141.30",
+        "c": "141.30",
+        "v": "2310450",
+        "oi": "1520400",
+        "poi": "1487100",
+        "bp1": "141.10",
+        "sp1": "141.45",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40002\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26P24950",
+        "token": "40002",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "78.15",
+        "o": "78.15",
+        "h": "78.15",
+        "l": "78.15",
+        "c": "78.15",
+        "v": "2988300",
+        "oi": "2104500",
+        "poi": "2010300",
+        "bp1": "78.00",
+        "sp1": "78.30",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40003\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26C25000",
+        "token": "40003",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "104.95",
+        "o": "104.95",
+        "h": "104.95",
+        "l": "104.95",
+        "c": "104.95",
+        "v": "5430250",
+        "oi": "3165900",
+        "poi": "2932500",
+        "bp1": "104.85",
+        "sp1": "105.05",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40004\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26P25000",
+        "token": "40004",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "92.40",
+        "o": "92.40",
+        "h": "92.40",
+        "l": "92.40",
+        "c": "92.40",
+        "v": "4876100",
+        "oi": "2876400",
+        "poi": "2905200",
+        "bp1": "92.25",
+        "sp1": "92.55",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40005\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26C25050",
+        "token": "40005",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "74.60",
+        "o": "74.60",
+        "h": "74.60",
+        "l": "74.60",
+        "c": "74.60",
+        "v": "3120400",
+        "oi": "1988700",
+        "poi": "1802400",
+        "bp1": "74.45",
+        "sp1": "74.75",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40006\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26P25050",
+        "token": "40006",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "112.80",
+        "o": "112.80",
+        "h": "112.80",
+        "l": "112.80",
+        "c": "112.80",
+        "v": "1650300",
+        "oi": "1210200",
+        "poi": "1199400",
+        "bp1": "112.60",
+        "sp1": "112.95",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

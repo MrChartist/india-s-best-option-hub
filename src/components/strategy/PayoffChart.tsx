@@ -111,9 +111,9 @@ export function PayoffChart(props: PayoffChartProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2">
             <LineChartIcon className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Payoff
             {badge}
           </CardTitle>
@@ -123,7 +123,7 @@ export function PayoffChart(props: PayoffChartProps) {
       <CardContent className="space-y-3">
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center justify-between gap-2 text-body-sm">
               <label htmlFor={`${uid}-date`} className="flex items-center gap-1 font-medium">
                 <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> Target date
               </label>
@@ -149,7 +149,7 @@ export function PayoffChart(props: PayoffChartProps) {
             </div>
           </div>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center justify-between gap-2 text-body-sm">
               <label htmlFor={`${uid}-iv`} className="flex items-center gap-1 font-medium">
                 <Percent className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> IV shift
               </label>
@@ -164,10 +164,10 @@ export function PayoffChart(props: PayoffChartProps) {
             <div className="flex items-center justify-between gap-1">
               <span className="text-[10px] text-muted-foreground">−10</span>
               <div className="flex gap-1">
-                <Button type="button" variant="outline" size="pill" className="h-6 text-[11px]" onClick={() => onIvShift(crushTo)} title="Typical post-event drop of about 30% of ATM IV">
+                <Button type="button" variant="secondary" size="pill" onClick={() => onIvShift(crushTo)} title="Typical post-event drop of about 30% of ATM IV">
                   <Zap /> IV crush
                 </Button>
-                <Button type="button" variant="ghost" size="pill" className="h-6 text-[11px]" onClick={() => onIvShift(0)} disabled={ivShift === 0}>
+                <Button type="button" variant="ghost" size="pill" onClick={() => onIvShift(0)} disabled={ivShift === 0}>
                   <RotateCcw /> Reset
                 </Button>
               </div>
@@ -178,7 +178,7 @@ export function PayoffChart(props: PayoffChartProps) {
 
         <div ref={chartRef} className="h-[300px] sm:h-[360px]" role="img" aria-label={`Payoff chart. P&L at the current spot on the target date is ${formatINR(spotPnl, { decimals: 0 })}.`}>
           {data.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-tile border border-dashed border-border text-sm text-muted-foreground">Add legs to see the payoff.</div>
+            <div className="flex h-full items-center justify-center rounded-md bg-control-track text-body text-muted-foreground">Add legs to see the payoff.</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 20, right: 12, bottom: 4, left: 0 }}>
@@ -278,7 +278,7 @@ export function PayoffChart(props: PayoffChartProps) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted-foreground">
           <LegendSwatch kind="line" label={targetLabel} />
           <LegendSwatch kind="split" label={multiExpiry ? "Front expiry (later legs at model value)" : "At expiry"} />
           <LegendSwatch kind="band" label={`IV 1σ / 2σ expected move${bands.T > 0 ? ` (±${formatPct(bands.one.pct, { decimals: 1 })})` : ""}`} />
@@ -323,14 +323,14 @@ function PayoffTooltip({ active, payload, spot, targetLabel, expiryLabel }: Tool
         <span className="font-num font-semibold">{formatStrike(Math.round(row.spot))}</span>
         <span className="font-num text-[11px] text-muted-foreground">{formatPct(pct, { decimals: 2, signed: true })}</span>
       </div>
-      <div className="flex justify-between gap-3 text-xs">
+      <div className="flex justify-between gap-3 text-body-sm">
         <span className="flex items-center gap-1 text-muted-foreground">
           <span className="inline-block h-0.5 w-2.5 rounded-full bg-chart-1" aria-hidden="true" />
           {targetLabel}
         </span>
         <span className={`font-num font-semibold ${row.target >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(row.target, { decimals: 0 })}</span>
       </div>
-      <div className="flex justify-between gap-3 text-xs">
+      <div className="flex justify-between gap-3 text-body-sm">
         <span className="text-muted-foreground">{expiryLabel}</span>
         <span className={`font-num ${row.expiry >= 0 ? "text-bullish" : "text-bearish"}`}>{formatINR(row.expiry, { decimals: 0 })}</span>
       </div>

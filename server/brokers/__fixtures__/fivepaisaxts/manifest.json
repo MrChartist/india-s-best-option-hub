@@ -1,0 +1,18 @@
+{
+  "brokerId": "fivepaisaxts",
+  "creds": {
+    "marketApiKey": "dummyMdAppKey05",
+    "marketApiSecret": "dummyMdSecret05",
+    "interactiveApiKey": "dummyIaAppKey05",
+    "interactiveApiSecret": "dummyIaSecret05"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://symphonyfintech.com/marketdata/doc/ (official XTS Market Data API spec, data.json): /auth/login, /config/clientConfig, /instruments/master, /instruments/indexlist, /instruments/quotes (1502, 1510), /instruments/ohlc, Rate Limit",
+    "https://symphonyfintech.com/interactive/doc/ (official XTS Interactive API spec, data.json): /user/session, /user/balance, /orders (place, modify, cancel, order book), /orders/trades, /portfolio/positions, /portfolio/holdings, enums, Rate Limit",
+    "https://github.com/symphonyfintech/xts-pythonclient-api-sdk and https://github.com/symphonyfintech/xts-pythonsdk-binarymarketdata-withbroadcastmode-api-sdk (official SDK route tables)",
+    "https://xtsmum.5paisa.com (5paisa's XTS deployment; /apimarketdata and /interactive answer the standard XTS 400 envelope on an empty login body)"
+  ],
+  "notes": "Derived from the shared XTS fixture set (official Symphony XTS doc samples, dummy ids), re-pointed at this broker's host and its /apimarketdata market-data path. Every capability file also answers the logins and masters, because sessions and masters are cached by the first call that needs them."
+}

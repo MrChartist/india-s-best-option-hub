@@ -95,9 +95,9 @@ export function HedgePressureCard({
 
   return (
     <Card className={cn("flex min-w-0 flex-col overflow-hidden", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 hairline-b">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 font-display text-lead font-bold tracking-[-0.01em]">
+          <h2 className="flex items-center gap-1.5 font-display text-[14px] font-bold leading-snug">
             <Scale className="h-4 w-4 text-primary-ink" aria-hidden="true" />
             Hedging pressure · {sym}
             <HelpTip
@@ -119,7 +119,13 @@ export function HedgePressureCard({
 
       <div className="flex flex-1 flex-col gap-3 p-4">
         {symbols && symbols.length > 1 && onSymbolChange ? (
-          <Segmented ariaLabel="Underlying for hedging pressure" value={sym} onChange={onSymbolChange} options={symbols.map((s) => ({ value: s, label: s }))} />
+          <Segmented
+            ariaLabel="Underlying for hedging pressure"
+            value={sym}
+            onChange={onSymbolChange}
+            options={symbols.map((s) => ({ value: s, label: s }))}
+            className="self-start"
+          />
         ) : null}
 
         {session?.fallback ? (
@@ -151,7 +157,7 @@ export function HedgePressureCard({
             <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {kpis.map((k) => (
                 <div key={k.label} className="min-w-0 rounded-tile bg-muted px-3 py-2">
-                  <dt className="text-micro uppercase text-muted-foreground">{k.label}</dt>
+                  <dt className="text-micro text-muted-foreground">{k.label}</dt>
                   <dd
                     className={cn(
                       "truncate font-num text-lead font-semibold tabular-nums",
@@ -173,7 +179,7 @@ export function HedgePressureCard({
                 {cr(summary.calls)}, puts {cr(summary.puts)}, 0DTE {cr(summary.zeroDte)}.
               </figcaption>
               <div
-                className="mb-1 flex items-center justify-between text-micro uppercase text-muted-foreground"
+                className="mb-1 flex items-center justify-between text-micro text-muted-foreground"
                 aria-hidden="true"
               >
                 <span>₹ Cr, cumulative</span>
@@ -284,12 +290,10 @@ export function HedgePressureCard({
           </>
         )}
       </div>
-      <p className="border-t border-border px-4 py-2 text-body-sm text-muted-foreground">
+      <p className="px-4 py-2 text-body-sm text-muted-foreground hairline-t">
         Positive = writers' hedges buy futures (supportive); negative = they sell. Built from{" "}
         {formatNumberIN(printCount)} OI changes. Not trade-level data.
       </p>
     </Card>
   );
 }
-
-export default HedgePressureCard;

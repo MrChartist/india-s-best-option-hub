@@ -1,0 +1,88 @@
+{
+  "args": [
+    [
+      {
+        "token": "40003",
+        "exchange": "NFO"
+      },
+      {
+        "token": "26000",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NFO\",\"token\":\"40003\"}"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26C25000",
+        "token": "40003",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "104.95",
+        "o": "104.95",
+        "h": "104.95",
+        "l": "104.95",
+        "c": "104.95",
+        "v": "5430250",
+        "oi": "3165900",
+        "poi": "2932500",
+        "bp1": "104.85",
+        "sp1": "105.05",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NSE\",\"token\":\"26000\"}"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NSE",
+        "tsym": "Nifty 50",
+        "token": "26000",
+        "pp": "2",
+        "ls": "1",
+        "ti": "0.05",
+        "lp": "25012.15",
+        "o": "24950.10",
+        "h": "25060.35",
+        "l": "24931.80",
+        "c": "24980.55",
+        "v": "0",
+        "bp1": "0.00",
+        "sp1": "0.00",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

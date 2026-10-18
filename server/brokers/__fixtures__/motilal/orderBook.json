@@ -1,0 +1,97 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/book/v5/getorderbook",
+      "json": {
+        "status": "SUCCESS",
+        "message": "Order Data",
+        "errorcode": "",
+        "data": [
+          {
+            "ordercategory": "NORMAL",
+            "clientid": "EMUM123456",
+            "exchange": "NSEFO",
+            "symboltoken": 52826,
+            "symbol": "NIFTY",
+            "series": "XX",
+            "expirydate": "20-Oct-2026",
+            "strikeprice": 25000,
+            "optiontype": "CE",
+            "orderid": "1120001",
+            "orderinitiatorid": "27120",
+            "ordertype": "Limit",
+            "orderduration": "Day",
+            "producttype": "NORMAL",
+            "error": "",
+            "orderstatus": "Confirm",
+            "buyorsell": "Buy",
+            "totalqtyremaining": 130,
+            "orderqty": 130,
+            "qtytradedtoday": 0,
+            "disclosedqty": 0,
+            "price": 104.5,
+            "triggerprice": 0,
+            "entrydatetime": "20-Oct-2026 10:05:01",
+            "lastmodifiedtime": "20-Oct-2026 10:05:01",
+            "vendor": "NewOrder",
+            "uniqueorderid": "2400155AA020",
+            "goodtilldate": "0",
+            "algoid": 0,
+            "algocategory": 0,
+            "averageprice": 0,
+            "totalqtytraded": 0,
+            "lotsize": 65,
+            "tag": "MRC",
+            "recordinserttime": "20-Oct-2026 10:05:01",
+            "participantcode": ""
+          },
+          {
+            "ordercategory": "NORMAL",
+            "clientid": "EMUM123456",
+            "exchange": "BSE",
+            "symboltoken": 500116,
+            "symbol": "IDBI",
+            "series": "A",
+            "expirydate": "0",
+            "strikeprice": 0,
+            "optiontype": "XX ",
+            "orderid": "1120002",
+            "orderinitiatorid": "27120",
+            "ordertype": "Market",
+            "orderduration": "Day",
+            "producttype": "NORMAL",
+            "error": "Market/Close price not available.",
+            "orderstatus": "Error",
+            "buyorsell": "Buy",
+            "totalqtyremaining": 1,
+            "orderqty": 1,
+            "qtytradedtoday": 0,
+            "disclosedqty": 0,
+            "price": 0,
+            "triggerprice": 0,
+            "entrydatetime": "0",
+            "lastmodifiedtime": "0",
+            "vendor": "NewOrder",
+            "uniqueorderid": "1000001AA020",
+            "goodtilldate": "0",
+            "algoid": 0,
+            "algocategory": 0,
+            "averageprice": 0,
+            "totalqtytraded": 0,
+            "lotsize": 1,
+            "tag": "MRC",
+            "recordinserttime": "20-Oct-2026 10:05:01",
+            "participantcode": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

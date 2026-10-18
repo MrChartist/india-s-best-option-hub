@@ -5,6 +5,7 @@
  * loosely-typed upstream DTOs from src/lib/types/market.ts.
  */
 import type { ExpiryDate, IndexData } from "./mockData";
+import { getActiveBroker, getBrokerInfo } from "./brokerConfig";
 import { calendarDaysBetween, formatDateIST, istDateString, normalizeExpiry } from "@/lib/options";
 import {
   PROXY_BASE,
@@ -91,6 +92,116 @@ function fetchDhanProxy<T>(endpoint: string, params?: Record<string, string>): P
 
 function fetchNSEProxy<T>(endpoint: string, params?: Record<string, string | undefined>): Promise<T> {
   return proxyFetchJSON<T>("/api/nse-proxy", { endpoint, ...params }, { withDhan: false });
+}
+
+/**
+ * A legacy-route result with the proxy's last-good flags. On an upstream failure /api/nse-proxy
+ * and /api/tv-scan answer 200 with the last saved copy (up to 18 h old) marked
+ * `{ stale: true, cachedAt }`; callers must not label that copy live.
+ */
+export interface Stamped<T> {
+  data: T;
+  stale: boolean;
+  cachedAt: number | null;
+}
+
+/** Read the last-good flags from a legacy proxy body. */
+export function legacyStamp(raw: unknown): { stale: boolean; cachedAt: number | null } {
+  const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as { stale?: unknown; cachedAt?: unknown }) : {};
+  const cachedAt = typeof o.cachedAt === "number" && Number.isFinite(o.cachedAt) ? o.cachedAt : null;
+  return { stale: o.stale === true, cachedAt };
+}
+
+// ── Generic multi-broker proxy (server/brokers/registry.mjs) ──
+
+/** UTF-8 safe base64 of a credential map, for the x-broker-credentials header. */
+export function encodeCredsHeader(values: Record<string, string>): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(values));
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary);
+}
+
+/** The active broker when it is an integrated non-Dhan broker (its data goes through /api/broker-proxy). */
+function activeOtherBroker(): { brokerId: string; values: Record<string, string> } | null {
+  const active = getActiveBroker();
+  if (!active || active.brokerId === "dhan") return null;
+  return getBrokerInfo(active.brokerId)?.integrated ? active : null;
+}
+
+async function fetchBrokerProxy<T>(broker: { brokerId: string; values: Record<string, string> }, endpoint: string, params: Record<string, string>): Promise<T> {
+  // proxyFetchJSON only attaches x-dhan-* headers; the broker's own keys travel in x-broker-credentials.
+  if (!shouldTryProxy()) throw new Error("Proxy unreachable");
+  const qp = new URLSearchParams({ broker: broker.brokerId, endpoint, ...params });
+  const res = await fetch(`${PROXY_BASE}/api/broker-proxy?${qp.toString()}`, {
+    headers: { Accept: "application/json", "x-broker-credentials": encodeCredsHeader(broker.values) },
+  });
+  markProxyOnline();
+  if (!res.ok) throw new Error(`Broker proxy ${res.status}`);
+  return (await res.json()) as T;
+}
+
+/** Test a broker connection with arbitrary (possibly unsaved) credential values (Broker settings). */
+export async function testBrokerConnection(brokerId: string, values: Record<string, string>): Promise<{ status: string; message: string }> {
+  let res: Response;
+  try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(20000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/broker-test-connection?${new URLSearchParams({ broker: brokerId })}`, {
+      headers: { "x-broker-credentials": encodeCredsHeader(values) },
+      signal,
+    });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
+    const body = (await res.json()) as { status?: string; message?: string; reason?: string };
+    return { status: body.status || (res.ok ? "success" : "error"), message: body.message || body.reason || "" };
+  } catch {
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
+  }
+}
+
+export type BrokerSessionLoginResult =
+  | { status: "success"; session: Record<string, string>; expiresAt: number }
+  | { status: "error"; message: string; code?: string };
+
+/**
+ * Open a session for a session-login broker. `secrets` (password/PIN + the current 6-digit TOTP code)
+ * are sent once in a POST body to the local proxy and never stored; only the returned session is.
+ */
+export async function loginBrokerSession(
+  brokerId: string,
+  values: Record<string, string>,
+  secrets: Record<string, string>,
+): Promise<BrokerSessionLoginResult> {
+  let res: Response;
+  try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(30000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/broker-session-login?${new URLSearchParams({ broker: brokerId })}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ values, secrets }),
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
+    const body = (await res.json()) as { status?: string; session?: Record<string, string>; expiresAt?: number; message?: string; reason?: string; code?: string };
+    if (res.ok && body.status === "success" && body.session && typeof body.expiresAt === "number") {
+      return { status: "success", session: body.session, expiresAt: body.expiresAt };
+    }
+    return { status: "error", message: body.message || body.reason || `Login failed (HTTP ${res.status})`, code: body.code };
+  } catch {
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
+  }
 }
 
 // ── Parse Dhan Option Chain ──
@@ -275,7 +386,7 @@ async function fetchDhanChain(symbol: string, expiry?: string): Promise<LiveOpti
   if (parsed.chain.length === 0) return null; // empty "success" is not a result
   let expiries: ExpiryDate[] = [];
   try {
-    expiries = await fetchExpiryList(symbol);
+    expiries = (await fetchExpiryList(symbol)).list;
   } catch {
     /* chain is still useful without the list */
   }
@@ -308,12 +419,55 @@ async function fetchNSEChain(symbol: string, expiry?: string): Promise<LiveOptio
   };
 }
 
+/** Option chain from the active non-Dhan broker. Every broker module normalises to Dhan's shape. */
+async function fetchOtherBrokerChain(
+  broker: { brokerId: string; values: Record<string, string> },
+  symbol: string,
+  expiry?: string,
+): Promise<LiveOptionChainResult | null> {
+  const params: Record<string, string> = { symbol };
+  if (expiry) params.expiry = expiry;
+  const raw = await fetchBrokerProxy<DhanOptionChainDTO>(broker, "option-chain", params);
+  if (raw?.status !== "success") return null;
+  const parsed = parseDhanOptionChain(raw);
+  if (parsed.chain.length === 0) return null;
+  let expiries: ExpiryDate[] = [];
+  try {
+    const list = await fetchBrokerProxy<DhanExpiryListDTO>(broker, "expiry-list", { symbol });
+    expiries = toExpiryDates(list?.data);
+  } catch {
+    /* chain is still useful without the list */
+  }
+  const stale = !!(raw.stale || raw.afterHours);
+  return {
+    ...parsed,
+    expiries,
+    expiry: normalizeExpiry(raw.expiry ?? expiry ?? "") || expiries[0]?.value || "",
+    // The chain parser and the UI only distinguish Dhan-shaped data from NSE data.
+    source: "dhan",
+    afterHours: !!raw.afterHours,
+    stale,
+    cachedAt: raw.cachedAt ?? null,
+    asOf: stale && raw.cachedAt ? raw.cachedAt : Date.now(),
+  };
+}
+
 /**
- * Live option chain. Dhan is accepted only when it returns a non-empty chain; a stale (last-good)
- * Dhan copy is used only when NSE has nothing fresher. Throws when both sources fail.
+ * Live option chain. An active, integrated non-Dhan broker is tried first (that is the point of
+ * connecting your own broker). Dhan is accepted only when it returns a non-empty chain; a stale
+ * (last-good) Dhan copy is used only when NSE has nothing fresher. Throws when every source fails.
  */
 export async function fetchLiveOptionChain(symbol: string, expiry?: string): Promise<LiveOptionChainResult> {
   const sym = symbol.toUpperCase();
+  const other = activeOtherBroker();
+  if (other) {
+    try {
+      const fromBroker = await fetchOtherBrokerChain(other, sym, expiry);
+      if (fromBroker && !fromBroker.stale) return fromBroker;
+    } catch {
+      /* fall through to Dhan / NSE */
+    }
+  }
   let dhan: LiveOptionChainResult | null = null;
   try {
     dhan = await fetchDhanChain(sym, expiry);
@@ -333,21 +487,27 @@ export async function fetchLiveOptionChain(symbol: string, expiry?: string): Pro
   throw nseError instanceof Error ? nseError : new Error(`No option chain available for ${sym}`);
 }
 
+export interface ExpiryListResult {
+  list: ExpiryDate[];
+  /** Which source answered: Dhan first, then the NSE option chain. */
+  source: "dhan" | "nse";
+}
+
 /** Dhan expiry list, normalised to ISO. Falls back to the NSE chain's expiry list. */
-export async function fetchExpiryList(symbol: string): Promise<ExpiryDate[]> {
+export async function fetchExpiryList(symbol: string): Promise<ExpiryListResult> {
   const sym = symbol.toUpperCase();
   try {
     const raw = await fetchDhanProxy<DhanExpiryListDTO>("expiry-list", { symbol: sym });
     const list = toExpiryDates(raw?.data);
-    if (list.length > 0) return list;
+    if (list.length > 0) return { list, source: "dhan" };
   } catch {
     /* try NSE */
   }
   try {
     const raw = await fetchNSEProxy<NSEOptionChainDTO>("option-chain", { symbol: sym });
-    return toExpiryDates(raw?.records?.expiryDates);
+    return { list: toExpiryDates(raw?.records?.expiryDates), source: "nse" };
   } catch {
-    return [];
+    return { list: [], source: "nse" };
   }
 }
 
@@ -388,13 +548,14 @@ export async function fetchChainMulti(
 
 // ── Indices, status, F&O lists ──
 
-export async function fetchLiveIndices(): Promise<IndexData[]> {
+export async function fetchLiveIndices(): Promise<Stamped<IndexData[]>> {
   const raw = await fetchNSEProxy<NSEAllIndicesDTO>("indices");
-  return parseNSEIndices(raw);
+  return { data: parseNSEIndices(raw), ...legacyStamp(raw) };
 }
 
-export async function fetchMarketStatus(): Promise<NSEMarketStatusDTO> {
-  return fetchNSEProxy<NSEMarketStatusDTO>("market-status");
+export async function fetchMarketStatus(): Promise<Stamped<NSEMarketStatusDTO>> {
+  const raw = await fetchNSEProxy<NSEMarketStatusDTO>("market-status");
+  return { data: raw, ...legacyStamp(raw) };
 }
 
 export async function fetchFnOStocks(): Promise<NSEEquityDerivativesDTO> {
@@ -471,9 +632,9 @@ export function parseAllIndices(raw: NSEAllIndicesDTO | null | undefined): AllIn
   return { vix, sectors, advances: num(nifty50?.advances), declines: num(nifty50?.declines), unchanged: num(nifty50?.unchanged) };
 }
 
-export async function fetchAllIndices(): Promise<AllIndicesSnapshot | null> {
+export async function fetchAllIndices(): Promise<Stamped<AllIndicesSnapshot | null>> {
   const raw = await fetchNSEProxy<NSEAllIndicesDTO>("indices");
-  return parseAllIndices(raw);
+  return { data: parseAllIndices(raw), ...legacyStamp(raw) };
 }
 
 export interface FnOStockData {
@@ -516,20 +677,24 @@ export function parseNSEFnOStocks(raw: NSEEquityDerivativesDTO | null | undefine
     });
 }
 
-export async function fetchLiveFnOStocks(): Promise<FnOStockData[]> {
+export async function fetchLiveFnOStocks(): Promise<Stamped<FnOStockData[]>> {
+  let saved: Stamped<FnOStockData[]> | null = null;
   try {
-    const list = parseNSEFnOStocks(await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives"));
-    if (list.length > 0) return list;
+    const raw = await fetchNSEProxy<NSEEquityDerivativesDTO>("equity-derivatives");
+    const nse = { data: parseNSEFnOStocks(raw), ...legacyStamp(raw) };
+    if (nse.data.length > 0 && !nse.stale) return nse;
+    if (nse.data.length > 0) saved = nse;
   } catch {
     /* fall back to TradingView */
   }
   try {
     const tv = await fetchTradingViewStocks();
-    if (tv.length > 0) return tv;
+    if (tv.data.length > 0 && (!tv.stale || !saved)) return tv;
+    if (tv.data.length > 0 && saved && (tv.cachedAt ?? 0) > (saved.cachedAt ?? 0)) return tv;
   } catch {
     /* both failed */
   }
-  return [];
+  return saved ?? { data: [], stale: false, cachedAt: null };
 }
 
 // ── TradingView scanner ──
@@ -554,14 +719,9 @@ function tvToFnO(s: TVStockDTO): FnOStockData {
   };
 }
 
-export async function fetchTradingViewStocks(): Promise<FnOStockData[]> {
+export async function fetchTradingViewStocks(): Promise<Stamped<FnOStockData[]>> {
   const data = await proxyFetchJSON<TVScanDTO>("/api/tv-scan", { type: "stocks" }, { withDhan: false });
-  return (data.stocks ?? []).map(tvToFnO);
-}
-
-export async function fetchTradingViewIndices(): Promise<TVStockDTO[]> {
-  const data = await proxyFetchJSON<TVScanDTO>("/api/tv-scan", { type: "indices" }, { withDhan: false });
-  return data.stocks ?? [];
+  return { data: (data.stocks ?? []).map(tvToFnO), ...legacyStamp(data) };
 }
 
 // ── FII/DII cash activity ──
@@ -654,3 +814,7 @@ export async function fetchHistoricalCandles(
 export async function fetchYahooChart(symbol: string, interval: string = "D", fromDate?: string, toDate?: string): Promise<HistoricalCandleResponse> {
   return proxyFetchJSON<HistoricalCandleResponse>("/api/yahoo-chart", { symbol, interval, fromDate, toDate }, { withDhan: false });
 }
+
+// ── Order placement (Dhan only, real money): see dhanOrderApi.ts ──
+export { placeOrder, fetchOrders, cancelOrder } from "./dhanOrderApi";
+export type { PlaceOrderParams, DhanOrderResult } from "./dhanOrderApi";

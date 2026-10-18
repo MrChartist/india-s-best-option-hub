@@ -153,3 +153,20 @@ describe("OI Analysis page", () => {
     expect(screen.getByRole("button", { name: /Play replay/ })).toBeInTheDocument();
   });
 });
+
+describe("unknown symbols in links", () => {
+  it("Max Pain & PCR falls back to NIFTY with a notice instead of a made-up chain", () => {
+    renderAt(<MaxPainPCR />, "/max-pain-pcr?symbol=XYZ");
+    expect(screen.getByText(/“XYZ” is not an F&O underlying, so this page is showing NIFTY/)).toBeInTheDocument();
+  });
+
+  it("OI Analysis falls back to NIFTY with a notice", () => {
+    renderAt(<OIAnalysis />, "/oi-analysis?symbol=XYZ");
+    expect(screen.getByText(/“XYZ” is not an F&O underlying, so this page is showing NIFTY/)).toBeInTheDocument();
+  });
+
+  it("a known symbol shows no notice", () => {
+    renderAt(<MaxPainPCR />, "/max-pain-pcr?symbol=NIFTY");
+    expect(screen.queryByText(/is not an F&O underlying/)).toBeNull();
+  });
+});

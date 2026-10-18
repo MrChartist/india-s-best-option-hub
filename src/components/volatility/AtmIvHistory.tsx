@@ -94,7 +94,7 @@ export function AtmIvHistory({ symbol, term, isSample, rankHistory, rankLabel, r
           )}
         </DataState>
 
-        <ScrollRegion label="ATM IV markers by expiry" className="rounded-tile border border-border">
+        <ScrollRegion label="ATM IV markers by expiry" className="rounded-tile hairline">
           <Table>
             <TableHeader>
               <TableRow>

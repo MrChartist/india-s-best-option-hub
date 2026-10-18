@@ -1,0 +1,63 @@
+{
+  "args": [
+    "2190766863"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://trade.wisdomcapital.in/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyWcIaKey01",
+        "secretKey": "dummyWcIaSecret01",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User.",
+        "result": {
+          "enums": {
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ],
+            "dayOrNet": [
+              "DAY",
+              "NET"
+            ],
+            "exchangeSegment": [
+              "NSECM",
+              "NSEFO",
+              "NSECD",
+              "BSECM",
+              "BSEFO",
+              "MCXFO"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "token": "dummy.ia.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "url": "https://trade.wisdomcapital.in/interactive/orders?appOrderID=2190766863&orderUniqueIdentifier=mrchub",
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Request sent",
+        "result": [
+          {
+            "AppOrderID": 2190766863,
+            "ClientID": "DUMMY1"
+          }
+        ]
+      }
+    }
+  ]
+}

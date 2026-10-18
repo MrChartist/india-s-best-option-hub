@@ -43,7 +43,7 @@ export function WelcomeBanner({ onDismiss }: Props) {
     <div
       role="region"
       aria-label="Market context"
-      className="flex items-start gap-2 rounded-tile border border-border bg-card px-3 py-2 text-body-sm shadow-card sm:items-center"
+      className="flex items-start gap-2 rounded-tile border border-separator bg-card px-3 py-1.5 text-body-sm shadow-card sm:items-center"
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-ink sm:mt-0" aria-hidden="true" />
       <p className="min-w-0 flex-1 leading-snug text-muted-foreground">
@@ -53,7 +53,7 @@ export function WelcomeBanner({ onDismiss }: Props) {
           <>
             <span aria-hidden="true"> · </span>
             <CalendarClock className="mb-0.5 inline h-3.5 w-3.5 text-warning" aria-hidden="true" />{" "}
-            <Link to="/expiry-day" className="rounded-sm font-medium text-foreground hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+            <Link to="/expiry-day" className="rounded-sm font-medium text-foreground hover:underline focus-visible:shadow-focus focus-visible:outline-none">
               NIFTY weekly {formatDateIST(ctx.nifty.date).replace(/ \d{4}$/, "")}
             </Link>{" "}
             <span className="font-num tabular-nums">({dteLabel(ctx.nifty.date, now)})</span>
@@ -74,13 +74,11 @@ export function WelcomeBanner({ onDismiss }: Props) {
       <button
         type="button"
         onClick={onDismiss}
-        className="-m-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+        className="-m-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
         aria-label="Dismiss market context line"
       >
-        <X className="h-4 w-4" aria-hidden="true" />
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </div>
   );
 }
-
-export default WelcomeBanner;

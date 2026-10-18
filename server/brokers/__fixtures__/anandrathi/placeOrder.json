@@ -1,0 +1,93 @@
+{
+  "args": [
+    {
+      "exchange": "NFO",
+      "token": "40003",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 118.5
+    },
+    75
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://algozy.rathi.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey04",
+        "secretKey": "dummyIaSecret04",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://algozy.rathi.com/interactive/orders",
+      "expectBody": {
+        "exchangeSegment": "NSEFO",
+        "exchangeInstrumentID": 40003,
+        "productType": "NRML",
+        "orderType": "Limit",
+        "orderSide": "BUY",
+        "timeInForce": "DAY",
+        "disclosedQuantity": 0,
+        "orderQuantity": 150,
+        "limitPrice": 118.5,
+        "stopPrice": 0,
+        "orderUniqueIdentifier": "mrchub"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-orders-0001",
+        "description": "Request sent",
+        "result": {
+          "AppOrderID": 648468734,
+          "OrderUniqueIdentifier": "mrchub",
+          "ClientID": "DUMMY1"
+        }
+      }
+    }
+  ]
+}

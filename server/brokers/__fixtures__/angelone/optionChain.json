@@ -1,0 +1,617 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json",
+      "json": [
+        {
+          "token": "99926000",
+          "symbol": "Nifty 50",
+          "name": "NIFTY",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "NSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99926009",
+          "symbol": "Nifty Bank",
+          "name": "BANKNIFTY",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "NSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99919000",
+          "symbol": "SENSEX",
+          "name": "SENSEX",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "BSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99919012",
+          "symbol": "BANKEX",
+          "name": "BANKEX",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "BSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "2885",
+          "symbol": "RELIANCE-EQ",
+          "name": "RELIANCE",
+          "expiry": "",
+          "strike": "-1.000000",
+          "lotsize": "1",
+          "instrumenttype": "",
+          "exch_seg": "NSE",
+          "tick_size": "10.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40001",
+          "symbol": "NIFTY20OCT2624950CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2495000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40002",
+          "symbol": "NIFTY20OCT2624950PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2495000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40003",
+          "symbol": "NIFTY20OCT2625000CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40004",
+          "symbol": "NIFTY20OCT2625000PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40005",
+          "symbol": "NIFTY20OCT2625050CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2505000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40006",
+          "symbol": "NIFTY20OCT2625050PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2505000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "51440",
+          "symbol": "NIFTY27OCT2625000CE",
+          "name": "NIFTY",
+          "expiry": "27OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "48699",
+          "symbol": "BANKNIFTY27OCT26FUT",
+          "name": "BANKNIFTY",
+          "expiry": "27OCT2026",
+          "strike": "-1.000000",
+          "lotsize": "30",
+          "instrumenttype": "FUTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "20.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "1125429",
+          "symbol": "SENSEX26O2282000CE",
+          "name": "SENSEX",
+          "expiry": "22OCT2026",
+          "strike": "8200000.000000",
+          "lotsize": "20",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "864500",
+          "symbol": "BANKEX26OCT60000PE",
+          "name": "BANKEX",
+          "expiry": "29OCT2026",
+          "strike": "6000000.000000",
+          "lotsize": "30",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "106743",
+          "symbol": "RELIANCE27OCT261460CE",
+          "name": "RELIANCE",
+          "expiry": "27OCT2026",
+          "strike": "146000.000000",
+          "lotsize": "500",
+          "instrumenttype": "OPTSTK",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "90003",
+          "symbol": "NIFTYNXT5027OCT2670000CE",
+          "name": "NIFTYNXT50",
+          "expiry": "27OCT2026",
+          "strike": "7000000.000000",
+          "lotsize": "25",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/market/v1/quote/$",
+      "expectBody": {
+        "mode": "FULL"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "fetched": [
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2624950CE",
+              "symbolToken": "40001",
+              "ltp": 134.8,
+              "open": 134.8,
+              "high": 139.8,
+              "low": 129.8,
+              "close": 133.8,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 134.8,
+              "tradeVolume": 202650,
+              "opnInterest": 99575,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 134.35,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 134.29999999999998,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 134.9,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2624950PE",
+              "symbolToken": "40002",
+              "ltp": 69.05,
+              "open": 69.05,
+              "high": 74.05,
+              "low": 64.05,
+              "close": 68.05,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 69.05,
+              "tradeVolume": 304150,
+              "opnInterest": 159075,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 69,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 68.95,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 69.3,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625000CE",
+              "symbolToken": "40003",
+              "ltp": 104.95,
+              "open": 104.95,
+              "high": 109.95,
+              "low": 99.95,
+              "close": 103.95,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 104.95,
+              "tradeVolume": 543025,
+              "opnInterest": 165900,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 104.55,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 104.5,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 104.85,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625000PE",
+              "symbolToken": "40004",
+              "ltp": 89.2,
+              "open": 89.2,
+              "high": 94.2,
+              "low": 84.2,
+              "close": 88.2,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 89.2,
+              "tradeVolume": 199500,
+              "opnInterest": 98175,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 88.8,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 88.75,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 89.35,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625050CE",
+              "symbolToken": "40005",
+              "ltp": 77.75,
+              "open": 77.75,
+              "high": 82.75,
+              "low": 72.75,
+              "close": 76.75,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 77.75,
+              "tradeVolume": 981925,
+              "opnInterest": 631050,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 77.6,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 77.55,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 77.8,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625050PE",
+              "symbolToken": "40006",
+              "ltp": 111.75,
+              "open": 111.75,
+              "high": 116.75,
+              "low": 106.75,
+              "close": 110.75,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 111.75,
+              "tradeVolume": 129325,
+              "opnInterest": 338100,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [
+                  {
+                    "price": 111.6,
+                    "quantity": 511,
+                    "orders": 2
+                  },
+                  {
+                    "price": 111.55,
+                    "quantity": 411,
+                    "orders": 2
+                  }
+                ],
+                "sell": [
+                  {
+                    "price": 112.1,
+                    "quantity": 3348,
+                    "orders": 5
+                  }
+                ]
+              }
+            },
+            {
+              "exchange": "NSE",
+              "tradingSymbol": "Nifty 50",
+              "symbolToken": "99926000",
+              "ltp": 25012.15,
+              "open": 25012.15,
+              "high": 25017.15,
+              "low": 25007.15,
+              "close": 25011.15,
+              "lastTradeQty": 65,
+              "exchFeedTime": "16-Oct-2026 15:29:59",
+              "exchTradeTime": "16-Oct-2026 15:29:58",
+              "netChange": 0.8,
+              "percentChange": 0.14,
+              "avgPrice": 25012.15,
+              "tradeVolume": 0,
+              "opnInterest": 0,
+              "lowerCircuit": 0.05,
+              "upperCircuit": 999,
+              "totBuyQuan": 839549,
+              "totSellQuan": 1284767,
+              "52WeekLow": 1,
+              "52WeekHigh": 999,
+              "depth": {
+                "buy": [],
+                "sell": []
+              }
+            }
+          ],
+          "unfetched": []
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/marketData/v1/optionGreek$",
+      "expectBody": {
+        "name": "NIFTY",
+        "expirydate": "20OCT2026"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "name": "NIFTY",
+            "expiry": "20OCT2026",
+            "strikePrice": "24950.000000",
+            "optionType": "CE",
+            "delta": "0.620000",
+            "gamma": "0.000700",
+            "theta": "-28.390000",
+            "vega": "9.600000",
+            "impliedVolatility": "13.420000",
+            "tradeVolume": "24048.00"
+          },
+          {
+            "name": "NIFTY",
+            "expiry": "20OCT2026",
+            "strikePrice": "24950.000000",
+            "optionType": "PE",
+            "delta": "-0.380000",
+            "gamma": "0.000700",
+            "theta": "-28.390000",
+            "vega": "9.600000",
+            "impliedVolatility": "13.900000",
+            "tradeVolume": "24048.00"
+          },
+          {
+            "name": "NIFTY",
+            "expiry": "20OCT2026",
+            "strikePrice": "25000.000000",
+            "optionType": "CE",
+            "delta": "0.510000",
+            "gamma": "0.000700",
+            "theta": "-28.390000",
+            "vega": "9.600000",
+            "impliedVolatility": "13.100000",
+            "tradeVolume": "24048.00"
+          },
+          {
+            "name": "NIFTY",
+            "expiry": "20OCT2026",
+            "strikePrice": "25000.000000",
+            "optionType": "PE",
+            "delta": "-0.490000",
+            "gamma": "0.000700",
+            "theta": "-28.390000",
+            "vega": "9.600000",
+            "impliedVolatility": "13.600000",
+            "tradeVolume": "24048.00"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

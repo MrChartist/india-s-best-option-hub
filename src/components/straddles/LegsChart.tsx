@@ -71,17 +71,17 @@ export function LegsChart({ points, mult, unit, mode, domain }: Props) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <Stat
+            <Stat variant="inset"
               label={`CE ${formatStrike(last.strike)}`}
               value={formatINR(last.ce * mult, { decimals: dec })}
               hint={rolled ? `Started at ${formatStrike(first.strike)}` : Number.isFinite(legChange(last.ce, first.ce)) ? `${formatPct(legChange(last.ce, first.ce), { decimals: 1, signed: true })} today` : undefined}
             />
-            <Stat
+            <Stat variant="inset"
               label={`PE ${formatStrike(last.peStrike)}`}
               value={formatINR(last.pe * mult, { decimals: dec })}
               hint={rolled ? `Started at ${formatStrike(first.peStrike)}` : Number.isFinite(legChange(last.pe, first.pe)) ? `${formatPct(legChange(last.pe, first.pe), { decimals: 1, signed: true })} today` : undefined}
             />
-            <Stat
+            <Stat variant="inset"
               label="CE − PE"
               value={formatINR((last.ce - last.pe) * mult, { decimals: dec })}
               hint={last.ce > last.pe ? "Calls richer: spot above the pair's centre" : last.ce < last.pe ? "Puts richer: spot below the pair's centre" : "Balanced"}

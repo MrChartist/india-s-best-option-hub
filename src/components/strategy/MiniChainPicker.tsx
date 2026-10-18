@@ -7,6 +7,7 @@ import type { OptionData } from "@/lib/mockData";
 import { findATMStrike, formatDateIST, formatStrike, type OptionType, type Side } from "@/lib/options";
 import { quoteLeg, type PriceMode } from "@/lib/strategyTemplates";
 import { cn } from "@/lib/utils";
+import { Segmented } from "./Segmented";
 
 export interface MiniChainPickerProps {
   chain: OptionData[];
@@ -43,7 +44,7 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
     return (
       <div className={cn("flex items-center gap-1 px-1.5 py-1", type === "CE" ? "justify-end" : "justify-start", itm && "bg-surface/80")}>
         {type === "PE" && <QuickButtons label={label} disabled={!(buy > 0) || !!disabledReason} title={disabledReason} onBuy={() => onAdd({ type, side: "BUY", strike: row.strikePrice, premium: buy, ivPct: leg.iv })} onSell={() => onAdd({ type, side: "SELL", strike: row.strikePrice, premium: sell, ivPct: leg.iv })} />}
-        <div className={cn("min-w-[58px] text-right font-num text-xs", type === "PE" && "text-left", used && "font-bold text-primary-ink")}>
+        <div className={cn("min-w-[58px] text-right font-num text-body-sm", type === "PE" && "text-left", used && "font-semibold text-primary-ink")}>
           {buy > 0 ? buy.toFixed(2) : "—"}
           <div className="text-[10px] text-muted-foreground">{leg.iv > 0 ? `${leg.iv.toFixed(1)}%` : ""}</div>
         </div>
@@ -54,28 +55,21 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
+          <CardTitle className="flex items-center gap-2">
             <ListTree className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Option chain
-            <span className="text-xs font-normal text-muted-foreground">{expiry ? formatDateIST(expiry) : ""}</span>
+            <span className="text-body-sm font-normal text-muted-foreground">{expiry ? formatDateIST(expiry) : ""}</span>
           </CardTitle>
-          <div className="flex items-center gap-0.5 rounded-tab bg-muted p-0.5" role="group" aria-label="Strikes around ATM">
-            {RANGES.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setRange(n)}
-                aria-pressed={range === n}
-                className={cn("rounded-chip px-2 py-0.5 text-[11px] font-semibold transition-colors [@media(pointer:coarse)]:min-h-8 [@media(pointer:coarse)]:px-3", range === n ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}
-              >
-                ±{n}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            ariaLabel="Strikes around ATM"
+            value={String(range)}
+            onChange={(v) => setRange(Number(v) as (typeof RANGES)[number])}
+            options={RANGES.map((n) => ({ value: String(n), label: `±${n}` }))}
+          />
         </div>
-        {disabledReason ? <p className="text-[11px] font-medium text-warning">{disabledReason}</p> : null}
-        <p className="text-[11px] text-muted-foreground">Tap B or S to add a leg at the {priceMode === "natural" ? "natural (ask to buy, bid to sell)" : priceMode === "ltp" ? "last traded" : "mid"} price.</p>
+        {disabledReason ? <p className="text-body-sm font-medium text-warning">{disabledReason}</p> : null}
+        <p className="text-body-sm text-muted-foreground">Tap B or S to add a leg at the {priceMode === "natural" ? "natural (ask to buy, bid to sell)" : priceMode === "ltp" ? "last traded" : "mid"} price.</p>
       </CardHeader>
       <CardContent className="px-2 pb-3 sm:px-4">
         {loading && rows.length === 0 ? (
@@ -83,18 +77,18 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
             {["s1", "s2", "s3", "s4", "s5", "s6"].map((k) => <Skeleton key={k} className="h-8 w-full" />)}
           </div>
         ) : rows.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No chain for this expiry yet. You can still add legs by hand.</p>
+          <p className="py-6 text-center text-body text-muted-foreground">No chain for this expiry yet. You can still add legs by hand.</p>
         ) : (
-          <div className="max-h-[360px] overflow-y-auto rounded-tile border border-border">
-            <div className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] border-b border-border bg-card text-label uppercase text-muted-foreground">
+          <div className="max-h-[360px] overflow-y-auto rounded-md border border-separator">
+            <div className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] bg-surface text-label text-muted-foreground shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
               <div className="px-2 py-1.5 text-right">Calls</div>
               <div className="w-[76px] px-2 py-1.5 text-center">Strike</div>
               <div className="px-2 py-1.5">Puts</div>
             </div>
             {rows.map(({ row, atm }) => (
-              <div key={row.strikePrice} className={cn("grid grid-cols-[1fr_auto_1fr] border-b border-border/60 last:border-0", atm && "bg-wash-brand/55 ring-1 ring-inset ring-primary/45")}>
+              <div key={row.strikePrice} className={cn("grid grid-cols-[1fr_auto_1fr] border-b border-separator last:border-0", atm && "bg-wash-brand/60 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.45)]")}>
                 {cell(row, "CE")}
-                <div className="flex w-[76px] items-center justify-center font-num text-xs font-semibold">
+                <div className="flex w-[76px] items-center justify-center font-num text-body-sm font-semibold">
                   {formatStrike(row.strikePrice)}
                 </div>
                 {cell(row, "PE")}
@@ -110,10 +104,10 @@ export function MiniChainPicker({ chain, spot, expiry, priceMode, loading, usedS
 function QuickButtons({ label, disabled, title, onBuy, onSell }: { label: string; disabled: boolean; title?: string; onBuy: () => void; onSell: () => void }) {
   return (
     <div className="flex gap-0.5" title={title}>
-      <Button type="button" variant="buy" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-xs" disabled={disabled} onClick={onBuy} aria-label={`Buy ${label}`}>
+      <Button type="button" variant="buy" className="h-6 w-6 rounded-[5px] p-0 text-micro font-semibold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-body-sm" disabled={disabled} onClick={onBuy} aria-label={`Buy ${label}`}>
         B
       </Button>
-      <Button type="button" variant="sell" className="h-6 w-6 rounded-chip p-0 text-[10px] font-bold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-xs" disabled={disabled} onClick={onSell} aria-label={`Sell ${label}`}>
+      <Button type="button" variant="sell" className="h-6 w-6 rounded-[5px] p-0 text-micro font-semibold [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8 [@media(pointer:coarse)]:text-body-sm" disabled={disabled} onClick={onSell} aria-label={`Sell ${label}`}>
         S
       </Button>
     </div>

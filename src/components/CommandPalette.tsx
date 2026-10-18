@@ -11,7 +11,9 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Keyboard, Search, TrendingDown, TrendingUp } from "lucide-react";
+import { ExternalLink, Keyboard, Search, Star, TrendingDown, TrendingUp } from "lucide-react";
+import { MrChartistMark } from "@/components/brand/MrChartistLogo";
+import { BRAND, withUtm } from "@/lib/brand/links";
 import { useLiveIndices } from "@/hooks/useMarketData";
 import { routesByGroup, type RouteDef } from "@/lib/routes";
 import { routeIcon } from "@/lib/routeIcons";
@@ -42,12 +44,34 @@ const STOCK_ENTRIES: PaletteEntry[] = STATIC_FNO_STOCKS.map((s) => ({
   path: `/option-chain?symbol=${s}`,
   group: "F&O stock",
 }));
+const GITHUB_ID = "action:github-star";
+const SITE_ID = "action:mrchartist-site";
 const ACTION_ENTRIES: PaletteEntry[] = [
   { id: SHORTCUTS_ID, kind: "action", label: "Keyboard shortcuts", keywords: ["help", "keys", "hotkeys"], group: "Help" },
+  {
+    id: GITHUB_ID,
+    kind: "action",
+    label: "Star Option Hub on GitHub",
+    keywords: ["github", "star", "source", "source code", "repo", "contribute"],
+    href: withUtm(BRAND.repo, "command-palette"),
+    group: "Mr. Chartist",
+  },
+  {
+    id: SITE_ID,
+    kind: "action",
+    label: "Visit mrchartist.com",
+    keywords: ["mr chartist", "website", "site", "products", "ecosystem"],
+    href: withUtm(BRAND.site, "command-palette"),
+    group: "Mr. Chartist",
+  },
 ];
 
-const DIALOG_CMD_CLASS =
-  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:text-label [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5";
+/** Spotlight-style panel: translucent menu material, high on the screen, no close-button chrome (Esc closes). */
+const PALETTE_CONTENT_CLASS =
+  "mac-menu gap-0 overflow-hidden rounded-panel bg-[hsl(var(--material-menu))] p-0 sm:top-[16vh] sm:max-w-[640px] [&>button:last-child]:hidden";
+/** Large search row and roomy result rows inside the panel. */
+const PALETTE_CMD_CLASS =
+  "[&_[cmdk-input-wrapper]]:px-4 [&_[cmdk-input-wrapper]_svg]:h-[18px] [&_[cmdk-input-wrapper]_svg]:w-[18px] [&_[cmdk-input]]:h-12 [&_[cmdk-input]]:text-[17px] [&_[cmdk-list]]:max-h-[50vh] [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -106,6 +130,9 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
     if (entry.id === SHORTCUTS_ID) {
       onOpenChange(false);
       onShowShortcuts?.();
+    } else if (entry.href) {
+      window.open(entry.href, "_blank", "noopener,noreferrer");
+      onOpenChange(false);
     } else if (entry.path) {
       go(entry.path);
     }
@@ -119,8 +146,8 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
         <>
           <Icon className="mr-2 h-4 w-4" aria-hidden="true" />
           <span>{entry.label}</span>
-          {r?.badge && <span className="ml-2 text-[10px] font-semibold uppercase text-primary-ink">{r.badge}</span>}
-          <span className="ml-auto pl-2 text-[11px] text-muted-foreground">{entry.group}</span>
+          {r?.badge && <span className="ml-2 text-micro font-semibold uppercase text-primary-ink group-data-[selected=true]:text-primary-foreground">{r.badge}</span>}
+          <span className="ml-auto pl-2 text-body-sm text-muted-foreground group-data-[selected=true]:text-primary-foreground/80">{entry.group}</span>
         </>
       );
     }
@@ -130,15 +157,15 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
         <>
           {idx ? (
             idx.change >= 0 ? (
-              <TrendingUp className="mr-2 h-4 w-4 text-bullish" aria-hidden="true" />
+              <TrendingUp className="mr-2 h-4 w-4 text-bullish group-data-[selected=true]:text-primary-foreground" aria-hidden="true" />
             ) : (
-              <TrendingDown className="mr-2 h-4 w-4 text-bearish" aria-hidden="true" />
+              <TrendingDown className="mr-2 h-4 w-4 text-bearish group-data-[selected=true]:text-primary-foreground" aria-hidden="true" />
             )
           ) : (
             <Search className="mr-2 h-4 w-4" aria-hidden="true" />
           )}
           <span>{entry.alt ?? entry.label}</span>
-          <span className="ml-auto pl-2 text-[11px] text-muted-foreground">
+          <span className="ml-auto pl-2 text-body-sm text-muted-foreground group-data-[selected=true]:text-primary-foreground/80">
             {idx ? <span className="font-mono">{idx.ltp.toLocaleString("en-IN")}</span> : "Index · option chain"}
           </span>
         </>
@@ -149,7 +176,22 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
         <>
           <Search className="mr-2 h-4 w-4" aria-hidden="true" />
           <span>{entry.label}</span>
-          <span className="ml-auto pl-2 text-[11px] text-muted-foreground">F&amp;O stock · option chain</span>
+          <span className="ml-auto pl-2 text-body-sm text-muted-foreground group-data-[selected=true]:text-primary-foreground/80">F&amp;O stock · option chain</span>
+        </>
+      );
+    }
+    if (entry.href) {
+      return (
+        <>
+          {entry.id === GITHUB_ID ? (
+            <Star className="mr-2 h-4 w-4" aria-hidden="true" />
+          ) : (
+            <MrChartistMark size={16} decorative className="mr-2" />
+          )}
+          <span>{entry.label}</span>
+          <span className="ml-auto flex items-center gap-1 pl-2 text-body-sm text-muted-foreground group-data-[selected=true]:text-primary-foreground/80">
+            New tab <ExternalLink className="!h-3 !w-3" aria-hidden="true" />
+          </span>
         </>
       );
     }
@@ -166,10 +208,10 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden rounded-panel p-0 shadow-float">
+      <DialogContent className={PALETTE_CONTENT_CLASS}>
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">Search pages, symbols and actions</DialogDescription>
-        <Command shouldFilter={false} value={selected} onValueChange={setSelected} className={DIALOG_CMD_CLASS}>
+        <Command shouldFilter={false} value={selected} onValueChange={setSelected} className={PALETTE_CMD_CLASS}>
           <CommandInput placeholder="Search pages, symbols, actions..." value={query} onValueChange={setQuery} />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
@@ -194,7 +236,7 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                         <CommandItem key={r.path} value={`route:${r.path}`} onSelect={() => go(r.path)}>
                           <Icon className="mr-2 h-4 w-4" aria-hidden="true" />
                           <span>{r.navLabel}</span>
-                          {r.badge && <span className="ml-2 text-[10px] font-semibold uppercase text-primary-ink">{r.badge}</span>}
+                          {r.badge && <span className="ml-2 text-micro font-semibold uppercase text-primary-ink group-data-[selected=true]:text-primary-foreground">{r.badge}</span>}
                           {r.shortcut && <CommandShortcut>{r.shortcut.toUpperCase()}</CommandShortcut>}
                         </CommandItem>
                       );
@@ -222,8 +264,17 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
                 </CommandGroup>
 
                 <CommandSeparator />
+                <CommandGroup heading="Mr. Chartist">
+                  {ACTION_ENTRIES.filter((e) => e.group === "Mr. Chartist").map((e) => (
+                    <CommandItem key={e.id} value={e.id} onSelect={() => runEntry(e)}>
+                      {renderEntry(e)}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+
+                <CommandSeparator />
                 <CommandGroup heading="Help">
-                  {ACTION_ENTRIES.map((e) => (
+                  {ACTION_ENTRIES.filter((e) => e.group === "Help").map((e) => (
                     <CommandItem key={e.id} value={e.id} onSelect={() => runEntry(e)}>
                       {renderEntry(e)}
                     </CommandItem>
@@ -232,6 +283,17 @@ export function CommandPalette({ open, onOpenChange, onShowShortcuts }: CommandP
               </>
             )}
           </CommandList>
+          <div className="hairline-t flex items-center gap-4 px-4 py-2 text-micro text-muted-foreground" aria-hidden="true">
+            <span>
+              <kbd className="font-sans">↩</kbd> Open
+            </span>
+            <span>
+              <kbd className="font-sans">↑↓</kbd> Move
+            </span>
+            <span>
+              <kbd className="font-sans">esc</kbd> Close
+            </span>
+          </div>
         </Command>
       </DialogContent>
     </Dialog>

@@ -24,15 +24,15 @@ export function ColumnPicker({ prefs, onChange }: ColumnPickerProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="pill">
+        <Button variant="ghost" className="px-2">
           <Columns3 aria-hidden="true" />
           <span className="sr-only">Columns:</span>
           <span className="hidden sm:inline">{prefs.preset === "custom" ? "Custom" : PRESETS[prefs.preset].label}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[300px] p-0">
-        <div className="border-b border-border p-3">
-          <p className="mb-2 text-label uppercase text-muted-foreground">Presets</p>
+        <div className="hairline-b p-3">
+          <p className="mb-1.5 text-label text-muted-foreground">Presets</p>
           <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label="Column presets">
             {(Object.keys(PRESETS) as Array<Exclude<PresetId, "custom">>).map((p) => {
               const active = prefs.preset === p;
@@ -45,28 +45,28 @@ export function ColumnPicker({ prefs, onChange }: ColumnPickerProps) {
                   onClick={() => applyPreset(p)}
                   title={PRESETS[p].description}
                   className={cn(
-                    "flex items-center justify-between gap-1 rounded-pill border px-2 py-1.5 text-left text-xs transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                    active ? "border-primary/50 bg-wash-brand font-semibold text-primary-ink" : "border-border hover:bg-accent",
+                    "flex h-7 items-center justify-between gap-1 rounded-pill px-2 text-left text-body transition-[background-color,box-shadow] duration-fast focus-visible:shadow-focus focus-visible:outline-none",
+                    active ? "bg-control font-medium text-foreground shadow-control" : "text-foreground/85 hover:bg-control-track",
                   )}
                 >
                   <span className="truncate">{PRESETS[p].label}</span>
-                  {active && <Check className="h-3 w-3 shrink-0" />}
+                  {active && <Check className="h-3.5 w-3.5 shrink-0 text-primary-ink" />}
                 </button>
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">Saved on this device. Columns mirror on the put side.</p>
+          <p className="mt-2 text-body-sm text-muted-foreground">Saved on this device. Columns mirror on the put side.</p>
         </div>
         <div className="max-h-[320px] space-y-3 overflow-y-auto p-3">
           {GROUPS.map((g) => (
             <fieldset key={g}>
-              <legend className="mb-1 text-label uppercase text-muted-foreground">{g}</legend>
+              <legend className="mb-1 text-label text-muted-foreground">{g}</legend>
               <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                 {columnDefs.filter((c) => c.group === g).map((c) => {
                   const checked = prefs.visible.includes(c.id);
                   const inputId = `col-${c.id}`;
                   return (
-                    <label key={c.id} htmlFor={inputId} className="flex cursor-pointer items-center gap-2 rounded-chip px-1 py-1 text-xs hover:bg-accent" title={c.description}>
+                    <label key={c.id} htmlFor={inputId} className="flex h-6 cursor-pointer items-center gap-2 rounded-chip px-1 text-body hover:bg-control-track" title={c.description}>
                       <Checkbox id={inputId} checked={checked} onCheckedChange={(v) => toggle(c.id, v === true)} />
                       <span className="truncate">{c.label}</span>
                     </label>

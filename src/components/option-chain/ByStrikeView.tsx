@@ -37,6 +37,8 @@ interface ExpiryRow {
 }
 
 const MAX_EXPIRIES = 6;
+/** macOS group box: hairline edge, near-flat shadow (matches the Card primitive). */
+const GROUP_BOX = "rounded-tile border border-separator bg-card shadow-card";
 
 export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStrike, onSelectStrike, mainSource, fallbackLotSize }: ByStrikeViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -112,11 +114,11 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-1 rounded-card border border-border bg-card p-2 shadow-card">
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Scroll strikes left" onClick={() => scrollRef.current?.scrollBy({ left: -240, behavior: "smooth" })}>
+      <div className={cn(GROUP_BOX, "flex items-center gap-1 p-1")}>
+        <Button variant="ghost" size="icon" className="shrink-0" aria-label="Scroll strikes left" onClick={() => scrollRef.current?.scrollBy({ left: -240, behavior: "smooth" })}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div ref={scrollRef} className="flex flex-1 gap-1 overflow-x-auto pb-1 [scrollbar-width:thin]" role="listbox" aria-label="Strike">
+        <div ref={scrollRef} className="flex flex-1 gap-px overflow-x-auto rounded-pill bg-control-track p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="listbox" aria-label="Strike">
           {strikes.map((k) => {
             const sel = k === strike;
             const atm = k === atmStrike;
@@ -129,17 +131,17 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
                 data-chip={k}
                 onClick={() => onSelectStrike(k)}
                 className={cn(
-                  "shrink-0 rounded-pill border px-2.5 py-1 font-num text-xs tabular-nums transition-colors duration-fast focus-visible:shadow-ember focus-visible:outline-none",
-                  sel ? "border-foreground bg-foreground font-bold text-background" : atm ? "border-primary/50 bg-wash-brand font-semibold text-primary-ink" : "border-border hover:bg-accent",
+                  "h-6 shrink-0 whitespace-nowrap rounded-[5px] px-2.5 font-num text-body tabular-nums transition-[background-color,color,box-shadow] duration-base ease-spring focus-visible:shadow-focus focus-visible:outline-none",
+                  sel ? "bg-control font-semibold text-foreground shadow-control" : atm ? "font-medium text-primary-ink" : "text-foreground/80 hover:text-foreground",
                 )}
               >
                 {formatStrike(k)}
-                {atm && <span className="ml-1 text-[9px] font-bold">ATM</span>}
+                {atm && <span className="ml-1 text-micro font-semibold text-primary-ink">ATM</span>}
               </button>
             );
           })}
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Scroll strikes right" onClick={() => scrollRef.current?.scrollBy({ left: 240, behavior: "smooth" })}>
+        <Button variant="ghost" size="icon" className="shrink-0" aria-label="Scroll strikes right" onClick={() => scrollRef.current?.scrollBy({ left: 240, behavior: "smooth" })}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -147,59 +149,65 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
       <div className="flex flex-wrap items-center gap-2">
         {dataset && <SourceBadge source={dataset.source} asOf={dataset.asOf} stale={dataset.stale} reason={dataset.reason} isLive={!dataset.stale && dataset.source !== "sample"} />}
         {loading && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" /> Loading expiries…
           </span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-body-sm text-muted-foreground">
           {symbol} {formatStrike(strike)} across {rows.length} {rows.length === 1 ? "expiry" : "expiries"}
         </span>
       </div>
 
       {isSample && (
-        <p className="rounded-tile border border-warning/30 bg-wash-warning px-3 py-2 text-xs text-warning">
+        <p className="rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning">
           Sample data: the multi-expiry feed is unavailable, so these prices are generated with Black-76 for illustration only.
         </p>
       )}
 
-      <div className="overflow-hidden rounded-card border border-border bg-card shadow-card">
-        <div className="overflow-x-auto">
+      <div className={cn(GROUP_BOX, "overflow-hidden")}>
+        {/* Focusable so keyboard users can scroll the table sideways on narrow screens. */}
+        <div
+          className="overflow-x-auto focus-visible:shadow-focus focus-visible:outline-none"
+          tabIndex={0}
+          role="region"
+          aria-label={`${symbol} ${formatStrike(strike)} calls and puts by expiry`}
+        >
           {loading && rows.length === 0 ? (
-            <div className="space-y-2 p-4">
+            <div className="space-y-1.5 p-3">
               {["s1", "s2", "s3", "s4", "s5", "s6"].map((id) => (
-                <Skeleton key={id} className="h-7 w-full" />
+                <Skeleton key={id} className="h-6 w-full" />
               ))}
             </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-              <Crosshair className="h-8 w-8 opacity-30" />
-              <p className="text-sm">No expiries to compare yet.</p>
+              <Crosshair className="h-8 w-8 opacity-40" aria-hidden="true" />
+              <p className="text-body">No expiries to compare yet.</p>
             </div>
           ) : (
-            <table className="w-full border-collapse font-num text-[12.5px]">
-              <thead className="bg-card">
-                <tr className="text-label uppercase">
-                  <th colSpan={6} className="bg-wash-loss/50 py-1.5 text-center text-bearish">Calls</th>
-                  <th className="border-x border-border bg-surface py-1.5 text-center">Expiry</th>
-                  <th colSpan={6} className="bg-wash-profit/50 py-1.5 text-center text-bullish">Puts</th>
+            <table className="w-full border-collapse font-num text-body">
+              <thead className="bg-card [&_tr:last-child_th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
+                <tr className="text-label">
+                  <th colSpan={6} scope="colgroup" className="!py-1 text-center text-bearish">Calls</th>
+                  <th scope="col" className="border-x border-separator bg-surface !py-1 text-center text-foreground">Expiry</th>
+                  <th colSpan={6} scope="colgroup" className="!py-1 text-center text-bullish">Puts</th>
                 </tr>
-                <tr className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                <tr className="text-label text-muted-foreground">
                   {["OI", "OI chg", "IV", "Δ", "Θ", "LTP"].map((h) => (
-                    <th key={`c-${h}`} className="px-2 py-1.5 text-right">{h}</th>
+                    <th key={`c-${h}`} scope="col" className="!px-2 !py-1 text-right">{h}</th>
                   ))}
-                  <th className="border-x border-border bg-surface px-2 py-1.5 text-center">DTE</th>
+                  <th scope="col" className="border-x border-separator bg-surface !px-2 !py-1 text-center">DTE</th>
                   {["LTP", "Θ", "Δ", "IV", "OI chg", "OI"].map((h) => (
-                    <th key={`p-${h}`} className="px-2 py-1.5 text-left">{h}</th>
+                    <th key={`p-${h}`} scope="col" className="!px-2 !py-1 text-left">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="zebra-rows">
                 {rows.map((r) => (
-                  <tr key={r.expiry} className="border-b border-border/60 transition-colors hover:bg-accent/50">
+                  <tr key={r.expiry} className="transition-colors duration-fast hover:bg-control-track">
                     <LegCells lv={r.ce} align="right" order="ce" />
-                    <td className="border-x border-border bg-surface px-2 py-1.5 text-center">
+                    <td className="border-x border-separator bg-surface px-2 py-1 text-center">
                       <p className="font-semibold">{formatDateIST(r.expiry)}</p>
-                      <p className="text-[10.5px] text-muted-foreground">{r.dte}</p>
+                      <p className="text-body-sm text-muted-foreground">{r.dte}</p>
                     </td>
                     <LegCells lv={r.pe} align="left" order="pe" />
                   </tr>
@@ -211,14 +219,14 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
       </div>
 
       {termData.length > 1 && (
-        <div className="rounded-card border border-border bg-card p-3 shadow-card">
+        <div className={cn(GROUP_BOX, "p-3")}>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-display text-sm font-bold">IV term structure</h3>
+            <h3 className="text-headline">IV term structure</h3>
             <Badge variant="neutral">ATM IV by expiry</Badge>
           </div>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={termData} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
+              <LineChart data={termData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="label" {...axisProps} />
                 <YAxis {...axisProps} unit="%" domain={["auto", "auto"]} width={52} />
@@ -230,7 +238,7 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">Upward slope (contango) is normal; a downward slope (backwardation) often signals near-term event risk.</p>
+          <p className="mt-1 text-body-sm text-muted-foreground">Upward slope (contango) is normal; a downward slope (backwardation) often signals near-term event risk.</p>
         </div>
       )}
     </div>
@@ -238,7 +246,7 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
 }
 
 function LegCells({ lv, align, order }: { lv: LegView | null; align: "left" | "right"; order: "ce" | "pe" }) {
-  const cls = cn("px-2 py-1.5 tabular-nums whitespace-nowrap", align === "right" ? "text-right" : "text-left", lv?.itm && "bg-[hsl(var(--wash-itm))]");
+  const cls = cn("px-2 py-1 tabular-nums whitespace-nowrap", align === "right" ? "text-right" : "text-left", lv?.itm && "bg-wash-itm");
   const cells = lv
     ? [
         <td key="oi" className={cls}>{lv.leg.oi > 0 ? formatCompactIN(lv.leg.oi) : "—"}</td>,

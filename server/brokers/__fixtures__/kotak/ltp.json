@@ -1,0 +1,42 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/quotes/neosymbol/nse_cm%7CNifty%2050/all",
+      "json": [
+        {
+          "exchange_token": "Nifty 50",
+          "display_symbol": "Nifty 50",
+          "exchange": "nse_cm",
+          "lstup_time": "1792471500",
+          "ltp": "25012.15",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "0",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "0",
+          "ohlc": {
+            "open": "25008.15",
+            "high": "25018.15",
+            "low": "25003.15",
+            "close": "25010.15"
+          },
+          "depth": {
+            "buy": [],
+            "sell": []
+          }
+        }
+      ]
+    }
+  ]
+}

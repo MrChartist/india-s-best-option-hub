@@ -1,0 +1,55 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://v2api.aliceblueonline.com/restpy/static/contract_master/V2/INDICES.csv",
+      "text": "exch,symbol,token\nNSE,NIFTY 50,26000\nNSE,NIFTY BANK,26009\nNSE,NIFTY FIN SERVICE,26037\nNSE,NIFTY MIDCAP SELECT,26074\nBSE,SENSEX,1\nBSE,BANKEX,12\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/ChartAPIService/chart/get/multi/ohlc$",
+      "expectBody": [
+        {
+          "exchange": "NSE",
+          "token": "26000"
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "e": "NSE",
+            "ltp": 25012.15,
+            "poi": 0,
+            "ft": "15:29",
+            "volume": 0,
+            "high": 25040.1,
+            "avg": "25001.2",
+            "low": 24950.6,
+            "tk": "26000",
+            "oi": 0,
+            "close": 24996.6,
+            "open": 24980.3
+          }
+        ],
+        "reason": null
+      }
+    }
+  ]
+}

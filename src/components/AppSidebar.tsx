@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Blocks, ChevronRight, Monitor, Moon, Sun } from "lucide-react";
+import { MrChartistLogo, MrChartistMark } from "@/components/brand/MrChartistLogo";
+import { OutboundLink } from "@/components/brand/OutboundLink";
+import { SocialIcon } from "@/components/brand/SocialIcon";
+import { BRAND, SOCIALS, type SocialId } from "@/lib/brand/links";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -20,6 +24,7 @@ import { routesByGroup, type RouteDef } from "@/lib/routes";
 import { routeIcon } from "@/lib/routeIcons";
 import { cn } from "@/lib/utils";
 import { PaletteToggle } from "@/components/PaletteToggle";
+import { modKeyLabel } from "@/hooks/useKeyboardShortcuts";
 
 const NAV_GROUPS = routesByGroup();
 
@@ -54,6 +59,10 @@ function writeSeen(seen: Set<string>) {
   }
 }
 
+/** Active source-list row; on the accent pill the icon and text switch to the selection ink. */
+const SELECTED_ROW =
+  "bg-selection-unfocused font-medium text-foreground group-focus-within/source:bg-selection group-focus-within/source:text-selection-foreground group-focus-within/source:[&_svg]:text-selection-foreground";
+
 /** "g c" → "G C" for display. */
 const shortcutLabel = (s: string) => s.toUpperCase();
 
@@ -68,35 +77,27 @@ function NavItem({ route, collapsed, seen }: { route: RouteDef; collapsed: boole
           to={route.path}
           end={route.path === "/"}
           aria-label={collapsed ? route.navLabel : undefined}
-          className={cn(
-            "group relative flex items-center gap-2.5 text-[13px] font-medium transition-colors duration-150",
-            collapsed
-              ? "!size-9 justify-center rounded-lg p-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              : "h-8 rounded-md px-2.5 text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
-          )}
-          activeClassName={cn(
-            "font-semibold",
-            collapsed
-              ? "bg-primary/15 text-primary-ink shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.25)]"
-              : "bg-primary/10 text-primary-ink shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.16)] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-primary",
-          )}
+          className={cn("group", collapsed && "justify-center")}
+          // Grey pill while focus is elsewhere; accent pill while the sidebar itself has focus.
+          activeClassName={SELECTED_ROW}
         >
-          <Icon className="h-[17px] w-[17px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+          <Icon className="h-4 w-4 shrink-0 text-primary-ink" strokeWidth={1.75} aria-hidden="true" />
           {!collapsed && (
             <>
               <span className="min-w-0 flex-1 truncate">{route.navLabel}</span>
               {badge && (
                 <span
                   className={cn(
-                    "rounded px-1 py-px text-micro uppercase leading-none",
-                    badge === "Beta" ? "bg-wash-warning text-warning" : "bg-primary/10 text-primary-ink",
+                    "rounded-chip px-1.5 py-px text-micro font-semibold leading-[13px]",
+                    badge === "Beta" ? "bg-wash-warning text-warning" : "bg-wash-brand text-[hsl(var(--orange-900))] dark:bg-primary/15 dark:text-primary-ink",
+                    "group-focus-within/source:group-aria-[current=page]:bg-selection-foreground/15 group-focus-within/source:group-aria-[current=page]:text-selection-foreground",
                   )}
                 >
                   {badge}
                 </span>
               )}
               {route.shortcut && (
-                <kbd className="hidden font-mono text-[10px] text-muted-foreground-subtle group-hover:text-muted-foreground xl:inline">
+                <kbd className="hidden font-sans text-micro text-muted-foreground-subtle opacity-0 transition-opacity group-hover:opacity-100 group-aria-[current=page]:text-foreground/75 group-aria-[current=page]:opacity-100 group-focus-within/source:group-aria-[current=page]:text-selection-foreground xl:inline">
                   {shortcutLabel(route.shortcut)}
                 </kbd>
               )}
@@ -108,6 +109,55 @@ function NavItem({ route, collapsed, seen }: { route: RouteDef; collapsed: boole
   );
 }
 
+/** Socials shown in the expanded sidebar footer (the rest are on the ecosystem page). */
+const SIDEBAR_SOCIALS: readonly SocialId[] = ["x", "youtube", "telegram", "instagram", "linkedin", "github"];
+
+/** Compact "More from Mr. Chartist" link to /ecosystem, plus social icons when expanded. */
+function EcosystemLink({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <NavLink
+        to="/ecosystem"
+        aria-label="More from Mr. Chartist"
+        title="More from Mr. Chartist"
+        className="flex h-9 w-9 items-center justify-center rounded-pill text-primary-ink transition-colors hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
+        activeClassName={SELECTED_ROW}
+      >
+        <Blocks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+      </NavLink>
+    );
+  }
+  const socials = SIDEBAR_SOCIALS.map((id) => SOCIALS.find((s) => s.id === id)).filter((s): s is (typeof SOCIALS)[number] => Boolean(s));
+  return (
+    <div className="space-y-1">
+      <NavLink
+        to="/ecosystem"
+        className="group flex h-7 items-center gap-2 rounded-pill px-2 text-body text-sidebar-foreground focus-visible:shadow-focus focus-visible:outline-none"
+        activeClassName={SELECTED_ROW}
+      >
+        <MrChartistMark size={16} decorative />
+        <span className="min-w-0 flex-1 truncate">More from Mr. Chartist</span>
+        <ChevronRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+      </NavLink>
+      <ul className="flex items-center justify-between px-1" aria-label="Mr. Chartist on social media">
+        {socials.map((s) => (
+          <li key={s.id}>
+            <OutboundLink
+              url={s.url}
+              campaign="sidebar"
+              label={`Mr. Chartist on ${s.label}`}
+              title={s.label}
+              className="flex h-6 w-6 items-center justify-center rounded-pill text-muted-foreground transition-colors hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
+            >
+              <SocialIcon id={s.id} className="h-3.5 w-3.5" />
+            </OutboundLink>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
   const { mode, setMode, isDark, toggle } = useTheme();
   if (collapsed) {
@@ -115,16 +165,17 @@ function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
       <button
         type="button"
         onClick={toggle}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        className="flex h-9 w-9 items-center justify-center rounded-pill text-sidebar-foreground transition-colors hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       >
-        {isDark ? <Sun className="h-[17px] w-[17px]" strokeWidth={1.75} /> : <Moon className="h-[17px] w-[17px]" strokeWidth={1.75} />}
+        {isDark ? <Sun className="h-4 w-4" strokeWidth={1.75} /> : <Moon className="h-4 w-4" strokeWidth={1.75} />}
       </button>
     );
   }
   return (
-    <div role="radiogroup" aria-label="Colour theme" className="grid grid-cols-3 gap-0.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-0.5">
+    // Small macOS segmented control.
+    <div role="radiogroup" aria-label="Colour theme" className="grid h-7 grid-cols-3 rounded-pill bg-control-track p-0.5">
       {THEME_OPTIONS.map(({ mode: m, label, icon: Icon }) => {
         const active = mode === m;
         return (
@@ -135,8 +186,8 @@ function ThemeSwitch({ collapsed }: { collapsed: boolean }) {
             aria-checked={active}
             onClick={() => setMode(m)}
             className={cn(
-              "flex h-7 items-center justify-center gap-1 rounded-md text-[11px] font-medium transition-colors",
-              active ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
+              "flex items-center justify-center gap-1 rounded-[5px] text-body-sm font-medium transition-[background-color,color,box-shadow] duration-base ease-spring focus-visible:shadow-focus focus-visible:outline-none",
+              active ? "bg-control text-foreground shadow-control" : "text-foreground/75 hover:text-foreground",
             )}
           >
             <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
@@ -175,27 +226,20 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className={cn("shrink-0 border-b border-sidebar-border/80 px-4 py-3.5", collapsed && "items-center px-0 py-3")}>
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center gap-0")}>
-          <div
-            className={cn(
-              "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-primary/25 bg-card shadow-card",
-            )}
-          >
-            <div className="absolute inset-0 bg-[linear-gradient(145deg,hsl(var(--primary)/0.18),transparent_72%)]" />
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10" aria-hidden="true">
-              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
-              <path d="M6 16V10L9 13L12 9L15 7V16" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="15" cy="7" r="1.8" fill="hsl(var(--primary))" opacity="0.9" />
-            </svg>
-          </div>
-          {!collapsed && (
-            <div className="flex min-w-0 flex-col">
-              <span className="text-[15px] font-bold leading-none text-foreground">Mr. Chartist</span>
-              <span className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Options Terminal</span>
-            </div>
+      <SidebarHeader className={cn("shrink-0 px-4 pb-2 pt-4", collapsed && "items-center px-0 pt-3")}>
+        <Link
+          to="/"
+          // Must start with the visible lockup text ("Mr. Chartist" / "Option Hub") so the
+          // accessible name matches what sighted voice-control users read (WCAG 2.5.3).
+          aria-label={`${BRAND.name} ${BRAND.product}, go to dashboard`}
+          title={collapsed ? BRAND.productFull : undefined}
+          className={cn(
+            "flex min-w-0 items-center rounded-pill text-foreground focus-visible:shadow-focus focus-visible:outline-none",
+            collapsed ? "h-9 w-9 justify-center" : "-mx-1 px-1 py-0.5",
           )}
-        </div>
+        >
+          {collapsed ? <MrChartistMark size={24} decorative /> : <MrChartistLogo size={30} />}
+        </Link>
       </SidebarHeader>
 
       {/*
@@ -206,21 +250,19 @@ export function AppSidebar() {
       */}
       <SidebarContent
         className={cn(
-          "min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain px-2 pb-6 pt-2",
-          "[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]",
+          "min-h-0 flex-1 gap-0 overflow-y-auto overscroll-contain px-2.5 pb-5 pt-0",
+          "[mask-image:linear-gradient(to_bottom,black_calc(100%-1rem),transparent)]",
           "group-data-[collapsible=icon]:overflow-y-auto",
           collapsed && "items-center px-0 [scrollbar-width:none]",
         )}
       >
         <nav aria-label="Main" className={cn("flex flex-col", collapsed && "items-center")}>
           {NAV_GROUPS.map(({ group, routes }, i) => (
-            <SidebarGroup key={group} className={cn("p-0", collapsed ? "items-center" : "py-1")}>
+            <SidebarGroup key={group} className={cn("p-0", collapsed ? "items-center" : i > 0 && "mt-2.5")}>
               {collapsed ? (
-                i > 0 && <div className="my-1.5 h-px w-6 bg-sidebar-border" aria-hidden="true" />
+                i > 0 && <div className="my-1.5 h-[var(--hairline)] w-6 bg-separator" aria-hidden="true" />
               ) : (
-                <SidebarGroupLabel className="h-6 px-2.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {group}
-                </SidebarGroupLabel>
+                <SidebarGroupLabel>{group}</SidebarGroupLabel>
               )}
               <SidebarGroupContent>
                 <SidebarMenu className={cn(collapsed ? "items-center gap-1" : "gap-px")}>
@@ -234,14 +276,15 @@ export function AppSidebar() {
         </nav>
       </SidebarContent>
 
-      <SidebarFooter className={cn("shrink-0 gap-2 border-t border-sidebar-border/80 p-2", collapsed && "items-center px-0 py-2.5")}>
+      <SidebarFooter className={cn("hairline-t shrink-0 gap-2 px-2.5 py-2.5", collapsed && "items-center px-0")}>
+        <EcosystemLink collapsed={collapsed} />
         <ThemeSwitch collapsed={collapsed} />
         <PaletteToggle collapsed={collapsed} />
         {/* Keyboard hints are noise on touch screens; hide them on mobile and when collapsed. */}
         {!collapsed && !isMobile && (
-          <p className="px-1 text-[10.5px] text-muted-foreground">
-            Press <kbd className="rounded border border-sidebar-border px-1 font-mono">?</kbd> for shortcuts ·{" "}
-            <kbd className="rounded border border-sidebar-border px-1 font-mono">Ctrl K</kbd> to search
+          <p className="px-1 text-micro text-muted-foreground">
+            Press <kbd className="rounded-chip bg-control-track px-1 font-sans">?</kbd> for shortcuts ·{" "}
+            <kbd className="rounded-chip bg-control-track px-1 font-sans">{modKeyLabel("K")}</kbd> to search
           </p>
         )}
       </SidebarFooter>

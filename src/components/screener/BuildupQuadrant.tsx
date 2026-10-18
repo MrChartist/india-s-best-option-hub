@@ -212,10 +212,10 @@ export function BuildupQuadrant({ rows }: { rows: ScreenerRow[]; isSample?: bool
               <section
                 key={t.key}
                 aria-label={`${BUILDUP_LABEL[t.key]}: top by OI change`}
-                className="rounded-tile border border-border p-2.5"
+                className="rounded-md bg-control-track p-2.5"
               >
-                <h3 className="mb-1.5 flex items-center gap-1.5 text-label uppercase text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full" style={{ background: t.color }} aria-hidden="true" />
+                <h3 className="mb-1.5 flex items-center gap-1.5 text-label text-muted-foreground">
+                  <span className="h-2 w-2 rounded-capsule" style={{ background: t.color }} aria-hidden="true" />
                   {BUILDUP_LABEL[t.key]}
                   <span className="ml-auto font-num text-foreground">{t.count}</span>
                 </h3>

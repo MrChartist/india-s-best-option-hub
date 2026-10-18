@@ -128,34 +128,34 @@ export default function ChargesCalculator() {
             <DateField label="Trade date" value={onDate} onChange={(v) => setOnDate(v || istDateString())} hint="Picks the STT rate in force" />
           </div>
           {brokerId === "custom" ? (
-            <div className="mt-3 grid grid-cols-1 gap-3 rounded-tile border border-dashed border-border p-3 sm:grid-cols-3">
+            <div className="mt-3 grid grid-cols-1 gap-3 rounded-md bg-control-track p-3 sm:grid-cols-3">
               <NumField label="Flat per order" prefix="₹" value={customPerOrder} onChange={setCustomPerOrder} />
               <NumField label="Or % of turnover" suffix="%" value={customPct} onChange={setCustomPct} placeholder="optional" hint="Used instead of flat when set" />
               <NumField label="Cap per order" prefix="₹" value={customCap} onChange={setCustomCap} placeholder="optional" hint="Defaults to the flat amount" />
             </div>
           ) : null}
 
-          <ul className="mt-4 space-y-3" aria-label="Trades">
+          <ul className="mt-4 divide-y divide-separator overflow-hidden rounded-md border border-separator" aria-label="Trades">
             {rows.map((r, i) => {
               const res = results[i];
               return (
-                <li key={r.id} className="rounded-tile border border-border bg-surface/60 p-3">
+                <li key={r.id} className="p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-label uppercase text-muted-foreground">Trade {i + 1}</span>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeRow(r.id)} disabled={rows.length === 1} aria-label={`Remove trade ${i + 1}`}>
+                    <span className="text-headline text-foreground">Trade {i + 1}</span>
+                    <Button variant="ghost" size="icon" onClick={() => removeRow(r.id)} disabled={rows.length === 1} aria-label={`Remove trade ${i + 1}`}>
                       <Trash2 />
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                     <SelectField compact label="Type" value={r.instrument} onChange={(v) => update(r.id, { instrument: v })} options={INSTRUMENTS} />
                     <SelectField compact label="Entry side" value={r.side} onChange={(v) => update(r.id, { side: v })} options={SIDES} />
-                    <NumField compact label={r.instrument === "FUT" ? "Entry price" : "Entry premium"} prefix="₹" value={r.entry} onChange={(v) => update(r.id, { entry: v })} invalid={!(toNum(r.entry) >= 0)} />
-                    <NumField compact label="Exit" prefix="₹" value={r.exit} placeholder="open" onChange={(v) => update(r.id, { exit: v })} />
-                    <NumField compact label="Lots" value={r.lots} onChange={(v) => update(r.id, { lots: v })} invalid={!isPos(toNum(r.lots))} />
+                    <NumField label={r.instrument === "FUT" ? "Entry price" : "Entry premium"} prefix="₹" value={r.entry} onChange={(v) => update(r.id, { entry: v })} invalid={!(toNum(r.entry) >= 0)} />
+                    <NumField label="Exit" prefix="₹" value={r.exit} placeholder="open" onChange={(v) => update(r.id, { exit: v })} />
+                    <NumField label="Lots" value={r.lots} onChange={(v) => update(r.id, { lots: v })} invalid={!isPos(toNum(r.lots))} />
                     <SelectField compact label="Exchange" value={r.exchange} onChange={(v) => update(r.id, { exchange: v })} options={EXCHANGES} />
                   </div>
                   {res.valid ? (
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-body-sm sm:grid-cols-4">
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-body-sm sm:grid-cols-4">
                       <div>
                         <dt className="text-muted-foreground">Quantity</dt>
                         <dd className="font-num tabular-nums">{formatNumberIN(res.qty)}</dd>
@@ -173,7 +173,13 @@ export default function ChargesCalculator() {
                       <div>
                         <dt className="text-muted-foreground">Breakeven exit</dt>
                         <dd className="font-num tabular-nums">
-                          {formatINR(res.breakevenExit)} <span className="text-muted-foreground">({formatPoints(res.breakevenPoints)})</span>
+                          {Number.isFinite(res.breakevenExit) ? (
+                            <>
+                              {formatINR(res.breakevenExit)} <span className="text-muted-foreground">({formatPoints(res.breakevenPoints)})</span>
+                            </>
+                          ) : (
+                            <span className="font-sans text-warning">Cannot break even: charges exceed the premium</span>
+                          )}
                         </dd>
                       </div>
                     </dl>
@@ -208,7 +214,7 @@ export default function ChargesCalculator() {
         </Panel>
       </div>
 
-      <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 space-y-4 xl:sticky xl:top-3 xl:self-start">
         <Panel title="Summary">
           {validCount === 0 ? (
             <p className="text-body text-muted-foreground">Add at least one complete trade to see the breakdown.</p>
@@ -219,10 +225,8 @@ export default function ChargesCalculator() {
                 <Stat
                   label="Net P&L"
                   value={closed.length ? formatINR(net) : "—"}
-                  tone={toneOf(net)}
+                  tone={closed.length ? toneOf(net) : "default"}
                   emphasis
-                  // A profit or loss must not share the brand wash used for the charges (a cost).
-                  className={!closed.length || toneOf(net) === "default" ? "border-border bg-surface" : net > 0 ? "border-bullish/40 bg-wash-profit/50" : "border-bearish/40 bg-wash-loss/50"}
                   sub={closed.length ? `Gross ${formatINR(gross)}` : "No closed trades"}
                 />
                 <Stat label="Turnover" value={formatINR(turnover, { decimals: 0 })} />
@@ -232,7 +236,7 @@ export default function ChargesCalculator() {
                   sub={gross > 0 ? "of gross profit" : closed.length ? "Gross is not a profit" : undefined}
                 />
               </div>
-              <div className="mt-4 divide-y divide-border">
+              <div className="mt-3 divide-y divide-separator">
                 {COMPONENTS.map((c) => {
                   const v = total[c.key];
                   const share = total.total > 0 ? (v / total.total) * 100 : 0;
@@ -242,7 +246,7 @@ export default function ChargesCalculator() {
                         <span title={c.note}>{c.label}</span>
                         <span className="font-num tabular-nums">{formatINR(v)}</span>
                       </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-capsule bg-muted" aria-hidden="true">
+                      <div className="mt-1 h-1 overflow-hidden rounded-capsule bg-control-track" aria-hidden="true">
                         <div className="h-full rounded-capsule bg-primary" style={{ width: `${Math.min(100, share)}%` }} />
                       </div>
                       <div className="mt-0.5 flex justify-between text-micro text-muted-foreground">
@@ -259,15 +263,15 @@ export default function ChargesCalculator() {
         </Panel>
         <Panel title="Breakeven per lot" description="How far the price must move in your favour before the trade covers its own round-trip charges.">
           {results.some((r) => r.valid) ? (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-separator overflow-hidden rounded-md border border-separator">
               {results.map((r, i) =>
                 r.valid ? (
-                  <li key={rows[i].id} className="flex items-center justify-between gap-3 rounded-tile bg-surface px-3 py-2 text-body">
+                  <li key={rows[i].id} className="flex items-center justify-between gap-3 px-3 py-2 text-body">
                     <span>
                       Trade {i + 1} · {rows[i].side === "BUY" ? "Buy" : "Sell"} {rows[i].instrument}
                     </span>
                     <span className="text-right font-num tabular-nums">
-                      {formatPoints(r.breakevenPoints)}
+                      {Number.isFinite(r.breakevenPoints) ? formatPoints(r.breakevenPoints) : <span className="font-sans text-warning">Cannot break even</span>}
                       <span className="block text-body-sm text-muted-foreground">{formatINR(r.chargesPerLot)} / lot</span>
                     </span>
                   </li>

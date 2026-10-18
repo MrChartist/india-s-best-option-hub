@@ -1,0 +1,170 @@
+{
+  "args": [
+    [
+      {
+        "token": "2885_NSE",
+        "exchange": "NSE"
+      },
+      {
+        "token": "40001_NFO",
+        "exchange": "NFO"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developers.stocknote.com/doc/ScripMaster.csv",
+      "status": 200,
+      "text": "exchange,exchangeSegment,symbolCode,tradingSymbol,name,lastPrice,instrument,lotSize,strikePrice,expiryDate,tickSize\nNSE,nse_cm,2885_NSE,RELIANCE-EQ,RELIANCE,1211.20,EQ,1,,,0.10\nNFO,nse_fo,40001_NFO,NIFTY20OCT2625000CE,NIFTY,120.50,OPTIDX,65,25000.0000,20/10/26,0.05\nNFO,nse_fo,40002_NFO,NIFTY20OCT2625000PE,NIFTY,98.10,OPTIDX,65,25000.0000,20/10/26,0.05\nNFO,nse_fo,40003_NFO,NIFTY20OCT2625100CE,NIFTY,70.00,OPTIDX,65,25100.0000,20/10/26,0.05\nNFO,nse_fo,40004_NFO,NIFTY20OCT2625100PE,NIFTY,150.00,OPTIDX,65,25100.0000,20/10/26,0.05\nNFO,nse_fo,40011_NFO,NIFTY26OCT25000CE,NIFTY,210.00,OPTIDX,65,25000.0000,27/10/26,0.05\nNFO,nse_fo,40012_NFO,NIFTY26OCT25000PE,NIFTY,190.00,OPTIDX,65,25000.0000,27/10/26,0.05\nNFO,nse_fo,48704_NFO,NIFTY26OCTFUT,NIFTY,25110.00,FUTIDX,65,,27/10/26,0.10\nNFO,nse_fo,41001_NFO,BANKNIFTY26OCT56000CE,BANKNIFTY,400.00,OPTIDX,30,56000.0000,27/10/26,0.05\nNFO,nse_fo,41002_NFO,BANKNIFTY26OCT56000PE,BANKNIFTY,380.00,OPTIDX,30,56000.0000,27/10/26,0.05\nNFO,nse_fo,42001_NFO,FINNIFTY26OCT26000CE,FINNIFTY,150.00,OPTIDX,60,26000.0000,27/10/26,0.05\nNFO,nse_fo,43001_NFO,MIDCPNIFTY26OCT13000PE,MIDCPNIFTY,80.00,OPTIDX,120,13000.0000,27/10/26,0.05\nNFO,nse_fo,44001_NFO,RELIANCE26OCT1220CE,RELIANCE,18.00,OPTSTK,500,1220.0000,27/10/26,0.05\nNFO,nse_fo,44002_NFO,RELIANCE26OCT1220PE,RELIANCE,22.00,OPTSTK,500,1220.0000,27/10/26,0.05\nBFO,bse_fo,1125419_BFO,SENSEX26O2282000CE,SENSEX,300.00,IO,20,82000.0000,22/10/26,0.05\nBFO,bse_fo,1125420_BFO,SENSEX26O2282000PE,SENSEX,280.00,IO,20,82000.0000,22/10/26,0.05\nBFO,bse_fo,1155242_BFO,BANKEX26OCT62000CE,BANKEX,500.00,IO,30,62000.0000,29/10/26,0.05\nMFO,mcx_fo,256981_MFO,SILVER26NOV76250PE,SILVER,0,OPTCOM,30,76250.0000,24/11/26,0.5",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/quote/multiQuote",
+      "expectBody": {
+        "NSE": [
+          "RELIANCE"
+        ]
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Multiquotes data retrieved successfully",
+        "multiQuotes": [
+          {
+            "exchange": "NSE",
+            "symbolName": "RELIANCE",
+            "tradingSymbol": "RELIANCE-EQ",
+            "companyName": "RELIANCE INDUSTRIES LTD",
+            "isin": "INE002A01018",
+            "lotSize": "1",
+            "averagePrice": "1205.50",
+            "totalTradeVolume": "4311783",
+            "symbol": "2885_NSE",
+            "lastTradeTime": "16 Oct 2026, 03:29:59 PM",
+            "lastTradeQuantity": "1",
+            "lastTradePrice": "1,211.20",
+            "change": "5.70",
+            "changePercent": "0.47",
+            "open": "1206.00",
+            "close": "1211.20",
+            "previousClose": "1205.50",
+            "low": "1198.10",
+            "high": "1215.00",
+            "tickSize": "0.10",
+            "bidSize": "782",
+            "bidPrice": "1211.10",
+            "totalTradedValue": "5217617605.06",
+            "askSize": "10",
+            "askPrice": "1211.20",
+            "iv": "0.00"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/quote/multiQuote",
+      "expectBody": {
+        "NFO": [
+          "NIFTY20OCT2625000CE"
+        ]
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Multiquotes data retrieved successfully",
+        "multiQuotes": [
+          {
+            "exchange": "NFO",
+            "symbolName": "NIFTY",
+            "tradingSymbol": "NIFTY20OCT2625000CE",
+            "optionType": "CE",
+            "instrumentType": "OPTIDX",
+            "companyName": "NIFTY",
+            "lotSize": "65",
+            "strikePrice": "25000.0000",
+            "expiry": "20 Oct 26",
+            "averagePrice": "118.00",
+            "totalTradeVolume": "1620250",
+            "symbol": "40001_NFO",
+            "lastTradeTime": "16 Oct 2026, 03:29:59 PM",
+            "lastTradeQuantity": "65",
+            "lastTradePrice": "120.50",
+            "multiplier": "65",
+            "openInterest": "1312350",
+            "previousOpenInterest": "1217525",
+            "change": "4.00",
+            "changePercent": "3.43",
+            "open": "110.00",
+            "close": "120.50",
+            "previousClose": "116.50",
+            "low": "101.00",
+            "high": "131.00",
+            "tickSize": "0.05",
+            "bidSize": "200",
+            "bidPrice": "120.35",
+            "totalTradedValue": "0.00",
+            "askSize": "250",
+            "askPrice": "120.60",
+            "delta": "0.53",
+            "vega": "10.38",
+            "theta": "-7.05",
+            "gamma": "0.0005",
+            "iv": "13.13"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

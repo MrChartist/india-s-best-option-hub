@@ -14,6 +14,7 @@ Everything the browser fetches goes through the local proxy (`proxy-server.mjs`,
 | `PROXY_HOST` | `127.0.0.1` | Bind address. Use `0.0.0.0` only inside a container. |
 | `PROXY_ALLOWED_ORIGINS` | – | Extra comma-separated origins for CORS and the WebSocket. `http://localhost` and `http://127.0.0.1` on ports 8080, 5173 and 4001 are always allowed. |
 | `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN` | – | Optional server-side Dhan keys. Browser keys sent as headers take priority. |
+| `PROXY_TRUSTED_NETS` | – | Comma-separated IPv4 addresses, IPv4 CIDRs or IPv6 addresses (besides loopback) that may use the `.env` Dhan keys and the `/ws` live feed. Decided by the socket address, never by the `Origin` header. The Docker image sets `172.16.0.0/12` (the bridge gateway). |
 
 Security behaviour:
 
@@ -239,4 +240,4 @@ Index security ids (Dhan `IDX_I`, *verify* against the scrip master): NIFTY 13, 
 | Broker keys | `sessionStorage` (session-only mode) or `localStorage` AES-GCM vault (PBKDF2-SHA256, 310k rounds) | Dhan client id and access token. Never passwords, MPIN or TOTP. |
 | `mrchartist_market_db` v3 | IndexedDB | `instruments`, `prices`, `candles`, `metadata`, plus `chainSnapshots` (`{ id, symbol, expiry, ts, spot, rows: StrikeSnap[] }`, index `[symbol, expiry, ts]`) and `dailyStats` (`{ symbol, date, atmIv, pcrOi, pcrVol, maxPain, straddle, spot, futBasis?, rr25? }`, key `[symbol, date]`). |
 
-Snapshot API: `src/lib/snapshotStore.ts` (`recordSnapshot`, `getSnapshots`, `getLatestSnapshots`, `putDailyStat`, `getDailyStats`, `pruneSnapshots`, `getSnapshotStats`, `exportSnapshotsCSV`). Recorder hook: `useSnapshotRecorder(symbols, intervalMs)` records only fresh live chains during the open session (at most every 15 s) and writes one `DailyStat` per symbol after 15:30 IST.
+Snapshot API: `src/lib/snapshotStore.ts` (`recordSnapshot`, `getSnapshots`, `getLatestSnapshots`, `putDailyStat`, `getDailyStats`, `pruneSnapshots`, `getSnapshotStats`). Recorder hook: `useSnapshotRecorder(symbols, intervalMs)` records only fresh live chains during the open session (at most every 15 s) and writes one `DailyStat` per symbol after 15:30 IST.

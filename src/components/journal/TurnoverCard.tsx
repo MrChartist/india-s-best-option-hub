@@ -30,7 +30,7 @@ export function TurnoverCard({ trips, sample }: { trips: RoundTrip[]; sample: bo
         <div className="grid gap-1.5">
           <Label htmlFor={`${uid}-fy`}>Financial year</Label>
           <Select value={fy} onValueChange={setPicked}>
-            <SelectTrigger id={`${uid}-fy`} className="h-9 w-40">
+            <SelectTrigger id={`${uid}-fy`} className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -42,30 +42,31 @@ export function TurnoverCard({ trips, sample }: { trips: RoundTrip[]; sample: bo
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" onClick={download}>
+        <Button size="sm" variant="outline" onClick={download}>
           <Download aria-hidden="true" /> Turnover CSV
         </Button>
       </div>
-      <dl className="grid grid-cols-2 gap-2 text-body-sm">
-        <div className="col-span-2 rounded-tile border border-border bg-surface/60 px-3 py-2">
-          <dt className="flex items-center gap-1.5 text-label uppercase text-muted-foreground">
+      {/* Key–value rows in one group box, the way System Settings lists figures. */}
+      <dl className="divide-y divide-separator overflow-hidden rounded-tile border border-separator text-body">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 px-3 py-2">
+          <dt className="flex items-center gap-1.5 text-muted-foreground">
             <Receipt className="h-3.5 w-3.5" aria-hidden="true" /> F&O turnover
           </dt>
-          <dd className="font-num text-title tabular-nums">{formatINR(s.turnover, { decimals: 0 })}</dd>
-          <dd className="text-micro text-muted-foreground">
+          <dd className="font-num text-lead font-semibold tabular-nums">{formatINR(s.turnover, { decimals: 0 })}</dd>
+          <dd className="mt-0.5 basis-full text-body-sm text-muted-foreground">
             options {formatINR(s.optionsTurnover, { decimals: 0 })} · futures {formatINR(s.futuresTurnover, { decimals: 0 })} · {s.trades} round trip{s.trades === 1 ? "" : "s"}
           </dd>
         </div>
-        <div className="rounded-tile border border-border px-3 py-2">
-          <dt className="text-label uppercase text-muted-foreground">Gross P&L</dt>
+        <div className="flex items-baseline justify-between gap-3 px-3 py-2">
+          <dt className="text-muted-foreground">Gross P&L</dt>
           <dd className={cn("font-num font-semibold tabular-nums", signedClass(s.gross))}>{signedINR(s.gross)}</dd>
         </div>
-        <div className="rounded-tile border border-border px-3 py-2">
-          <dt className="text-label uppercase text-muted-foreground">Expenses (charges)</dt>
+        <div className="flex items-baseline justify-between gap-3 px-3 py-2">
+          <dt className="text-muted-foreground">Expenses (charges)</dt>
           <dd className="font-num font-semibold tabular-nums">{formatINR(s.charges, { decimals: 0 })}</dd>
         </div>
-        <div className="col-span-2 rounded-tile border border-border px-3 py-2">
-          <dt className="text-label uppercase text-muted-foreground">Net business income from F&O</dt>
+        <div className="flex items-baseline justify-between gap-3 bg-surface px-3 py-2">
+          <dt className="font-medium text-foreground">Net business income from F&O</dt>
           <dd className={cn("font-num text-lead font-semibold tabular-nums", signedClass(s.net))}>{signedINR(s.net)}</dd>
         </div>
       </dl>

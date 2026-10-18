@@ -72,6 +72,7 @@ export const COLUMNS_KEY = "mc_chain_columns_v1";
 export const MOBILE_COLUMNS_KEY = "mc_chain_columns_mobile_v1";
 export const RANGE_KEY = "mc_chain_range_v1";
 export const DELTA_VIEW_KEY = "mc_chain_delta_view_v1";
+export const INSPECTOR_KEY = "mc_chain_inspector_v1";
 
 export interface ColumnPrefs {
   preset: PresetId;

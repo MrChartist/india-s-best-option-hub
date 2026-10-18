@@ -5,17 +5,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const toggleVariants = cva(
-  "inline-flex items-center justify-center rounded-tab text-sm font-medium transition-[background-color,color,box-shadow] duration-fast ease-expo hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:shadow-ember disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-card data-[state=on]:font-semibold data-[state=on]:text-foreground data-[state=on]:shadow-card data-[state=on]:ring-1 data-[state=on]:ring-border dark:data-[state=on]:bg-white/10 dark:data-[state=on]:ring-white/15",
+  // Segment / toolbar toggle: borderless until on, then a raised macOS thumb.
+  "inline-flex items-center justify-center gap-1.5 rounded-[5px] text-body font-medium text-foreground/80 transition-[background-color,color,box-shadow] duration-base ease-spring hover:text-foreground focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40 data-[state=on]:bg-control data-[state=on]:text-foreground data-[state=on]:shadow-control [&_svg]:size-3.5",
   {
     variants: {
       variant: {
         default: "bg-transparent",
-        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
+        outline: "bg-control shadow-control hover:bg-control/80",
       },
       size: {
-        default: "h-10 px-3",
-        sm: "h-9 px-2.5",
-        lg: "h-11 px-5",
+        default: "h-6 px-2.5",
+        sm: "h-6 px-2 text-body-sm",
+        lg: "h-8 px-4",
       },
     },
     defaultVariants: {

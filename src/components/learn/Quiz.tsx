@@ -30,7 +30,7 @@ export default function Quiz({ questions, best, onSubmit, className }: { questio
   };
 
   return (
-    <section aria-labelledby={`${uid}-title`} className={cn("rounded-card border border-border bg-card p-4 shadow-card sm:p-5", className)}>
+    <section aria-labelledby={`${uid}-title`} className={cn("rounded-card border border-separator bg-card p-4 shadow-card sm:p-5", className)}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 id={`${uid}-title`} className="flex items-center gap-2 font-display text-title text-foreground">
           <ListChecks className="h-5 w-5 text-primary-ink" aria-hidden="true" /> Check your understanding
@@ -63,11 +63,11 @@ export default function Quiz({ questions, best, onSubmit, className }: { questio
                       <label
                         key={oi}
                         className={cn(
-                          "flex cursor-pointer items-start gap-2 rounded-tile border px-3 py-2 text-body transition-colors duration-fast focus-within:shadow-ember",
-                          !submitted && (isChosen ? "border-primary/60 bg-wash-brand" : "border-border bg-surface hover:bg-accent"),
+                          "flex cursor-pointer items-start gap-2 rounded-tile border px-3 py-2 text-body transition-colors duration-fast focus-within:shadow-focus",
+                          !submitted && (isChosen ? "border-primary/60 bg-wash-brand" : "border-separator bg-surface hover:bg-accent"),
                           submitted && isAnswer && "border-bullish/50 bg-wash-profit",
                           submitted && isChosen && !isAnswer && "border-bearish/50 bg-wash-loss",
-                          submitted && !isAnswer && !isChosen && "border-border bg-surface opacity-70",
+                          submitted && !isAnswer && !isChosen && "border-separator bg-surface opacity-70",
                           submitted && "cursor-default",
                         )}
                       >
@@ -98,10 +98,10 @@ export default function Quiz({ questions, best, onSubmit, className }: { questio
         })}
       </ol>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4" aria-live="polite">
+      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-separator pt-4" aria-live="polite">
         {submitted ? (
           <>
-            <p className={cn("font-display text-lead font-bold", passed ? "text-bullish" : "text-warning")}>
+            <p className={cn("font-display text-lead font-semibold", passed ? "text-bullish" : "text-warning")}>
               {passed ? "Passed" : "Keep going"}: {score}/{total}
             </p>
             <span className="text-body-sm text-muted-foreground">{passed ? "Lesson marked complete." : "Review the explanations and try again."}</span>

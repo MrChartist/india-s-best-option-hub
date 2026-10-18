@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { EventFilters, type EventFiltersValue } from "@/components/events/EventFilters";
 import { EventHighlights } from "@/components/events/EventHighlights";
 import { EventList } from "@/components/events/EventList";
@@ -132,7 +133,7 @@ export default function Events() {
     <>
       {monthQ.isLoading ? (
         <Badge variant="neutral">
-          <Loader2 className="animate-spin" aria-hidden="true" />
+          <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />
           Loading NSE calendar
         </Badge>
       ) : corp?.mode === "live" ? (
@@ -156,26 +157,27 @@ export default function Events() {
 
   const actions = (
     <>
-      <div className="flex items-center gap-1" role="group" aria-label="Month">
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => update({ month: shiftMonth(month, -1), day: null })} aria-label="Previous month">
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+      {/* Calendar.app toolbar: ‹ Today › stepper, the month, then the view switch. */}
+      <div className="flex items-center gap-0.5" role="group" aria-label="Month">
+        <Button variant="ghost" size="icon" onClick={() => update({ month: shiftMonth(month, -1), day: null })} aria-label="Previous month">
+          <ChevronLeft aria-hidden="true" />
         </Button>
-        <span className="min-w-[8.5rem] text-center font-display text-body font-bold" aria-live="polite">
+        <Button variant="outline" onClick={() => update({ month: null, day: null })} disabled={month === monthKey(today) && selectedDay === today}>
+          Today
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => update({ month: shiftMonth(month, 1), day: null })} aria-label="Next month">
+          <ChevronRight aria-hidden="true" />
+        </Button>
+        <span className="min-w-[8.5rem] px-1 text-center text-headline" aria-live="polite">
           {monthTitle(month)}
         </span>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => update({ month: shiftMonth(month, 1), day: null })} aria-label="Next month">
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </Button>
       </div>
-      <Button variant="outline" size="sm" className="h-8" onClick={() => update({ month: null, day: null })} disabled={month === monthKey(today) && selectedDay === today}>
-        Today
-      </Button>
-      <ToggleGroup type="single" value={view} onValueChange={(v) => v && update({ view: v === "month" ? null : v })} aria-label="Calendar view" className="rounded-chip border border-border p-0.5">
-        <ToggleGroupItem value="month" size="sm" className="h-7 gap-1.5 px-2.5" aria-label="Month view">
+      <ToggleGroup type="single" value={view} onValueChange={(v) => v && update({ view: v === "month" ? null : v })} aria-label="Calendar view">
+        <ToggleGroupItem value="month" aria-label="Month view">
           <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
           Month
         </ToggleGroupItem>
-        <ToggleGroupItem value="list" size="sm" className="h-7 gap-1.5 px-2.5" aria-label="List view">
+        <ToggleGroupItem value="list" aria-label="List view">
           <List className="h-3.5 w-3.5" aria-hidden="true" />
           List
         </ToggleGroupItem>
@@ -184,22 +186,22 @@ export default function Events() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1400px] space-y-3">
       <PageHeader
         icon={CalendarDays}
-        eyebrow="Markets"
         title="Events Calendar"
         description="Results, RBI policy, Budget, CPI, GDP, FOMC and US CPI, expiries and market holidays in one IST calendar, with how often each stock's straddle has overpriced its results."
         source={source}
         actions={actions}
       />
+      <ProductCrossLink id="ipoDecode" campaign="events" lead="Tracking IPOs? Live subscription, grey market premium, allotment status and listing performance on" />
 
       <EventHighlights events={aheadEvents} today={today} week={week} now={now} />
 
       <EventFilters value={filters} onChange={setFilters} onReset={resetFilters} counts={counts} dirty={dirty} />
 
       {(outsideMacro || corporateOutside) && (
-        <p className="rounded-chip border border-info/30 bg-wash-info px-3 py-2 text-body-sm text-foreground" role="note">
+        <p className="rounded-tile bg-wash-info px-3 py-2 text-body-sm text-foreground" role="note">
           {outsideMacro ? `The macro schedule covers ${formatDateIST(MACRO_COVERAGE.from)} to ${formatDateIST(MACRO_COVERAGE.to)}. ` : ""}
           {corporateOutside && corp?.coverage ? `NSE's calendar currently lists board meetings from ${formatDateIST(corp.coverage.from)} to ${formatDateIST(corp.coverage.to)}, so results outside that window are not shown.` : ""}
         </p>
@@ -219,7 +221,7 @@ export default function Events() {
         actions={
           monthQ.isFetching && !monthQ.isLoading ? (
             <span className="inline-flex items-center gap-1 text-body-sm text-muted-foreground">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              <RefreshCw className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />
               Updating
             </span>
           ) : null
@@ -236,7 +238,7 @@ export default function Events() {
             title={`No events in ${monthTitle(month)}`}
             action={
               dirty ? (
-                <Button size="sm" variant="outline" onClick={resetFilters}>
+                <Button variant="outline" onClick={resetFilters}>
                   Reset filters
                 </Button>
               ) : undefined
@@ -249,7 +251,7 @@ export default function Events() {
 
       <ResultsMovePanel upcoming={aheadQ.events} today={today} liveEvents={liveEvents} initialSymbol={filters.symbol || undefined} />
 
-      <section aria-label="About this data" className="rounded-tile border border-border bg-muted/40 p-3 text-body-sm leading-relaxed text-muted-foreground">
+      <section aria-label="About this data" className="px-1 text-body-sm text-muted-foreground">
         <p>
           <strong className="text-foreground">About the data.</strong> Results and other board meetings come from the NSE corporate event calendar through your local proxy; when it is unavailable the calendar shows sample results dates, clearly marked. Macro dates are a hand-compiled 2026–27 schedule marked “Verify date”. Expiries follow SEBI rules (NIFTY weekly on Tuesday, monthly contracts on the last Tuesday, SENSEX on Thursday) and shift to the previous trading day for holidays. US releases are converted to IST, including US daylight saving. This page is for information only and is not investment advice.
         </p>

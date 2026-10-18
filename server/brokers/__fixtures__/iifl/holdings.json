@@ -1,0 +1,133 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://ttblaze.iifl.com/hostlookup",
+      "expectBody": {
+        "AccessPassword": "2021HostLookUpAccess",
+        "version": "interactive_1.0.1"
+      },
+      "json": {
+        "type": "success",
+        "code": "hostlookup",
+        "description": "Hostlookup successful",
+        "result": {
+          "UniqueKey": "dummyUniqueKey01",
+          "connectionString": "https://ttblaze.iifl.com/1interactive",
+          "timeStamp": "0",
+          "remarks": ""
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://ttblaze.iifl.com/1interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIiIaKey01",
+        "secretKey": "dummyIiIaSecret01",
+        "accessToken": "dummyAccessToken01",
+        "uniqueKey": "dummyUniqueKey01"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User.",
+        "result": {
+          "enums": {
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ],
+            "dayOrNet": [
+              "DAY",
+              "NET"
+            ],
+            "exchangeSegment": [
+              "NSECM",
+              "NSEFO",
+              "NSECD",
+              "BSECM",
+              "BSEFO",
+              "MCXFO"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "token": "dummy.ia.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://ttblaze.iifl.com/1interactive/portfolio/holdings",
+      "json": {
+        "type": "success",
+        "code": "s-portfolio-0012",
+        "description": "Success holding",
+        "result": {
+          "ClientId": "DUMMY1",
+          "RMSHoldingList": [
+            {
+              "Holdings": {
+                "INE002A01018": {
+                  "ISIN": "INE002A01018",
+                  "RMSHoldingId": 21885,
+                  "ClientId": "DUMMY1",
+                  "ExchangeNSEInstrumentId": 2885,
+                  "ExchangeBSEInstrumentId": 500325,
+                  "ExchangeMSEIInstrumentId": 0,
+                  "HoldingType": 3,
+                  "HoldingQuantity": 10,
+                  "CollateralValuationType": 1,
+                  "Haircut": 15,
+                  "CollateralQuantity": 0,
+                  "CreatedBy": "ADMIN",
+                  "LastUpdatedBy": "ADMIN",
+                  "CreatedOn": "2026-07-06T12:18:21",
+                  "LastUpdatedOn": "2026-07-06T11:39:29",
+                  "UsedQuantity": 0,
+                  "IsCollateralHolding": false,
+                  "BuyAvgPrice": 2650.5,
+                  "IsBuyAvgPriceProvided": true,
+                  "AuthorizeQuantity": 0,
+                  "IsNeedToDelete": false
+                },
+                "INE009A01021": {
+                  "ISIN": "INE009A01021",
+                  "RMSHoldingId": 21885,
+                  "ClientId": "DUMMY1",
+                  "ExchangeNSEInstrumentId": 0,
+                  "ExchangeBSEInstrumentId": 500209,
+                  "ExchangeMSEIInstrumentId": 0,
+                  "HoldingType": 3,
+                  "HoldingQuantity": 5,
+                  "CollateralValuationType": 1,
+                  "Haircut": 15,
+                  "CollateralQuantity": 0,
+                  "CreatedBy": "ADMIN",
+                  "LastUpdatedBy": "ADMIN",
+                  "CreatedOn": "2026-07-06T12:18:21",
+                  "LastUpdatedOn": "2026-07-06T11:39:29",
+                  "UsedQuantity": 0,
+                  "IsCollateralHolding": false,
+                  "BuyAvgPrice": 1520,
+                  "IsBuyAvgPriceProvided": true,
+                  "AuthorizeQuantity": 0,
+                  "IsNeedToDelete": false
+                }
+              }
+            }
+          ],
+          "CollateralHoldingList": []
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

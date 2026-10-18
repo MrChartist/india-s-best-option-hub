@@ -49,12 +49,14 @@ export async function registerServiceWorker(
   });
   const apply = (w: ServiceWorker) => () => w.postMessage({ type: "SKIP_WAITING" });
 
-  let reg: ServiceWorkerRegistration;
+  let reg: ServiceWorkerRegistration | undefined;
   try {
     reg = await container.register(opts.swUrl ?? "/sw.js", { scope: "/" });
   } catch {
     return null;
   }
+  // Some privacy modes and automation browsers stub register() and resolve with nothing.
+  if (!reg) return null;
   const hadController = Boolean(container.controller);
   // A worker may already be waiting from an earlier visit.
   if (reg.waiting && hadController) prompt.onUpdateReady(apply(reg.waiting));

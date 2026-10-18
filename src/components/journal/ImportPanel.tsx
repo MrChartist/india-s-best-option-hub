@@ -2,7 +2,7 @@
 import { useId, useRef, useState, type DragEvent } from "react";
 import { FileUp, Info, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BROKERS, SOURCE_LABEL, parseTradebook, type BrokerId, type ParseResult } from "@/lib/journal";
@@ -57,7 +57,7 @@ export function ImportPanel({ imported, onImport, onClear }: { imported: number;
         <div className="grid content-start gap-1.5">
           <Label htmlFor={`${uid}-broker`}>Broker</Label>
           <Select value={broker} onValueChange={(v) => setBroker(v as BrokerId | "auto")}>
-            <SelectTrigger id={`${uid}-broker`} className="h-9">
+            <SelectTrigger id={`${uid}-broker`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -77,7 +77,7 @@ export function ImportPanel({ imported, onImport, onClear }: { imported: number;
           }}
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
-          className={cn("flex flex-col items-center justify-center gap-2 rounded-tile border border-dashed px-4 py-5 text-center transition-colors duration-fast", drag ? "border-primary bg-wash-brand" : "border-border bg-surface/40")}
+          className={cn("flex flex-col items-center justify-center gap-2 rounded-tile border border-dashed px-4 py-5 text-center transition-colors duration-fast", drag ? "border-primary bg-wash-brand" : "border-separator bg-surface")}
         >
           <FileUp className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
           <p className="text-body-sm text-muted-foreground">Drop a tradebook CSV here, or</p>
@@ -124,7 +124,7 @@ export function ImportPanel({ imported, onImport, onClear }: { imported: number;
         </div>
       ) : null}
       {imported > 0 ? (
-        <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-body-sm">
+        <div className="hairline-t flex items-center justify-between gap-2 pt-3 text-body-sm">
           <span className="text-muted-foreground">{imported} imported fills stored in this browser.</span>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -139,7 +139,9 @@ export function ImportPanel({ imported, onImport, onClear }: { imported: number;
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onClear}>Clear</AlertDialogAction>
+                <AlertDialogAction className={buttonVariants({ variant: "destructive" })} onClick={onClear}>
+                  Clear
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

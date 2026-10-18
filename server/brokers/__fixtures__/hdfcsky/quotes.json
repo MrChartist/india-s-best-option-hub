@@ -1,0 +1,56 @@
+{
+  "args": [
+    [
+      {
+        "token": "1163250",
+        "exchange": "BFO"
+      },
+      {
+        "token": "1",
+        "exchange": "BSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://developer.hdfcsky.com/oapi/v1/fetch-ltp?api_key=dummy-sky-api-key",
+      "expectBody": {
+        "data": [
+          {
+            "exchange": "BFO",
+            "token": "1163250"
+          },
+          {
+            "exchange": "BSE_INDEX",
+            "token": "1"
+          }
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "prev_close": 520.0,
+            "ltp": 512.3,
+            "exchange": "BFO",
+            "token": 1163250
+          },
+          {
+            "prev_close": 82010.1,
+            "ltp": 82110.27,
+            "exchange": "BSE_INDEX",
+            "token": 1
+          }
+        ],
+        "meta": {
+          "statusCode": "OK",
+          "statusMsg": "OK"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -28,20 +28,20 @@ export function ChargesBreakdown({ charges, brokerId, onBrokerId, roundTrip, onR
   ];
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
           <Receipt className="h-4 w-4 text-primary-ink" aria-hidden="true" /> Charges
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <Select value={brokerId} onValueChange={onBrokerId}>
-            <SelectTrigger className="h-8 w-[200px] text-xs" aria-label="Broker">
+            <SelectTrigger className="w-[200px]" aria-label="Broker">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {BROKER_PRESETS.map((b) => (
-                <SelectItem key={b.id} value={b.id} className="text-xs">
+                <SelectItem key={b.id} value={b.id} className="text-body-sm">
                   {b.name}
                   {b.perOrder > 0 ? ` · ₹${b.perOrder}/order` : " · no brokerage"}
                 </SelectItem>
@@ -50,13 +50,13 @@ export function ChargesBreakdown({ charges, brokerId, onBrokerId, roundTrip, onR
           </Select>
           <div className="flex items-center gap-2">
             <Switch id="sb-roundtrip" checked={roundTrip} onCheckedChange={onRoundTrip} />
-            <Label htmlFor="sb-roundtrip" className="text-xs">
+            <Label htmlFor="sb-roundtrip" className="text-body-sm">
               Include exit
             </Label>
           </div>
           <span className="text-[11px] text-muted-foreground">{orders} order{orders === 1 ? "" : "s"}</span>
         </div>
-        <dl className="divide-y divide-border/60 rounded-tile border border-border text-xs">
+        <dl className="divide-y divide-separator overflow-hidden rounded-md border border-separator text-body-sm">
           {rows.map((r) => (
             <div key={r.label} className="flex items-center justify-between px-2.5 py-1.5">
               <dt className="flex items-center gap-1 text-muted-foreground">

@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BuildupBadge, type BuildupKind } from "@/components/ui/buildup-badge";
 import { SourceBadge } from "@/components/option-chain/SourceBadge";
+import { isKnownFnoSymbol } from "@/components/option-chain/symbols";
 import { ContractActions, ContractSwitcher, DepthPanel, FactsPanel } from "@/components/contract/ContractPanels";
-import { EmptyState, Panel, PanelSkeleton, ProvenanceBadge, Stat, type Provenance } from "@/components/contract/ContractUi";
+import { EmptyState, Panel, PanelSkeleton, ProvenanceBadge, STAT_GROUP, Stat, type Provenance } from "@/components/contract/ContractUi";
 import { DailyHistory } from "@/components/contract/DailyHistory";
 import { GreeksCharts, IvChart, OiChart, PriceChart, VolumeChart } from "@/components/contract/IntradayCharts";
 import { useContractData, type IntradayMode } from "@/components/contract/useContractData";
@@ -27,6 +28,9 @@ const BUILDUP_CODE: Partial<Record<Buildup, BuildupKind>> = {
 };
 
 const MODE_TO_PROVENANCE: Record<IntradayMode, Provenance> = { live: "live", recorded: "recorded", sample: "sample", empty: "empty" };
+
+/** Inline notice: tinted fill, no stroke (macOS info banners). */
+const BANNER = "flex items-start gap-2 rounded-tile px-3 py-2 text-body-sm";
 
 const tone = (v: number) => (!Number.isFinite(v) || v === 0 ? "" : v > 0 ? "text-bullish" : "text-bearish");
 
@@ -54,6 +58,8 @@ export default function Contract() {
   const parsed = useMemo(() => parseContractParams({ symbol, expiry, strike, type }), [symbol, expiry, strike, type]);
   if ("error" in parsed) return <InvalidContract message={parsed.error} />;
   const k = parsed.key;
+  // Never build a sample contract page for a symbol that has no F&O contracts.
+  if (!isKnownFnoSymbol(k.symbol)) return <InvalidContract message={`${k.symbol} is not an F&O underlying.`} />;
   const check = checkContractExpiry(k.symbol, k.expiry);
   if (check.kind === "shifted") {
     return <Navigate replace to={`${contractPath({ ...k, expiry: check.to })}?from=${encodeURIComponent(k.expiry)}`} />;
@@ -97,10 +103,9 @@ function ExpiredContract({ k }: { k: ContractKey }) {
   const title = contractTitle(k);
   useDocumentTitle(`${title} (expired)`);
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         icon={ScanSearch}
-        eyebrow="Contract"
         title={title}
         description="This contract has expired. Live quotes, open-interest build-up and Greeks only apply to listed contracts."
         source={<Badge variant="neutral">Expired</Badge>}
@@ -110,7 +115,7 @@ function ExpiredContract({ k }: { k: ContractKey }) {
         title={`Settled at 15:30 IST on ${formatDateIST(k.expiry)}`}
         action={
           <div className="flex flex-col items-center gap-2">
-            <Button asChild size="sm" variant="outline">
+            <Button asChild variant="outline">
               <Link to={`/option-chain?symbol=${encodeURIComponent(k.symbol)}`}>Open the {k.symbol} option chain</Link>
             </Button>
             <ExpiryLinks symbol={k.symbol} strike={k.strike} type={k.type} />
@@ -126,13 +131,13 @@ function ExpiredContract({ k }: { k: ContractKey }) {
 function InvalidContract({ message, symbol }: { message: string; symbol?: string }) {
   useDocumentTitle("Contract not found");
   return (
-    <div className="space-y-4">
-      <PageHeader icon={ScanSearch} eyebrow="Contract" title="Contract not found" description="Contract links look like /contract/NIFTY/2026-10-20/25000/CE: symbol, expiry date, strike and CE or PE." />
+    <div className="space-y-3">
+      <PageHeader icon={ScanSearch} title="Contract not found" description="Contract links look like /contract/NIFTY/2026-10-20/25000/CE: symbol, expiry date, strike and CE or PE." />
       <EmptyState
         icon={<AlertTriangle className="h-6 w-6" aria-hidden="true" />}
         title={message}
         action={
-          <Button asChild size="sm" variant="outline">
+          <Button asChild variant="outline">
             <Link to={symbol ? `/option-chain?symbol=${encodeURIComponent(symbol)}` : "/option-chain"}>Pick a contract from the option chain</Link>
           </Button>
         }
@@ -179,10 +184,9 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         icon={ScanSearch}
-        eyebrow="Contract"
         title={label}
         description="Price, open interest, IV and Greeks for one option through the session, with top-of-book depth and NSE end-of-day history."
         source={
@@ -200,7 +204,7 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
       <ContractSwitcher k={k} strikes={d.strikes} expiries={d.data?.expiries ?? []} spot={d.spot} />
 
       {shiftedFrom ? (
-        <div role="status" className="flex items-start gap-2 rounded-tile border border-info/30 bg-wash-info px-3 py-2 text-body-sm">
+        <div role="status" className={cn(BANNER, "bg-wash-info")}>
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
           <span>
             {formatDateIST(shiftedFrom)} is an NSE holiday, so this contract expires on {formatDateIST(k.expiry)} instead. The link was updated.
@@ -209,29 +213,29 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
       ) : null}
 
       {d.live.isError && !d.data ? (
-        <div role="alert" className="flex flex-wrap items-center gap-2 rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm">
+        <div role="alert" className={cn(BANNER, "flex-wrap items-center bg-wash-loss")}>
           <AlertTriangle className="h-4 w-4 text-bearish" aria-hidden="true" />
           Could not load the option chain for {k.symbol}.
-          <Button size="sm" variant="outline" className="ml-auto h-8" onClick={() => void d.live.refetch()}>
+          <Button variant="outline" className="ml-auto" onClick={() => void d.live.refetch()}>
             <RefreshCw aria-hidden="true" /> Retry
           </Button>
         </div>
       ) : null}
       {d.data && !d.expiryMatches ? (
-        <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning px-3 py-2 text-body-sm">
+        <div role="status" className={cn(BANNER, "bg-wash-warning")}>
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <span>
             The {formatDateIST(k.expiry)} expiry is not in the live chain (the feed returned {d.data.expiry ? formatDateIST(d.data.expiry) : "another expiry"}). It may have expired. Recorded history below still applies.
           </span>
         </div>
       ) : d.data && !leg ? (
-        <div role="status" className="flex items-start gap-2 rounded-tile border border-warning/30 bg-wash-warning px-3 py-2 text-body-sm">
+        <div role="status" className={cn(BANNER, "bg-wash-warning")}>
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
           <span>Strike {formatNumberIN(k.strike, 2)} is not listed in the current chain. Pick a listed strike above.</span>
         </div>
       ) : null}
 
-      <section aria-label="Contract summary" className="grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+      <section aria-label="Contract summary" className={cn(STAT_GROUP, "grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8")}>
         <Stat
           label="LTP"
           value={loadingQuote ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Loading" /> : formatINR(leg?.ltp ?? NaN)}
@@ -278,7 +282,7 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
       </section>
 
       {d.intraday.isLoading || loadingQuote ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <PanelSkeleton label="Loading price chart" />
           <PanelSkeleton label="Loading open interest chart" />
         </div>
@@ -288,7 +292,7 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
             icon={<Activity className="h-6 w-6" aria-hidden="true" />}
             title={d.series.length === 1 ? "Only one snapshot so far" : "No intraday history for this contract yet"}
             action={
-              <Button size="sm" variant="outline" onClick={() => void d.intraday.refetch()} disabled={d.intraday.isFetching}>
+              <Button variant="outline" onClick={() => void d.intraday.refetch()} disabled={d.intraday.isFetching}>
                 {d.intraday.isFetching ? <Loader2 className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />} Check again
               </Button>
             }
@@ -298,7 +302,7 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
         </Panel>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <Panel
               title={intradayTitle(<LineChartIcon className="h-4 w-4 text-primary-ink" aria-hidden="true" />, "LTP vs spot")}
               subtitle={
@@ -312,7 +316,6 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 gap-1.5"
                     onClick={() => downloadCsv(`${k.symbol}_${k.expiry}_${k.strike}${k.type}_${sessionDate ?? "intraday"}${d.sample ? "_SAMPLE" : ""}.csv`, snapshotsToCSV(contractSnaps))}
                   >
                     <Download aria-hidden="true" /> CSV
@@ -362,7 +365,7 @@ function ContractView({ k, shiftedFrom }: { k: ContractKey; shiftedFrom?: string
         </>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <DepthPanel leg={leg} lotSize={d.lotSize} sample={d.sample} />
         <FactsPanel k={k} leg={leg} spot={d.spot} lotSize={d.lotSize} thetaPerUnit={last?.theta ?? NaN} />
       </div>

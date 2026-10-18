@@ -43,13 +43,6 @@ export const PRODUCT_LABEL: Record<Product, string> = {
   futStk: "Stock futures",
 };
 
-export const PARTICIPANT_LABEL: Record<Participant, string> = {
-  FII: "FII / FPI",
-  DII: "DII",
-  Pro: "Pro (prop desks)",
-  Client: "Client (retail + HNI)",
-};
-
 /** Where a dataset came from. "live" = proxy (NSE), "cache" = recorded in this browser, "sample" = simulated. */
 export type DataMode = "live" | "cache" | "sample";
 

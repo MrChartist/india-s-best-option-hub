@@ -29,7 +29,7 @@ function PCRGauge({ value }: { value: number }) {
         ))}
         {value > 0 && <div className="absolute inset-y-0 w-1 -translate-x-1/2 rounded-capsule bg-foreground" style={{ left: pct(value) }} />}
       </div>
-      <div className="relative mt-1 h-4 font-num text-[11px] text-muted-foreground" aria-hidden="true">
+      <div className="relative mt-1 h-4 font-num text-body-sm text-muted-foreground" aria-hidden="true">
         <span className="absolute left-0">0</span>
         {[PCR_BANDS.low, PCR_BANDS.high, PCR_BANDS.extreme].map((v) => (
           <span key={v} className="absolute -translate-x-1/2" style={{ left: pct(v) }}>
@@ -104,10 +104,10 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
       />
       <CardContent className="space-y-4 p-4">
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-          <div className="space-y-3 rounded-tile border border-border bg-surface/60 p-4">
+          <div className="space-y-3 rounded-md bg-control-track p-4">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <p className="text-label uppercase text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   <MetricHelp metric="pcr" value={p.pcrOI}>PCR (OI)</MetricHelp>
                 </p>
                 <p className={cn("font-num text-num-hero", sig.className)}>{fmtRatio(p.pcrOI)}</p>
@@ -115,7 +115,7 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
               <Badge variant={sig.tone === "neutral" ? "neutral" : sig.tone}>{sig.label}</Badge>
             </div>
             <PCRGauge value={p.pcrOI} />
-            <p className="text-xs text-muted-foreground">{sig.description}</p>
+            <p className="text-body-sm text-muted-foreground">{sig.description}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <StatTile label="Volume PCR" value={fmtRatio(p.pcrVolume)} sub={`Put ${fmtOI(p.totalPEVol)} · Call ${fmtOI(p.totalCEVol)}`} />
@@ -129,16 +129,16 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-tile border border-border">
+        <div className="overflow-x-auto rounded-md border border-separator">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-label uppercase">Expiry</TableHead>
-                <TableHead className="text-right text-label uppercase">OI</TableHead>
-                <TableHead className="text-right text-label uppercase">Volume</TableHead>
-                <TableHead className="text-right text-label uppercase">ΔOI</TableHead>
-                <TableHead className="text-right text-label uppercase">Premium</TableHead>
-                <TableHead className="text-label uppercase">Reading</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead className="text-right">OI</TableHead>
+                <TableHead className="text-right">Volume</TableHead>
+                <TableHead className="text-right">ΔOI</TableHead>
+                <TableHead className="text-right">Premium</TableHead>
+                <TableHead>Reading</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -146,13 +146,13 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
                 const s = pcrSignal(r.pcr.pcrOI);
                 const active = r.expiry === current.expiry;
                 return (
-                  <TableRow key={r.key} className={cn("font-num text-xs", active && "bg-wash-brand/55", !r.expiry && "font-semibold", mixed && r.sample && "italic")} title={mixed && r.sample ? "Sample data for this expiry" : undefined}>
+                  <TableRow key={r.key} data-state={active ? "selected" : undefined} className={cn("font-num text-body-sm", !r.expiry && "font-semibold", mixed && r.sample && "italic")} title={mixed && r.sample ? "Sample data for this expiry" : undefined}>
                     <TableCell className="whitespace-nowrap">
                       {r.expiry ? (
                         <button
                           type="button"
                           onClick={() => onSelect(r.expiry as string)}
-                          className={cn("rounded-chip font-semibold hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none", mixed && r.sample && "text-warning")}
+                          className={cn("rounded-chip font-semibold hover:text-primary-ink focus-visible:shadow-focus focus-visible:outline-none", mixed && r.sample && "text-warning")}
                           aria-label={`Show ${r.label} expiry${r.sample ? " (sample data)" : ""}`}
                         >
                           {r.label}
@@ -177,7 +177,7 @@ export function PCRSuite({ rows, selected, onSelect }: { rows: ExpiryRow[]; sele
             </TableBody>
           </Table>
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-body-sm text-muted-foreground">
           Bands: below {PCR_BANDS.low} call heavy, {PCR_BANDS.low} to {PCR_BANDS.high} balanced, above {PCR_BANDS.high} put heavy, above {PCR_BANDS.extreme} extreme (contrarian). Premium PCR uses LTP × volume.{mixed && " Amber italic rows are sample data."}
         </p>
       </CardContent>

@@ -1,0 +1,45 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "NSE:SBIN-EQ",
+        "exchange": "NSE"
+      },
+      "interval": "1d",
+      "from": "2023-08-01",
+      "to": "2023-08-03"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/data/history\\?symbol=NSE%3ASBIN-EQ&resolution=1D&date_format=0&range_from=\\d+&range_to=\\d+&cont_flag=1$",
+      "json": {
+        "candles": [
+          [
+            1690934400,
+            609.85,
+            610.5,
+            594.1,
+            598.45,
+            14977497
+          ],
+          [
+            1691020800,
+            598.7,
+            600.85,
+            585,
+            590.5,
+            27774877
+          ]
+        ],
+        "code": 200,
+        "message": "",
+        "s": "ok"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

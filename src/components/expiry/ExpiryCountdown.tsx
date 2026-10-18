@@ -28,7 +28,7 @@ function ExpiryCountdownImpl({ symbol, expiry, type }: { symbol: string; expiry:
   const now = useNow(1000);
   if (!expiry) {
     return (
-      <div className="rounded-card border border-border bg-card p-4 text-body-sm text-muted-foreground shadow-card">No upcoming expiry found for {symbol}.</div>
+      <div className="rounded-card border border-separator bg-card p-4 text-body-sm text-muted-foreground shadow-card">No upcoming expiry found for {symbol}.</div>
     );
   }
   const exchange = getContractSpec(symbol)?.exchange ?? "NSE";
@@ -54,7 +54,7 @@ function ExpiryCountdownImpl({ symbol, expiry, type }: { symbol: string; expiry:
       aria-label="Expiry countdown"
       className={cn(
         "rounded-card border p-4 shadow-card",
-        today && !expired ? "border-warning/40 bg-wash-warning" : "border-border bg-card",
+        today && !expired ? "border-warning/40 bg-wash-warning" : "border-separator bg-card",
       )}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -93,7 +93,7 @@ function ExpiryCountdownImpl({ symbol, expiry, type }: { symbol: string; expiry:
         <div className="flex shrink-0 items-center gap-3">
           <Hourglass className={cn("h-7 w-7", today && !expired ? "text-warning" : "text-muted-foreground")} aria-hidden="true" />
           <div>
-            <p className="text-label uppercase text-muted-foreground">{today ? "Time to 15:30 IST" : "Time to expiry"}</p>
+            <p className="text-label text-muted-foreground">{today ? "Time to 15:30 IST" : "Time to expiry"}</p>
             <p role="timer" aria-live="off" aria-label={`Time to expiry ${dteLabel(expiry, now)}`} className="font-num text-num-hero tabular-nums">
               {expired ? "Settled" : today ? hms(left) : dteLabel(expiry, now)}
             </p>
@@ -104,7 +104,7 @@ function ExpiryCountdownImpl({ symbol, expiry, type }: { symbol: string; expiry:
       {session !== "weekend" && session !== "holiday" ? (
         <div className="mt-4">
           <div
-            className="relative h-2 w-full overflow-hidden rounded-capsule bg-muted"
+            className="relative h-2 w-full overflow-hidden rounded-capsule bg-control-track"
             role="progressbar"
             aria-label="Trading session elapsed"
             aria-valuemin={0}
@@ -114,7 +114,7 @@ function ExpiryCountdownImpl({ symbol, expiry, type }: { symbol: string; expiry:
             <div className="absolute inset-y-0 left-0 rounded-capsule bg-primary transition-[width] duration-settle ease-expo" style={{ width: `${progress * 100}%` }} />
             <div className="absolute inset-y-0 bg-warning/35" style={{ left: `${settleStart * 100}%`, right: 0 }} aria-hidden="true" />
           </div>
-          <div className="mt-1 flex justify-between text-micro uppercase text-muted-foreground">
+          <div className="mt-1 flex justify-between text-micro text-muted-foreground">
             <span>09:15</span>
             <span className="hidden sm:inline">12:00</span>
             <span className="text-warning">15:00 settlement window</span>

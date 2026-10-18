@@ -283,6 +283,17 @@ function ymIso(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/** NSE moved F&O expiries from Thursday to Tuesday for contracts expiring from 1 Sep 2025 (SEBI/NSE circular). */
+const NSE_TUESDAY_FROM = "2025-09-01";
+
+/**
+ * The rule as it applied in a past month: NSE contracts expired on Thursday before Sep 2025. Used when
+ * checking whether a given date was an expiry (tradebook symbols, contract validation).
+ */
+function historicalRule(rule: ExpiryRule, y: number, m: number): ExpiryRule {
+  return rule.exchange === "NSE" && ymIso(y, m, 1) < NSE_TUESDAY_FROM ? { ...rule, weekday: 4 } : rule;
+}
+
 /** All raw (pre-shift) expiry-weekday dates of a month, plus which one is the monthly. */
 function expiriesInMonth(rule: ExpiryRule, y: number, m: number): Array<{ date: string; type: "weekly" | "monthly" }> {
   const first = ymIso(y, m, 1);
@@ -349,7 +360,7 @@ export function isWeeklyExpiry(symbol: string, isoDate: string): boolean {
   const y = +isoDate.slice(0, 4);
   const m = +isoDate.slice(5, 7);
   const next = addCalendarDays(ymIso(y, m, 1), 40);
-  const candidates = [...expiriesInMonth(rule, y, m), ...expiriesInMonth(rule, +next.slice(0, 4), +next.slice(5, 7))];
+  const candidates = [...expiriesInMonth(historicalRule(rule, y, m), y, m), ...expiriesInMonth(historicalRule(rule, +next.slice(0, 4), +next.slice(5, 7)), +next.slice(0, 4), +next.slice(5, 7))];
   const hit = candidates.find((c) => c.date === isoDate);
   return hit?.type === "weekly";
 }
@@ -361,6 +372,6 @@ export function isMonthlyExpiry(symbol: string, isoDate: string): boolean {
   const y = +isoDate.slice(0, 4);
   const m = +isoDate.slice(5, 7);
   const next = addCalendarDays(ymIso(y, m, 1), 40);
-  const candidates = [...expiriesInMonth(rule, y, m), ...expiriesInMonth(rule, +next.slice(0, 4), +next.slice(5, 7))];
+  const candidates = [...expiriesInMonth(historicalRule(rule, y, m), y, m), ...expiriesInMonth(historicalRule(rule, +next.slice(0, 4), +next.slice(5, 7)), +next.slice(0, 4), +next.slice(5, 7))];
   return candidates.some((c) => c.date === isoDate && c.type === "monthly");
 }

@@ -183,7 +183,7 @@ export function StraddleChart({
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        <SpotSparkline data={spotRows} domain={domain} syncId={syncId} symbol={symbol} className="mt-3 border-t border-border pt-2" />
+        <SpotSparkline data={spotRows} domain={domain} syncId={syncId} symbol={symbol} className="hairline-t mt-3 pt-2" />
         <figcaption className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted-foreground">
           <DerivedBadge title="From snapshots" />
           {theoryOn ? <ModelBadge /> : null}

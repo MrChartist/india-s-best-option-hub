@@ -1,0 +1,57 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/TradeBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\",\"actid\":\"Z12345\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "norenordno": "26101600000001",
+          "uid": "Z12345",
+          "actid": "Z12345",
+          "exch": "NSE",
+          "prctyp": "LMT",
+          "ret": "DAY",
+          "prd": "M",
+          "flid": "102",
+          "fltm": "16-10-2026 09:30:02",
+          "trantype": "S",
+          "tsym": "ACCELYA-EQ",
+          "qty": "180",
+          "token": "7053",
+          "fillshares": "180",
+          "flqty": "180",
+          "pp": "2",
+          "ls": "1",
+          "ti": "0.05",
+          "prc": "800.00",
+          "flprc": "800.00",
+          "norentm": "09:30:02 16-10-2026",
+          "exch_tm": "16-10-2026 09:30:02",
+          "remarks": "WC TEST Order",
+          "exchordid": "6857"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

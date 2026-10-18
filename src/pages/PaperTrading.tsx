@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/PageHeader";
 import { ChainFeed } from "@/components/positions/ChainFeed";
 import { downloadText, feedKey, signedINR, spotsFromFeeds, useChainFeeds, type FeedSnapshot } from "@/components/positions/helpers";
-import { EduNote, Panel, Stat } from "@/components/positions/ui";
+import { EduNote, Panel, STAT_GROUP, Stat } from "@/components/positions/ui";
 import { AccountSheet } from "@/components/paper/AccountSheet";
 import { BasketConfirmDialog } from "@/components/paper/BasketConfirmDialog";
 import { basketPreview } from "@/components/paper/basketPreview";
@@ -39,6 +39,7 @@ import {
   basketToOrders,
   cancelOrder,
   compactLedger,
+  paperChangeIsMaterial,
   contractKey,
   createPaperSaver,
   createPaperState,
@@ -138,12 +139,22 @@ export default function PaperTrading() {
   );
   // State that came from another tab's save is already on disk: do not write it back.
   const fromOtherTab = useRef<PaperState | null>(null);
+  // Last state written (or adopted from another tab). Price ticks only change marks, so they are
+  // deferred instead of saved: otherwise every tab writes the account about once a second and a
+  // tick save from one tab discards an order just placed in another.
+  const savedBase = useRef<PaperState | null>(null);
   useEffect(() => {
     if (fromOtherTab.current === state) {
       fromOtherTab.current = null;
+      savedBase.current = state;
       return;
     }
-    saver.schedule(state);
+    if (paperChangeIsMaterial(savedBase.current, state)) {
+      savedBase.current = state;
+      saver.schedule(state);
+    } else {
+      saver.defer(state);
+    }
   }, [state, saver]);
 
   // ── Several tabs on one paper account ──
@@ -440,7 +451,6 @@ export default function PaperTrading() {
 
       <PageHeader
         icon={Wallet}
-        eyebrow="Portfolio"
         title="Paper Trading"
         description="Practise option trades with virtual money on live chains. Real fills at mid plus slippage, real charges, stops and targets, automatic settlement at expiry, and guardrails before every order."
         source={
@@ -501,7 +511,7 @@ export default function PaperTrading() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      <div className={cn(STAT_GROUP, "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6")}>
         <Stat label="Equity" value={formatCompactIN(f.equity, { symbol: true, decimals: 2 })} sub={`started ${formatCompactIN(state.startingCapital, { symbol: true })}`} help="Cash plus the marked value of open positions (long value minus short liability)." />
         <Stat label="Return" value={formatPct(ret, { decimals: 2, signed: true })} tone={ret > 0 ? "bullish" : ret < 0 ? "bearish" : "muted"} sub="on starting capital" />
         <Stat label="Available" value={formatCompactIN(f.available, { symbol: true, decimals: 2 })} tone={f.available < 0 ? "bearish" : undefined} sub="cash − margin" help="Cash left after blocking SPAN-style margin for short options. New orders must keep this above zero." />
@@ -513,7 +523,7 @@ export default function PaperTrading() {
       <GuardrailBar guardrails={guardrails} todayPnl={todayPnl(state, now)} killSwitch={state.killSwitch} killActive={killOn} openPositions={state.positions.length} onKill={kill} onRelease={release} />
 
       <div className="grid items-start gap-4 lg:grid-cols-[400px_minmax(0,1fr)]">
-        <div className="min-w-0 lg:sticky lg:top-14">
+        <div className="min-w-0">
           <Panel title="Order ticket" subtitle="Pick a price in the mini chain, set your max loss, then buy or sell.">
             <OrderTicket
               symbol={symbol}
@@ -604,7 +614,7 @@ export default function PaperTrading() {
             </TabsContent>
           </Tabs>
 
-          <div ref={basketRef} id="paper-basket" tabIndex={-1} className={cn("scroll-mt-20 rounded-card outline-none transition-shadow duration-settle", basketFlash && "shadow-ember")}>
+          <div ref={basketRef} id="paper-basket" tabIndex={-1} className={cn("scroll-mt-20 rounded-card outline-none transition-shadow duration-settle", basketFlash && "shadow-focus")}>
             <Panel
               title={
                 <>
@@ -637,7 +647,7 @@ export default function PaperTrading() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  <ul className="divide-y divide-border rounded-tile border border-border">
+                  <ul className="divide-y divide-separator overflow-hidden rounded-tile border border-separator">
                     {staged.map((l, i) => {
                       const q = quotes[contractKey(l)];
                       const lot = getLotSize(l.symbol, l.expiry);
@@ -660,24 +670,25 @@ export default function PaperTrading() {
                               {!lot ? " · unknown lot size" : ""}
                             </span>
                           </span>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setStaged((cur) => cur.filter((_, j) => j !== i))} aria-label={`Remove ${l.symbol} ${l.strike} ${l.type} from basket`}>
+                          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setStaged((cur) => cur.filter((_, j) => j !== i))} aria-label={`Remove ${l.symbol} ${l.strike} ${l.type} from basket`}>
                             <X className="!size-3.5" />
                           </Button>
                         </li>
                       );
                     })}
                   </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <Button className="flex-1" onClick={() => setConfirmOpen(true)} disabled={killOn && !basketOrders.orders.length}>
-                      Place all at market
+                  {/* macOS button order: secondary actions first, the default action rightmost. */}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" onClick={() => setStaged([])}>
+                      Clear
                     </Button>
                     <Button asChild variant="outline">
                       <Link to={strategyBuilderUrl(staged)}>
                         <LineChart aria-hidden="true" /> Analyse
                       </Link>
                     </Button>
-                    <Button variant="outline" onClick={() => setStaged([])}>
-                      Clear
+                    <Button onClick={() => setConfirmOpen(true)} disabled={killOn && !basketOrders.orders.length}>
+                      Place all at market
                     </Button>
                   </div>
                 </div>

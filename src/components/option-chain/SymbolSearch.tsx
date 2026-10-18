@@ -29,13 +29,13 @@ export function SymbolSearch({ value, onSelect }: { value: string; onSelect: (v:
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="pill" className="h-8 w-[168px] justify-between gap-1 text-xs font-semibold" role="combobox" aria-expanded={open} aria-label={`Symbol: ${currentLabel}. Change symbol`}>
+        <Button variant="outline" className="w-[176px] justify-between gap-1 pl-2.5 pr-2 font-semibold" role="combobox" aria-expanded={open} aria-label={`Symbol: ${currentLabel}. Change symbol`}>
           <span className="truncate">{currentLabel}</span>
-          <Search className="opacity-60" />
+          <Search className="!size-3.5 opacity-60" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start">
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <div className="hairline-b flex items-center gap-2 px-3 py-1.5">
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <Input
             ref={inputRef}
@@ -49,7 +49,7 @@ export function SymbolSearch({ value, onSelect }: { value: string; onSelect: (v:
             }}
             placeholder="Search F&O symbols"
             aria-label="Search F&O symbols"
-            className="h-7 border-0 p-0 text-xs shadow-none focus:shadow-none focus-visible:ring-0"
+            className="h-7 border-0 bg-transparent p-0 shadow-none focus:shadow-none focus-visible:shadow-none focus-visible:ring-0"
           />
           {search && (
             <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setSearch("")} aria-label="Clear search">
@@ -59,11 +59,11 @@ export function SymbolSearch({ value, onSelect }: { value: string; onSelect: (v:
         </div>
         <div className="max-h-[340px] overflow-y-auto p-1">
           {filtered.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">No F&O symbol matches “{search}”.</p>
+            <p className="py-4 text-center text-body-sm text-muted-foreground">No F&O symbol matches “{search}”.</p>
           ) : (
             filtered.map((cat) => (
               <div key={cat.label}>
-                <p className="sticky top-0 bg-popover px-2 py-1.5 text-label uppercase text-muted-foreground">{cat.label}</p>
+                <p className="sticky top-0 bg-popover px-2 pb-1 pt-2 text-label text-muted-foreground">{cat.label}</p>
                 <div className="grid grid-cols-3 gap-0.5">
                   {cat.symbols.map((s) => (
                     <button
@@ -71,8 +71,8 @@ export function SymbolSearch({ value, onSelect }: { value: string; onSelect: (v:
                       type="button"
                       onClick={() => choose(s.value)}
                       className={cn(
-                        "truncate rounded-chip px-2 py-1.5 text-left text-xs transition-colors duration-fast hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none",
-                        s.value === value && "bg-wash-brand font-semibold text-primary-ink",
+                        "h-7 truncate rounded-[5px] px-2 text-left text-body transition-colors duration-fast hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:outline-none",
+                        s.value === value && "bg-control-track font-semibold",
                       )}
                     >
                       {s.label}

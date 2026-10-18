@@ -26,14 +26,14 @@ export function Panel({
   const headingId = `${useId()}-title`;
   return (
     <Card className={cn("min-w-0 overflow-hidden", className)} role="region" aria-labelledby={headingId}>
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
+      <div className="hairline-b flex flex-wrap items-start justify-between gap-2 px-4 py-2.5">
         <div className="min-w-0">
-          <h2 id={headingId} className="flex flex-wrap items-center gap-2 font-display text-lead font-bold tracking-[-0.01em]">
+          <h2 id={headingId} className="flex flex-wrap items-center gap-1.5 text-headline [&>svg]:shrink-0">
             {title}
           </h2>
           {subtitle ? <p className="mt-0.5 text-body-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex flex-wrap items-center gap-1.5">{actions}</div> : null}
       </div>
       <div className={cn("p-4", bodyClassName)}>{children}</div>
     </Card>
@@ -47,24 +47,31 @@ export function HelpTip({ text, label = "What is this?" }: { text: ReactNode; la
         <button
           type="button"
           aria-label={label}
-          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
         >
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[300px] text-xs leading-relaxed">{text}</TooltipContent>
+      <TooltipContent className="max-w-[300px] leading-relaxed">{text}</TooltipContent>
     </Tooltip>
   );
 }
 
+/**
+ * Grouped stat box (macOS inspector / Stocks style): one hairline-edged box whose 1px gaps show
+ * the separator colour, so the stats read as one panel instead of a row of separate tiles.
+ */
+export const STAT_GROUP = "grid gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card";
+
+/** One cell of a STAT_GROUP grid. */
 export function Stat({ label, value, hint, tone, help }: { label: string; value: ReactNode; hint?: ReactNode; tone?: string; help?: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-tile border border-border bg-card px-3 py-2.5 shadow-card">
-      <div className="flex items-center gap-1 text-label uppercase text-muted-foreground">
+    <div className="min-w-0 bg-card px-3 py-2">
+      <div className="flex items-center gap-1 text-label text-muted-foreground">
         <span className="truncate">{label}</span>
         {help ? <HelpTip text={help} label={`About ${label}`} /> : null}
       </div>
-      <p className={cn("mt-1 truncate font-num text-title tabular-nums", tone)}>{value}</p>
+      <p className={cn("mt-0.5 truncate font-num text-title tabular-nums", tone)}>{value}</p>
       {hint ? <div className="mt-0.5 truncate text-body-sm text-muted-foreground">{hint}</div> : null}
     </div>
   );
@@ -72,9 +79,9 @@ export function Stat({ label, value, hint, tone, help }: { label: string; value:
 
 export function EmptyState({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-tile border border-dashed border-border px-4 py-10 text-center">
-      {icon ? <div className="text-muted-foreground">{icon}</div> : null}
-      <p className="font-display text-lead font-bold">{title}</p>
+    <div className="flex flex-col items-center justify-center gap-2 rounded-tile bg-surface px-4 py-10 text-center">
+      {icon ? <div className="text-muted-foreground opacity-70">{icon}</div> : null}
+      <p className="text-headline">{title}</p>
       {children ? <div className="max-w-md text-body-sm text-muted-foreground">{children}</div> : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
@@ -108,14 +115,14 @@ export function ProvenanceBadge({ kind, asOf, reason }: { kind: Provenance; asOf
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-ember focus-visible:outline-none" data-provenance={kind}>
+        <span tabIndex={0} className="inline-flex cursor-default rounded-chip focus-visible:shadow-focus focus-visible:outline-none" data-provenance={kind}>
           <Badge variant={p.variant}>
             <Icon aria-hidden="true" />
             {p.text}
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[280px] text-xs">
+      <TooltipContent className="max-w-[280px]">
         <p className="font-semibold">{p.text}</p>
         {asOf ? <p className="text-muted-foreground">As of {formatTimeIST(asOf, { seconds: true })}</p> : null}
         <p className="mt-1 text-muted-foreground">{p.note}</p>

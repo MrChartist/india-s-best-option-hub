@@ -68,14 +68,14 @@ export function MonthView({ month, events, today, selected, onSelect }: MonthVie
   return (
     <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0">
-        <div className="grid grid-cols-7 gap-px rounded-t-tile border border-b-0 border-border bg-border" aria-hidden="true">
+        <div className="grid grid-cols-7 overflow-hidden rounded-t-tile border border-b-0 border-separator" aria-hidden="true">
           {HEAD.map((h, i) => (
-            <div key={h} className={cn("bg-muted px-1 py-1.5 text-center text-label uppercase text-muted-foreground", i >= 5 && "text-muted-foreground-subtle")}>
+            <div key={h} className={cn("bg-surface px-1.5 py-1 text-right text-label text-muted-foreground", i >= 5 && "text-muted-foreground-subtle")}>
               {h}
             </div>
           ))}
         </div>
-        <div ref={gridRef} role="grid" aria-label={`Events in ${formatDateIST(`${month}-15`).replace(/^\d+ /, "")}`} className="grid gap-px overflow-hidden rounded-b-tile border border-border bg-border">
+        <div ref={gridRef} role="grid" aria-label={`Events in ${formatDateIST(`${month}-15`).replace(/^\d+ /, "")}`} className="grid gap-px overflow-hidden rounded-b-tile border border-separator bg-separator">
           {weeks.map((week) => (
             <div key={week[0].date} role="row" className="grid grid-cols-7 gap-px">
               {week.map((cell) => {
@@ -93,10 +93,10 @@ export function MonthView({ month, events, today, selected, onSelect }: MonthVie
                       onKeyDown={(ev) => onKey(ev, cell.date)}
                       aria-current={isToday ? "date" : undefined}
                       className={cn(
-                        "flex h-full min-h-[64px] w-full min-w-0 flex-col items-stretch gap-1 p-1 text-left transition-colors duration-fast focus-visible:relative focus-visible:z-10 focus-visible:shadow-ember focus-visible:outline-none sm:min-h-[104px] sm:p-1.5",
-                        cell.inMonth ? "bg-card" : "bg-muted/60",
-                        !cell.trading && cell.inMonth && "bg-muted/40",
-                        isSel ? "bg-wash-brand" : "hover:bg-accent",
+                        "flex h-full min-h-[64px] w-full min-w-0 flex-col items-stretch gap-1 p-1 text-left transition-colors duration-fast focus-visible:relative focus-visible:z-10 focus-visible:shadow-focus focus-visible:outline-none sm:min-h-[104px] sm:p-1.5",
+                        cell.inMonth ? "bg-card" : "bg-surface text-muted-foreground",
+                        !cell.trading && cell.inMonth && "bg-surface/70",
+                        isSel ? "bg-wash-brand" : "hover:bg-control-track",
                       )}
                     >
                       {/* Name comes from this hidden text (not aria-label) so the visible day number never conflicts with it. */}
@@ -126,7 +126,7 @@ export function MonthView({ month, events, today, selected, onSelect }: MonthVie
                                 <EventMarker event={e} variant="chip" noTooltip label={monthChipLabel(e)} className={cn("w-full", e.source === "sample" && SAMPLE_CHIP)} />
                               </span>
                             ))}
-                            {evs.length > MAX_CHIPS ? <span className="px-1 text-[11px] font-medium leading-4 text-muted-foreground">+{evs.length - MAX_CHIPS} more</span> : null}
+                            {evs.length > MAX_CHIPS ? <span className="px-1 text-label font-medium text-muted-foreground">+{evs.length - MAX_CHIPS} more</span> : null}
                           </span>
                         </>
                       ) : null}
@@ -139,7 +139,7 @@ export function MonthView({ month, events, today, selected, onSelect }: MonthVie
         </div>
         <p className="mt-2 text-body-sm text-muted-foreground">Use the arrow keys to move between days. Shaded days are weekends or exchange holidays.</p>
       </div>
-      <aside aria-label="Selected day" className="min-w-0 rounded-tile border border-border bg-card p-3 shadow-card" aria-live="polite">
+      <aside aria-label="Selected day" className="min-w-0 rounded-tile bg-surface p-3" aria-live="polite">
         <DayHeading date={selected} today={today} as="h3" />
         {dayEvents.length ? (
           <div className="mt-2">

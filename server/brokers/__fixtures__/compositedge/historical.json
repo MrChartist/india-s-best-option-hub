@@ -1,0 +1,52 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "40003",
+        "exchange": "NFO"
+      },
+      "interval": "1m",
+      "from": "2026-10-16",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/apimarketdata/auth/login",
+      "expectBody": {
+        "appKey": "dummyMdAppKey01",
+        "secretKey": "dummyMdSecret01",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Provided Valid Credentials",
+        "result": {
+          "token": "dummy.md.jwt.token",
+          "userID": "DUMMY1",
+          "appVersion": "1.0",
+          "application_expiry_date": "2027-01-01"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https:\\/\\/xts\\.compositedge\\.com\\/apimarketdata/instruments/ohlc\\?exchangeSegment=NSEFO&exchangeInstrumentID=40003&startTime=Oct%2016%202026%20000000&endTime=Oct%2016%202026%20235959&compressionValue=60$",
+      "json": {
+        "type": "success",
+        "code": "s-instrument-0002",
+        "description": "Data found",
+        "result": {
+          "exchangeSegment": "NSEFO",
+          "exchangeInstrumentID": "40003",
+          "dataReponse": "1792142100|121.5|124|118.25|119.9|112500|3221625|,1792142160|119.9|122.35|119.1|121.05|88275|3241875|,1792142220|121.05|121.4|117.6|118.2|97650|3259500|"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

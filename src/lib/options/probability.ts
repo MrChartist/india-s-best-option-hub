@@ -57,12 +57,15 @@ export function probITM(p: { F: number; K: number; T: number; sigma: number; typ
 
 /**
  * Probability of touching the strike before expiry (reflection approximation):
- * min(1, 2·P(ITM)) for an OTM strike, 1 when already in the money.
+ * min(1, 2·P(ITM)) for an OTM strike, 1 when already in the money. "Already in the money" is
+ * judged on spot `S` when given (a strike between spot and forward has not been touched yet),
+ * else on F.
  */
-export function probTouch(p: { F: number; K: number; T: number; sigma: number; type: OptionType }): number {
+export function probTouch(p: { F: number; K: number; T: number; sigma: number; type: OptionType; S?: number }): number {
   const pItm = probITM(p);
   if (!p || Number.isNaN(pItm)) return NaN;
-  const alreadyItm = intrinsic(p.F, p.K, p.type) > 0;
+  const ref = typeof p.S === "number" && p.S > 0 ? p.S : p.F;
+  const alreadyItm = intrinsic(ref, p.K, p.type) > 0;
   if (alreadyItm) return 1;
   return Math.min(1, 2 * Math.min(pItm, 1 - pItm));
 }
@@ -114,13 +117,17 @@ export function probabilityOfProfit(legs: Leg[], o: { F: number; T: number; sigm
   return Math.max(0, Math.min(1, p));
 }
 
-/** Expected expiry P&L (rupees, undiscounted) under the lognormal with mean F — exact, leg by leg. */
+/**
+ * Expected expiry P&L (rupees, undiscounted) under the lognormal with mean F — exact, leg by leg.
+ * Each leg is valued at its own iv when present (premiums carry the smile, so pricing an OTM leg
+ * at ATM vol would invent an edge); `sigma` is the fallback for legs without one.
+ */
 export function expectedValue(legs: Leg[], o: { F: number; T: number; sigma: number }): number {
   if (!o || !(o.F > 0)) return NaN;
   let ev = 0;
   for (const l of (Array.isArray(legs) ? legs : []).filter((x) => x && isLegEnabled(x))) {
     const qty = (Number(l.lots) || 0) * (Number(l.lotSize) || 0);
-    const sigma = o.sigma > 0 ? o.sigma : (l.iv ?? NaN);
+    const sigma = typeof l.iv === "number" && l.iv > 0 ? l.iv : o.sigma > 0 ? o.sigma : NaN;
     const expected = l.type === "FUT" ? o.F : black76Price({ F: o.F, K: l.strike, T: o.T, r: 0, sigma, type: l.type });
     ev += sideSign(l.side) * (expected - (Number(l.premium) || 0)) * qty;
   }

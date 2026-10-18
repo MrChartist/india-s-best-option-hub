@@ -1,0 +1,52 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v1/holdings?client_id=DUMMY1",
+      "status": 200,
+      "json": {
+        "data": {
+          "holdings": [
+            {
+              "branch_code": "",
+              "buy_avg": 240.2,
+              "buy_avg_mtm": 277.75,
+              "client_id": "DUMMY1",
+              "exchange": "NSE",
+              "free_quantity": 55,
+              "instrument_details": {
+                "exchange": 1,
+                "instrument_name": "EQ",
+                "instrument_token": 3045,
+                "trading_symbol": "SBIN-EQ"
+              },
+              "isin": "INE062A01020",
+              "ltp": 245.25,
+              "pending_quantity": 0,
+              "pledge_quantity": 0,
+              "previous_close": 240.2,
+              "quantity": 55,
+              "symbol": "SBIN",
+              "t0_price": 0,
+              "t0_quantity": 0,
+              "t1_price": 0,
+              "t1_quantity": 0,
+              "t2_price": 0,
+              "t2_quantity": 0,
+              "today_pledge_quantity": 0,
+              "token": 3045,
+              "trading_symbol": "SBIN",
+              "transaction_type": "",
+              "used_quantity": 0
+            }
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

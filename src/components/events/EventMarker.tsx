@@ -33,7 +33,7 @@ function ariaText(e: MarketEvent): string {
 export function EventTooltipBody({ event: e }: { event: MarketEvent }) {
   const prov = eventProvenance(e);
   return (
-    <div className="max-w-[280px] space-y-1 text-xs">
+    <div className="max-w-[280px] space-y-1 text-body-sm">
       <p className="font-semibold text-foreground">{e.title}</p>
       <p className="font-num tabular-nums text-muted-foreground">
         {formatDateIST(e.date)}
@@ -67,7 +67,7 @@ const Inner = forwardRef<HTMLSpanElement, EventMarkerProps & { tabbable: boolean
       <span
         {...common}
         className={cn(
-          "inline-block h-2 w-2 shrink-0 rounded-full focus-visible:shadow-ember focus-visible:outline-none",
+          "inline-block h-2 w-2 shrink-0 rounded-full focus-visible:shadow-focus focus-visible:outline-none",
           s.dot,
           sample && "opacity-60 ring-1 ring-inset ring-background",
           className,
@@ -77,7 +77,7 @@ const Inner = forwardRef<HTMLSpanElement, EventMarkerProps & { tabbable: boolean
   }
   if (variant === "icon") {
     return (
-      <span {...common} className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-chip focus-visible:shadow-ember focus-visible:outline-none", s.chip, className)}>
+      <span {...common} className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-chip focus-visible:shadow-focus focus-visible:outline-none", s.chip, className)}>
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     );
@@ -86,7 +86,7 @@ const Inner = forwardRef<HTMLSpanElement, EventMarkerProps & { tabbable: boolean
     <span
       {...common}
       className={cn(
-        "inline-flex h-5 min-w-0 max-w-full items-center gap-1 rounded-chip px-1.5 text-[11px] font-semibold leading-none focus-visible:shadow-ember focus-visible:outline-none",
+        "inline-flex h-5 min-w-0 max-w-full items-center gap-1 rounded-chip px-1.5 text-label leading-none focus-visible:shadow-focus focus-visible:outline-none",
         s.chip,
         sample && "border border-dashed border-current",
         className,
@@ -111,5 +111,3 @@ export function EventMarker(props: EventMarkerProps) {
     </Tooltip>
   );
 }
-
-export default EventMarker;

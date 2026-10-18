@@ -1,6 +1,8 @@
 /*
- * Mr. Chartist design language: "paper + ink-wine" (light) and "void + orange" (dark).
- * Every colour token is a raw HSL channel triple consumed as hsl(var(--x) / <alpha>).
+ * Mr. Chartist design language, macOS-inspired: "paper + ink-wine" (light) and graphite + orange (dark).
+ * Translucent sidebar/toolbar materials, an inset content window, hairline separators, 13px UI text.
+ * Every colour token is a raw HSL channel triple consumed as hsl(var(--x) / <alpha>); material,
+ * separator and selection tokens carry their own alpha and are consumed as hsl(var(--x)).
  * Fonts are loaded from index.html (preconnect + <link>), not via @import here.
  */
 @tailwind base;
@@ -16,28 +18,60 @@
     --paper-2: 53 23.5% 93.3%;
     --paper-3: 54 20% 90.2%;
     --paper-4: 51 16.5% 84.5%;
-    --void-0: 208 25% 1.6%;
-    --void-1: 210 25% 3.1%;
-    --void-2: 212 22% 5.5%;
-    --void-3: 214 20% 8.4%;
-    --void-4: 215 19% 12.5%;
+    /* Graphite (macOS dark is neutral grey, not near-black) */
+    --void-0: 220 6% 9%;
+    --void-1: 220 5% 11.5%;
+    --void-2: 220 5% 14%;
+    --void-3: 220 4% 17.5%;
+    --void-4: 220 4% 20%;
+    --void-5: 220 4% 25%;
     --ink-wine: 336.7 41% 8.6%;
     --orange-100: 23.5 86.4% 88.4%;
     --orange-300: 23 89% 69%;
     --orange-400: 18 87.6% 62%;
     --orange-500: 17.9 85.5% 53.9%;
     --orange-900: 15.8 86.1% 22.5%;
-    --ember: 9 100% 59%;
 
-    /* Semantic surfaces */
-    --background: var(--paper-1);
+    /* Window structure: the content "window" sits on a backdrop beside the sidebar material */
+    --window: var(--paper-1);
+    --window-backdrop: var(--paper-2);
+    --grouped: var(--paper-1);
+    --grouped-row: var(--paper-0);
+
+    /* Materials (alpha included) */
+    --material-sidebar: 54 18% 91% / 0.78;
+    --material-toolbar: 72 20% 96% / 0.8;
+    --material-menu: 0 0% 99.6% / 0.9;
+    --material-sheet-scrim: 337 41% 8.6% / 0.2;
+
+    /* Separators (alpha included) */
+    --separator: 337 20% 12% / 0.11;
+    --separator-strong: 337 20% 12% / 0.18;
+    --hairline: 1px;
+
+    /* Selection */
+    --selection-focused: var(--orange-500);
+    --selection-focused-foreground: var(--ink-wine);
+    --selection-unfocused: 337 10% 12% / 0.08;
+    --zebra: 54 20% 40% / 0.05;
+
+    /* Controls */
+    --control: 0 0% 100%;
+    --control-track: 337 10% 12% / 0.07;
+    --switch-off: 337 8% 12% / 0.16;
+    --knob: 0 0% 100%;
+
+    /* Focus ring (macOS: ~3.5px accent at 50%, outside the control) */
+    --focus-ring: 0 0 0 3px hsl(var(--orange-500) / 0.5);
+
+    /* Semantic surfaces: background is the window surface pages draw on */
+    --background: var(--window);
     --foreground: var(--ink-wine);
     --card: var(--paper-0);
     --card-foreground: var(--ink-wine);
     --popover: var(--paper-0);
     --popover-foreground: var(--ink-wine);
     --surface: var(--paper-2);
-    --surface-foreground: var(--ink-wine);
 
     /* Brand */
     --primary: var(--orange-500);
@@ -58,20 +92,18 @@
     --destructive: 0.5 46.4% 49%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 54 14% 86%;
+    --border: 54 12% 85%;
     --input: var(--paper-4);
     --ring: var(--orange-500);
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    /* Sidebar */
-    --sidebar-background: var(--paper-0);
-    --sidebar-foreground: 337 12% 30%;
-    --sidebar-primary: var(--orange-500);
-    --sidebar-primary-foreground: var(--ink-wine);
-    --sidebar-accent: var(--paper-2);
+    /* Sidebar (source list): labels near-primary, selection is a filled pill */
+    --sidebar-background: var(--paper-2);
+    --sidebar-foreground: 337 14% 22%;
+    --sidebar-accent: var(--paper-3);
     --sidebar-accent-foreground: var(--ink-wine);
-    --sidebar-border: 54 14% 86%;
+    --sidebar-border: 54 12% 85%;
     --sidebar-ring: var(--orange-500);
 
     /* Trading */
@@ -80,12 +112,8 @@
     --bearish: 1 55% 42%;
     --bearish-foreground: 0 0% 100%;
     --warning: 37 57.5% 31.4%;
-    --warning-foreground: 0 0% 100%;
     --info: 212.6 80% 33.3%;
-    --info-foreground: 0 0% 100%;
     --product: 212.6 80% 33.3%;
-    --product-foreground: 0 0% 100%;
-    --product-ink: 212.6 80% 33.3%;
 
     /* Washes (tinted backgrounds) */
     --wash-profit: 144.5 35.5% 87.8%;
@@ -96,12 +124,6 @@
     /* In-the-money strike shading on option chains */
     --wash-itm: 40 30% 95%;
 
-    /* Sentiment scale: 1 strongly bearish … 3 neutral … 5 strongly bullish */
-    --sentiment-1: 1 55% 42%;
-    --sentiment-2: 8 50% 56%;
-    --sentiment-3: 337 8% 52%;
-    --sentiment-4: 150 34% 44%;
-    --sentiment-5: 152 48% 29%;
 
     /* Charts */
     --chart-grid: 54 14% 89%;
@@ -119,43 +141,57 @@
     --chart-call: var(--bearish);
     --chart-put: var(--bullish);
 
-    /* Glass nav */
-    --nav-bg: 0 0% 99.6% / 0.88;
-
-    /* Elevation (warm paper) */
-    --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.07);
-    --shadow-2: 0 2px 4px rgb(28 22 16 / 0.055), 0 10px 28px rgb(28 22 16 / 0.075);
-    --shadow-3: 0 5px 12px rgb(28 22 16 / 0.07), 0 24px 60px rgb(28 22 16 / 0.11);
-    --shadow-card: var(--shadow-1), 0 1px 3px rgb(28 22 16 / 0.04);
+    /* Elevation: macOS is subtle; group boxes are a hairline plus a whisper of shadow */
+    --shadow-1: 0 0.5px 1px rgb(28 22 16 / 0.08);
+    --shadow-2: 0 1px 2px rgb(28 22 16 / 0.06), 0 4px 12px rgb(28 22 16 / 0.07);
+    --shadow-3: 0 0 0 0.5px rgb(28 22 16 / 0.1), 0 10px 30px rgb(28 22 16 / 0.16), 0 2px 6px rgb(28 22 16 / 0.06);
+    --shadow-card: var(--shadow-1);
     --shadow-card-hover: var(--shadow-2);
     --shadow-float: var(--shadow-3);
-    --shadow-ember: 0 0 0 1px hsl(var(--ring) / 0.3), 0 4px 18px hsl(var(--ring) / 0.12);
+    --shadow-control: 0 0 0 0.5px rgb(28 22 16 / 0.14), 0 0.5px 1.5px rgb(28 22 16 / 0.16);
+    --shadow-window: 0 0 0 0.5px hsl(var(--separator-strong)), 0 1px 3px rgb(28 22 16 / 0.05);
+    /* Legacy name kept for the many focus-visible:shadow-ember call sites */
+    --shadow-ember: var(--focus-ring);
 
     /* Motion */
     --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-press: cubic-bezier(0.25, 1, 0.5, 1);
-    --ease-spring: cubic-bezier(0.3, 1.4, 0.5, 1);
-    --ease-overlay: cubic-bezier(0.32, 0.72, 0, 1);
-    --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
-    --dur-press: 120ms;
-    --dur-fast: 150ms;
-    --dur-hover: 250ms;
-    --dur-page: 320ms;
-    --dur-settle: 500ms;
+    --ease-out: cubic-bezier(0.2, 0, 0, 1);
+    --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+    --dur-fast: 120ms;
+    --dur-page: 140ms;
 
     color-scheme: light;
   }
 
   /* ───────────────────────── DARK MODE (void + orange) ───────────────────────── */
   .dark {
-    --background: var(--void-1);
+    --window: var(--void-2);
+    --window-backdrop: var(--void-0);
+    --grouped: var(--void-1);
+    --grouped-row: var(--void-3);
+
+    --material-sidebar: 220 5% 12% / 0.72;
+    --material-toolbar: 220 5% 15% / 0.82;
+    --material-menu: 220 4% 19% / 0.9;
+    --material-sheet-scrim: 0 0% 0% / 0.45;
+
+    --separator: 0 0% 100% / 0.09;
+    --separator-strong: 0 0% 100% / 0.15;
+
+    --selection-unfocused: 0 0% 100% / 0.1;
+    --zebra: 0 0% 100% / 0.03;
+
+    --control: var(--void-5);
+    --control-track: 0 0% 100% / 0.07;
+    --switch-off: 0 0% 100% / 0.16;
+
+    --background: var(--window);
     --foreground: var(--paper-1);
     --card: var(--void-3);
     --card-foreground: var(--paper-1);
     --popover: var(--void-3);
     --popover-foreground: var(--paper-1);
     --surface: var(--void-2);
-    --surface-foreground: var(--paper-1);
 
     --primary: var(--orange-500);
     --primary-foreground: var(--ink-wine);
@@ -165,55 +201,45 @@
     --secondary: var(--void-4);
     --secondary-foreground: var(--paper-1);
     --muted: var(--void-4);
-    --muted-foreground: 72 6% 64%;
-    /* ≥ 4.5:1 on void-1, card (void-3) and muted (void-4) */
-    --muted-foreground-subtle: 72 4% 54%;
+    /* Graphite surfaces are lighter than the old void, so text tokens are lifted to keep
+       ≥ 4.5:1 on window (void-2), card (void-3), muted (void-4), zebra rows and control faces. */
+    --muted-foreground: 220 6% 71%;
+    --muted-foreground-subtle: 220 5% 67%;
     --accent: var(--void-4);
     --accent-foreground: var(--paper-1);
 
-    --destructive: 3 72% 66%;
+    --destructive: 3 80% 73%;
     --destructive-foreground: var(--ink-wine);
 
-    --border: 213 14% 14%;
+    --border: 220 4% 25%;
     --input: var(--void-4);
     --ring: var(--orange-500);
 
-    --sidebar-background: var(--void-0);
-    --sidebar-foreground: 72 6% 72%;
-    --sidebar-primary: var(--orange-500);
-    --sidebar-primary-foreground: var(--ink-wine);
+    --sidebar-background: var(--void-1);
+    --sidebar-foreground: 220 6% 84%;
     --sidebar-accent: var(--void-3);
     --sidebar-accent-foreground: var(--paper-1);
-    --sidebar-border: 213 14% 12%;
+    --sidebar-border: 220 4% 20%;
     --sidebar-ring: var(--orange-500);
 
     --bullish: 148.9 45.5% 63.3%;
     --bullish-foreground: var(--void-0);
-    --bearish: 3 72% 66%;
+    --bearish: 3 80% 73%;
     --bearish-foreground: var(--ink-wine);
     --warning: 40 56.5% 71.2%;
-    --warning-foreground: var(--void-0);
     --info: 211 78% 68%;
-    --info-foreground: var(--void-0);
     --product: 211 78% 68%;
-    --product-foreground: var(--void-0);
-    --product-ink: 211 78% 68%;
 
     --wash-profit: 147.5 30% 15.7%;
     --wash-loss: 1.3 43.7% 20.2%;
     --wash-warning: 38 40% 12%;
     --wash-brand: var(--orange-900);
     --wash-info: 214 34% 10%;
-    --wash-itm: 220 12% 13%;
+    --wash-itm: 220 6% 18%;
 
-    --sentiment-1: 3 72% 66%;
-    --sentiment-2: 6 50% 54%;
-    --sentiment-3: 72 5% 55%;
-    --sentiment-4: 150 34% 48%;
-    --sentiment-5: 148.9 45.5% 63.3%;
 
-    --chart-grid: 212 14% 12%;
-    --chart-axis: 72 6% 64%;
+    --chart-grid: 220 4% 20%;
+    --chart-axis: 220 6% 71%;
     --chart-1: var(--orange-500);
     --chart-2: 211 78% 68%;
     --chart-3: 40 56.5% 71.2%;
@@ -226,12 +252,12 @@
     --chart-call: var(--bearish);
     --chart-put: var(--bullish);
 
-    --nav-bg: 210 25% 3.1% / 0.86;
-
-    /* Slab shadows with a rim-light */
-    --shadow-1: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-2: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 2px 6px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.5);
-    --shadow-3: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 6px 16px rgba(0, 0, 0, 0.5), 0 28px 70px rgba(0, 0, 0, 0.6);
+    /* Graphite elevation: only floating surfaces get the 0.5px top highlight */
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-2: 0 2px 6px rgb(0 0 0 / 0.35), 0 10px 28px rgb(0 0 0 / 0.4);
+    --shadow-3: inset 0 0.5px 0 rgb(255 255 255 / 0.1), 0 0 0 0.5px rgb(0 0 0 / 0.6), 0 10px 30px rgb(0 0 0 / 0.5);
+    --shadow-control: inset 0 0.5px 0 rgb(255 255 255 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.5), 0 1px 1.5px rgb(0 0 0 / 0.35);
+    --shadow-window: 0 0 0 0.5px rgb(255 255 255 / 0.08), 0 1px 3px rgb(0 0 0 / 0.4);
     --shadow-card: var(--shadow-1);
     --shadow-card-hover: var(--shadow-2);
     --shadow-float: var(--shadow-3);
@@ -245,10 +271,6 @@
     --bearish: 24 90% 33%;
     --wash-profit: 212 70% 93%;
     --wash-loss: 26 85% 91%;
-    --sentiment-1: 24 90% 33%;
-    --sentiment-2: 26 70% 52%;
-    --sentiment-4: 212 50% 52%;
-    --sentiment-5: 212 80% 36%;
   }
   html.dark[data-palette="cvd"] {
     --bullish: 211 85% 70%;
@@ -257,10 +279,27 @@
     --bearish-foreground: var(--void-0);
     --wash-profit: 214 40% 16%;
     --wash-loss: 26 45% 16%;
-    --sentiment-1: 28 90% 62%;
-    --sentiment-2: 26 60% 50%;
-    --sentiment-4: 212 50% 55%;
-    --sentiment-5: 211 85% 70%;
+  }
+}
+
+/* Retina: separators drop to a true 0.5px hairline */
+@media (min-resolution: 2dppx) {
+  :root {
+    --hairline: 0.5px;
+  }
+}
+
+/* Reduce transparency: materials become opaque */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-sidebar: var(--paper-2);
+    --material-toolbar: var(--paper-1);
+    --material-menu: var(--paper-0);
+  }
+  .dark {
+    --material-sidebar: var(--void-1);
+    --material-toolbar: var(--void-2);
+    --material-menu: var(--void-3);
   }
 }
 
@@ -271,8 +310,8 @@
 
   *:focus-visible {
     outline: none;
-    box-shadow: var(--shadow-ember);
-    transition: box-shadow var(--dur-fast) var(--ease-expo);
+    box-shadow: var(--focus-ring);
+    transition: box-shadow var(--dur-fast) var(--ease-out);
   }
 
   html {
@@ -282,26 +321,17 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
+    background-color: hsl(var(--window-backdrop));
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     font-feature-settings: "cv11" 1, "ss01" 1;
     font-optical-sizing: auto;
-    font-weight: 450;
-    letter-spacing: 0.004em;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    letter-spacing: -0.003em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  .dark body {
-    background-color: hsl(var(--background));
-    background-image: radial-gradient(
-      120% 80% at 50% 0%,
-      hsl(var(--void-2)) 0%,
-      hsl(var(--void-1)) 55%,
-      hsl(var(--void-0)) 100%
-    );
-    background-attachment: fixed;
   }
 
   ::selection {
@@ -318,33 +348,27 @@
     font-feature-settings: "liga" 0, "zero" 1;
   }
 
-  /* ── Typography ── */
+  /* ── Typography: Plus Jakarta for page and card titles only; sizes come from the scale ── */
   h1,
   h2,
   h3,
   h4 {
     font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
-    line-height: 1.16;
+    line-height: 1.2;
+    font-weight: 700;
   }
-  /* Tight -0.02em tracking only on h1 and display sizes; smaller headings open up
-     slightly so multi-word titles ("What gamma exposure (GEX) means") stay legible. */
   h1 {
-    font-size: 1.75rem;
-    font-weight: 800;
-    /* -0.02em plus the face's narrow space made "Futures and Rollover" read as "Futuresand". */
+    font-size: 1.375rem;
     letter-spacing: -0.01em;
   }
   h2 {
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.0625rem;
   }
   h3 {
-    font-size: 1.0625rem;
-    font-weight: 700;
+    font-size: 0.9375rem;
   }
   h4 {
-    font-size: 0.9375rem;
-    font-weight: 700;
+    font-size: 0.8125rem;
   }
   h2,
   h3,
@@ -353,8 +377,7 @@
     letter-spacing: -0.005em;
   }
   /* Plus Jakarta Sans has a narrow word space that nearly vanishes at bold weights ("Openpositions",
-     "ATMstraddle"). Open it up wherever the display face is used: every heading level, card titles
-     and any element using the font-display utility (CardTitle, Panel and section titles). */
+     "ATMstraddle"). Open it up wherever the display face is used. */
   h1,
   h2,
   h3,
@@ -367,25 +390,24 @@
   /* ── Numbers: tabular, slashed zero ── */
   .font-num,
   table,
-  td {
+  td,
+  input[type="number"] {
     font-feature-settings: "tnum" 1, "zero" 1, "cv11" 1;
     font-variant-numeric: tabular-nums slashed-zero;
   }
 
-  /* ── Data tables ── */
+  /* ── Data tables (Activity Monitor): sentence-case headers, compact cells ── */
   table {
     font-size: 0.8125rem;
-    line-height: 1.4;
+    line-height: 1.35;
   }
   thead th,
   th[scope="col"] {
     font-size: 0.6875rem;
-    font-weight: 650;
-    line-height: 1.1;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
+    font-weight: 600;
+    line-height: 1.2;
     color: hsl(var(--muted-foreground));
-    padding: 0.625rem 0.75rem;
+    padding: 0.375rem 0.625rem;
     white-space: nowrap;
   }
   /* Row headers read like body cells, not column labels */
@@ -393,48 +415,35 @@
     font: inherit;
     font-weight: 600;
     color: hsl(var(--foreground));
-    text-transform: none;
-    letter-spacing: normal;
     white-space: normal;
     text-align: left;
-    padding: 0.5rem 0.75rem;
+    padding: 0.375rem 0.625rem;
   }
   td {
-    padding: 0.5rem 0.75rem;
+    padding: 0.375rem 0.625rem;
     white-space: nowrap;
   }
 
-  /* ── Sidebar typography ── */
-  [data-sidebar] {
-    font-size: 0.8125rem;
-  }
-  [data-sidebar="group-label"] {
-    font-size: 0.6875rem;
-    font-weight: 650;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  /* ── Scrollbars ── */
+  /* ── Scrollbars: thin overlay-style thumbs ── */
   * {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
   }
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--foreground) / 0.12);
+    background: hsl(var(--foreground) / 0.18);
     border-radius: 999px;
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--foreground) / 0.22);
+    background: hsl(var(--foreground) / 0.32);
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-corner {
@@ -449,52 +458,44 @@
     scrollbar-width: none;
   }
 
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
   /* ── Icons ── */
   svg.lucide {
     shape-rendering: geometricPrecision;
     flex-shrink: 0;
     vertical-align: middle;
   }
-
-  /* Paper grain (very subtle, light only) */
-  .bg-noise {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 150px;
-    opacity: 0.025;
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-  }
-  .dark .bg-noise {
-    opacity: 0.015;
-  }
 }
 
 @layer components {
+  /* Source-list sidebar: translucent material, no right border (the inset window separates it) */
   [data-sidebar="sidebar"] {
-    background: hsl(var(--sidebar-background));
-    box-shadow: inset -1px 0 0 hsl(var(--sidebar-border));
+    background: hsl(var(--material-sidebar));
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+  }
+  [data-sidebar="sidebar"][data-mobile="true"] {
+    background: hsl(var(--material-menu));
   }
 
-  /* Frosted top navigation */
-  .glass-nav {
-    background: hsl(var(--nav-bg));
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
-    box-shadow: inset 0 -1px 0 hsl(var(--border));
+  /* Unified toolbar */
+  .mac-toolbar {
+    background: hsl(var(--material-toolbar));
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: inset 0 calc(-1 * var(--hairline)) 0 hsl(var(--separator));
   }
 
-  /* Frosted floating panels (popover, dropdown) */
-  .glass-panel {
-    background: hsl(var(--popover) / 0.9);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
+  /* Menus, popovers, select lists, command palette */
+  .mac-menu {
+    background: hsl(var(--material-menu));
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+    box-shadow: var(--shadow-3);
+  }
+
+  /* Activity Monitor zebra rows. Zero specificity, so any row shading a page sets still wins. */
+  :where(.zebra-rows > tr:nth-child(even)) {
+    background-color: hsl(var(--zebra));
   }
 
   /* Skip link: hidden until focused */
@@ -504,13 +505,13 @@
     top: 0.5rem;
     z-index: 100;
     transform: translateY(-150%);
-    border-radius: 7px;
-    padding: 0.5rem 0.875rem;
+    border-radius: 6px;
+    padding: 0.375rem 0.75rem;
     background: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
     font-size: 0.8125rem;
-    font-weight: 650;
-    transition: transform var(--dur-fast) var(--ease-expo);
+    font-weight: 600;
+    transition: transform var(--dur-fast) var(--ease-out);
   }
   .skip-link:focus,
   .skip-link:focus-visible {
@@ -519,35 +520,33 @@
 }
 
 @layer utilities {
-  /* ── Animations ── */
+  /* ── Hairlines (0.5px on Retina) ── */
+  .hairline-b {
+    box-shadow: inset 0 calc(-1 * var(--hairline)) 0 hsl(var(--separator));
+  }
+  .hairline-t {
+    box-shadow: inset 0 var(--hairline) 0 hsl(var(--separator));
+  }
+  .hairline-l {
+    box-shadow: inset var(--hairline) 0 0 hsl(var(--separator));
+  }
+  .hairline {
+    box-shadow: 0 0 0 var(--hairline) hsl(var(--separator));
+  }
+
+  /* ── Translucent material for ad-hoc surfaces (sticky table headers) ── */
+  .material {
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+  }
+
+  /* ── Animations: macOS fades, it does not slide content in ── */
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(6px);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes count-up {
-    from {
-      opacity: 0.3;
-      transform: scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
     }
   }
   @keyframes shimmer {
@@ -558,116 +557,17 @@
       background-position: -200% 0;
     }
   }
-  @keyframes soft-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.45;
-    }
-  }
-  @keyframes ticker-scroll {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-50%);
-    }
-  }
-  @keyframes page-enter {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
 
-  .animate-fade-in {
-    animation: fade-in var(--dur-page) var(--ease-expo) both;
-  }
-  .animate-slide-up {
-    animation: slide-up 400ms var(--ease-expo) both;
-  }
-  .animate-count {
-    animation: count-up var(--dur-hover) var(--ease-expo);
-  }
-  .animate-shimmer {
-    background: linear-gradient(90deg, transparent 0%, hsl(var(--muted) / 0.6) 50%, transparent 100%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
-  }
-  /* Kept for compatibility: a calm opacity pulse, no glow */
-  .animate-glow {
-    animation: soft-pulse 2s ease-in-out infinite;
-  }
-
-  .stagger-children > * {
-    animation: fade-in var(--dur-page) var(--ease-expo) both;
-  }
-  .stagger-children > *:nth-child(2) {
-    animation-delay: 40ms;
-  }
-  .stagger-children > *:nth-child(3) {
-    animation-delay: 80ms;
-  }
-  .stagger-children > *:nth-child(4) {
-    animation-delay: 120ms;
-  }
-  .stagger-children > *:nth-child(5) {
-    animation-delay: 160ms;
-  }
-  .stagger-children > *:nth-child(6) {
-    animation-delay: 200ms;
-  }
-  .stagger-children > *:nth-child(7) {
-    animation-delay: 240ms;
-  }
-  .stagger-children > *:nth-child(8) {
-    animation-delay: 280ms;
-  }
-
-  .card-interactive {
-    transition:
-      transform var(--dur-hover) var(--ease-expo),
-      box-shadow var(--dur-hover) var(--ease-expo),
-      border-color var(--dur-hover) var(--ease-expo);
-  }
-  .card-interactive:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    box-shadow: var(--shadow-card-hover);
-    transform: translateY(-1px);
-  }
-
-  .glass {
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
-  }
-
-  .status-dot-live {
-    position: relative;
-  }
-  .status-dot-live::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 999px;
-    background: hsl(var(--bullish));
-    animation: soft-pulse 2s ease-in-out infinite;
-  }
-
+  .animate-fade-in,
   .page-transition {
-    animation: page-enter var(--dur-page) var(--ease-expo) both;
+    animation: fade-in var(--dur-page) var(--ease-out) both;
   }
 
   .skeleton-shimmer {
     position: relative;
     overflow: hidden;
-    background: hsl(var(--muted) / 0.6);
-    border-radius: 6px;
+    background: hsl(var(--control-track));
+    border-radius: 5px;
   }
   .skeleton-shimmer::after {
     content: "";
@@ -677,41 +577,14 @@
     background-size: 200% 100%;
     animation: shimmer 2s ease-in-out infinite;
   }
+}
 
-  .oi-bar {
-    transition:
-      width var(--dur-settle) var(--ease-move),
-      opacity var(--dur-hover) ease;
-  }
-
-  /* ATM strike row: brand wash + inset ring, no outer glow */
-  .atm-glow {
-    background-color: hsl(var(--wash-brand) / 0.55);
-    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.45);
-    position: relative;
-    z-index: 1;
-  }
-  .dark .atm-glow {
-    background-color: hsl(var(--wash-brand) / 0.25);
-  }
-
-  /* Touch: grow small hit areas to at least 24px without changing layout */
-  @media (pointer: coarse) {
-    .touch-hit {
-      position: relative;
-    }
-    .touch-hit::after {
-      content: "";
-      position: absolute;
-      inset: -6px;
-    }
-  }
-
-  .press {
-    transition: transform var(--dur-press) var(--ease-press);
-  }
-  .press:active {
-    transform: scale(0.97);
+/* No backdrop blur support: materials fall back to opaque grouped surfaces */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-sidebar="sidebar"],
+  .mac-toolbar,
+  .mac-menu {
+    background: hsl(var(--grouped)) !important;
   }
 }
 

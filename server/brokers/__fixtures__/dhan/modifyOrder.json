@@ -1,0 +1,26 @@
+{
+  "args": [
+    "112111182198",
+    {
+      "orderType": "LIMIT",
+      "validity": "DAY",
+      "quantity": 75,
+      "price": 181.0
+    }
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://api.dhan.co/v2/orders/112111182198",
+      "expectBody": {
+        "orderId": "112111182198",
+        "price": 181.0
+      },
+      "status": 200,
+      "json": {
+        "orderId": "112111182198",
+        "orderStatus": "TRANSIT"
+      }
+    }
+  ]
+}

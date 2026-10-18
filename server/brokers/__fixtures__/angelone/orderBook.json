@@ -1,0 +1,61 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/getOrderBook$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "variety": "NORMAL",
+            "ordertype": "LIMIT",
+            "producttype": "INTRADAY",
+            "duration": "DAY",
+            "price": "194.00",
+            "triggerprice": "0",
+            "quantity": "1",
+            "disclosedquantity": "0",
+            "squareoff": "0",
+            "stoploss": "0",
+            "trailingstoploss": "0",
+            "tradingsymbol": "SBIN-EQ",
+            "transactiontype": "BUY",
+            "exchange": "NSE",
+            "symboltoken": null,
+            "instrumenttype": "",
+            "strikeprice": "-1",
+            "optiontype": "",
+            "expirydate": "",
+            "lotsize": "1",
+            "cancelsize": "1",
+            "averageprice": "0",
+            "filledshares": "0",
+            "unfilledshares": "1",
+            "orderid": "201020000000080",
+            "text": "",
+            "status": "cancelled",
+            "orderstatus": "cancelled",
+            "updatetime": "20-Oct-2020 13:10:59",
+            "exchtime": "20-Oct-2020 13:10:59",
+            "exchorderupdatetime": "20-Oct-2020 13:10:59",
+            "fillid": "",
+            "filltime": "",
+            "parentorderid": "",
+            "uniqueorderid": "34reqfachdfih",
+            "exchangeorderid": "1100000000048358"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

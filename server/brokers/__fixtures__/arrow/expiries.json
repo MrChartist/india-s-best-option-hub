@@ -1,0 +1,56 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/info/option-chain-symbols/all",
+      "json": {
+        "data": {
+          "equity": {
+            "NSE:RELIANCE-EQ": [
+              "27-OCT-2026",
+              "24-NOV-2026",
+              "29-DEC-2026"
+            ]
+          },
+          "indices": {
+            "INDEX:NIFTY": [
+              "27-OCT-2026",
+              "20-OCT-2026",
+              "03-NOV-2026",
+              "24-NOV-2026"
+            ],
+            "INDEX:SENSEX": [
+              "22-OCT-2026",
+              "29-OCT-2026",
+              "26-NOV-2026"
+            ],
+            "INDEX:BANKNIFTY": [
+              "27-OCT-2026",
+              "24-NOV-2026"
+            ]
+          }
+        },
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 4
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "args": [
+    "26101600007328"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/cancelOrder",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken",
+        "orderNumber": "26101600007328"
+      },
+      "json": {
+        "status": "success",
+        "message": "Order cancellation details",
+        "data": {
+          "orderNumber": "26101600007328",
+          "requestTime": "17:59:57 16-10-2026"
+        }
+      }
+    }
+  ]
+}

@@ -30,7 +30,7 @@ function QuadrantTooltip({ active, payload }: { active?: boolean; payload?: Arra
   const p = active ? payload?.[0]?.payload : undefined;
   if (!p) return null;
   return (
-    <div style={tooltipStyle} className="space-y-0.5 text-xs">
+    <div style={tooltipStyle} className="space-y-0.5 text-body-sm">
       <p className="font-semibold">
         {fmtStrike(p.strike)} {p.side}
       </p>
@@ -103,7 +103,7 @@ export function BuildupQuadrant({ chain }: { chain: OptionData[]; sample?: boole
                 return (
                   <li key={b} className="inline-flex items-center gap-1.5">
                     {code && <BuildupBadge kind={code} />}
-                    <span className="font-num text-xs font-semibold tabular-nums" aria-label={`${counts[b]} legs`}>
+                    <span className="font-num text-body-sm font-semibold tabular-nums" aria-label={`${counts[b]} legs`}>
                       {counts[b]}
                     </span>
                   </li>
@@ -141,7 +141,7 @@ export function BuildupQuadrant({ chain }: { chain: OptionData[]; sample?: boole
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-body-sm text-muted-foreground">
               Dot size follows OI. The same rule applies to calls and puts: premium and OI up is long build-up, premium down with OI up is short build-up.
             </p>
           </>

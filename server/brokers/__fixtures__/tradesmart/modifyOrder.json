@@ -1,0 +1,40 @@
+{
+  "args": [
+    "26101700000017",
+    {
+      "exchange": "NFO",
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "quantity": 130,
+      "price": 105,
+      "orderType": "LIMIT",
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/ModifyOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"prc\":\"105\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\"}"
+      },
+      "json": {
+        "request_time": "14:14:08 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

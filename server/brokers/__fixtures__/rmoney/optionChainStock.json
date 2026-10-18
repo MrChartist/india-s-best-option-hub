@@ -1,0 +1,317 @@
+{
+  "args": [
+    "RELIANCE",
+    "2026-10-27"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/auth/login",
+      "expectBody": {
+        "appKey": "dummyRmMdKey01",
+        "secretKey": "dummyRmMdSecret01"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Provided Valid Credentials",
+        "result": {
+          "token": "dummy.md.token",
+          "userID": "DUMMY1",
+          "appVersion": "5.0.15",
+          "application_expiry_date": "29-09-2027"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/master",
+      "expectBody": {
+        "exchangeSegmentList": [
+          "NSEFO"
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Data found successfully",
+        "result": "NSEFO|40001|2|NIFTY|NIFTY26O2024900CE|OPTIDX|NIFTY-OPTIDX|26040001|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|24900|3|NIFTY 20OCT2026 CE 24900|1|1|NIFTY26O2024900CE\nNSEFO|40002|2|NIFTY|NIFTY26O2024900PE|OPTIDX|NIFTY-OPTIDX|26040002|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|24900|4|NIFTY 20OCT2026 PE 24900|1|1|NIFTY26O2024900PE\nNSEFO|40003|2|NIFTY|NIFTY26O2025000CE|OPTIDX|NIFTY-OPTIDX|26040003|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25000|3|NIFTY 20OCT2026 CE 25000|1|1|NIFTY26O2025000CE\nNSEFO|40004|2|NIFTY|NIFTY26O2025000PE|OPTIDX|NIFTY-OPTIDX|26040004|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25000|4|NIFTY 20OCT2026 PE 25000|1|1|NIFTY26O2025000PE\nNSEFO|40005|2|NIFTY|NIFTY26O2025100CE|OPTIDX|NIFTY-OPTIDX|26040005|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25100|3|NIFTY 20OCT2026 CE 25100|1|1|NIFTY26O2025100CE\nNSEFO|40006|2|NIFTY|NIFTY26O2025100PE|OPTIDX|NIFTY-OPTIDX|26040006|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-20T14:30:00|25100|4|NIFTY 20OCT2026 PE 25100|1|1|NIFTY26O2025100PE\nNSEFO|40101|2|NIFTY|NIFTY26OCT25000CE|OPTIDX|NIFTY-OPTIDX|26040101|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-27T14:30:00|25000|3|NIFTY 27OCT2026 CE 25000|1|1|NIFTY26OCT25000CE\nNSEFO|40102|2|NIFTY|NIFTY26OCT25000PE|OPTIDX|NIFTY-OPTIDX|26040102|999.95|0.05|1801|0.05|75|1|-1|Nifty 50|2026-10-27T14:30:00|25000|4|NIFTY 27OCT2026 PE 25000|1|1|NIFTY26OCT25000PE\nNSEFO|40201|1|NIFTY|NIFTY26OCTFUT|FUTIDX|NIFTY-FUTIDX|26040201|28369.8|23211.8|1801|0.1|75|1|-1|Nifty 50|2026-10-27T14:30:00|NIFTY 27OCT2026|1|1|NIFTY26OCTFUT\nNSEFO|40301|2|BANKNIFTY|BANKNIFTY26OCT56000CE|OPTIDX|BANKNIFTY-OPTIDX|26040301|999.95|0.05|1801|0.05|35|1|-1|Nifty Bank|2026-10-27T14:30:00|56000|3|BANKNIFTY 27OCT2026 CE 56000|1|1|BANKNIFTY26OCT56000CE\nNSEFO|40302|2|BANKNIFTY|BANKNIFTY26OCT56000PE|OPTIDX|BANKNIFTY-OPTIDX|26040302|999.95|0.05|1801|0.05|35|1|-1|Nifty Bank|2026-10-27T14:30:00|56000|4|BANKNIFTY 27OCT2026 PE 56000|1|1|BANKNIFTY26OCT56000PE\nNSEFO|40401|2|RELIANCE|RELIANCE26OCT2800CE|OPTSTK|RELIANCE-OPTSTK|26040401|999.95|0.05|1801|0.05|500|1|1100100002885||2026-10-27T14:30:00|2800|3|RELIANCE 27OCT2026 CE 2800|1|1|RELIANCE26OCT2800CE\nNSEFO|40402|2|RELIANCE|RELIANCE26OCT2800PE|OPTSTK|RELIANCE-OPTSTK|26040402|999.95|0.05|1801|0.05|500|1|1100100002885||2026-10-27T14:30:00|2800|4|RELIANCE 27OCT2026 PE 2800|1|1|RELIANCE26OCT2800PE\nNSEFO|40403|2|RELIANCE|RELIANCE26OCT2900CE|OPTSTK|RELIANCE-OPTSTK|26040403|999.95|0.05|1801|0.05|500|1|1100100002885||2026-10-27T14:30:00|2900|3|RELIANCE 27OCT2026 CE 2900|1|1|RELIANCE26OCT2900CE\nNSEFO|40404|2|RELIANCE|RELIANCE26OCT2900PE|OPTSTK|RELIANCE-OPTSTK|26040404|999.95|0.05|1801|0.05|500|1|1100100002885||2026-10-27T14:30:00|2900|4|RELIANCE 27OCT2026 PE 2900|1|1|RELIANCE26OCT2900PE\nNSEFO|40501|1|RELIANCE|RELIANCE26OCTFUT|FUTSTK|RELIANCE-FUTSTK|26040501|28369.8|23211.8|1801|0.1|500|1|1100100002885||2026-10-27T14:30:00|RELIANCE 27OCT2026|1|1|RELIANCE26OCTFUT"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/master",
+      "expectBody": {
+        "exchangeSegmentList": [
+          "BSEFO"
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Data found successfully",
+        "result": "BSEFO|850001|2|SENSEX|SENSEX26O2281900CE|IO|SENSEX-IO|120850001|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|81900|3|SENSEX 22OCT2026 CE 81900|1|1|SENSEX26O2281900CE\nBSEFO|850002|2|SENSEX|SENSEX26O2281900PE|IO|SENSEX-IO|120850002|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|81900|4|SENSEX 22OCT2026 PE 81900|1|1|SENSEX26O2281900PE\nBSEFO|850003|2|SENSEX|SENSEX26O2282000CE|IO|SENSEX-IO|120850003|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82000|3|SENSEX 22OCT2026 CE 82000|1|1|SENSEX26O2282000CE\nBSEFO|850004|2|SENSEX|SENSEX26O2282000PE|IO|SENSEX-IO|120850004|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82000|4|SENSEX 22OCT2026 PE 82000|1|1|SENSEX26O2282000PE\nBSEFO|850005|2|SENSEX|SENSEX26O2282100CE|IO|SENSEX-IO|120850005|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82100|3|SENSEX 22OCT2026 CE 82100|1|1|SENSEX26O2282100CE\nBSEFO|850006|2|SENSEX|SENSEX26O2282100PE|IO|SENSEX-IO|120850006|999.95|0.05|1801|0.05|20|1|-1|SENSEX|2026-10-22T14:30:00|82100|4|SENSEX 22OCT2026 PE 82100|1|1|SENSEX26O2282100PE\nBSEFO|851001|2|BANKEX|BANKEX26OCT62000CE|IO|BANKEX-IO|120851001|999.95|0.05|1801|0.05|30|1|-1|BANKEX|2026-10-29T14:30:00|62000|3|BANKEX 29OCT2026 CE 62000|1|1|BANKEX26OCT62000CE\nBSEFO|851002|2|BANKEX|BANKEX26OCT62000PE|IO|BANKEX-IO|120851002|999.95|0.05|1801|0.05|30|1|-1|BANKEX|2026-10-29T14:30:00|62000|4|BANKEX 29OCT2026 PE 62000|1|1|BANKEX26OCT62000PE"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/indexlist?exchangeSegment=1",
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Record Found",
+        "result": {
+          "exchangeSegment": 1,
+          "indexList": [
+            "NIFTY 50_26000",
+            "NIFTY BANK_26001",
+            "INDIA VIX_26002",
+            "NIFTY IT_26003",
+            "NIFTY FIN SERVICE_26037",
+            "NIFTY MID SELECT_26121"
+          ]
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/indexlist?exchangeSegment=11",
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Record Found",
+        "result": {
+          "exchangeSegment": 11,
+          "indexList": [
+            "SENSEX_26065",
+            "BANKEX_26118",
+            "SNSX50_26013"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "publishFormat": "JSON",
+        "instruments": [
+          {
+            "exchangeSegment": 1,
+            "exchangeInstrumentID": 2885
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quoteList": {
+            "exchangeSegment": 1,
+            "exchangeInstrumentID": 2885
+          },
+          "listQuotes": {
+            "MessageCode": 1502,
+            "MessageVersion": 1,
+            "ApplicationType": 0,
+            "TokenID": 0,
+            "ExchangeSegment": 1,
+            "ExchangeInstrumentID": 2885,
+            "ExchangeTimeStamp": 1445252049,
+            "Bids": [
+              {
+                "Size": 75,
+                "Price": 2850.9,
+                "TotalOrders": 1,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 150,
+                "Price": 2850.4,
+                "TotalOrders": 2,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 225,
+                "Price": 2849.9,
+                "TotalOrders": 3,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 300,
+                "Price": 2849.4,
+                "TotalOrders": 4,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 375,
+                "Price": 2848.9,
+                "TotalOrders": 5,
+                "BuyBackMarketMaker": 0
+              }
+            ],
+            "Asks": [
+              {
+                "Size": 75,
+                "Price": 2851.9,
+                "TotalOrders": 1,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 150,
+                "Price": 2852.4,
+                "TotalOrders": 2,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 225,
+                "Price": 2852.9,
+                "TotalOrders": 3,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 300,
+                "Price": 2853.4,
+                "TotalOrders": 4,
+                "BuyBackMarketMaker": 0
+              },
+              {
+                "Size": 375,
+                "Price": 2853.9,
+                "TotalOrders": 5,
+                "BuyBackMarketMaker": 0
+              }
+            ],
+            "Touchline": {
+              "BidInfo": {
+                "Size": 75,
+                "Price": 2850.9,
+                "TotalOrders": 1,
+                "BuyBackMarketMaker": 0
+              },
+              "AskInfo": {
+                "Size": 75,
+                "Price": 2851.9,
+                "TotalOrders": 1,
+                "BuyBackMarketMaker": 0
+              },
+              "LastTradedPrice": 2851.4,
+              "LastTradedQunatity": 75,
+              "TotalBuyQuantity": 18446,
+              "TotalSellQuantity": 25283,
+              "TotalTradedQuantity": 14085685,
+              "AverageTradedPrice": 2851.4,
+              "LastTradedTime": 1445252049,
+              "LastUpdateTime": 1445252049,
+              "PercentChange": 0.5,
+              "Open": 2849.4,
+              "High": 2856.4,
+              "Low": 2845.4,
+              "Close": 2850.4,
+              "TotalValueTraded": 1865862348,
+              "BuyBackTotalBuy": 0,
+              "BuyBackTotalSell": 0
+            },
+            "BookType": 1,
+            "XMarketType": 1
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1502,
+        "publishFormat": "JSON",
+        "instruments": [
+          {
+            "exchangeSegment": 2,
+            "exchangeInstrumentID": 40401
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1502,
+          "quotesList": [
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40401
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40402
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40403
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40404
+            }
+          ],
+          "listQuotes": [
+            "{\"MessageCode\":1502,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40401,\"ExchangeTimeStamp\":1445252049,\"Bids\":[{\"Size\":75,\"Price\":91.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":91.4,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":90.9,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":90.4,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":89.9,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":75,\"Price\":92.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":93.4,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":93.9,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":94.4,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":94.9,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":75,\"Price\":91.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":75,\"Price\":92.9,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":92.4,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":18446,\"TotalSellQuantity\":25283,\"TotalTradedQuantity\":14085685,\"AverageTradedPrice\":92.4,\"LastTradedTime\":1445252049,\"LastUpdateTime\":1445252049,\"PercentChange\":0.5,\"Open\":90.4,\"High\":97.4,\"Low\":86.4,\"Close\":91.4,\"TotalValueTraded\":1865862348,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1}",
+            "{\"MessageCode\":1502,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40402,\"ExchangeTimeStamp\":1445252049,\"Bids\":[{\"Size\":75,\"Price\":47.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":47.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":46.65,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":46.15,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":45.65,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":75,\"Price\":48.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":49.15,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":49.65,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":50.15,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":50.65,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":75,\"Price\":47.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":75,\"Price\":48.65,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":48.15,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":18446,\"TotalSellQuantity\":25283,\"TotalTradedQuantity\":14085685,\"AverageTradedPrice\":48.15,\"LastTradedTime\":1445252049,\"LastUpdateTime\":1445252049,\"PercentChange\":0.5,\"Open\":46.15,\"High\":53.15,\"Low\":42.15,\"Close\":47.15,\"TotalValueTraded\":1865862348,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1}",
+            "{\"MessageCode\":1502,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40403,\"ExchangeTimeStamp\":1445252049,\"Bids\":[{\"Size\":75,\"Price\":45.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":44.6,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":44.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":43.6,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":43.1,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":75,\"Price\":46.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":46.6,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":47.1,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":47.6,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":48.1,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":75,\"Price\":45.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":75,\"Price\":46.1,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":45.6,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":18446,\"TotalSellQuantity\":25283,\"TotalTradedQuantity\":14085685,\"AverageTradedPrice\":45.6,\"LastTradedTime\":1445252049,\"LastUpdateTime\":1445252049,\"PercentChange\":0.5,\"Open\":43.6,\"High\":50.6,\"Low\":39.6,\"Close\":44.6,\"TotalValueTraded\":1865862348,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1}",
+            "{\"MessageCode\":1502,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40404,\"ExchangeTimeStamp\":1445252049,\"Bids\":[{\"Size\":75,\"Price\":101.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":100.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":100.4,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":99.9,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":99.4,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Asks\":[{\"Size\":75,\"Price\":102.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},{\"Size\":150,\"Price\":102.9,\"TotalOrders\":2,\"BuyBackMarketMaker\":0},{\"Size\":225,\"Price\":103.4,\"TotalOrders\":3,\"BuyBackMarketMaker\":0},{\"Size\":300,\"Price\":103.9,\"TotalOrders\":4,\"BuyBackMarketMaker\":0},{\"Size\":375,\"Price\":104.4,\"TotalOrders\":5,\"BuyBackMarketMaker\":0}],\"Touchline\":{\"BidInfo\":{\"Size\":75,\"Price\":101.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"AskInfo\":{\"Size\":75,\"Price\":102.4,\"TotalOrders\":1,\"BuyBackMarketMaker\":0},\"LastTradedPrice\":101.9,\"LastTradedQunatity\":75,\"TotalBuyQuantity\":18446,\"TotalSellQuantity\":25283,\"TotalTradedQuantity\":14085685,\"AverageTradedPrice\":101.9,\"LastTradedTime\":1445252049,\"LastUpdateTime\":1445252049,\"PercentChange\":0.5,\"Open\":99.9,\"High\":106.9,\"Low\":95.9,\"Close\":100.9,\"TotalValueTraded\":1865862348,\"BuyBackTotalBuy\":0,\"BuyBackTotalSell\":0},\"BookType\":1,\"XMarketType\":1}"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.rmoneyindia.co.in:3000/apibinarymarketdata/instruments/quotes",
+      "expectBody": {
+        "xtsMessageCode": 1510,
+        "publishFormat": "JSON",
+        "instruments": [
+          {
+            "exchangeSegment": 2,
+            "exchangeInstrumentID": 40401
+          }
+        ]
+      },
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Get quotes successfully!",
+        "result": {
+          "mdp": 1510,
+          "quotesList": [
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40401
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40402
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40403
+            },
+            {
+              "exchangeSegment": 2,
+              "exchangeInstrumentID": 40404
+            }
+          ],
+          "listQuotes": [
+            "{\"MessageCode\":1510,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40401,\"XTSMarketType\":1,\"OpenInterest\":3400000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40402,\"XTSMarketType\":1,\"OpenInterest\":2100000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40403,\"XTSMarketType\":1,\"OpenInterest\":4800000}",
+            "{\"MessageCode\":1510,\"MessageVersion\":1,\"ApplicationType\":0,\"TokenID\":0,\"ExchangeSegment\":2,\"ExchangeInstrumentID\":40404,\"XTSMarketType\":1,\"OpenInterest\":1300000}"
+          ]
+        }
+      }
+    }
+  ]
+}

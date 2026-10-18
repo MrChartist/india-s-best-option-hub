@@ -1,0 +1,42 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/report/v3/getdpholding",
+      "json": {
+        "status": "SUCCESS",
+        "message": "DP Holding Data",
+        "errorcode": "",
+        "data": [
+          {
+            "clientcode": "EMUM123456",
+            "scripisinno": "INE131B01039",
+            "dpquantity": 1119,
+            "blockedquantity": 0,
+            "scripname": "RELAXO EQ",
+            "buyavgprice": 813.66,
+            "poaquantity": 41,
+            "collateralquantity": 1078,
+            "outstandingquantity": 0,
+            "debitstockquantity": 0,
+            "nonpoaquantity": 0,
+            "rmssellingquantity": 0,
+            "btstquantity": 0,
+            "buybackquantity": 0,
+            "tpinquantity": 0,
+            "slbmquantity": 0,
+            "nbfcquantity": 0,
+            "bsescripcode": 530517,
+            "nsesymboltoken": 3950
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

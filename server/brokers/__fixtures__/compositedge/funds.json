@@ -1,0 +1,99 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.compositedge.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey01",
+        "secretKey": "dummyIaSecret01",
+        "accessToken": "dummyRequestToken01"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.compositedge.com/interactive/user/balance",
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "OK",
+        "result": {
+          "BalanceList": [
+            {
+              "limitHeader": "ALL|ALL|ALL",
+              "limitObject": {
+                "RMSSubLimits": {
+                  "cashAvailable": 250000,
+                  "collateral": 12500,
+                  "marginUtilized": 52955.278,
+                  "netMarginAvailable": 209544.72,
+                  "MTM": 0,
+                  "UnrealizedMTM": 119.75,
+                  "RealizedMTM": 0
+                },
+                "marginAvailable": {
+                  "CashMarginAvailable": 250000,
+                  "AdhocMargin": 0,
+                  "NotinalCash": 0,
+                  "PayInAmount": 0,
+                  "PayOutAmount": 0,
+                  "CNCSellBenifit": 0,
+                  "DirectCollateral": 0,
+                  "HoldingCollateral": 12500
+                },
+                "marginUtilized": {
+                  "GrossExposureMarginPresent": 0,
+                  "VarELMarginPresent": 0,
+                  "CNCAmountUsed": 1671,
+                  "MarginUsed": 52955.2789,
+                  "TotalSpanMargin": 0,
+                  "ExposureMarginPresent": 0
+                },
+                "AccountID": "DUMMY1"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

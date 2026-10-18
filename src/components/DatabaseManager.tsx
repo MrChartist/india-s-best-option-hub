@@ -458,27 +458,8 @@ export function DatabaseManager() {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleUpdateDatabase}
-            disabled={isUpdating}
-            className="flex-1 gap-2"
-            size="sm"
-          >
-            {isUpdating ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Updating...
-              </>
-            ) : (
-              <>
-                <Download className="h-3.5 w-3.5" />
-                {stats && stats.instruments > 0 ? "Update Database" : "Download Database"}
-              </>
-            )}
-          </Button>
-
+        {/* Action buttons: macOS order, trailing edge, default (primary) action last */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {stats && stats.instruments > 0 && (
             <Button
               variant="outline"
@@ -490,6 +471,20 @@ export function DatabaseManager() {
               Clear
             </Button>
           )}
+
+          <Button onClick={handleUpdateDatabase} disabled={isUpdating} className="gap-2" size="sm">
+            {isUpdating ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Updating…
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                {stats && stats.instruments > 0 ? "Update database" : "Download database"}
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Browser storage usage and quota */}

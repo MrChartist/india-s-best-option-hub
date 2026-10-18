@@ -1,0 +1,62 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "args": [
+    {
+      "token": "51401",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V1/PlaceOrderRequest",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "Exchange": "N",
+          "ExchangeType": "D",
+          "ScripCode": 51401,
+          "Price": 104.5,
+          "StopLossPrice": 0,
+          "OrderType": "B",
+          "Qty": 130,
+          "IsIntraday": false,
+          "AHPlaced": "N",
+          "AlgoID": 0
+        }
+      },
+      "json": {
+        "body": {
+          "BrokerOrderID": 672112769,
+          "ClientCode": "55512345",
+          "Exch": "N",
+          "ExchOrderID": "0",
+          "ExchType": "D",
+          "LocalOrderID": 0,
+          "Message": "Success",
+          "RMSResponseCode": 1,
+          "RemoteOrderID": "MRCTEST01",
+          "ScripCode": 51401,
+          "Status": 0,
+          "Time": "/Date(1792471500000+0530)/"
+        },
+        "head": {
+          "responseCode": "5PPlaceOrdReqV1",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ]
+}

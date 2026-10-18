@@ -10,6 +10,7 @@ import {
   forwardFromSpot,
   getDividendYield,
   greeks76,
+  greeks76Spot,
   impliedVol76,
   istDateString,
   legMid,
@@ -137,10 +138,10 @@ export function livePosition(p: TrackedPosition, ctx: LiveContext): PositionLive
   let vegaUnit = NaN;
   if (isPos(spot) && T > 0 && Number.isFinite(iv)) {
     const F = forwardFromSpot(spot, T, ctx.r, q);
-    const g = greeks76({ F, K: p.strike, T, r: ctx.r, sigma: iv, type: p.type });
-    const carry = Math.exp((ctx.r - q) * T); // dF/dS
-    deltaUnit = g.delta * carry;
-    gammaUnit = g.gamma * carry * carry;
+    // Spot-held Greeks (delta, gamma and theta all with spot fixed), matching the option chain and GEX.
+    const g = greeks76Spot({ F, K: p.strike, T, r: ctx.r, sigma: iv, type: p.type }, spot);
+    deltaUnit = g.delta;
+    gammaUnit = g.gamma;
     thetaUnit = g.theta;
     vegaUnit = g.vega;
   } else if (isPos(spot) && (expired || T === 0)) {

@@ -164,7 +164,7 @@ describe("Alerts page", () => {
 
 describe("AlertSystem sheet", () => {
   it("loads lazily and links to the Alerts page", async () => {
-    const { AlertSystem } = await import("@/components/AlertSystem");
+    const { default: AlertSystem } = await import("@/components/AlertSystem");
     wrap(<AlertSystem />, "/");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Alerts, 0 active/ }));

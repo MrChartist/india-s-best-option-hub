@@ -205,11 +205,34 @@ export function useRotatingScan(order: readonly string[], enabled: boolean) {
     orderRef.current = order;
   }, [order]);
 
-  // Persist (debounced).
+  // Persist (debounced). A change still pending when the page hides or the Screener unmounts is
+  // flushed then, so a result that landed in the last 2 s is not rescanned on the next visit.
+  const dirtyRef = useRef(false);
+  const firstRef = useRef(true);
   useEffect(() => {
-    const t = setTimeout(() => saveCache(entries), 2000);
+    if (firstRef.current) {
+      firstRef.current = false;
+      return;
+    }
+    dirtyRef.current = true;
+    const t = setTimeout(() => {
+      dirtyRef.current = false;
+      saveCache(entries);
+    }, 2000);
     return () => clearTimeout(t);
   }, [entries]);
+  useEffect(() => {
+    const flush = () => {
+      if (!dirtyRef.current) return;
+      dirtyRef.current = false;
+      saveCache(entriesRef.current);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled || paused) {

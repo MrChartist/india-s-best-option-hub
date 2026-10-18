@@ -95,13 +95,21 @@ export function openMarketDB(): Promise<IDBDatabase> {
   return openDB();
 }
 
+/** How long an open blocked by another tab (on an older schema) may wait before callers fall back. */
+export const DB_BLOCKED_TIMEOUT_MS = 4000;
+
 function openDB(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
   if (dbPromise) return dbPromise;
   if (!isIndexedDBAvailable()) return Promise.reject(new Error("IndexedDB is not available"));
 
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const pending = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
+    let blockedTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearBlocked = () => {
+      if (blockedTimer) clearTimeout(blockedTimer);
+      blockedTimer = null;
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -154,26 +162,61 @@ function openDB(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = (event) => {
-      dbInstance = (event.target as IDBOpenDBRequest).result;
+      clearBlocked();
+      const db = (event.target as IDBOpenDBRequest).result;
+      dbInstance = db;
       // Another tab upgraded the schema: close so it can proceed, reopen lazily next time.
-      dbInstance.onversionchange = () => {
-        dbInstance?.close();
-        dbInstance = null;
-        dbPromise = null;
+      db.onversionchange = () => {
+        db.close();
+        if (dbInstance === db) {
+          dbInstance = null;
+          dbPromise = null;
+        }
       };
-      resolve(dbInstance);
+      // The browser closed the connection (site data cleared, storage error): forget it so the
+      // next call reopens instead of failing with InvalidStateError until a reload.
+      db.onclose = () => {
+        if (dbInstance === db) {
+          dbInstance = null;
+          dbPromise = null;
+        }
+      };
+      resolve(db);
     };
 
     request.onblocked = () => {
       console.warn("[localDatabase] Upgrade blocked by another open tab; close other tabs of the terminal.");
+      // Do not leave every caller waiting forever: give up after a grace period so they fall back.
+      // If the other tab closes later, onsuccess still stores the connection for the next call.
+      if (!blockedTimer) {
+        blockedTimer = setTimeout(() => {
+          blockedTimer = null;
+          if (dbPromise === pending) dbPromise = null;
+          reject(new Error("IndexedDB upgrade is blocked by another open tab"));
+        }, DB_BLOCKED_TIMEOUT_MS);
+      }
     };
 
     request.onerror = () => {
-      dbPromise = null;
+      clearBlocked();
+      if (dbPromise === pending) dbPromise = null;
       reject(new Error("Failed to open IndexedDB"));
     };
   });
-  return dbPromise;
+  dbPromise = pending;
+  return pending;
+}
+
+/**
+ * Settle when a readwrite transaction commits. A commit-time failure such as QuotaExceededError
+ * aborts the transaction without an error event, so 'abort' must reject too or the caller hangs.
+ */
+function txDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error("Transaction failed"));
+    tx.onabort = () => reject(tx.error ?? new Error("Transaction aborted"));
+  });
 }
 
 /** Convert every legacy chain snapshot in the store to the columnar format (cursor walk). */
@@ -210,9 +253,8 @@ async function putItem<T>(storeName: string, item: T): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
+    txDone(tx).then(resolve, reject);
     tx.objectStore(storeName).put(item);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -220,12 +262,11 @@ async function putItems<T>(storeName: string, items: T[]): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
+    txDone(tx).then(resolve, reject);
     const store = tx.objectStore(storeName);
     for (const item of items) {
       store.put(item);
     }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -249,24 +290,12 @@ async function getAllItems<T>(storeName: string): Promise<T[]> {
   });
 }
 
-async function getItemsByIndex<T>(storeName: string, indexName: string, value: IDBValidKey | IDBKeyRange): Promise<T[]> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const index = tx.objectStore(storeName).index(indexName);
-    const request = index.getAll(value);
-    request.onsuccess = () => resolve(request.result as T[]);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 async function clearStore(storeName: string): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite");
+    txDone(tx).then(resolve, reject);
     tx.objectStore(storeName).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -284,54 +313,19 @@ async function countItems(storeName: string): Promise<number> {
 
 // Instruments
 export const saveInstruments = (items: Instrument[]) => putItems("instruments", items);
-export const getInstrument = (securityId: string) => getItem<Instrument>("instruments", securityId);
-export const getAllInstruments = () => getAllItems<Instrument>("instruments");
-export const getInstrumentsBySegment = (segment: string) => getItemsByIndex<Instrument>("instruments", "exchangeSegment", segment);
-export const getInstrumentsByType = (type: string) => getItemsByIndex<Instrument>("instruments", "instrumentType", type);
 export const clearInstruments = () => clearStore("instruments");
 export const countInstruments = () => countItems("instruments");
 
-// Instrument lookup by symbol
-export async function findInstrumentBySymbol(symbol: string): Promise<Instrument | undefined> {
-  const results = await getItemsByIndex<Instrument>("instruments", "symbol", symbol);
-  return results[0];
-}
-
-// Get all F&O stocks (unique equity symbols in NSE_FNO segment)
-export async function getFnOStockList(): Promise<Instrument[]> {
-  const fnoInstruments = await getInstrumentsBySegment("NSE_FNO");
-  // Get unique underlying symbols (FUTSTK type gives us the stock names)
-  const seen = new Set<string>();
-  return fnoInstruments
-    .filter((i) => {
-      if (i.instrumentType === "FUTSTK" && !seen.has(i.symbol)) {
-        seen.add(i.symbol);
-        return true;
-      }
-      return false;
-    })
-    .sort((a, b) => a.symbol.localeCompare(b.symbol));
-}
-
 // Prices
-export const savePriceSnapshot = (item: PriceSnapshot) => putItem("prices", item);
 export const savePriceSnapshots = (items: PriceSnapshot[]) => putItems("prices", items);
-export const getPriceSnapshot = (securityId: string) => getItem<PriceSnapshot>("prices", securityId);
 export const getAllPriceSnapshots = () => getAllItems<PriceSnapshot>("prices");
 export const clearPrices = () => clearStore("prices");
 export const countPrices = () => countItems("prices");
-
-// Get price by symbol
-export async function getPriceBySymbol(symbol: string): Promise<PriceSnapshot | undefined> {
-  const results = await getItemsByIndex<PriceSnapshot>("prices", "symbol", symbol);
-  return results[0];
-}
 
 // Candle history
 export const saveCandleHistory = (item: CandleHistory) => putItem("candles", item);
 export const getCandleHistory = (securityId: string, interval: string) =>
   getItem<CandleHistory>("candles", [securityId, interval]);
-export const getAllCandleHistories = () => getAllItems<CandleHistory>("candles");
 export const clearCandles = () => clearStore("candles");
 export const countCandles = () => countItems("candles");
 
@@ -339,6 +333,7 @@ export const countCandles = () => countItems("candles");
 export const setMetadata = (key: string, value: string) =>
   putItem("metadata", { key, value, updatedAt: Date.now() } as DatabaseMetadata);
 export const getMetadata = (key: string) => getItem<DatabaseMetadata>("metadata", key);
+export const clearMetadata = () => clearStore("metadata");
 
 // ── Database Stats ──
 
@@ -374,13 +369,13 @@ export async function getDatabaseStats(): Promise<DatabaseStats> {
 // ── Clear entire database ──
 
 export async function clearAllData(): Promise<void> {
-  await Promise.all([clearInstruments(), clearPrices(), clearCandles()]);
+  // Previously left the "metadata" store (lastInstrumentUpdate/lastPriceUpdate/
+  // lastCandleUpdate) untouched, so after a full clear the UI showed a "—" count
+  // next to a stale "last updated" date instead of "Never".
+  await Promise.all([clearInstruments(), clearPrices(), clearCandles(), clearMetadata()]);
 }
 
 /** Clear the snapshot recorder stores (chain snapshots and daily stats). */
 export async function clearSnapshotData(): Promise<void> {
   await Promise.all([clearStore(STORE_CHAIN_SNAPSHOTS), clearStore(STORE_DAILY_STATS)]);
 }
-
-export const countChainSnapshots = () => countItems(STORE_CHAIN_SNAPSHOTS);
-export const countDailyStats = () => countItems(STORE_DAILY_STATS);

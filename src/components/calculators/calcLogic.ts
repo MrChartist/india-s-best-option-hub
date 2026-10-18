@@ -39,6 +39,8 @@ export function toNum(input: string | number | null | undefined): number {
   if (typeof input !== "string") return NaN;
   const s = input.replace(/[,\s₹]/g, "").replace(/−/g, "-");
   if (!s || s === "-" || s === ".") return NaN;
+  // Plain decimals only: Number() would also accept hex/octal/binary ("0x10" → 16).
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return NaN;
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 }
@@ -62,7 +64,7 @@ export function resolveBroker(id: string, custom: { perOrder: number; pctOfTurno
   const perOrder = isNonNeg(custom.perOrder) ? custom.perOrder : 0;
   const pct = isPos(custom.pctOfTurnover ?? NaN) ? (custom.pctOfTurnover as number) / 100 : undefined;
   const cap = isPos(custom.cap ?? NaN) ? custom.cap : undefined;
-  return { id: "custom", name: "Custom", perOrder, pctOfTurnover: pct, cap: pct ? (cap ?? perOrder) : undefined };
+  return { id: "custom", name: "Custom", perOrder, pctOfTurnover: pct, cap: pct ? (cap ?? (perOrder > 0 ? perOrder : undefined)) : undefined };
 }
 
 // ───────────────────────────── Charges: trade rows ─────────────────────────────
@@ -135,7 +137,9 @@ export function breakevenExitPrice(row: TradeRow, broker: BrokerPreset, onDate?:
     }
     x = next;
   }
-  return x;
+  // A short whose round-trip charges exceed the premium collected can never break even:
+  // an option price cannot go below zero.
+  return x < 0 ? NaN : x;
 }
 
 export function analyseTrade(row: TradeRow, broker: BrokerPreset, onDate?: string): TradeResult {
@@ -150,9 +154,9 @@ export function analyseTrade(row: TradeRow, broker: BrokerPreset, onDate?: strin
   const gross = hasExit ? dir * (row.exit - row.entry) * qty : NaN;
   const turnover = row.entry * qty + (hasExit ? row.exit * qty : 0);
   const breakevenExit = breakevenExitPrice(row, broker, onDate);
-  const breakevenPoints = Math.abs(breakevenExit - row.entry);
+  const breakevenPoints = Number.isFinite(breakevenExit) ? Math.abs(breakevenExit - row.entry) : NaN;
   const lots = Math.max(1, Math.round(row.lots));
-  const roundTrip = calcCharges(tradeFills(row, Math.max(breakevenExit, 0)), { broker, onDate }).total;
+  const roundTrip = calcCharges(tradeFills(row, Number.isFinite(breakevenExit) ? breakevenExit : 0), { broker, onDate }).total;
   return {
     valid,
     qty,

@@ -49,11 +49,20 @@ export interface ParsedRules {
   bySource?: Record<MigrationSource, number>;
 }
 
+/** Most records read from one import file. Never applied to the user's own stored rules. */
+export const IMPORT_RULES_LIMIT = 500;
+
 /**
  * Parse an exported rules file (any version), a bare array, or a list of legacy chain/header
- * alerts. Invalid records are skipped and reported; at most 500 records are read.
+ * alerts. Invalid records are skipped and reported; at most `limit` records are read (500 for
+ * imports; pass Infinity for the stored list).
  */
-export function parseRulesJSON(text: string, now: number = Date.now()): ParsedRules {
+
+export function parseRulesJSON(
+  text: string,
+  now: number = Date.now(),
+  { limit = IMPORT_RULES_LIMIT }: { limit?: number } = {},
+): ParsedRules {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -66,10 +75,11 @@ export function parseRulesJSON(text: string, now: number = Date.now()): ParsedRu
       ? (raw as { rules: unknown[] }).rules
       : null;
   if (!list) return { rules: [], skipped: 0, error: "No rules array found." };
-  const report = migrateAlertRecords(list.slice(0, 500), now);
+  const cap = limit > 0 ? limit : IMPORT_RULES_LIMIT;
+  const report = migrateAlertRecords(Number.isFinite(cap) ? list.slice(0, cap) : list, now);
   return {
     rules: report.rules,
-    skipped: report.skipped + Math.max(0, list.length - 500),
+    skipped: report.skipped + (Number.isFinite(cap) ? Math.max(0, list.length - cap) : 0),
     errors: report.errors,
     bySource: report.bySource,
   };
@@ -100,7 +110,9 @@ export function loadRules(storage: Pick<Storage, "getItem"> | null = safeStorage
   try {
     const text = storage.getItem(ALERT_RULES_STORAGE_KEY);
     if (!text) return [];
-    return parseRulesJSON(text).rules;
+    // Stored rules are the user's own: read them all (the import cap would silently drop the rest
+    // and the next save would make the loss permanent).
+    return parseRulesJSON(text, Date.now(), { limit: Infinity }).rules;
   } catch {
     return [];
   }

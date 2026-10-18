@@ -1,0 +1,30 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/user/profile",
+      "json": {
+        "status": "success",
+        "data": {
+          "user_id": "123456",
+          "email": "abc@example.com",
+          "first_name": "Test",
+          "last_name": "User",
+          "demat_id": "1234xxxxxxxxxxxx",
+          "is_nse_onboarded": true,
+          "is_bse_onboarded": true,
+          "is_nse_fno_onboarded": true,
+          "is_bse_fno_onboarded": true,
+          "ucc": "1ABCDE2N7X",
+          "is_ddpi_active": true
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

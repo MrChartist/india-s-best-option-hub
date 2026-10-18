@@ -1,0 +1,46 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.groww.in/v1/holdings/user",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "holdings": [
+            {
+              "isin": "INE545U01014",
+              "trading_symbol": "RELIANCE",
+              "quantity": 10,
+              "average_price": 100,
+              "pledge_quantity": 2,
+              "demat_locked_quantity": 1,
+              "groww_locked_quantity": 1.5,
+              "repledge_quantity": 0.5,
+              "t1_quantity": 3,
+              "demat_free_quantity": 5,
+              "corporate_action_additional_quantity": 1,
+              "active_demat_transfer_quantity": 1
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  OG_IMAGE_FALLBACK,
+  PROJECT_PAGE_URL,
   SITE_NAME,
   absoluteUrl,
+  canonicalHome,
   buildRobotsTxt,
   buildSitemapXml,
   jsonLdScriptBody,
@@ -60,9 +63,20 @@ describe("JSON-LD", () => {
     const ld = softwareApplicationJsonLd("https://x.in");
     expect(ld).toMatchObject({ "@type": "SoftwareApplication", name: SITE_NAME, applicationCategory: "FinanceApplication", url: "https://x.in/" });
     expect(ld.offers).toMatchObject({ price: "0", priceCurrency: "INR" });
-    expect(softwareApplicationJsonLd("")).not.toHaveProperty("url");
+    expect(softwareApplicationJsonLd("")).toHaveProperty("url", PROJECT_PAGE_URL);
+    expect(softwareApplicationJsonLd("")).toHaveProperty("image", OG_IMAGE_FALLBACK);
+    expect(ld).toHaveProperty("image", "https://x.in/og-image.png");
   });
   it("cannot close the script tag early", () => {
     expect(jsonLdScriptBody({ a: "</script><script>" })).not.toContain("</script>");
+  });
+});
+
+describe("canonicalHome", () => {
+  it("prefers the configured site and falls back to the mrchartist.com project page", () => {
+    expect(canonicalHome("https://x.in")).toBe("https://x.in/");
+    expect(canonicalHome("")).toBe(PROJECT_PAGE_URL);
+    expect(PROJECT_PAGE_URL).toBe("https://mrchartist.com/open-source/india-s-best-option-hub");
+    expect(SITE_NAME).toBe("Option Hub by Mr. Chartist");
   });
 });

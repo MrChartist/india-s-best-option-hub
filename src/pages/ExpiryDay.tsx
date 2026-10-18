@@ -129,24 +129,23 @@ export default function ExpiryDay() {
   const fixedLabel = Number.isFinite(fixedStrike) ? `${formatStrike(fixedStrike)} straddle (fixed at open)` : "Fixed-strike straddle";
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-4 px-1.5 py-1 sm:px-0">
+    <div className="mx-auto w-full max-w-[1400px] space-y-4">
       <PageHeader
         icon={Zap}
-        eyebrow="Chain & OI"
         title="Expiry Day"
         description="A 0DTE command centre for the NIFTY Tuesday and SENSEX Thursday weeklies: straddle decay against theory, theta per minute, hero-zero strikes, OI walls and the rules that change on expiry day."
         source={
           <>
             <ModeBadge mode={s.mode} asOf={s.asOf} reason={s.reason} source={s.chainSource} />
             {recorder.recording ? (
-              <span className="inline-flex items-center gap-1.5 rounded-capsule border border-border bg-card px-2.5 py-0.5 text-body-sm" title="Snapshots are saved in this browser every minute while the market is open">
+              <span className="inline-flex h-5 items-center gap-1.5 rounded-capsule bg-control-track px-2 text-body-sm" title="Snapshots are saved in this browser every minute while the market is open">
                 <CircleDot className="h-3.5 w-3.5 text-bearish motion-safe:animate-pulse" aria-hidden="true" /> Recording
               </span>
             ) : null}
           </>
         }
         actions={
-          <div className="flex items-center gap-2 rounded-capsule border border-border bg-card px-3 py-1">
+          <div className="flex h-7 items-center gap-2">
             <Switch id="expiry-sample" checked={forceSample || s.chainSource === "sample"} disabled={s.chainSource === "sample" && !forceSample} onCheckedChange={setForceSample} />
             <Label htmlFor="expiry-sample" className="inline-flex items-center gap-1 text-body-sm">
               <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Sample session
@@ -155,9 +154,9 @@ export default function ExpiryDay() {
         }
       />
 
-      <section aria-label="Contract" className="flex flex-col gap-3 rounded-card border border-border bg-card p-3 shadow-card md:flex-row md:items-end md:justify-between">
+      <section aria-label="Contract" className="flex flex-col gap-3 rounded-tile border border-separator bg-card px-3 py-2.5 shadow-card md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p id="expiry-symbol-label" className="mb-1 text-label uppercase text-muted-foreground">Index</p>
+          <p id="expiry-symbol-label" className="mb-1 text-label text-muted-foreground">Index</p>
           <div className="-mx-1 overflow-x-auto px-1">
             <ToggleGroup type="single" value={symbol} onValueChange={(v) => v && setParam("symbol", v)} aria-labelledby="expiry-symbol-label" className="justify-start">
               {EXPIRY_SYMBOLS.map((sym) => {
@@ -166,7 +165,7 @@ export default function ExpiryDay() {
                 return (
                   <ToggleGroupItem key={sym} value={sym} size="sm" className="gap-1.5 whitespace-nowrap" aria-label={`${sym}${today ? ", expires today" : ""}`}>
                     {sym}
-                    {today ? <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" /> : null}
+                    {today ? <span className="h-1.5 w-1.5 rounded-capsule bg-warning" aria-hidden="true" /> : null}
                   </ToggleGroupItem>
                 );
               })}
@@ -174,9 +173,9 @@ export default function ExpiryDay() {
           </div>
         </div>
         <div className="grid gap-1">
-          <Label htmlFor="expiry-select" className="text-label uppercase text-muted-foreground">Expiry</Label>
+          <Label htmlFor="expiry-select" className="text-label text-muted-foreground">Expiry</Label>
           <Select value={expiry} onValueChange={(v) => setParam("expiry", v === expiries[0]?.date ? null : v)}>
-            <SelectTrigger id="expiry-select" className="h-9 w-full md:w-[240px]">
+            <SelectTrigger id="expiry-select" className="w-full md:w-[240px]">
               <SelectValue placeholder="No expiry" />
             </SelectTrigger>
             <SelectContent>
@@ -193,7 +192,7 @@ export default function ExpiryDay() {
       <ExpiryCountdown symbol={symbol} expiry={expiry} type={weekly ? "weekly" : expInfo?.type} />
 
       {isSample ? (
-        <div role="alert" className="flex items-start gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm text-warning">
+        <div role="alert" className="flex items-start gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm text-warning">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
             {s.chainSource === "sample" && !forceSample
@@ -205,7 +204,7 @@ export default function ExpiryDay() {
       ) : null}
 
       {s.mode === "empty" && !loading ? (
-        <div className="flex flex-col gap-2 rounded-tile border border-border bg-surface px-3 py-3 text-body-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 rounded-tile bg-control-track px-3 py-3 text-body-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2 text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             {session === "open"
@@ -219,7 +218,7 @@ export default function ExpiryDay() {
       ) : null}
 
       {s.isError ? (
-        <div role="alert" className="rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+        <div role="alert" className="rounded-tile bg-wash-loss px-3 py-2 text-body-sm text-bearish">
           Could not load the {symbol} option chain. Retrying in the background.
         </div>
       ) : null}
@@ -343,7 +342,7 @@ export default function ExpiryDay() {
         </p>
       ) : null}
 
-      <footer className="border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <footer className="hairline-t pt-3 text-body-sm text-muted-foreground">
         <p>Data for education and research. Not investment advice.</p>
         <p className="mt-1">
           Straddle history comes from option-chain snapshots kept in this browser. Model values use Black-76 with the risk-free rate from market settings. Lot sizes and charge rates should be verified against the latest exchange circulars.

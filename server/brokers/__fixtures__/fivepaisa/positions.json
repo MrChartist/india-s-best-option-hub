@@ -1,0 +1,80 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V3/NetPositionNetWise",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "ClientCode": "55512345"
+        }
+      },
+      "json": {
+        "body": {
+          "Message": "",
+          "NetPositionDetail": [
+            {
+              "BODPositionPrice": 809.2514,
+              "BodQty": 5,
+              "BookedPL": 0,
+              "BuyAvgRate": 0,
+              "BuyQty": 0,
+              "BuyValue": 0,
+              "Exch": "N",
+              "ExchType": "C",
+              "LTP": 818.6,
+              "MTOM": 46.743,
+              "Multiplier": 1,
+              "NetQty": 5,
+              "OrderFor": "D",
+              "PreviousClose": 814.6,
+              "ScripCode": 4963,
+              "ScripName": "ICICIBANK",
+              "SellAvgRate": 0,
+              "SellQty": 0,
+              "SellValue": 0,
+              "MtfFlag": "N"
+            },
+            {
+              "BODPositionPrice": 0,
+              "BodQty": 0,
+              "BookedPL": -120.5,
+              "BuyAvgRate": 104.5,
+              "BuyQty": 130,
+              "BuyValue": 13585,
+              "Exch": "N",
+              "ExchType": "D",
+              "LTP": 110.2,
+              "MTOM": 741,
+              "Multiplier": 1,
+              "NetQty": 130,
+              "OrderFor": "I",
+              "PreviousClose": 98.1,
+              "ScripCode": 51401,
+              "ScripName": "NIFTY 20 Oct 2026 CE 25000.00",
+              "SellAvgRate": 0,
+              "SellQty": 0,
+              "SellValue": 0,
+              "MtfFlag": "N"
+            }
+          ],
+          "Status": 0
+        },
+        "head": {
+          "responseCode": "IIFLMarRQNPNWV2",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

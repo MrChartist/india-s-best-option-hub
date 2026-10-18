@@ -1,0 +1,43 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/holdings$",
+      "json": {
+        "code": 200,
+        "message": "",
+        "s": "ok",
+        "overall": {
+          "count_total": 1,
+          "pnl_perc": 21.9136,
+          "total_current_value": 23.7,
+          "total_investment": 19.44,
+          "total_pl": 4.26
+        },
+        "holdings": [
+          {
+            "costPrice": 6.48,
+            "id": 0,
+            "fyToken": "101000000014366",
+            "symbol": "NSE:IDEA-EQ",
+            "isin": "INE669E01016",
+            "quantity": 3,
+            "exchange": 10,
+            "segment": 10,
+            "qty_t1": 0,
+            "remainingQuantity": 3,
+            "collateralQuantity": 0,
+            "remainingPledgeQuantity": 3,
+            "pl": 4.26,
+            "ltp": 7.9,
+            "marketVal": 23.7,
+            "holdingType": "HLD"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

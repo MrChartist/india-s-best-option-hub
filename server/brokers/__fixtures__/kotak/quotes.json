@@ -1,0 +1,127 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "args": [
+    [
+      {
+        "token": "40001",
+        "exchange": "NFO"
+      },
+      {
+        "token": "40002",
+        "exchange": "NFO"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/quotes/neosymbol/nse_fo%7C40001%2Cnse_fo%7C40002/all",
+      "json": [
+        {
+          "exchange_token": "40001",
+          "display_symbol": "NIFTY 20 OCT 2026 CE 25000.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "104.95",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "543025",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "165900",
+          "ohlc": {
+            "open": "100.95",
+            "high": "110.95",
+            "low": "95.95",
+            "close": "102.95"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "104.55",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "104.5",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "104.85",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "104.89999999999999",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        },
+        {
+          "exchange_token": "40002",
+          "display_symbol": "NIFTY 20 OCT 2026 PE 25000.00",
+          "exchange": "nse_fo",
+          "lstup_time": "1792471500",
+          "ltp": "86.4",
+          "last_traded_quantity": "65",
+          "total_buy": "120000",
+          "total_sell": "98000",
+          "last_volume": "498120",
+          "change": "1.20",
+          "per_change": "1.16",
+          "year_high": "0",
+          "year_low": "0",
+          "open_int": "201300",
+          "ohlc": {
+            "open": "82.4",
+            "high": "92.4",
+            "low": "77.4",
+            "close": "84.4"
+          },
+          "depth": {
+            "buy": [
+              {
+                "price": "86.2",
+                "quantity": "650",
+                "orders": "4"
+              },
+              {
+                "price": "86.15",
+                "quantity": "325",
+                "orders": "2"
+              }
+            ],
+            "sell": [
+              {
+                "price": "86.5",
+                "quantity": "520",
+                "orders": "3"
+              },
+              {
+                "price": "86.55",
+                "quantity": "195",
+                "orders": "1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

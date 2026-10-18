@@ -1,0 +1,70 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "1594",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2024-09-19",
+      "to": "2024-09-20"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/marketdata/historicaldata",
+      "expectBody": {
+        "exchange": "NSEEQ",
+        "instrumentId": "1594",
+        "interval": "1 minute",
+        "fromDate": "19-Sep-2024",
+        "toDate": "20-Sep-2024"
+      },
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "initialTimestamp": "19-Sep-2024 09:17:00",
+            "open": 295.2,
+            "high": 295.6,
+            "low": 292.7,
+            "close": 294.45,
+            "volume": 9149737
+          },
+          {
+            "initialTimestamp": "19-Sep-2024 09:18:00",
+            "open": 294.45,
+            "high": 294.9,
+            "low": 293.8,
+            "close": 294.1,
+            "volume": 512300
+          },
+          {
+            "initialTimestamp": "19-Sep-2024 09:19:00",
+            "open": 294.1,
+            "high": 294.3,
+            "low": 293.5,
+            "close": 293.9,
+            "volume": 401120
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

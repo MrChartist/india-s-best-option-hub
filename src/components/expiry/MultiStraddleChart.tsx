@@ -178,26 +178,26 @@ function MultiStraddleView({
     >
       <div className="flex flex-wrap items-center gap-2" aria-label="Selected combinations">
         {series.map((x) => (
-          <span key={x.spec.id} className="inline-flex items-center gap-1.5 rounded-capsule border border-border bg-surface py-0.5 pl-2.5 pr-1 text-body-sm">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: x.color }} aria-hidden="true" />
+          <span key={x.spec.id} className="inline-flex items-center gap-1.5 rounded-capsule border border-separator bg-surface py-0.5 pl-2.5 pr-1 text-body-sm">
+            <span className="h-2.5 w-2.5 rounded-capsule" style={{ background: x.color }} aria-hidden="true" />
             {x.label}
             <button
               type="button"
               onClick={() => onChange(combos.filter((c) => c.id !== x.spec.id))}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-capsule text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
               aria-label={`Remove ${x.label}`}
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
           </span>
         ))}
-        <Button size="sm" variant="ghost" onClick={() => onChange(defaultCombos(s))} className="h-7">
+        <Button variant="ghost" onClick={() => onChange(defaultCombos(s))}>
           <RotateCcw aria-hidden="true" /> Reset
         </Button>
       </div>
 
       <form
-        className="mt-3 flex flex-wrap items-end gap-2 rounded-tile border border-border bg-surface p-2"
+        className="mt-3 flex flex-wrap items-end gap-2 rounded-md bg-control-track p-2"
         onSubmit={(e) => {
           e.preventDefault();
           add();
@@ -205,7 +205,7 @@ function MultiStraddleView({
         aria-label="Add a combination"
       >
         <div className="grid gap-1">
-          <Label htmlFor="combo-kind" className="text-label uppercase text-muted-foreground">Type</Label>
+          <Label htmlFor="combo-kind" className="text-label text-muted-foreground">Type</Label>
           <Select
             value={kind}
             onValueChange={(v) => {
@@ -213,7 +213,7 @@ function MultiStraddleView({
               setOffsetSteps(v === "strangle" ? "2" : "1");
             }}
           >
-            <SelectTrigger id="combo-kind" className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="combo-kind" className="w-[120px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="straddle">Straddle</SelectItem>
               <SelectItem value="strangle">Strangle</SelectItem>
@@ -221,9 +221,9 @@ function MultiStraddleView({
           </Select>
         </div>
         <div className="grid gap-1">
-          <Label htmlFor="combo-offset" className="text-label uppercase text-muted-foreground">{kind === "strangle" ? "Width each side" : "Strike"}</Label>
+          <Label htmlFor="combo-offset" className="text-label text-muted-foreground">{kind === "strangle" ? "Width each side" : "Strike"}</Label>
           <Select value={offsetSteps} onValueChange={setOffsetSteps}>
-            <SelectTrigger id="combo-offset" className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="combo-offset" className="w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {offsetChoices.map((n) => (
                 <SelectItem key={n} value={String(n)}>
@@ -234,16 +234,16 @@ function MultiStraddleView({
           </Select>
         </div>
         <div className="grid gap-1">
-          <Label htmlFor="combo-expiry" className="text-label uppercase text-muted-foreground">Expiry</Label>
+          <Label htmlFor="combo-expiry" className="text-label text-muted-foreground">Expiry</Label>
           <Select value={expiryPick} onValueChange={(v) => setExpiryPick(v as ComboSpec["expiry"])}>
-            <SelectTrigger id="combo-expiry" className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger id="combo-expiry" className="w-[150px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="near">Near{nearExpiry ? ` · ${formatDateIST(nearExpiry)}` : ""}</SelectItem>
               <SelectItem value="next" disabled={!nextExpiry}>Next{nextExpiry ? ` · ${formatDateIST(nextExpiry)}` : ""}</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button type="submit" size="sm" disabled={combos.length >= MAX_COMBOS} className="h-8">
+        <Button type="submit" disabled={combos.length >= MAX_COMBOS}>
           <Plus aria-hidden="true" /> Add
         </Button>
         <span className="text-body-sm text-muted-foreground">{combos.length}/{MAX_COMBOS} · saved in this browser</span>
@@ -297,7 +297,7 @@ function MultiStraddleView({
                     <TableRow key={x.spec.id}>
                       <TableCell>
                         <span className="inline-flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color }} aria-hidden="true" />
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-capsule" style={{ background: x.color }} aria-hidden="true" />
                           {x.label}
                         </span>
                       </TableCell>

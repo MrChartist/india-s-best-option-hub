@@ -13,7 +13,7 @@ const META: Record<HintSeverity, { icon: typeof Lightbulb; cls: string; label: s
 export function ManagementHints({ hints }: { hints: Hint[] }) {
   if (!hints.length) {
     return (
-      <div className="flex items-center gap-2 rounded-tile border border-border bg-surface/50 px-3 py-3 text-body-sm text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-tile border border-separator bg-surface/50 px-3 py-3 text-body-sm text-muted-foreground">
         <CheckCircle2 className="h-4 w-4 text-bullish" aria-hidden="true" />
         Nothing needs attention right now. Hints appear for 50% profit captured, a tested short side, large net delta and expiry-day gamma.
       </div>

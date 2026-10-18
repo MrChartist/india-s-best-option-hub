@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { decToPct, formatGreek, formatINR, formatNumberIN, formatPct, formatStrike, impliedVol, impliedVol76, type OptionType } from "@/lib/options";
-import { isNonNeg, priceOption, toNum } from "./calcLogic";
+import { isPos, priceOption, toNum } from "./calcLogic";
 import { Callout, KV, NumField, Panel, Segmented, Stat } from "./CalcUi";
 import { usePricingInputs } from "./PricingInputs";
 
@@ -10,7 +10,7 @@ export default function IVCalculator() {
   const [type, setType] = useState<OptionType>("CE");
   const [priceText, setPriceText] = useState("150");
   const price = toNum(priceText);
-  const ready = valid && isNonNeg(price) && state.T > 0;
+  const ready = valid && isPos(price) && state.T > 0;
 
   const iv = !ready
     ? NaN
@@ -29,7 +29,7 @@ export default function IVCalculator() {
         {fields}
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Segmented label="Option" value={type} onChange={setType} options={[{ value: "CE", label: "Call" }, { value: "PE", label: "Put" }]} />
-          <NumField label="Market premium" prefix="₹" value={priceText} onChange={setPriceText} invalid={!isNonNeg(price)} hint="Use the mid price when the spread is wide" />
+          <NumField label="Market premium" prefix="₹" value={priceText} onChange={setPriceText} invalid={!isPos(price)} hint={isPos(price) ? "Use the mid price when the spread is wide" : "Premium must be above zero"} />
         </div>
       </Panel>
 
@@ -39,10 +39,12 @@ export default function IVCalculator() {
             <p className="text-body text-muted-foreground">Enter the underlying price, strike, expiry and rate.</p>
           ) : !(state.T > 0) ? (
             <Callout tone="warning">This contract has expired, so there is no time value to solve for.</Callout>
+          ) : !isPos(price) ? (
+            <p className="text-body text-muted-foreground">Enter a market premium above zero to solve the implied volatility.</p>
           ) : !solved ? (
             <Callout tone="loss">
               No volatility reproduces {formatINR(price)}.{" "}
-              {price < floor ? `The premium is below the no-arbitrage floor of ${formatINR(floor)} (intrinsic ${formatINR(intrinsicNow)}, discounted).` : "The premium is above what any volatility up to 500% can produce."} Check the inputs, especially the underlying price and model.
+              {price <= floor ? `The premium is below the no-arbitrage floor of ${formatINR(floor)} (intrinsic ${formatINR(intrinsicNow)}, discounted).` : "The premium is above what any volatility up to 500% can produce."} Check the inputs, especially the underlying price and model.
             </Callout>
           ) : (
             <>
@@ -52,13 +54,13 @@ export default function IVCalculator() {
                 <Stat label="Time value" value={formatINR(price - intrinsicNow)} sub={`Intrinsic ${formatINR(intrinsicNow)}`} />
               </div>
               <div className="mt-4 grid gap-x-6 sm:grid-cols-2">
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-separator">
                   <KV k="Delta" v={formatGreek("delta", check?.g.delta ?? NaN)} />
                   <KV k="Gamma" v={formatGreek("gamma", check?.g.gamma ?? NaN)} />
                   <KV k="Theta / day" v={formatGreek("theta", check?.g.theta ?? NaN)} />
                   <KV k="Vega / vol pt" v={formatGreek("vega", check?.g.vega ?? NaN)} />
                 </div>
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-separator">
                   {bumps.map((b) => (
                     <KV key={b.d} k={`Price at IV ${b.d > 0 ? "+" : "−"}${Math.abs(b.d)} pt (${formatNumberIN(decToPct(iv) + b.d, 2)}%)`} v={formatINR(b.p)} />
                   ))}

@@ -18,7 +18,7 @@ function DealsTable({ deals, fnoSet }: { deals: DealRow[]; fnoSet: Set<string> }
       <table className="w-full min-w-[640px] text-body-sm">
         <caption className="sr-only">Deals sorted by value</caption>
         <thead>
-          <tr className="border-y border-border bg-muted/40 text-label uppercase text-muted-foreground">
+          <tr className="bg-surface text-label text-muted-foreground [&>th]:shadow-[inset_0_calc(-1*var(--hairline))_0_hsl(var(--separator-strong))]">
             <th scope="col" className="px-4 py-2 text-left">
               Symbol
             </th>
@@ -39,9 +39,9 @@ function DealsTable({ deals, fnoSet }: { deals: DealRow[]; fnoSet: Set<string> }
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="zebra-rows">
           {sorted.map((d, i) => (
-            <tr key={`${d.symbol}-${d.client}-${i}`} className="border-b border-border/60">
+            <tr key={`${d.symbol}-${d.client}-${i}`}>
               <th scope="row" className="px-4 py-1.5 text-left font-semibold">
                 {d.symbol}
                 {fnoSet.has(d.symbol) ? (
@@ -114,7 +114,7 @@ export function BigMoneyPanel({
         {active.isLoading ? (
           <div className="space-y-2 p-4" aria-busy="true">
             {["s1", "s2", "s3", "s4", "s5"].map((k) => (
-              <div key={k} className="h-7 animate-pulse rounded-md bg-muted" />
+              <div key={k} className="h-7 animate-pulse rounded-md bg-control-track" />
             ))}
           </div>
         ) : deals.length === 0 ? (
@@ -127,8 +127,8 @@ export function BigMoneyPanel({
             {summary.length > 0 ? (
               <div className="flex flex-wrap gap-2 px-4 py-3" aria-label="Net value by symbol">
                 {summary.map((s) => (
-                  <div key={s.symbol} className="rounded-tile border border-border px-2.5 py-1.5">
-                    <p className="text-label uppercase text-muted-foreground">{s.symbol}</p>
+                  <div key={s.symbol} className="rounded-md bg-control-track px-2.5 py-1.5">
+                    <p className="text-label text-muted-foreground">{s.symbol}</p>
                     <p
                       className={cn(
                         "font-num text-body font-semibold tabular-nums",
@@ -161,7 +161,7 @@ export function BigMoneyPanel({
             body="Nothing has crossed the threshold in the data received so far."
           />
         ) : (
-          <ul className="divide-y divide-border/60">
+          <ul className="divide-y divide-separator">
             {jumps.slice(0, 20).map((j) => {
               const r = rowMap.get(j.symbol);
               return (
@@ -179,7 +179,7 @@ export function BigMoneyPanel({
             })}
           </ul>
         )}
-        <p className="border-t border-border px-4 py-2 text-micro text-muted-foreground">
+        <p className="hairline-t px-4 py-2 text-micro text-muted-foreground">
           OI change · price change · buildup
         </p>
       </Card>

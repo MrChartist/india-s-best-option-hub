@@ -1,0 +1,100 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/user/holdings",
+      "json": {
+        "data": [
+          {
+            "symbols": [
+              {
+                "symbol": "SBIN",
+                "tradingSymbol": "SBIN-EQ",
+                "exchange": "NSE",
+                "token": "3045",
+                "isin": "INE062A01020"
+              },
+              {
+                "symbol": "SBIN",
+                "tradingSymbol": "SBIN",
+                "exchange": "BSE",
+                "token": "1499112",
+                "isin": "INE062A01020"
+              }
+            ],
+            "avgPrice": "882.00",
+            "qty": "3",
+            "usedQty": "0",
+            "t1Qty": "0",
+            "depositoryQty": "3",
+            "collateralQty": "0",
+            "brokerCollateralQty": "0.00",
+            "authorizedQty": "0",
+            "unPledgedQty": "0",
+            "nonPOAQty": "0",
+            "haircut": "0.00",
+            "effectiveQty": "3",
+            "sellableQty": "3",
+            "ltp": "",
+            "pnl": "",
+            "close": ""
+          },
+          {
+            "symbols": [
+              {
+                "symbol": "GROWW",
+                "tradingSymbol": "GROWW-EQ",
+                "exchange": "NSE",
+                "token": "759806",
+                "isin": "INE0HOQ01053"
+              },
+              {
+                "symbol": "GROWW",
+                "tradingSymbol": "GROWW",
+                "exchange": "BSE",
+                "token": "1543603",
+                "isin": "INE0HOQ01053"
+              }
+            ],
+            "avgPrice": "152.00",
+            "qty": "2",
+            "usedQty": "0",
+            "t1Qty": "0",
+            "depositoryQty": "0",
+            "collateralQty": "0",
+            "brokerCollateralQty": "2.00",
+            "authorizedQty": "0",
+            "unPledgedQty": "0",
+            "nonPOAQty": "0",
+            "haircut": "0.00",
+            "effectiveQty": "2",
+            "sellableQty": "2",
+            "ltp": "",
+            "pnl": "",
+            "close": ""
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

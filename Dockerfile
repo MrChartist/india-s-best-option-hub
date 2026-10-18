@@ -18,7 +18,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
-# Where the browser reaches the proxy. The default works for `docker run -p 4002:4002`.
+# Where the browser reaches the proxy. The default works for
+# `docker run -p 127.0.0.1:4001:4001 -p 127.0.0.1:4002:4002`. Publish the ports on
+# 127.0.0.1 only: the proxy can hold your broker token.
 ARG VITE_PROXY_URL=http://localhost:4002
 ARG VITE_DATA_MODE=
 ENV VITE_PROXY_URL=${VITE_PROXY_URL} \
@@ -35,11 +37,16 @@ ENV NODE_ENV=production \
     PROXY_PORT=4002 \
     PROXY_HOST=0.0.0.0 \
     PROXY_ALLOWED_ORIGINS=http://localhost:4001,http://127.0.0.1:4001
+# The host browser reaches the container from the Docker bridge gateway, not loopback.
+# Only these socket addresses may use the .env Dhan keys and the shared live feed.
+ENV PROXY_TRUSTED_NETS=172.16.0.0/12
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/package.json /app/proxy-server.mjs ./
+# proxy-server.mjs imports the 1Cliq risk/panic/basket engines and broker adapters from server/.
+COPY --from=build --chown=node:node /app/server ./server
 
 # Tiny dependency-free static server for dist/ (SPA fallback, long-cache hashed
 # assets, security headers). It also supervises the proxy process: if either

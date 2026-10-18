@@ -13,11 +13,11 @@ const twMerge = extendTailwindMerge({
     classGroups: {
       "font-size": [
         {
-          text: ["2xs", "micro", "label", "body-sm", "body", "lead", "title", "display", "num-hero"],
+          text: ["micro", "label", "body-sm", "body", "headline", "lead", "title", "display", "num-hero"],
         },
       ],
       rounded: [{ rounded: ["chip", "pill", "tab", "tile", "card", "panel", "capsule"] }],
-      shadow: [{ shadow: ["card", "card-hover", "float", "ember", "glow", "glow-sm", "glow-lg"] }],
+      shadow: [{ shadow: ["card", "card-hover", "float", "ember", "focus", "control", "window"] }],
     },
   },
 });

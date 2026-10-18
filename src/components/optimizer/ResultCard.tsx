@@ -42,30 +42,30 @@ export function HintChip({ label, hint, variant, icon }: { label: string; hint: 
           {label}
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[260px] text-xs">{hint}</TooltipContent>
+      <TooltipContent className="max-w-[260px] text-body-sm">{hint}</TooltipContent>
     </Tooltip>
   );
 }
 
 function Metric({ label, value, tone, hint }: { label: string; value: string; tone?: "bullish" | "bearish" | "muted"; hint?: string }) {
   return (
-    <div className="min-w-0 rounded-tile bg-muted/50 px-2 py-1.5">
-      <dt className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
+    <div className="min-w-0 rounded-md bg-control-track px-2 py-1.5">
+      <dt className="flex items-center gap-1 text-label text-muted-foreground">
         {label}
         {hint && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" className="rounded-full text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none" aria-label={`About ${label}`}>
+              <button type="button" className="rounded-full text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none" aria-label={`About ${label}`}>
                 <Info className="h-3 w-3" aria-hidden="true" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="max-w-[240px] text-xs">{hint}</TooltipContent>
+            <TooltipContent className="max-w-[240px] text-body-sm">{hint}</TooltipContent>
           </Tooltip>
         )}
       </dt>
       <dd
         className={cn(
-          "font-num truncate text-[13px] font-semibold tabular-nums",
+          "font-num truncate text-headline tabular-nums",
           tone === "bullish" && "text-bullish",
           tone === "bearish" && "text-bearish",
           tone === "muted" && "text-muted-foreground",
@@ -83,26 +83,26 @@ function ResultCardImpl({ candidate: c, view, onOpen, onAddToBasket, onPaperTrad
   return (
     <article
       className={cn(
-        "flex h-full min-w-0 flex-col gap-2.5 rounded-card border bg-card p-3 shadow-card transition-shadow duration-hover hover:shadow-card-hover",
-        primary ? "border-primary/60" : "border-border",
+        "flex h-full min-w-0 flex-col gap-2.5 rounded-tile border bg-card p-3 shadow-card",
+        primary ? "border-primary/60" : "border-separator",
       )}
       aria-label={`${c.label}, rank ${c.rank}`}
     >
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-num text-[11px] font-semibold text-muted-foreground">#{c.rank}</span>
+            <span className="font-num text-label text-muted-foreground">#{c.rank}</span>
             {c.definedRisk ? <Badge variant="info">Defined risk</Badge> : <Badge variant="warning">Undefined risk</Badge>}
             {c.matchesView && <HintChip label="Matches your view" hint={neutralView ? VIEW_HINT_NEUTRAL : VIEW_HINT_DIRECTIONAL} variant="default" icon={<Target aria-hidden="true" />} />}
           </div>
-          <h3 className="mt-1 truncate font-display text-[15px] font-bold leading-tight" title={c.label}>
+          <h3 className="mt-1 truncate font-display text-lead font-semibold leading-tight" title={c.label}>
             {c.label}
           </h3>
         </div>
-        <span className="shrink-0 rounded-chip bg-wash-brand px-1.5 py-0.5 text-[11px] font-semibold text-primary-ink">{sizeLabel(c)}</span>
+        <span className="shrink-0 rounded-chip bg-control-track px-1.5 py-0.5 text-label text-foreground">{sizeLabel(c)}</span>
       </header>
 
-      <div className="flex items-start gap-1.5 text-[12px] font-semibold leading-snug">
+      <div className="flex items-start gap-1.5 text-body-sm font-semibold leading-snug">
         <Badge variant={TONE_VARIANT[tag.tone]} className="mt-px shrink-0">
           {tag.tone === "volatile" ? "Big move" : tag.tone}
         </Badge>
@@ -110,25 +110,25 @@ function ResultCardImpl({ candidate: c, view, onOpen, onAddToBasket, onPaperTrad
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-tile bg-wash-profit/60 px-2 py-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Return on funds</div>
-          <div className={cn("font-num text-[20px] font-bold leading-tight tabular-nums", c.roi >= 0 ? "text-bullish" : "text-bearish")}>
+        <div className="rounded-md bg-control-track px-2 py-1.5">
+          <div className="text-label text-muted-foreground">Return on funds</div>
+          <div className={cn("font-num text-title leading-tight tabular-nums", c.roi >= 0 ? "text-bullish" : "text-bearish")}>
             {formatPct(c.roi * 100, { decimals: 1, signed: true })}
           </div>
         </div>
-        <div className="rounded-tile bg-wash-info/70 px-2 py-1.5">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Chance of profit</div>
-          <div className="font-num text-[20px] font-bold leading-tight tabular-nums text-info">{formatPct(c.pop * 100, { decimals: 1 })}</div>
+        <div className="rounded-md bg-control-track px-2 py-1.5">
+          <div className="text-label text-muted-foreground">Chance of profit</div>
+          <div className="font-num text-title leading-tight tabular-nums text-info">{formatPct(c.pop * 100, { decimals: 1 })}</div>
         </div>
       </div>
 
       <MiniPayoff candidate={c} {...view} />
 
-      <ul className="space-y-0.5 text-[12px]" aria-label="Legs">
+      <ul className="space-y-0.5 text-body-sm" aria-label="Legs">
         {c.legs.map((l) => (
           <li key={`${l.side}-${l.type}-${l.strike}-${l.expiry}`} className="flex items-center justify-between gap-2 font-num tabular-nums">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className={cn("w-9 shrink-0 rounded-chip px-1 text-center text-[10px] font-bold", l.side === "BUY" ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
+              <span className={cn("w-9 shrink-0 rounded-chip px-1 text-center text-micro font-semibold", l.side === "BUY" ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
                 {l.side === "BUY" ? "BUY" : "SELL"}
               </span>
               <span className="truncate">
@@ -158,7 +158,7 @@ function ResultCardImpl({ candidate: c, view, onOpen, onAddToBasket, onPaperTrad
       </dl>
 
       {(c.elm > 0 || c.breakevens.length > 0 || c.quoteWarning || c.hedgeBenefit > 0) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted-foreground">
           {c.elm > 0 && <HintChip label="incl. expiry-day ELM" hint={`${ELM_HINT} ELM here: ${formatINR(c.elm, { decimals: 0 })}.`} variant="warning" />}
           {c.breakevens.length > 0 && <span>Breakeven {c.breakevens.map((b) => formatStrike(Math.round(b))).join(" · ")}</span>}
           {c.hedgeBenefit > 0 && <span>Hedge benefit {formatCompactIN(c.hedgeBenefit, { symbol: true })}</span>}
@@ -171,17 +171,17 @@ function ResultCardImpl({ candidate: c, view, onOpen, onAddToBasket, onPaperTrad
       )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
-        <Button size="sm" variant={primary ? "default" : "outline"} className="min-w-[9rem] flex-1" onClick={() => onOpen(c)}>
-          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+        <Button variant={primary ? "default" : "secondary"} className="min-w-[9rem] flex-1" onClick={() => onOpen(c)}>
+          <ExternalLink aria-hidden="true" />
           Open in Builder
         </Button>
-        <Button size="sm" variant="outline" onClick={() => onPaperTrade(c)}>
-          <NotebookPen className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="ml-1.5">Paper trade</span>
+        <Button variant="secondary" onClick={() => onPaperTrade(c)}>
+          <NotebookPen aria-hidden="true" />
+          <span>Paper trade</span>
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => onAddToBasket(c)} aria-label={`Add ${c.label} to basket`}>
-          <ShoppingBasket className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="ml-1.5 hidden sm:inline">Basket</span>
+        <Button variant="ghost" onClick={() => onAddToBasket(c)} aria-label={`Add ${c.label} to basket`}>
+          <ShoppingBasket aria-hidden="true" />
+          <span className="hidden sm:inline">Basket</span>
         </Button>
       </div>
     </article>

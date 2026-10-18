@@ -1,0 +1,18 @@
+{
+  "args": [
+    "22050200000634"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://developer.hdfcsec.com/oapi/v1/orders/regular/22050200000634?api_key=dummy-ir-api-key",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "22050200000634"
+        }
+      }
+    }
+  ]
+}

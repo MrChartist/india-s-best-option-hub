@@ -1,0 +1,15 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://invest-api.axisdirect.in/trading/portfolio/get-positions",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "payload": "AAAAAAAAAAAAAAAAAAAACQ==.4KU+qcWhXsN4dxZKjY9+1A==.tExTbIFMkAQe+sPlDAFWDYYEtrR6ce2aPPbM9PtHhdYdxYhSTFdxc1u4bxDfxUBrYOBmhUMn3uW/YcQQ3TCFgC8DGpxOpIpsqVTQ0v8f5GvVeJeb4cPZH4zy+6mq+x/guKALTyeC+xoM5pWvxDCyYqC/yZQghiUiLIw4kzXP47oxvGhFUKzBqPQFJTnZa1s5BN0B61ziCK7tP9mRZdfGNu0Fb+pc8X//OF1ug0Sv2RhC3lxVVLO23zwhK+eNXTPTa+e7+TTPIumjGaM3U6R0wya9xzjAeV3375E2HLwc5lf4wmLrj/b3ZGPyztXQtq1VmLoCQewVw8IkeVgLvEp9bQjwLb3ASm4Q/ZCJSxwTC6BZpWr3JXwqMhCdOeQYxSHfH0DjSVjAw68fIu1JRZlgm20SibNVwgNtwZ1lR8XRwkgegt27izU1bhvVlS1yErHHLvCwzRWqqf20f/b0nmDyxpC3HBr20t32ijA9u2S0neqp7HdIpjs3U4kJOObHsirNYpgn7BDzr0LKxBND5Q6Fc0iOOZfRgiLTS8evVdlOf1fk2PdpQ4wh1E6n4CdKD/OOneWlAmpX"
+        }
+      }
+    }
+  ]
+}

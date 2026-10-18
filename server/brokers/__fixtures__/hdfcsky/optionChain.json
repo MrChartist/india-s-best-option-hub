@@ -1,0 +1,86 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://hdfcsky.com/api/v1/contract/Compact?info=download",
+      "status": 200,
+      "text": "exchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code,settlement_type,isin\n26000,Nifty 50,,25012.35,,0.0000,0.0500,0,,,INDICES,NSE,,,,\n26009,Nifty Bank,,55844,,0.0000,0.0500,0,,,INDICES,NSE,,,,\n26037,Nifty Fin Service,,25387.1,,0.0000,0.0500,0,,,INDICES,NSE,,,,\n26074,NIFTY MID SELECT,,13717.4,,0.0000,0.0500,0,,,INDICES,NSE,,,,\n26019,Nifty Infra,,8725.6,,0.0000,0.0500,0,,,INDICES,NSE,,,,\n1,SENSEX,SENSEX,82110.27,,0.0000,0.0100,0,,,IDX,BSE,,,,\n12,BANKEX,BANKEX,62769.43,,0.0000,0.0100,0,,,IDX,BSE,,,,\n2885,RELIANCE-EQ,RELIANCE INDUSTRIES LTD,1402.5,,0.0000,0.1000,1,EQ,,EQ,NSE,,,1,INE002A01018\n51630,NIFTY26OCT25000CE,NIFTY,182.4,27-Oct-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,,,\n51631,NIFTY26OCT25000PE,NIFTY,141.1,27-Oct-2026,25000.0000,0.0500,65,OPTIDX,PE,XX,NFO,,,,\n51632,NIFTY26OCT25100CE,NIFTY,131.6,27-Oct-2026,25100.0000,0.0500,65,OPTIDX,CE,XX,NFO,,,,\n51633,NIFTY26OCT25100PE,NIFTY,190.3,27-Oct-2026,25100.0000,0.0500,65,OPTIDX,PE,XX,NFO,,,,\n45508,NIFTY26N0325000CE,NIFTY,231.0,03-Nov-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,,,\n52222,NIFTY26OCTFUT,NIFTY,25110,27-Oct-2026,-0.0100,0.1000,65,FUTIDX,XX,XX,NFO,,,,\n61001,BANKNIFTY26OCT56000CE,BANKNIFTY,410,27-Oct-2026,56000.0000,0.0500,30,OPTIDX,CE,XX,NFO,,,,\n61101,FINNIFTY26OCT27000PE,FINNIFTY,220,27-Oct-2026,27000.0000,0.0500,60,OPTIDX,PE,XX,NFO,,,,\n61201,MIDCPNIFTY26OCT13000CE,MIDCPNIFTY,95,27-Oct-2026,13000.0000,0.0500,120,OPTIDX,CE,XX,NFO,,,,\n1163250,SENSEX26O2982000CE,SENSEX,512.3,29-Oct-2026,82000.0000,0.0500,20,IO,CE,IO,BFO,BSXOPT,BSX,,\n1155242,BANKEX26OCT60000PE,BANKEX,610,29-Oct-2026,60000.0000,0.0500,30,IO,PE,IO,BFO,BKXOPT,BKX,,\n36343,RELIANCE26OCT1400CE,RELIANCE,31.2,27-Oct-2026,1400.0000,0.0500,500,OPTSTK,CE,XX,NFO,,,,\n222895,GOLDGUINEA26NOVFUT,,40520,30-Nov-2026,0.0000,1.0000,1,FUTCOM,XX,XX,MCX,,,,\n99999,TESTSCRIP,TEST,0,01-Jan-0001,0.0000,0.0500,1,OPTIDX,CE,XX,NFO,,,,\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://developer.hdfcsky.com/oapi/v1/fetch-ltp?api_key=dummy-sky-api-key",
+      "expectBody": {
+        "data": [
+          {
+            "exchange": "NSE_INDEX"
+          }
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "prev_close": 25012.35,
+            "ltp": 25061.4,
+            "exchange": "NSE_INDEX",
+            "token": 26000
+          }
+        ],
+        "meta": {
+          "statusCode": "OK",
+          "statusMsg": "OK"
+        }
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://developer.hdfcsky.com/oapi/v1/fetch-ltp?api_key=dummy-sky-api-key",
+      "expectBody": {
+        "data": [
+          {
+            "exchange": "NFO"
+          }
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "prev_close": 190.1,
+            "ltp": 182.4,
+            "exchange": "NFO",
+            "token": 51630
+          },
+          {
+            "prev_close": 133.0,
+            "ltp": 141.1,
+            "exchange": "NFO",
+            "token": 51631
+          },
+          {
+            "prev_close": 139.5,
+            "ltp": 131.6,
+            "exchange": "NFO",
+            "token": 51632
+          },
+          {
+            "prev_close": 182.2,
+            "ltp": 190.3,
+            "exchange": "NFO",
+            "token": 51633
+          }
+        ],
+        "meta": {
+          "statusCode": "OK",
+          "statusMsg": "OK"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 2
+  }
+}

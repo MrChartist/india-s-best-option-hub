@@ -1,0 +1,39 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/data/quotes\\?symbols=NSE%3ANIFTY50-INDEX$",
+      "json": {
+        "code": 200,
+        "d": [
+          {
+            "n": "NSE:NIFTY50-INDEX",
+            "s": "ok",
+            "v": {
+              "ask": 0,
+              "bid": 0,
+              "ch": 15.55,
+              "chp": 0.06,
+              "description": "NSE:NIFTY50-INDEX",
+              "exchange": "NSE",
+              "fyToken": "101000000026000",
+              "high_price": 25040.1,
+              "low_price": 24950.6,
+              "lp": 25012.15,
+              "open_price": 24980.3,
+              "original_name": "NSE:NIFTY50-INDEX",
+              "prev_close_price": 24996.6,
+              "short_name": "NIFTY50-INDEX",
+              "spread": 0,
+              "symbol": "NSE:NIFTY50-INDEX",
+              "tt": "1792404600",
+              "volume": 0
+            }
+          }
+        ],
+        "message": "",
+        "s": "ok"
+      }
+    }
+  ]
+}

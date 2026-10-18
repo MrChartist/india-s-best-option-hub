@@ -1,0 +1,77 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://tradeapi.samco.in/quote/indexQuote?indexName=NIFTY+50",
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Index Quote details retrieved successfully",
+        "indexDetails": [
+          {
+            "indexName": "NIFTY 50",
+            "listingId": "-101",
+            "lastTradedTime": "2026-10-16 15:29:59.0",
+            "spotPrice": 25041.35,
+            "changePercentage": 0.63,
+            "averagePrice": 0,
+            "openValue": 24991.35,
+            "highValue": 25121.35,
+            "lowValue": 24921.35,
+            "closeValue": 25001.35,
+            "totalBuyQuantity": 0,
+            "totalSellQuantity": 0,
+            "totalTradedValue": 0,
+            "totalTradedVolume": 0,
+            "change": 40
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

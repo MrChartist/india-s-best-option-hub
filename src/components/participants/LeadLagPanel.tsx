@@ -110,65 +110,66 @@ export function LeadLagPanel({ series, closes, closesLoading, windowLabel }: Lea
       </div>
 
       {!closes && !closesLoading ? (
-        <p className="rounded-tile border border-dashed border-border px-3 py-4 text-center text-body-sm text-muted-foreground">
+        <p className="rounded-tile bg-muted/40 px-3 py-4 text-center text-body-sm text-muted-foreground">
           NIFTY daily closes are unavailable, so the next-day correlation cannot be worked out. Start the local proxy
           and refresh.
         </p>
       ) : lag && lag.n >= 3 ? (
         <div className="min-w-0">
-          <p className="mb-2 text-label uppercase text-muted-foreground">
-            Change in FII long % (x) vs next-day NIFTY return (y)
-          </p>
+          <p className="mb-2 text-label text-muted-foreground">Change in FII long % (x) vs next-day NIFTY return (y)</p>
           <div
             className="h-[240px]"
             role="img"
             aria-label={`Scatter of ${lag.n} sessions: change in FII long percent against next-day NIFTY return. Correlation ${fmtR(lag.corrChange)}, ${STRENGTH[strength].toLowerCase()}.`}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                <CartesianGrid {...gridProps} />
-                <ReferenceLine x={0} stroke={tokenColor("muted-foreground", 0.5)} />
-                <ReferenceLine y={0} stroke={tokenColor("muted-foreground", 0.5)} />
-                <XAxis
-                  type="number"
-                  dataKey="fiiChange"
-                  {...axisProps}
-                  tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)}`}
-                  name="Δ FII long %"
-                  unit=" pts"
-                />
-                <YAxis
-                  type="number"
-                  dataKey="nextRet"
-                  {...axisProps}
-                  width={48}
-                  tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                  name="Next-day NIFTY"
-                />
-                <ZAxis range={[48, 48]} />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  cursor={{ strokeDasharray: "3 3" }}
-                  labelFormatter={() => ""}
-                  formatter={(v: number, name: string) => [
-                    name.startsWith("Δ")
-                      ? `${v > 0 ? "+" : ""}${v.toFixed(2)} pts`
-                      : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`,
-                    name,
-                  ]}
-                />
-                <Scatter
-                  data={lag.points}
-                  fill={chartColors.fii}
-                  fillOpacity={0.75}
-                  stroke={chartColors.card}
-                  strokeWidth={1}
-                  isAnimationActive={false}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
+            {/* Recharts marks every scatter dot role="img" with no name; the wrapper's label describes the chart. */}
+            <div className="h-full w-full" aria-hidden="true">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <CartesianGrid {...gridProps} />
+                  <ReferenceLine x={0} stroke={tokenColor("muted-foreground", 0.5)} />
+                  <ReferenceLine y={0} stroke={tokenColor("muted-foreground", 0.5)} />
+                  <XAxis
+                    type="number"
+                    dataKey="fiiChange"
+                    {...axisProps}
+                    tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v.toFixed(1)}`}
+                    name="Δ FII long %"
+                    unit=" pts"
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="nextRet"
+                    {...axisProps}
+                    width={48}
+                    tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                    name="Next-day NIFTY"
+                  />
+                  <ZAxis range={[48, 48]} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                    itemStyle={tooltipItemStyle}
+                    cursor={{ strokeDasharray: "3 3" }}
+                    labelFormatter={() => ""}
+                    formatter={(v: number, name: string) => [
+                      name.startsWith("Δ")
+                        ? `${v > 0 ? "+" : ""}${v.toFixed(2)} pts`
+                        : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`,
+                      name,
+                    ]}
+                  />
+                  <Scatter
+                    data={lag.points}
+                    fill={chartColors.fii}
+                    fillOpacity={0.75}
+                    stroke={chartColors.card}
+                    strokeWidth={1}
+                    isAnimationActive={false}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
           </div>
           <p className="mt-1 text-body-sm text-muted-foreground">
             {lag.points.length
@@ -178,7 +179,7 @@ export function LeadLagPanel({ series, closes, closesLoading, windowLabel }: Lea
           </p>
         </div>
       ) : (
-        <p className="rounded-tile border border-dashed border-border px-3 py-4 text-center text-body-sm text-muted-foreground">
+        <p className="rounded-tile bg-muted/40 px-3 py-4 text-center text-body-sm text-muted-foreground">
           {closesLoading ? "Loading NIFTY closes…" : "Not enough overlapping sessions for a correlation yet."}
         </p>
       )}

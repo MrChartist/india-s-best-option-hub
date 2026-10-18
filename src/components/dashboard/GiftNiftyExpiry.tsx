@@ -37,37 +37,39 @@ export function GiftNiftyExpiry() {
   );
   const mcx = useMemo(() => buildMcxExpiryRows(now), [now]);
   const anyDerived = rows.some((r) => r.basis === "derived");
+  // The expiry list falls back from Dhan to the NSE option chain: name whichever answered.
+  const liveSource = [...new Set([nifty.data, bnf.data].filter((x) => x?.isLive).map((x) => (x?.source === "dhan" ? "Dhan" : "NSE")))].join(" / ") || "NSE";
 
   return (
     <div className={cn("grid lg:grid-cols-5", d.gap)}>
       <Card className="overflow-hidden lg:col-span-3">
         <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
           <CalendarClock className="h-4 w-4 text-warning" aria-hidden="true" />
-          <h3 className="font-display text-lead font-bold">Index expiries</h3>
+          <h3 className="font-display text-headline">Index expiries</h3>
           <div className="ml-auto flex items-center gap-1.5">
-            {anyDerived ? <DataStatus status="derived" reason="Dates follow SEBI expiry rules and the NSE/BSE holiday calendar where the live expiry list is not available." /> : <DataStatus status="live" source="Dhan" />}
+            {anyDerived ? <DataStatus status="derived" reason="Dates follow SEBI expiry rules and the NSE/BSE holiday calendar where the live expiry list is not available." /> : <DataStatus status="live" source={liveSource} />}
           </div>
         </div>
         <div ref={scrollRef0} className="overflow-x-auto">
           <table className="w-full text-body">
             <caption className="sr-only">Next expiry for each index underlying</caption>
             <thead>
-              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
-                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
-                <th scope="col" className={cn("hidden px-2 font-[650] sm:table-cell", d.cell)}>Type</th>
-                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Expiry</th>
-                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Time left</th>
+              <tr className="text-left text-label text-muted-foreground [&>th]:hairline-b">
+                <th scope="col" className={cn("px-4 font-semibold", d.cell)}>Contract</th>
+                <th scope="col" className={cn("hidden px-2 font-semibold sm:table-cell", d.cell)}>Type</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-semibold sm:table-cell", d.cell)}>Lot</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>Expiry</th>
+                <th scope="col" className={cn("px-4 text-right font-semibold", d.cell)}>Time left</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {rows.map((r) => (
-                <tr key={r.symbol} className="border-b border-border last:border-0 hover:bg-accent/40">
+                <tr key={r.symbol} className="hover:bg-control-track">
                   <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
-                    <Link to={`/option-chain?symbol=${r.symbol}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none" aria-label={`Open ${r.symbol} option chain`}>
+                    <Link to={`/option-chain?symbol=${r.symbol}`} className="rounded-sm hover:underline focus-visible:shadow-focus focus-visible:outline-none" aria-label={`Open ${r.symbol} option chain`}>
                       {r.symbol}
                     </Link>
-                    <span className="ml-1.5 text-micro uppercase text-muted-foreground">{r.exchange}</span>
+                    <span className="ml-1.5 text-micro text-muted-foreground">{r.exchange}</span>
                   </th>
                   <td className={cn("hidden px-2 sm:table-cell", d.cell)}>
                     <Badge variant={r.type === "weekly" ? "info" : "neutral"}>{r.type}</Badge>
@@ -97,7 +99,7 @@ export function GiftNiftyExpiry() {
       <Card className="overflow-hidden lg:col-span-2">
         <div className={cn("flex flex-wrap items-center gap-2", d.headPad)}>
           <Factory className="h-4 w-4 text-warning" aria-hidden="true" />
-          <h3 className="font-display text-lead font-bold">MCX futures</h3>
+          <h3 className="font-display text-headline">MCX futures</h3>
           <div className="ml-auto">
             <DataStatus status="derived" reason="Approximate rule-based dates. MCX holidays and contract-specific changes are not applied; check the MCX contract calendar." />
           </div>
@@ -106,16 +108,16 @@ export function GiftNiftyExpiry() {
           <table className="w-full text-body">
             <caption className="sr-only">Approximate next MCX futures expiries</caption>
             <thead>
-              <tr className="border-y border-border text-left text-label uppercase text-muted-foreground">
-                <th scope="col" className={cn("px-4 font-[650]", d.cell)}>Contract</th>
-                <th scope="col" className={cn("hidden px-2 text-right font-[650] sm:table-cell", d.cell)}>Lot</th>
-                <th scope="col" className={cn("px-2 text-right font-[650]", d.cell)}>Approx. expiry</th>
-                <th scope="col" className={cn("px-4 text-right font-[650]", d.cell)}>Left</th>
+              <tr className="text-left text-label text-muted-foreground [&>th]:hairline-b">
+                <th scope="col" className={cn("px-4 font-semibold", d.cell)}>Contract</th>
+                <th scope="col" className={cn("hidden px-2 text-right font-semibold sm:table-cell", d.cell)}>Lot</th>
+                <th scope="col" className={cn("px-2 text-right font-semibold", d.cell)}>Approx. expiry</th>
+                <th scope="col" className={cn("px-4 text-right font-semibold", d.cell)}>Left</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {mcx.map((r) => (
-                <tr key={r.symbol} className="border-b border-border last:border-0">
+                <tr key={r.symbol}>
                   <th scope="row" className={cn("px-4 text-left font-medium", d.cell)}>
                     {r.symbol}
                     <span className="block text-body-sm font-normal text-muted-foreground">{r.rule}</span>
@@ -137,5 +139,3 @@ export function GiftNiftyExpiry() {
     </div>
   );
 }
-
-export default GiftNiftyExpiry;

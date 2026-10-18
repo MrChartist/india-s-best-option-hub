@@ -203,7 +203,7 @@ export default function MarginCalculator() {
             <NumField label="Default IV" suffix="%" value={ivText} onChange={setIvText} invalid={!isPos(sigma)} hint="Used where a leg has no IV" />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Load a preset">
-            <span className="mr-1 text-label uppercase text-muted-foreground">Presets</span>
+            <span className="mr-1 text-label text-muted-foreground">Presets</span>
             {PRESETS.map((p) => (
               <Button key={p.id} variant="outline" size="pill" onClick={() => applyPreset(p.id)} disabled={!isPos(spot)}>
                 {p.label}
@@ -211,25 +211,25 @@ export default function MarginCalculator() {
             ))}
           </div>
 
-          <ul className="mt-4 space-y-2" aria-label="Legs">
+          <ul className="mt-4 divide-y divide-separator overflow-hidden rounded-md border border-separator empty:hidden" aria-label="Legs">
             {rows.map((row, i) => {
               const mp = modelPremium(row);
               return (
-                <li key={row.id} className="grid grid-cols-2 items-end gap-2 rounded-tile border border-border bg-surface/60 p-3 sm:grid-cols-[repeat(6,minmax(0,1fr))_auto]">
+                <li key={row.id} className="grid grid-cols-2 items-end gap-2 p-3 sm:grid-cols-[repeat(6,minmax(0,1fr))_auto]">
                   <SelectField compact label="Type" value={row.type} onChange={(v) => update(row.id, { type: v })} options={TYPES} />
                   <SelectField compact label="Side" value={row.side} onChange={(v) => update(row.id, { side: v })} options={SIDES} />
                   {row.type === "FUT" ? (
                     <div className="min-w-0 space-y-1">
-                      <span className="block text-micro uppercase text-muted-foreground">Strike</span>
-                      <div className="flex h-9 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">n/a</div>
+                      <span className="block text-label text-muted-foreground">Strike</span>
+                      <div className="flex h-7 items-center rounded-sm bg-control-track px-2 text-body text-muted-foreground [@media(pointer:coarse)]:h-9">n/a</div>
                     </div>
                   ) : (
-                    <NumField compact label="Strike" value={row.strike} onChange={(v) => update(row.id, { strike: v })} invalid={!isPos(toNum(row.strike))} step={String(step)} />
+                    <NumField label="Strike" value={row.strike} onChange={(v) => update(row.id, { strike: v })} invalid={!isPos(toNum(row.strike))} step={String(step)} />
                   )}
-                  <NumField compact label="Lots" value={row.lots} onChange={(v) => update(row.id, { lots: v })} invalid={!isPos(toNum(row.lots))} />
-                  <NumField compact label={row.type === "FUT" ? "Price" : "Premium"} prefix="₹" value={row.premium} placeholder={Number.isFinite(mp) ? `${mp} model` : "price"} onChange={(v) => update(row.id, { premium: v })} />
-                  <NumField compact label="IV" suffix="%" value={row.iv} placeholder={ivText || "—"} onChange={(v) => update(row.id, { iv: v })} />
-                  <Button variant="ghost" size="icon" className="col-span-2 h-9 w-full sm:col-span-1 sm:w-9" onClick={() => {
+                  <NumField label="Lots" value={row.lots} onChange={(v) => update(row.id, { lots: v })} invalid={!isPos(toNum(row.lots))} />
+                  <NumField label={row.type === "FUT" ? "Price" : "Premium"} prefix="₹" value={row.premium} placeholder={Number.isFinite(mp) ? `${mp} model` : "price"} onChange={(v) => update(row.id, { premium: v })} />
+                  <NumField label="IV" suffix="%" value={row.iv} placeholder={ivText || "—"} onChange={(v) => update(row.id, { iv: v })} />
+                  <Button variant="ghost" size="icon" className="col-span-2 w-full sm:col-span-1 sm:w-7" onClick={() => {
                       setAutoRows(false);
                       setRows((rs) => rs.filter((x) => x.id !== row.id));
                     }} aria-label={`Remove leg ${i + 1}`}>
@@ -263,7 +263,7 @@ export default function MarginCalculator() {
         </Panel>
       </div>
 
-      <div className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 space-y-4 xl:sticky xl:top-3 xl:self-start">
         <Panel title="Margin required" actions={est?.definedRisk ? <Badge variant="bullish"><ShieldCheck /> Defined risk</Badge> : null}>
           {!est || legs.length === 0 ? (
             <p className="text-body text-muted-foreground">{isPos(spot) ? "Add at least one complete leg." : "Enter a spot price to estimate margin."}</p>
@@ -274,7 +274,7 @@ export default function MarginCalculator() {
                 <Stat label="Hedge benefit" value={formatINR(est.hedgeBenefit, { decimals: 0 })} tone={est.hedgeBenefit > 0 ? "bullish" : "default"} sub={`Naked ${formatINR(est.nakedTotal, { decimals: 0 })}`} />
                 <Stat label={prem.type === "CREDIT" ? "Premium received" : "Premium paid"} value={formatINR(Math.abs(prem.net), { decimals: 0 })} tone={prem.type === "CREDIT" ? "bullish" : "default"} />
               </div>
-              <div className="mt-4 divide-y divide-border">
+              <div className="mt-3 divide-y divide-separator">
                 <KV k="SPAN (approx.)" v={formatINR(est.span, { decimals: 0 })} />
                 <KV k="Exposure margin" v={formatINR(est.exposure, { decimals: 0 })} />
                 <KV k="Expiry-day ELM" v={formatINR(est.elmExpiryDay, { decimals: 0 })} />

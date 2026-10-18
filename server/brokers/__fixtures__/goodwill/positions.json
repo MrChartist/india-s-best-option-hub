@@ -1,0 +1,126 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.gwcindia.in/v1/login-response",
+      "expectBody": {
+        "api_key": "dummyGwApiKey456",
+        "request_token": "5ca9e0b42c4e94759030e850",
+        "signature": "933ae0dc4f6d7d17f0fd42927c616e8b4a39a332a39c0f2c9f829b88521dfdcf"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "clnt_id": "GQ1A0007",
+          "name": "TEST USER",
+          "email": "TEST@EXAMPLE.COM",
+          "exarr": [
+            "BSE",
+            "NFO",
+            "NSE",
+            "MCX",
+            "ICEX"
+          ],
+          "prarr": [
+            "BO",
+            "CNC",
+            "CO",
+            "MIS",
+            "NRML"
+          ],
+          "orarr": [
+            "L",
+            "MKT",
+            "SL",
+            "SL-M"
+          ],
+          "exchDetail": {
+            "EQUITY": [
+              {
+                "product": [
+                  "BO",
+                  "CNC",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_cm",
+                "exch": "NSE"
+              }
+            ],
+            "DERIVATIVE": [
+              {
+                "product": [
+                  "BO",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_fo",
+                "exch": "NFO"
+              }
+            ]
+          },
+          "usersessionid": "3279379865",
+          "access_token": "8a5e32e1126025fefbcefc88eb6eb9a9"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.gwcindia.in/v1/positions",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "exchange": "NSE",
+            "product": "MIS",
+            "tsym": "IDEA-EQ",
+            "token": "14366",
+            "cfbuyqty": "0",
+            "cfbuyavgprc": "",
+            "cfsellqty": "0",
+            "cfsellavgprc": "",
+            "bqty": "0",
+            "buyavgprc": "0.00",
+            "sqty": "0",
+            "sellavgprc": "0.00",
+            "netqty": "0",
+            "netbuyavgprc": "655.00",
+            "netsellavgprc": "650.00",
+            "netamt": "0",
+            "ltp": "6.60",
+            "bep": "",
+            "realisedprofitloss": "-0.75",
+            "unrealisedprofitloss": "0.00"
+          },
+          {
+            "exchange": "NFO",
+            "product": "NRML",
+            "tsym": "NIFTY03NOV26C25000",
+            "token": "35008",
+            "cfbuyqty": "0",
+            "cfbuyavgprc": "",
+            "cfsellqty": "0",
+            "cfsellavgprc": "",
+            "bqty": "0",
+            "buyavgprc": "0.00",
+            "sqty": "65",
+            "sellavgprc": "190.00",
+            "netqty": "-65",
+            "netbuyavgprc": "0.00",
+            "netsellavgprc": "190.00",
+            "netamt": "12350",
+            "ltp": "182.40",
+            "bep": "190.00",
+            "realisedprofitloss": "0.00",
+            "unrealisedprofitloss": "494.00"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/PositionBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"actid\":\"PM00000\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "uid": "PM00000",
+          "actid": "PM00000",
+          "exch": "NSE",
+          "tsym": "SUZLON-EQ",
+          "s_prdt_ali": "CNC",
+          "prd": "C",
+          "token": "12018",
+          "symname": "SUZLON",
+          "instname": "EQ",
+          "cname": "SUZLON ENERGY LIMITED",
+          "frzqty": "1891775",
+          "pp": "2",
+          "ls": "1",
+          "ti": "0.01",
+          "mult": "1",
+          "prcftr": "1.000000",
+          "daybuyqty": "1",
+          "daysellqty": "0",
+          "daybuyamt": "53.35",
+          "daybuyavgprc": "53.35",
+          "daysellamt": "0.00",
+          "daysellavgprc": "0.00",
+          "cfbuyqty": "0",
+          "cfsellqty": "0",
+          "dayavgprc": "53.35",
+          "netqty": "1",
+          "netavgprc": "53.35",
+          "upldprc": "0.00",
+          "netupldprc": "53.35",
+          "lp": "53.35",
+          "urmtom": "0.00",
+          "bep": "53.35",
+          "totbuyamt": "53.35",
+          "totsellamt": "0.00",
+          "totbuyavgprc": "53.35",
+          "totsellavgprc": "0.00",
+          "rpnl": "-0.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

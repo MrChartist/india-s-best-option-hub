@@ -1,0 +1,32 @@
+{
+  "args": [
+    "240919000000041"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "DELETE",
+      "url": "https://api.iiflcapital.com/v1/orders/240919000000041",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": {
+          "status": "Success",
+          "message": "Success",
+          "brokerOrderId": "240919000000041",
+          "requestTime": "19-Sep-2024 18:48:46"
+        }
+      }
+    }
+  ]
+}

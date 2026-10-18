@@ -1,0 +1,31 @@
+{
+  "secrets": {
+    "mpin": "135790",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/totp/login",
+      "expectBody": {
+        "phone": "9999999999",
+        "totp": 123456
+      },
+      "status": 200,
+      "json": {
+        "auth_token": "dummy-auth-token"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/verifypin",
+      "expectBody": {
+        "pin": "135790"
+      },
+      "status": 200,
+      "json": {
+        "session_token": "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiZHVtbXkiLCAiZXhwIjogNDEwMjQ0NDgwMH0.c2ln"
+      }
+    }
+  ]
+}

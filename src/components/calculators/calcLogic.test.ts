@@ -250,3 +250,36 @@ describe("calendar date helpers", () => {
     expect(calendarDateToIso(new Date(Number.NaN))).toBe("");
   });
 });
+
+describe("regressions", () => {
+  it("toNum rejects hex, octal and binary literals", () => {
+    expect(toNum("0x10")).toBeNaN();
+    expect(toNum("0b11")).toBeNaN();
+    expect(toNum("0o17")).toBeNaN();
+    expect(toNum("1e3")).toBe(1000);
+    expect(toNum(".5")).toBe(0.5);
+    expect(toNum("+2")).toBe(2);
+  });
+
+  it("a pure-percentage custom broker with no flat fee or cap is not capped at ₹0", () => {
+    const b = resolveBroker("custom", { perOrder: NaN, pctOfTurnover: 0.05, cap: NaN });
+    expect(b.cap).toBeUndefined();
+    const fill = { type: "FUT" as const, side: "BUY" as const, price: 25000, qty: 75, exchange: "NSE" as const };
+    const c = calcCharges([fill], { broker: b, onDate: DATE_2026 });
+    expect(c.brokerage).toBeCloseTo(25000 * 75 * 0.0005, 6);
+    // Same for a hand-built broker with perOrder 0 and no cap.
+    const raw = calcCharges([fill], { broker: { id: "x", name: "X", perOrder: 0, pctOfTurnover: 0.0005 }, onDate: DATE_2026 });
+    expect(raw.brokerage).toBeCloseTo(25000 * 75 * 0.0005, 6);
+    // A positive flat amount still acts as the default cap.
+    expect(resolveBroker("custom", { perOrder: 20, pctOfTurnover: 0.05 }).cap).toBe(20);
+  });
+
+  it("a short whose charges exceed the premium cannot break even (no negative exit)", () => {
+    const r = row({ side: "SELL", entry: 0.05, exit: NaN, lots: 1, lotSize: 75 });
+    expect(breakevenExitPrice(r, zerodha, DATE_2026)).toBeNaN();
+    const res = analyseTrade(r, zerodha, DATE_2026);
+    expect(res.breakevenExit).toBeNaN();
+    expect(res.breakevenPoints).toBeNaN();
+    expect(res.chargesPerLot).toBeGreaterThan(0);
+  });
+});

@@ -160,10 +160,10 @@ export function GreeksCharts({ points }: { points: EnrichedPoint[] }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {GREEKS.map((g, i) => (
-        <div key={g.key} className="min-w-0 rounded-tile border border-border p-3">
+        <div key={g.key} className="min-w-0 rounded-tile bg-surface p-3">
           <div className="mb-1 flex items-baseline justify-between gap-2">
-            <p className="text-label uppercase text-muted-foreground">
-              <span aria-hidden="true" className="mr-1 font-display text-body normal-case text-foreground">
+            <p className="text-label text-muted-foreground">
+              <span aria-hidden="true" className="mr-1 font-display text-body text-foreground">
                 {g.symbol}
               </span>
               {g.label}

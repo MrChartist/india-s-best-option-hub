@@ -65,7 +65,7 @@ export function PnLCalendar({ daily, initialMonth, footnote }: { daily: Record<s
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(-1)} aria-label="Previous month">
             <ChevronLeft />
           </Button>
-          <p className="min-w-[150px] text-center font-display text-lead font-bold" aria-live="polite">
+          <p className="min-w-[150px] text-center font-display text-lead font-semibold" aria-live="polite">
             {MONTHS[cursor.m]} {cursor.y}
           </p>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shift(1)} aria-label="Next month">
@@ -97,7 +97,7 @@ export function PnLCalendar({ daily, initialMonth, footnote }: { daily: Record<s
       </div>
       <div className="grid grid-cols-7 gap-1" role="grid" aria-label={`Realised P&L for ${MONTHS[cursor.m]} ${cursor.y}`}>
         {WEEKDAYS.map((d) => (
-          <div key={d} role="columnheader" className="pb-1 text-center text-label uppercase text-muted-foreground">
+          <div key={d} role="columnheader" className="pb-1 text-center text-label text-muted-foreground">
             {d}
           </div>
         ))}
@@ -113,7 +113,7 @@ export function PnLCalendar({ daily, initialMonth, footnote }: { daily: Record<s
               aria-label={`${d}: ${has ? signedINR(v) : "no trades"}`}
               title={has ? `${d}: ${signedINR(v)} net` : d}
               className={cn(
-                "flex aspect-square min-h-[44px] flex-col justify-between rounded-chip border border-border p-1 focus-visible:shadow-ember focus-visible:outline-none sm:aspect-[4/3] sm:p-1.5",
+                "flex aspect-square min-h-[44px] flex-col justify-between rounded-chip border border-separator p-1 focus-visible:shadow-focus focus-visible:outline-none sm:aspect-[4/3] sm:p-1.5",
                 d === today && "ring-1 ring-primary",
                 !has && "bg-surface/40",
               )}

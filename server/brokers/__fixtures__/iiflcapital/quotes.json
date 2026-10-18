@@ -1,0 +1,88 @@
+{
+  "args": [
+    [
+      {
+        "token": "1594",
+        "exchange": "NSE"
+      },
+      {
+        "token": "51440",
+        "exchange": "NFO"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/marketdata/marketquotes",
+      "expectBody": [
+        {
+          "exchange": "NSEEQ",
+          "instrumentId": "1594"
+        },
+        {
+          "exchange": "NSEFO",
+          "instrumentId": "51440"
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "exchange": "NSEEQ",
+            "instrumentId": 1594,
+            "ltp": 1412.95,
+            "lastTradedQuantity": 5,
+            "averageTradedPrice": 1412.95,
+            "tradedVolume": 7360198,
+            "open": 1398.8205,
+            "high": 1427.0795,
+            "low": 1384.691,
+            "close": 1391.75575,
+            "bestBidPrice": 1412.9,
+            "bestBidQuantity": 4,
+            "bestAskPrice": 1413,
+            "bestAskQuantity": 13,
+            "totalBidQuantity": 404715,
+            "totalAskQuantity": 216809,
+            "tickTimestamp": "16-Oct-2026 15:29:59"
+          },
+          {
+            "exchange": "NSEFO",
+            "instrumentId": 51440,
+            "ltp": 212.35,
+            "lastTradedQuantity": 5,
+            "averageTradedPrice": 212.35,
+            "tradedVolume": 7360198,
+            "open": 210.2265,
+            "high": 214.4735,
+            "low": 208.10299999999998,
+            "close": 209.16475,
+            "bestBidPrice": 212.3,
+            "bestBidQuantity": 4,
+            "bestAskQuantity": 13,
+            "totalBidQuantity": 404715,
+            "totalAskQuantity": 216809,
+            "tickTimestamp": "16-Oct-2026 15:29:59",
+            "besAskPrice": 212.4
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

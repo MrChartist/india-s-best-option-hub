@@ -1,0 +1,44 @@
+{
+  "args": [
+    {
+      "instrumentKey": "NSE_FO|51440",
+      "transactionType": "BUY",
+      "orderType": "MARKET",
+      "product": "INTRADAY",
+      "validity": "DAY",
+      "lots": 2
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api-hft.upstox.com/v3/order/place",
+      "expectBody": {
+        "quantity": 130,
+        "product": "I",
+        "validity": "DAY",
+        "price": 0,
+        "instrument_token": "NSE_FO|51440",
+        "order_type": "MARKET",
+        "transaction_type": "BUY",
+        "disclosed_quantity": 0,
+        "trigger_price": 0,
+        "is_amo": false,
+        "slice": false,
+        "market_protection": -1
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "order_ids": [
+            "1644490272000"
+          ]
+        },
+        "metadata": {
+          "latency": 30
+        }
+      }
+    }
+  ]
+}

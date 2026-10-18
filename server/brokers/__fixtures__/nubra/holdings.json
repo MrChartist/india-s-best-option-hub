@@ -1,0 +1,51 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/sentinel/portfolio/holdings",
+      "json": {
+        "message": "holdings",
+        "portfolio": {
+          "clientCode": "ZRL001",
+          "holdingStats": {
+            "investedAmount": 743039,
+            "currentValue": 763165,
+            "totalPnl": 20126,
+            "totalPnlChg": 2.7086062,
+            "dayPnl": -31795,
+            "dayPnlChg": -3.9995723
+          },
+          "holdings": [
+            {
+              "refId": 83414,
+              "symbol": "TVSMOTOR",
+              "exchange": "NSE",
+              "asset": "TVSMOTOR",
+              "quantity": 1,
+              "pledgedQty": 0,
+              "t1Qty": 0,
+              "avgPrice": 245292,
+              "prevClose": 273790,
+              "lastTradedPrice": 246625,
+              "investedValue": 245292,
+              "currentValue": 246625,
+              "netPnl": 1333,
+              "netPnlChg": 0.54343396,
+              "dayPnl": -27165,
+              "haircut": 14.93,
+              "marginBenefit": 209803,
+              "availableToPledge": 1,
+              "isPledgeable": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

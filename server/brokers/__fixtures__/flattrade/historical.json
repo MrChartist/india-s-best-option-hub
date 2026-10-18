@@ -1,0 +1,82 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "22",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2020-06-02",
+      "to": "2020-06-02"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/TPSeries",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NSE\",\"token\":\"22\",\"st\":\"1591036200\",\"et\":\"1591122599\",\"intrv\":\"1\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:46:23",
+          "into": "0.00",
+          "inth": "0.00",
+          "intl": "0.00",
+          "intc": "0.00",
+          "intvwap": "0.00",
+          "intv": "0",
+          "intoi": "0",
+          "v": "980515",
+          "oi": "128702"
+        },
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:44:23",
+          "into": "1286.50",
+          "inth": "1288.00",
+          "intl": "1286.00",
+          "intc": "1287.50",
+          "intvwap": "1287.10",
+          "intv": "6",
+          "intoi": "0",
+          "v": "980515",
+          "oi": "128702"
+        },
+        {
+          "stat": "Ok",
+          "time": "02-06-2020 15:43:23",
+          "into": "1287.00",
+          "inth": "1287.00",
+          "intl": "0.00",
+          "intc": "1287.00",
+          "intvwap": "128702.00",
+          "intv": "4",
+          "intoi": "128702",
+          "v": "980511",
+          "oi": "128702"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

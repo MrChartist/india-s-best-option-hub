@@ -218,7 +218,7 @@ export function FiiLongGauge({ longPct, changePts, series, date }: Props) {
 
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-label uppercase text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             Last {trend.length} sessions to {shortDate(date)}
           </p>
           <p className="font-num text-body-sm tabular-nums text-muted-foreground">
@@ -227,7 +227,7 @@ export function FiiLongGauge({ longPct, changePts, series, date }: Props) {
           </p>
         </div>
         {trend.length < 2 ? (
-          <div className="flex h-[180px] items-center justify-center rounded-tile border border-dashed border-border text-body-sm text-muted-foreground">
+          <div className="flex h-[180px] items-center justify-center rounded-tile bg-muted/40 text-body-sm text-muted-foreground">
             Not enough history for a trend yet.
           </div>
         ) : (

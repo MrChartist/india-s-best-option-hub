@@ -1,0 +1,32 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/scrips/index_security_master.csv",
+      "status": 200,
+      "text": "\"security_id\",\"symbol\",\"name\",\"series\",\"tick_size\",\"lot_size\",\"instrument_type\",\"segment\",\"exchange\",\"upper_limit\",\"lower_limit\",\"expiry_date\",\"strike_price\",\"freeze_quantity\"\n\"13\",\"\",\"NIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"25\",\"\",\"BANKNIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"27\",\"\",\"FINNIFTY\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"442\",\"\",\"NIFTY MID SELECT\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n\"51\",\"\",\"SENSEX\",\"\",\"\",\"\",\"I\",\"\",\"BSE\",\"\",\"\",\"\",\"\",\"\"\n\"69\",\"\",\"BANKEX\",\"\",\"\",\"\",\"I\",\"\",\"BSE\",\"\",\"\",\"\",\"\",\"\"\n\"21\",\"\",\"INDIA VIX\",\"\",\"\",\"\",\"I\",\"\",\"NSE\",\"\",\"\",\"\",\"\",\"\"\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/data/v1/price/live?mode=LTP&pref=NSE%3A13%3AINDEX",
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "tradable": false,
+            "mode": "LTP",
+            "security_id": 13,
+            "last_price": 25061.4,
+            "change_percent": 0.2,
+            "change_absolute": 49.05,
+            "last_update_time": 1792404600,
+            "found": true
+          }
+        ]
+      }
+    }
+  ]
+}

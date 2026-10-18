@@ -1,0 +1,101 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/OrderBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "norenordno": "26101700000001",
+          "kidid": "2",
+          "uid": "PM00000",
+          "actid": "PM00000",
+          "exch": "NFO",
+          "tsym": "NIFTY20OCT26C25000",
+          "qty": "130",
+          "ordenttm": "1792214411",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "ret": "DAY",
+          "token": "40003",
+          "instname": "OPTIDX",
+          "ordersource": "API",
+          "pp": "2",
+          "ls": "65",
+          "ti": "0.05",
+          "prc": "104.50",
+          "dscqty": "0",
+          "s_prdt_ali": "NRML",
+          "prd": "M",
+          "status": "OPEN",
+          "st_intrn": "OPEN",
+          "fillshares": "65",
+          "avgprc": "104.50",
+          "norentm": "09:20:11 17-10-2026",
+          "exch_tm": "17-10-2026 09:20:11",
+          "remarks": "",
+          "exchordid": "1100000000034342"
+        },
+        {
+          "stat": "Ok",
+          "norenordno": "25121100000307",
+          "kidid": "2",
+          "uid": "PM00000",
+          "actid": "PM00000",
+          "exch": "NSE",
+          "tsym": "ACC-EQ",
+          "rejby": "",
+          "qty": "1",
+          "ordenttm": "1765445890",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "ret": "DAY",
+          "rejreason": " ",
+          "token": "22",
+          "instname": "EQ",
+          "ordersource": "WEB",
+          "pp": "2",
+          "ls": "1",
+          "ti": "0.10",
+          "prc": "1782.30",
+          "rprc": "1782.30",
+          "dscqty": "0",
+          "s_prdt_ali": "CNC",
+          "prd": "C",
+          "status": "CANCELED",
+          "st_intrn": "CANCELED",
+          "norentm": "15:08:10 11-12-2025",
+          "exch_tm": "11-12-2025 15:08:10",
+          "remarks": "",
+          "exchordid": "252",
+          "cancelqty": "1",
+          "rqty": "1"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

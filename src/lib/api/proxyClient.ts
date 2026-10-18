@@ -319,16 +319,15 @@ function admitNow(): boolean | null {
   return null;
 }
 
-/** Wait for the gate to admit a request: true = send it, false = short-circuit as offline. */
-export async function admitProxyRequest(): Promise<boolean> {
-  const now = admitNow();
-  return now !== null ? now : probeProxy();
-}
-
 /** Admission without an extra await on the fast path, so fetch starts in the caller's tick. */
 function admit(): boolean | Promise<boolean> {
   const now = admitNow();
   return now !== null ? now : probeProxy();
+}
+
+/** Wait for the gate to admit a request: true = send it, false = short-circuit as offline. @public (tests) */
+export async function admitProxyRequest(): Promise<boolean> {
+  return admit();
 }
 
 /** Feed a request outcome back into the gate. */
@@ -421,7 +420,9 @@ export async function proxyFetchJSON<T>(
   } catch (e) {
     if (e instanceof ProxyHttpError) throw e;
     if (opts?.signal?.aborted) throw new Error("Proxy request aborted");
-    if (!(e instanceof SyntaxError)) recordOutcome(timedOut() && !opts?.bypassGate ? "timeout" : "network");
+    // The proxy answered (2xx) but the body was not JSON: it is online, so do not report it as unreachable.
+    if (e instanceof SyntaxError) throw new Error("Proxy returned invalid JSON");
+    recordOutcome(timedOut() && !opts?.bypassGate ? "timeout" : "network");
     throw new Error(timedOut() ? "Proxy request timed out" : "Proxy unreachable");
   } finally {
     cleanup();

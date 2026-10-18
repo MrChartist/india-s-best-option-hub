@@ -120,7 +120,7 @@ export function PositioningChart({ views, history, initialParticipant = "FII", f
           className="justify-start"
         >
           {PARTICIPANTS.map((x) => (
-            <ToggleGroupItem key={x} value={x} size="sm" className="h-8 px-3 text-xs">
+            <ToggleGroupItem key={x} value={x} size="sm">
               {x}
             </ToggleGroupItem>
           ))}
@@ -166,7 +166,7 @@ export function PositioningChart({ views, history, initialParticipant = "FII", f
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0">
-          <p className="mb-2 text-label uppercase text-muted-foreground">Index options book (contracts)</p>
+          <p className="mb-2 text-label text-muted-foreground">Index options book (contracts)</p>
           <div
             className="h-[220px]"
             role="img"
@@ -233,7 +233,7 @@ export function PositioningChart({ views, history, initialParticipant = "FII", f
 
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-label uppercase text-muted-foreground">Net calls and puts over time</p>
+            <p className="text-label text-muted-foreground">Net calls and puts over time</p>
             <div className="flex flex-wrap gap-3">
               <LegendDot color={chartColors.call} label="Calls net" />
               <LegendDot color={chartColors.put} label="Puts net" />
@@ -241,7 +241,7 @@ export function PositioningChart({ views, history, initialParticipant = "FII", f
             </div>
           </div>
           {trend.length < 2 ? (
-            <div className="flex h-[220px] items-center justify-center rounded-tile border border-dashed border-border text-body-sm text-muted-foreground">
+            <div className="flex h-[220px] items-center justify-center rounded-tile bg-muted/40 text-body-sm text-muted-foreground">
               History builds up as more days load.
             </div>
           ) : (

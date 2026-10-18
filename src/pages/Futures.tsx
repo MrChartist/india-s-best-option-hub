@@ -67,7 +67,7 @@ function ModeBadge({ mode, detail }: { mode: FuturesMode; detail?: string }) {
           </Badge>
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-[260px] text-xs">
+      <TooltipContent className="max-w-[260px] text-body-sm">
         <p>{m.note}</p>
         {detail ? <p className="mt-1 text-muted-foreground">{detail}</p> : null}
       </TooltipContent>
@@ -139,7 +139,6 @@ export default function Futures() {
     <div className="mx-auto w-full max-w-[1500px] space-y-4 px-4 py-1 sm:px-0">
       <PageHeader
         icon={ChartCandlestick}
-        eyebrow="Positioning"
         title="Futures and Rollover"
         description="Index and stock futures across the near, next and far months: basis, annualised cost of carry, rollover and roll cost against the last three expiries, OI buildup per series and an expiry-week roll tracker."
         source={
@@ -192,12 +191,8 @@ export default function Futures() {
             aria-label="Futures type"
             size="sm"
           >
-            <ToggleGroupItem value="index" className="h-8 px-3 text-xs">
-              Index
-            </ToggleGroupItem>
-            <ToggleGroupItem value="stock" className="h-8 px-3 text-xs">
-              Stocks
-            </ToggleGroupItem>
+            <ToggleGroupItem value="index">Index</ToggleGroupItem>
+            <ToggleGroupItem value="stock">Stocks</ToggleGroupItem>
           </ToggleGroup>
         </PanelHeader>
         {overview.isLoading ? (
@@ -333,7 +328,7 @@ export default function Futures() {
         )}
       </section>
 
-      <footer className="space-y-1 border-t border-border pt-3 text-body-sm text-muted-foreground">
+      <footer className="hairline-t space-y-1 pt-3 text-body-sm text-muted-foreground">
         <p>
           Source: NSE F&amp;O bhavcopy (UDiFF, end of day) through your local proxy; history you load is saved in this
           browser. Fair value = spot × e^((r − q)t), with the rate from your market settings. Page checked at{" "}

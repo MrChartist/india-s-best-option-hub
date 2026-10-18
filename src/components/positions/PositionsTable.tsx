@@ -15,7 +15,7 @@ import { buildClosedPosition, type ClosedPosition, type TrackedPosition } from "
 import { cn } from "@/lib/utils";
 import { strategyKey, type PositionLive } from "./analytics";
 import { signedClass, signedINR, type QuoteSource } from "./helpers";
-import { HelpTip, SourceBadge } from "./ui";
+import { HelpTip, SourceBadge, STICKY_CELL } from "./ui";
 
 export interface PositionRow {
   p: TrackedPosition;
@@ -67,7 +67,7 @@ function CmpCell({ row, onSet, onReset }: { row: PositionRow; onSet: (v: number)
     <div className="flex items-center justify-end gap-1.5">
       <button
         type="button"
-        className="rounded px-1 tabular-nums hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+        className="rounded px-1 tabular-nums hover:bg-accent focus-visible:shadow-focus focus-visible:outline-none"
         onClick={() => {
           setText(String(row.p.currentPrice));
           setEditing(true);
@@ -119,17 +119,17 @@ function CloseDialog({ position, defaultPrice, open, onOpenChange, onConfirm }: 
             <Input id="close-price" type="number" inputMode="decimal" step="0.05" min={0} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
           </div>
           {preview ? (
-            <dl className="grid grid-cols-3 gap-2 rounded-tile border border-border bg-surface/60 p-3 text-body-sm">
+            <dl className="grid grid-cols-3 gap-2 rounded-tile border border-separator bg-surface/60 p-3 text-body-sm">
               <div>
-                <dt className="text-label uppercase text-muted-foreground">Gross</dt>
+                <dt className="text-label text-muted-foreground">Gross</dt>
                 <dd className={cn("font-num tabular-nums", signedClass(preview.grossPnl ?? 0))}>{signedINR(preview.grossPnl ?? 0)}</dd>
               </div>
               <div>
-                <dt className="text-label uppercase text-muted-foreground">Charges</dt>
+                <dt className="text-label text-muted-foreground">Charges</dt>
                 <dd className="font-num tabular-nums text-bearish">{formatINR(-(preview.charges ?? 0), { decimals: 0 })}</dd>
               </div>
               <div>
-                <dt className="text-label uppercase text-muted-foreground">Net</dt>
+                <dt className="text-label text-muted-foreground">Net</dt>
                 <dd className={cn("font-num font-semibold tabular-nums", signedClass(preview.netPnl ?? 0))}>{signedINR(preview.netPnl ?? 0)}</dd>
               </div>
             </dl>
@@ -249,7 +249,7 @@ export function PositionsTable({
                 const expLabel = l.expiryIso ? dteLabel(l.expiryIso) : "—";
                 return (
                   <TableRow key={p.id} className={cn(l.expired && "opacity-70")}>
-                    <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
+                    <TableCell className={cn(STICKY_CELL, "font-semibold")}>
                       <div className="flex items-center gap-1.5 whitespace-nowrap">
                         {p.symbol} {formatStrike(p.strike)}
                         <Badge variant={p.type === "CE" ? "bearish" : "bullish"}>{p.type}</Badge>
@@ -293,7 +293,7 @@ export function PositionsTable({
                       ) : (
                         <button
                           type="button"
-                          className="rounded px-1 hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+                          className="rounded px-1 hover:bg-accent focus-visible:shadow-focus focus-visible:outline-none"
                           onClick={() => setEditingLots({ id: p.id, text: String(p.lots) })}
                           aria-label={`Edit lots (${p.lots})`}
                           title={`${p.lots} × ${p.lotSize} = ${formatNumberIN(p.lots * p.lotSize)} qty`}
@@ -362,14 +362,14 @@ export function PositionsTable({
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={8} className="sticky left-0 bg-surface text-label uppercase text-muted-foreground">
+            <TableCell colSpan={8} className="sticky left-0 bg-surface text-label text-muted-foreground">
               Total · {rows.length} position{rows.length === 1 ? "" : "s"}
             </TableCell>
             <TableCell className={cn("text-right tabular-nums", signedClass(totals.theta))}>{fmtGreekINR(totals.theta)}</TableCell>
             <TableCell className={cn("text-right tabular-nums", signedClass(totals.vega))}>{fmtGreekINR(totals.vega)}</TableCell>
             <TableCell className={cn("text-right tabular-nums", signedClass(totals.gross))}>{signedINR(totals.gross)}</TableCell>
             <TableCell className="text-right tabular-nums">
-              <div className={cn("font-bold", signedClass(totals.net))}>{signedINR(totals.net)}</div>
+              <div className={cn("font-semibold", signedClass(totals.net))}>{signedINR(totals.net)}</div>
               <div className="text-micro font-normal text-muted-foreground">chg {formatINR(totals.charges, { decimals: 0 })}</div>
             </TableCell>
             <TableCell />
@@ -419,7 +419,7 @@ export function ClosedPositionsTable({ closed }: { closed: ClosedPosition[] }) {
       <TableBody>
         {sorted.map((c) => (
           <TableRow key={c.id}>
-            <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
+            <TableCell className={cn(STICKY_CELL, "font-semibold")}>
               <div className="flex items-center gap-1.5 whitespace-nowrap">
                 {c.symbol} {formatStrike(c.strike)} <Badge variant={c.type === "CE" ? "bearish" : "bullish"}>{c.type}</Badge>
                 {c.source === "sample" ? (
@@ -454,12 +454,12 @@ export function ClosedPositionsTable({ closed }: { closed: ClosedPosition[] }) {
       </TableBody>
       <TableFooter>
         <TableRow>
-          <TableCell colSpan={6} className="sticky left-0 bg-surface text-label uppercase text-muted-foreground">
+          <TableCell colSpan={6} className="sticky left-0 bg-surface text-label text-muted-foreground">
             {closed.length} closed · {closed.length ? Math.round((tot.wins / closed.length) * 100) : 0}% winners
           </TableCell>
           <TableCell className={cn("text-right tabular-nums", signedClass(tot.gross))}>{signedINR(tot.gross)}</TableCell>
           <TableCell className="text-right tabular-nums text-muted-foreground">{formatINR(tot.charges, { decimals: 0 })}</TableCell>
-          <TableCell className={cn("text-right font-bold tabular-nums", signedClass(tot.net))}>{signedINR(tot.net)}</TableCell>
+          <TableCell className={cn("text-right font-semibold tabular-nums", signedClass(tot.net))}>{signedINR(tot.net)}</TableCell>
         </TableRow>
       </TableFooter>
     </Table>

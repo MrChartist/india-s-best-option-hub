@@ -5,8 +5,10 @@ import path from "path";
 import { ROUTES, staticPaths } from "./src/lib/routes";
 import {
   SITE_NAME,
+  SITE_SHORT_NAME,
   SITE_DESCRIPTION,
-  absoluteUrl,
+  canonicalHome,
+  ogImageUrl,
   buildRobotsTxt,
   buildSitemapXml,
   jsonLdScriptBody,
@@ -73,7 +75,10 @@ function siteMetaPlugin(siteUrl: string): Plugin {
   const robots = buildRobotsTxt(site);
   return {
     name: "mr-chartist-site-meta",
-    transformIndexHtml() {
+    transformIndexHtml(html) {
+      // Without VITE_SITE_URL, canonical and og:url point at the project page on mrchartist.com and
+      // og:image at the copy of public/og-image.png on GitHub.
+      const home = canonicalHome(site);
       const tags: Array<{ tag: string; attrs?: Record<string, string>; children?: string; injectTo: "head" }> = [
         {
           tag: "script",
@@ -81,13 +86,10 @@ function siteMetaPlugin(siteUrl: string): Plugin {
           children: jsonLdScriptBody(softwareApplicationJsonLd(site)),
           injectTo: "head",
         },
+        { tag: "link", attrs: { rel: "canonical", href: home }, injectTo: "head" },
+        { tag: "meta", attrs: { property: "og:url", content: home }, injectTo: "head" },
       ];
-      const home = absoluteUrl(site, "/");
-      if (home) {
-        tags.push({ tag: "link", attrs: { rel: "canonical", href: home }, injectTo: "head" });
-        tags.push({ tag: "meta", attrs: { property: "og:url", content: home }, injectTo: "head" });
-      }
-      return tags;
+      return { html: html.replace(/__OG_IMAGE__/g, ogImageUrl(site)), tags };
     },
     configureServer(server) {
       // A shared link with a malformed percent-escape (e.g. /watchlist?x=%E0%A4) makes Vite's dev
@@ -119,7 +121,7 @@ function siteMetaPlugin(siteUrl: string): Plugin {
         const lastmod = new Date().toISOString().slice(0, 10);
         this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(site, paths, lastmod) });
       } else {
-        this.warn("VITE_SITE_URL is not set: sitemap.xml, canonical and og:url were skipped.");
+        this.warn("VITE_SITE_URL is not set: sitemap.xml was skipped; canonical and og:url point at the mrchartist.com project page.");
       }
     },
   };
@@ -147,10 +149,11 @@ function pwaOptions(): Record<string, unknown> {
     // Registered by src/main.tsx (src/lib/marketData/serviceWorker.ts) with an "Update available" toast.
     registerType: "prompt",
     injectRegister: false,
-    includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+    includeAssets: ["favicon.svg", "favicon.ico", "apple-touch-icon.png"],
     manifest: {
       name: SITE_NAME,
-      short_name: "Mr. Chartist",
+      short_name: SITE_SHORT_NAME,
+      id: "/",
       description: SITE_DESCRIPTION,
       lang: "en-IN",
       dir: "ltr",
@@ -158,10 +161,12 @@ function pwaOptions(): Record<string, unknown> {
       scope: "/",
       display: "standalone",
       orientation: "any",
-      theme_color: "#EE6125",
+      // Matches the app's light background; index.html sets light and dark theme-color separately.
+      theme_color: "#F3F4EE",
       background_color: "#F3F4EE",
       categories: ["finance", "education", "productivity"],
       icons: [
+        { src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
         { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
         { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
         { src: "/pwa-maskable-192x192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
@@ -170,7 +175,9 @@ function pwaOptions(): Record<string, unknown> {
     },
     workbox: {
       // App shell only: hashed JS/CSS, the HTML entry, icons and fonts. Market data is never precached.
-      globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+      globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+      // The social preview image is for crawlers, not the offline app shell.
+      globIgnores: ["**/og-image.png"],
       maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       navigateFallback: "/index.html",
       navigateFallbackDenylist: [/^\/api\//, /^\/health/, /^\/ws/, /^\/sitemap\.xml$/, /^\/robots\.txt$/],

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { Minus, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,50 @@ export interface LegEditorProps {
   onFocus: (id: string) => void;
 }
 
+/**
+ * Lots field with a local draft: the field may be empty while the user retypes it. Valid values
+ * (1 or more) apply as typed; a blank or invalid field snaps back to the current lots on blur or Enter.
+ */
+function LotsInput({ lots, onCommit }: { lots: number; onCommit: (lots: number) => void }) {
+  const [text, setText] = useState(String(lots));
+  // Follow outside changes (stepper buttons, clamping) without clobbering a matching draft.
+  useEffect(() => {
+    setText((t) => (Number(t) === lots ? t : String(lots)));
+  }, [lots]);
+  const settle = () => {
+    const v = Number(text);
+    if (text.trim() === "" || !Number.isFinite(v) || v < 1) setText(String(lots));
+    else {
+      const next = clampLots(v);
+      setText(String(next));
+      if (next !== lots) onCommit(next);
+    }
+  };
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      value={text}
+      onChange={(e) => {
+        const t = e.target.value;
+        setText(t);
+        const v = Number(t);
+        if (t.trim() !== "" && Number.isFinite(v) && v >= 1) {
+          const next = clampLots(v);
+          if (next !== lots) onCommit(next);
+        }
+      }}
+      onBlur={settle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") settle();
+      }}
+      className="h-full w-11 rounded-none bg-transparent px-1 text-center font-num text-body-sm shadow-none focus-visible:shadow-none"
+      aria-label="Lots"
+    />
+  );
+}
+
 function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, onChange, onRemove, onFocus }: LegEditorProps) {
   const isBuy = leg.side === "BUY";
   const qty = leg.lots * leg.lotSize;
@@ -41,8 +85,9 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
       onClick={() => onFocus(leg.id)}
       data-leg-id={leg.id}
       className={cn(
-        "rounded-tile border bg-card p-2 transition-colors duration-fast focus-visible:outline-none focus-visible:shadow-ember",
-        focused ? "border-primary/50 bg-wash-brand/25" : "border-border",
+        // A row in a grouped list; the selected leg reads as a macOS selection (grey fill, accent edge).
+        "relative px-2.5 py-2 transition-colors duration-fast focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--primary)/0.6)]",
+        focused && "bg-selection-unfocused shadow-[inset_2px_0_0_hsl(var(--primary))]",
         !leg.enabled && "opacity-55",
       )}
     >
@@ -51,20 +96,19 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
           checked={leg.enabled}
           onCheckedChange={(v) => onChange(leg.id, { enabled: v })}
           aria-label={leg.enabled ? `Disable leg ${index + 1}` : `Enable leg ${index + 1}`}
-          className="scale-90"
         />
         <Button
           type="button"
           variant={isBuy ? "buy" : "sell"}
           size="pill"
-          className="w-10 justify-center px-0 font-bold"
+          className="w-9 justify-center px-0 font-semibold"
           onClick={() => onChange(leg.id, { side: isBuy ? "SELL" : "BUY" })}
           aria-label={`Side ${leg.side}. Click to switch to ${isBuy ? "SELL" : "BUY"}`}
         >
           {isBuy ? "B" : "S"}
         </Button>
         <Select value={leg.type} onValueChange={(v) => onChange(leg.id, { type: v as BuilderLeg["type"], manual: false })}>
-          <SelectTrigger className="h-7 w-[64px] px-2 text-xs" aria-label="Instrument type">
+          <SelectTrigger className="w-[64px] text-body-sm" aria-label="Instrument type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -74,12 +118,12 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
           </SelectContent>
         </Select>
         <Select value={leg.expiry} onValueChange={(v) => onChange(leg.id, { expiry: v, manual: false })}>
-          <SelectTrigger className="h-7 w-[112px] px-2 text-xs" aria-label="Expiry">
+          <SelectTrigger className="w-[112px] text-body-sm" aria-label="Expiry">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {expiryList.map((e) => (
-              <SelectItem key={e} value={e} className="text-xs">
+              <SelectItem key={e} value={e} className="text-body-sm">
                 {formatDateIST(e)}
               </SelectItem>
             ))}
@@ -87,26 +131,26 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
         </Select>
         {leg.type !== "FUT" ? (
           <Select value={String(leg.strike)} onValueChange={(v) => onChange(leg.id, { strike: Number(v), manual: false })}>
-            <SelectTrigger className="h-7 w-[96px] px-2 font-num text-xs" aria-label="Strike">
+            <SelectTrigger className="w-[96px] font-num text-body-sm" aria-label="Strike">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-72">
               {strikeList.map((k) => (
-                <SelectItem key={k} value={String(k)} className="font-num text-xs">
+                <SelectItem key={k} value={String(k)} className="font-num text-body-sm">
                   {formatStrike(k)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : (
-          <span className="inline-flex h-7 w-[96px] items-center rounded-md border border-dashed border-border px-2 text-xs text-muted-foreground">Futures</span>
+          <span className="inline-flex h-7 w-[96px] items-center rounded-pill bg-control-track px-2 text-body-sm text-muted-foreground">Futures</span>
         )}
         <div className="ml-auto flex items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-bearish"
+            className="text-muted-foreground hover:text-bearish"
             onClick={(e) => {
               e.stopPropagation();
               onRemove(leg.id);
@@ -119,26 +163,21 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <div className="flex items-center gap-1">
-          <span className="text-micro uppercase text-muted-foreground">Lots</span>
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7 shadow-none" onClick={() => onChange(leg.id, { lots: clampLots(leg.lots - 1) })} aria-label="Decrease lots" disabled={leg.lots <= 1}>
-            <Minus className="h-3 w-3" />
-          </Button>
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={leg.lots}
-            onChange={(e) => onChange(leg.id, { lots: clampLots(Number(e.target.value)) })}
-            className="h-7 w-12 px-1 text-center font-num text-xs"
-            aria-label="Lots"
-          />
-          <Button type="button" variant="outline" size="icon" className="h-7 w-7 shadow-none" onClick={() => onChange(leg.id, { lots: clampLots(leg.lots + 1) })} aria-label="Increase lots">
-            <Plus className="h-3 w-3" />
-          </Button>
+        <div className="flex items-center gap-1.5">
+          <span className="text-label text-muted-foreground">Lots</span>
+          {/* macOS stepper: field and a joined −/+ pair in one bezel */}
+          <div className="inline-flex h-7 items-stretch overflow-hidden rounded-sm bg-control shadow-control focus-within:shadow-[var(--shadow-control),var(--focus-ring)] [@media(pointer:coarse)]:h-9">
+            <LotsInput lots={leg.lots} onCommit={(lots) => onChange(leg.id, { lots })} />
+            <button type="button" className="grid w-6 place-items-center text-muted-foreground shadow-[inset_var(--hairline)_0_0_hsl(var(--separator))] hover:text-foreground active:bg-control-track disabled:opacity-40" onClick={() => onChange(leg.id, { lots: clampLots(leg.lots - 1) })} aria-label="Decrease lots" disabled={leg.lots <= 1}>
+              <Minus className="h-3 w-3" aria-hidden="true" />
+            </button>
+            <button type="button" className="grid w-6 place-items-center text-muted-foreground shadow-[inset_var(--hairline)_0_0_hsl(var(--separator))] hover:text-foreground active:bg-control-track" onClick={() => onChange(leg.id, { lots: clampLots(leg.lots + 1) })} aria-label="Increase lots">
+              <Plus className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-micro uppercase text-muted-foreground">{leg.type === "FUT" ? "Price" : "Prem"}</span>
+          <span className="text-label text-muted-foreground">{leg.type === "FUT" ? "Price" : "Prem"}</span>
           <Input
             type="number"
             inputMode="decimal"
@@ -149,7 +188,7 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
               const v = Number(e.target.value);
               onChange(leg.id, { premium: Number.isFinite(v) && v >= 0 ? v : 0, manual: true });
             }}
-            className={cn("h-7 w-[84px] px-1.5 text-right font-num text-xs", leg.manual && "border-warning/60")}
+            className={cn("w-[84px] text-right font-num text-body-sm", leg.manual && "shadow-[0_0_0_1.5px_hsl(var(--warning)/0.7)]")}
             aria-label={leg.type === "FUT" ? "Entry futures price" : "Entry premium per unit"}
           />
           {leg.manual && drift && (
@@ -160,14 +199,14 @@ function LegEditorImpl({ leg, index, expiries, strikes, marketPrice, focused, on
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-warning"
+                    className="text-warning"
                     onClick={() => onChange(leg.id, { manual: false })}
                     aria-label={`Reset to market price ${marketPrice?.toFixed(2)}`}
                   >
                     <RotateCcw className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="text-xs">Manual price. Market: ₹{marketPrice?.toFixed(2)}. Click to reset.</TooltipContent>
+                <TooltipContent className="text-body-sm">Manual price. Market: ₹{marketPrice?.toFixed(2)}. Click to reset.</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}

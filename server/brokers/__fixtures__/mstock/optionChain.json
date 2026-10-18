@@ -1,0 +1,300 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/instruments/OpenAPIScripMaster",
+      "json": [
+        {
+          "token": "40001",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2624950CE",
+          "expiry": "20Oct2026",
+          "strike": "24950",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40002",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2624950PE",
+          "expiry": "20Oct2026",
+          "strike": "24950",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40003",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2625000CE",
+          "expiry": "20Oct2026",
+          "strike": "25000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40004",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2625000PE",
+          "expiry": "20Oct2026",
+          "strike": "25000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40005",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2625050CE",
+          "expiry": "20Oct2026",
+          "strike": "25050",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40006",
+          "symbol": "NIFTY",
+          "name": "NIFTY20OCT2625050PE",
+          "expiry": "20Oct2026",
+          "strike": "25050",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40011",
+          "symbol": "NIFTY",
+          "name": "NIFTY27OCT2625000CE",
+          "expiry": "27Oct2026",
+          "strike": "25000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40012",
+          "symbol": "NIFTY",
+          "name": "NIFTY27OCT2625000PE",
+          "expiry": "27Oct2026",
+          "strike": "25000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "40020",
+          "symbol": "NIFTY",
+          "name": "NIFTY27OCT26FUT",
+          "expiry": "27Oct2026",
+          "strike": "-1",
+          "lotsize": "65",
+          "instrumenttype": "FUTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.10"
+        },
+        {
+          "token": "877966",
+          "symbol": "SENSEX",
+          "name": "SENSEX26O2282700CE",
+          "expiry": "22Oct2026",
+          "strike": "82700",
+          "lotsize": "20",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "877967",
+          "symbol": "SENSEX",
+          "name": "SENSEX26O2282700PE",
+          "expiry": "22Oct2026",
+          "strike": "82700",
+          "lotsize": "20",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "878001",
+          "symbol": "BANKEX",
+          "name": "BANKEX26OCT62000CE",
+          "expiry": "29Oct2026",
+          "strike": "62000",
+          "lotsize": "30",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "50001",
+          "symbol": "RELIANCE",
+          "name": "RELIANCE27OCT261460CE",
+          "expiry": "27Oct2026",
+          "strike": "1460",
+          "lotsize": "500",
+          "instrumenttype": "OPTSTK",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "60001",
+          "symbol": "NIFTYNXT50",
+          "name": "NIFTYNXT5027OCT2668000CE",
+          "expiry": "27Oct2026",
+          "strike": "68000",
+          "lotsize": "25",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "2885",
+          "symbol": "RELIANCE",
+          "name": "RELIANCE-EQ",
+          "expiry": "",
+          "strike": "",
+          "lotsize": "1",
+          "instrumenttype": "EQ",
+          "exch_seg": "NSE",
+          "tick_size": "0.05"
+        },
+        {
+          "token": "9552",
+          "symbol": "RVNL",
+          "name": "RVNL-EQ",
+          "expiry": "",
+          "strike": "",
+          "lotsize": "1",
+          "instrumenttype": "EQ",
+          "exch_seg": "NSE",
+          "tick_size": "0.05"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/instruments/quote",
+      "expectBody": {
+        "mode": "OHLC"
+      },
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "fetched": [
+            {
+              "exchange": "NSE",
+              "tradingSymbol": "NIFTY 50",
+              "symbolToken": "26000",
+              "ltp": 25012.15,
+              "open": 24950.5,
+              "high": 25040,
+              "low": 24931.2,
+              "close": 24960.35
+            },
+            {
+              "exchange": "BSE",
+              "tradingSymbol": "SENSEX",
+              "symbolToken": "51",
+              "ltp": 82710.4,
+              "open": 82500,
+              "high": 82800,
+              "low": 82400,
+              "close": 82450.1
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2624950CE",
+              "symbolToken": "40001",
+              "ltp": 128.4,
+              "open": 120,
+              "high": 140,
+              "low": 110,
+              "close": 118.6
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2624950PE",
+              "symbolToken": "40002",
+              "ltp": 62.15,
+              "open": 70,
+              "high": 75,
+              "low": 58,
+              "close": 71.2
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625000CE",
+              "symbolToken": "40003",
+              "ltp": 96.8,
+              "open": 90,
+              "high": 105,
+              "low": 85,
+              "close": 88.1
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625000PE",
+              "symbolToken": "40004",
+              "ltp": 82.35,
+              "open": 90,
+              "high": 95,
+              "low": 78,
+              "close": 91.4
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625050CE",
+              "symbolToken": "40005",
+              "ltp": 70.05,
+              "open": 66,
+              "high": 78,
+              "low": 60,
+              "close": 64.9
+            },
+            {
+              "exchange": "NFO",
+              "tradingSymbol": "NIFTY20OCT2625050PE",
+              "symbolToken": "40006",
+              "ltp": 106.6,
+              "open": 110,
+              "high": 118,
+              "low": 100,
+              "close": 112.3
+            },
+            {
+              "exchange": "NSE",
+              "tradingSymbol": "RELIANCE-EQ",
+              "symbolToken": "2885",
+              "ltp": 1458.6,
+              "open": 1450,
+              "high": 1462,
+              "low": 1446,
+              "close": 1449.95
+            }
+          ],
+          "unfetched": []
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

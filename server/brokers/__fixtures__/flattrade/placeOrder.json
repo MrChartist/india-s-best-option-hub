@@ -1,0 +1,46 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 104.5,
+      "correlationId": "mrc-0001"
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/PlaceOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"dscqty\":\"0\",\"prc\":\"104.5\",\"prd\":\"M\",\"trantype\":\"B\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\",\"remarks\":\"mrc-0001\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "10:48:03 17-10-2026",
+        "stat": "Ok",
+        "norenordno": "26101700000017"
+      }
+    }
+  ]
+}

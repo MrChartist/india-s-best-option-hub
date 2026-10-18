@@ -1,0 +1,29 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/accounts/v1/user/details",
+      "status": 200,
+      "json": {
+        "data": {
+          "kycName": "DUMMY USER",
+          "userId": 100000001,
+          "activeSegments": [
+            "CASH",
+            "FO"
+          ]
+        },
+        "meta": {
+          "requestId": null,
+          "responseId": "F466583B-3EEA-4232-A958-0DEAD20BFC7C",
+          "code": "PM_ONB_SC_200",
+          "message": "Success",
+          "displayMessage": "PM_ONB_SC_200"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

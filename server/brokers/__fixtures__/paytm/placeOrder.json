@@ -1,0 +1,47 @@
+{
+  "args": [
+    {
+      "exchange": "NFO",
+      "token": "58445",
+      "side": "BUY",
+      "product": "MARGIN",
+      "orderType": "LIMIT",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 180.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://developer.paytmmoney.com/orders/v1/place/regular",
+      "status": 200,
+      "expectBody": {
+        "txn_type": "B",
+        "exchange": "NSE",
+        "segment": "D",
+        "product": "M",
+        "security_id": "58445",
+        "quantity": 130,
+        "validity": "DAY",
+        "order_type": "LMT",
+        "price": 180.5,
+        "trigger_price": 0,
+        "source": "M",
+        "off_mkt_flag": "false",
+        "order_ltp": 180.5
+      },
+      "json": {
+        "status": "success",
+        "message": "Order submitted successfully. Your Order Ref No. 212106222471",
+        "data": [
+          {
+            "order_no": "212106222471"
+          }
+        ],
+        "error_code": "RS-0023"
+      }
+    }
+  ]
+}

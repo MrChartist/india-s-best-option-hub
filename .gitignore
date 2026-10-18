@@ -51,3 +51,20 @@ test-results/
 
 # Server snapshot recorder output (proxy-server.mjs)
 data/
+
+# SQLite databases (local dev state)
+*.db
+*.db-shm
+*.db-wal
+
+# Stray tool logs / backups
+.codex-*.log
+.codex-logs/
+_backups/
+.gstack/
+.codegraph/
+.superpowers/
+.dev-restart.log
+.claude/
+.env.production
+.env.development

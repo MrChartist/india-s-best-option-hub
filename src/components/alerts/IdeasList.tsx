@@ -18,16 +18,16 @@ export function IdeasList({ engine, columns = 1 }: { engine: AlertEngine; column
   const existing = useMemo(() => new Set(engine.rules.map((r) => describeRule(r))), [engine.rules]);
   return (
     <div className="space-y-3">
-      <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-body-sm text-muted-foreground">
         <Badge variant="neutral">Educational, not advice</Badge>
         <span>These ideas are starting points for your own alerts, not trade recommendations.</span>
-      </p>
+      </div>
       <div className="flex items-center gap-2">
-        <Label htmlFor={`${uid}-sym`} className="shrink-0 text-body-sm">
+        <Label htmlFor={`${uid}-sym`} className="shrink-0">
           Underlying
         </Label>
         <Select value={symbol} onValueChange={setSymbol}>
-          <SelectTrigger id={`${uid}-sym`} className="h-9 max-w-56 text-body-sm">
+          <SelectTrigger id={`${uid}-sym`} className="w-auto min-w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -39,13 +39,19 @@ export function IdeasList({ engine, columns = 1 }: { engine: AlertEngine; column
           </SelectContent>
         </Select>
       </div>
-      <ul className={cn("grid gap-2", columns === 2 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1")}>
+      {/* One group box; cells are divided by 1px gaps, and an odd last cell spans the row. */}
+      <ul
+        className={cn(
+          "grid gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card",
+          columns === 2 ? "grid-cols-1 lg:grid-cols-2 lg:[&>li:last-child:nth-child(odd)]:col-span-2" : "grid-cols-1",
+        )}
+      >
         {RULE_IDEAS.map((idea) => {
           const draft = idea.make(symbol, flowStore.getState().feeds[symbol]?.spot);
           const preview = describeRule(createRule(draft, 0));
           const added = existing.has(preview);
           return (
-            <li key={idea.id} className="flex flex-col rounded-tile border border-border bg-card p-3">
+            <li key={idea.id} className="flex flex-col bg-card px-3 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 gap-2">
                   <span className="mt-0.5 shrink-0 text-muted-foreground">{TYPE_ICON[draft.type]}</span>
@@ -56,8 +62,8 @@ export function IdeasList({ engine, columns = 1 }: { engine: AlertEngine; column
                   </div>
                 </div>
                 <Button
-                  size="pill"
-                  variant={added ? "outline" : "default"}
+                  size="sm"
+                  variant={added ? "ghost" : "outline"}
                   disabled={added}
                   onClick={() => {
                     engine.addRule(draft);

@@ -1,0 +1,33 @@
+{
+  "args": [
+    "26101602000013"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "DELETE",
+      "url": "https://edge.arrow.trade/order/regular/26101602000013",
+      "json": {
+        "data": {
+          "message": "order cancellation request accepted"
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

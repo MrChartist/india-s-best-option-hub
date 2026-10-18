@@ -124,3 +124,14 @@ describe("broker parsers", () => {
     expect(parseTradebook(generic).fills).toHaveLength(1);
   });
 });
+
+describe("historical NSE expiry weekday", () => {
+  it("resolves pre-Sep 2025 Zerodha monthly symbols to the last Thursday", () => {
+    expect(parseInstrument("NIFTY25AUG24000CE")?.expiry).toBe("2025-08-28");
+    expect(parseInstrument("BANKNIFTY25MAR50000PE")?.expiry).toBe("2025-03-27");
+  });
+  it("uses the last Tuesday from Sep 2025 onwards", () => {
+    expect(parseInstrument("NIFTY25SEP24000CE")?.expiry).toBe("2025-09-30");
+    expect(parseInstrument("NIFTY26OCT25000CE")?.expiry).toBe("2026-10-27");
+  });
+});

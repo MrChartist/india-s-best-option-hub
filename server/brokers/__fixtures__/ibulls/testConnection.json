@@ -1,0 +1,110 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xts.ibullssecurities.com/apibinarymarketdata/auth/login",
+      "expectBody": {
+        "appKey": "dummyMdAppKey02",
+        "secretKey": "dummyMdSecret02",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Provided Valid Credentials",
+        "result": {
+          "token": "dummy.md.jwt.token",
+          "userID": "DUMMY1",
+          "appVersion": "1.0",
+          "application_expiry_date": "2027-01-01"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xts.ibullssecurities.com/apibinarymarketdata/config/clientConfig",
+      "json": {
+        "type": "success",
+        "code": "s-response-0001",
+        "description": "Fetched configurations successfully",
+        "result": {
+          "exchangeSegments": {
+            "NSECM": 1,
+            "NSEFO": 2,
+            "NSECD": 3,
+            "BSECM": 11,
+            "BSEFO": 12,
+            "MCXFO": 51
+          },
+          "xtsMessageCode": {
+            "touchlineEvent": 1501,
+            "marketDepthEvent": 1502,
+            "indexDataEvent": 1504,
+            "candleDataEvent": 1505,
+            "openInterestEvent": 1510
+          },
+          "publishFormat": [
+            "Binary",
+            "JSON"
+          ],
+          "broadCastMode": [
+            "Full",
+            "Partial"
+          ]
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://xts.ibullssecurities.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey02",
+        "secretKey": "dummyIaSecret02",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

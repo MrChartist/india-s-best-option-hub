@@ -1,0 +1,21 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/profile",
+      "status": 200,
+      "json": {
+        "dhanClientId": "1000000001",
+        "tokenValidity": "18/10/2026 15:37",
+        "activeSegment": "Equity, Derivative, Currency, Commodity",
+        "ddpi": "Active",
+        "mtf": "Active",
+        "dataPlan": "Active",
+        "dataValidity": "2026-12-05 09:37:52.0"
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

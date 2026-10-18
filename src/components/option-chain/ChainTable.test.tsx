@@ -91,12 +91,12 @@ describe("ChainTable", () => {
     const { container } = renderTable();
     const itmStrike = model.rows.find((r) => r.ce.itm && r.strike !== model.atmStrike && Math.abs(r.strike - model.atmStrike) <= 500)!.strike;
     const tr = container.querySelector(`tr[data-strike="${itmStrike}"]`) as HTMLElement;
-    expect(tr.className).toContain("h-8");
+    expect(tr.className).toContain("h-7");
     const ceCell = tr.querySelector('td[data-side="CE"]') as HTMLElement;
-    expect(ceCell.className).toContain("bg-[hsl(var(--wash-itm))]");
+    expect(ceCell.className).toContain("bg-wash-itm");
     expect(ceCell.className).not.toContain("wash-warning");
     const atm = container.querySelector(`tr[data-strike="${model.atmStrike}"]`) as HTMLElement;
-    expect(atm.className).toContain("shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.55)]");
+    expect(atm.className).toContain("shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.5)]");
   });
 
   it("puts B / S in their own column beside the strike, faint on ATM±3 only", () => {

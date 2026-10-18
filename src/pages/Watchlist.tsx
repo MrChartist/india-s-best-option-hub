@@ -34,6 +34,7 @@ import {
   sortRows,
   updateActive,
   validateSymbol,
+  WATCHLIST_KEY,
   type SortDir,
   type SortKey,
   type SortableRow,
@@ -119,9 +120,29 @@ export default function Watchlist() {
   const ban = useBanList();
   const reducedMotion = usePrefersReducedMotion();
 
+  // Save only real edits: not the state just read on mount, and not a reload from another tab
+  // (writing those back could overwrite newer work saved elsewhere). `synced` is the JSON this
+  // tab last read or wrote.
+  const synced = useRef<string>(JSON.stringify(state));
   useEffect(() => {
+    const json = JSON.stringify(state);
+    if (json === synced.current) return;
+    synced.current = json;
     setSaveFailed(!saveWatchlists(state));
   }, [state]);
+
+  // Another tab saved its watchlists: reload them so this tab's next edit builds on that copy
+  // instead of overwriting it with an older one.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== WATCHLIST_KEY && e.key !== null) return;
+      const next = loadWatchlists();
+      synced.current = JSON.stringify(next);
+      setState(next);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const list = activeList(state);
   const allStocks = useMemo(() => fno.data?.allStocks ?? [], [fno.data]);
@@ -207,10 +228,9 @@ export default function Watchlist() {
   const cols = 11; // star, symbol, ltp, change, chg%, range, volume, oi, oi chg, chart, actions
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         icon={Star}
-        eyebrow="Overview"
         title="Watchlist"
         description={
           <>
@@ -222,8 +242,8 @@ export default function Watchlist() {
         actions={
           <form onSubmit={onSubmit} className="flex w-full flex-wrap items-start gap-2 sm:w-auto" noValidate>
             <div className="relative w-[112px] shrink-0 sm:w-auto">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input aria-label="Filter symbols in this watchlist" placeholder="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} className="h-9 w-full pl-8 sm:w-[120px]" />
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input aria-label="Filter symbols in this watchlist" placeholder="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full pl-7 sm:w-[132px]" />
             </div>
             <div className="min-w-0 flex-1 sm:flex-none">
               <label htmlFor="wl-add" className="sr-only">Add symbol</label>
@@ -235,7 +255,7 @@ export default function Watchlist() {
                   setInput(e.target.value);
                   if (feedback?.tone === "error") setFeedback(null);
                 }}
-                className="h-9 w-full uppercase placeholder:normal-case sm:w-[168px]"
+                className="w-full uppercase placeholder:normal-case sm:w-[168px]"
                 list="wl-symbols"
                 autoComplete="off"
                 aria-invalid={feedback?.tone === "error"}
@@ -247,8 +267,8 @@ export default function Watchlist() {
                 ))}
               </datalist>
             </div>
-            <Button type="submit" variant="outline" className="h-9 gap-1">
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add
+            <Button type="submit" variant="outline">
+              <Plus className="!size-3.5" aria-hidden="true" /> Add
             </Button>
           </form>
         }
@@ -256,19 +276,19 @@ export default function Watchlist() {
 
       <div id="wl-feedback" aria-live="polite" className="min-h-0">
         {feedback ? (
-          <div className={cn("flex flex-wrap items-center gap-2 rounded-tile border px-3 py-2 text-body-sm", feedback.tone === "error" ? "border-bearish/30 bg-wash-loss" : "border-bullish/30 bg-wash-profit")}>
+          <div className={cn("flex flex-wrap items-center gap-2 rounded-tile px-3 py-1.5 text-body-sm", feedback.tone === "error" ? "bg-wash-loss" : "bg-wash-profit")}>
             <span className={feedback.tone === "error" ? "text-bearish" : "text-bullish"}>{feedback.text}</span>
             {feedback.suggestions.length > 0 ? (
               <>
                 <span className="text-muted-foreground">Did you mean</span>
                 {feedback.suggestions.map((s) => (
-                  <button key={s} type="button" onClick={() => addSymbol(s)} className="rounded-chip border border-border bg-card px-2 py-0.5 font-medium hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none">
+                  <Button key={s} type="button" variant="outline" size="sm" onClick={() => addSymbol(s)}>
                     {s}
-                  </button>
+                  </Button>
                 ))}
               </>
             ) : null}
-            <button type="button" onClick={() => setFeedback(null)} className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none" aria-label="Dismiss message">
+            <button type="button" onClick={() => setFeedback(null)} className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none" aria-label="Dismiss message">
               <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
@@ -276,7 +296,7 @@ export default function Watchlist() {
       </div>
 
       {anySample && list.symbols.length > 0 ? (
-        <div role="status" className="flex flex-col gap-2 rounded-tile border border-warning/40 bg-wash-warning px-3 py-2 text-body-sm sm:flex-row sm:items-center sm:justify-between">
+        <div role="status" className="flex flex-col gap-2 rounded-tile bg-wash-warning px-3 py-2 text-body-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2 text-foreground">
             <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
             <span>
@@ -285,14 +305,14 @@ export default function Watchlist() {
             </span>
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
-            <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2.5" onClick={retry} disabled={fno.isFetching}>
-              <RefreshCw className={cn("h-3.5 w-3.5", fno.isFetching && "motion-safe:animate-spin")} aria-hidden="true" /> Retry
+            <Button type="button" variant="ghost" onClick={retry} disabled={fno.isFetching}>
+              <RefreshCw className={cn("!size-3.5", fno.isFetching && "motion-safe:animate-spin")} aria-hidden="true" /> Retry
             </Button>
             <StartProxyButton onRecovered={retry} />
           </div>
         </div>
       ) : !loading && quoted === 0 && list.symbols.length > 0 && fno.isError ? (
-        <div role="alert" className="flex items-start gap-2 rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+        <div role="alert" className="flex items-start gap-2 rounded-tile bg-wash-loss px-3 py-2 text-body-sm text-bearish">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Quotes could not be loaded. Retry in a moment.</span>
         </div>
@@ -303,28 +323,28 @@ export default function Watchlist() {
       {/* Desktop and tablet: table */}
       <Card className="hidden overflow-hidden md:block">
         <ScrollRegion label={`Watchlist “${list.name}” table`}>
-          <table className="w-full min-w-[920px] text-body">
+          <table className="w-full min-w-[920px] text-body font-num">
             <caption className="sr-only">Watchlist “{list.name}”. Column headers sort the table.</caption>
             <thead className="sticky top-0 z-10 bg-card">
-              <tr className="border-b border-border text-label uppercase text-muted-foreground">
-                <th scope="col" className="w-9 px-2 py-2"><span className="sr-only">Remove</span></th>
+              <tr className="text-label text-muted-foreground [&>th]:hairline-b">
+                <th scope="col" className="w-9 px-2 py-1.5"><span className="sr-only">Remove</span></th>
                 <SortTh label="Symbol" k="symbol" sort={sort} setSort={setSort} align="left" />
                 <SortTh label="LTP" k="ltp" sort={sort} setSort={setSort} />
                 <SortTh label="Change" k="change" sort={sort} setSort={setSort} />
                 <SortTh label="Chg %" k="changePercent" sort={sort} setSort={setSort} />
-                <th scope="col" className="px-2 py-2 text-center font-[650]">Day range</th>
+                <th scope="col" className="px-2 py-1.5 text-center font-semibold">Day range</th>
                 <SortTh label="Volume" k="volume" sort={sort} setSort={setSort} />
                 <SortTh label="OI" k="oi" sort={sort} setSort={setSort} />
                 <SortTh label="OI chg" k="oiChange" sort={sort} setSort={setSort} />
-                <th scope="col" className="px-2 py-2 text-center font-[650]">3M</th>
-                <th scope="col" className="px-3 py-2 text-right font-[650]">Actions</th>
+                <th scope="col" className="px-2 py-1.5 text-center font-semibold">3M</th>
+                <th scope="col" className="px-3 py-1.5 text-right font-semibold"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="zebra-rows">
               {loading
                 ? Array.from({ length: 6 }, (_, i) => `wl-skeleton-${i}`).map((id) => (
-                    <tr key={id} className="border-b border-border">
-                      <td colSpan={cols} className="px-3 py-2.5">
+                    <tr key={id}>
+                      <td colSpan={cols} className="px-3 py-2">
                         <Skeleton className="h-4 w-full" />
                       </td>
                     </tr>
@@ -333,19 +353,19 @@ export default function Watchlist() {
                     <tr
                       key={r.symbol}
                       className={cn(
-                        "border-b border-border last:border-0 hover:bg-accent/40 motion-safe:transition-colors motion-safe:duration-500",
+                        "hover:bg-control-track motion-safe:transition-colors motion-safe:duration-500",
                         flash[r.symbol] === "up" && "bg-wash-profit",
                         flash[r.symbol] === "down" && "bg-wash-loss",
                       )}
                     >
-                      <td className="px-2 py-2">
-                        <button type="button" onClick={() => remove(r.symbol)} className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none" aria-label={`Remove ${r.symbol} from watchlist`}>
+                      <td className="px-2 py-1">
+                        <button type="button" onClick={() => remove(r.symbol)} className="inline-flex h-6 w-6 items-center justify-center rounded-pill hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none" aria-label={`Remove ${r.symbol} from watchlist`}>
                           <Star className="h-3.5 w-3.5 fill-warning text-warning" aria-hidden="true" />
                         </button>
                       </td>
-                      <th scope="row" className="px-2 py-2 text-left font-medium">
+                      <th scope="row" className="px-2 py-1 text-left font-sans font-medium">
                         <span className="flex flex-wrap items-center gap-1.5">
-                          <Link to={`/option-chain?symbol=${encodeURIComponent(r.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+                          <Link to={`/option-chain?symbol=${encodeURIComponent(r.symbol)}`} className="rounded-sm hover:underline focus-visible:shadow-focus focus-visible:outline-none">
                             {r.symbol}
                           </Link>
                           <BanBadge symbol={r.symbol} banned={banned} nearBan={nearBan} />
@@ -353,21 +373,21 @@ export default function Watchlist() {
                           {mixed && r.sample ? <SampleTag /> : null}
                         </span>
                       </th>
-                      <td className="px-2 py-2 text-right font-num font-semibold tabular-nums">{r.hasData ? n2(r.ltp) : <span className="font-normal text-muted-foreground">No quote</span>}</td>
-                      <td className={cn("px-2 py-2 text-right font-num tabular-nums", tone(r))}>{r.hasData ? formatSigned(r.change, 2) : "—"}</td>
-                      <td className="px-2 py-2 text-right">{r.hasData ? <PctChip v={r.changePercent} /> : <span className="text-muted-foreground">—</span>}</td>
-                      <td className="px-2 py-2">{r.hasData && r.high > r.low ? <RangeBar r={r} /> : <span className="block text-center text-muted-foreground">—</span>}</td>
-                      <td className="px-2 py-2 text-right font-num tabular-nums text-muted-foreground">{r.volume > 0 ? formatCompactIN(r.volume) : "—"}</td>
-                      <td className="px-2 py-2 text-right font-num tabular-nums">{r.oi > 0 ? formatCompactIN(r.oi) : "—"}</td>
-                      <td className={cn("px-2 py-2 text-right font-num tabular-nums", r.oiChange > 0 ? "text-bullish" : r.oiChange < 0 ? "text-bearish" : "text-muted-foreground")}>
+                      <td className="px-2 py-1 text-right font-num font-semibold tabular-nums">{r.hasData ? n2(r.ltp) : <span className="font-normal text-muted-foreground">No quote</span>}</td>
+                      <td className={cn("px-2 py-1 text-right font-num tabular-nums", tone(r))}>{r.hasData ? formatSigned(r.change, 2) : "—"}</td>
+                      <td className="px-2 py-1 text-right">{r.hasData ? <PctChip v={r.changePercent} /> : <span className="text-muted-foreground">—</span>}</td>
+                      <td className="px-2 py-1">{r.hasData && r.high > r.low ? <RangeBar r={r} /> : <span className="block text-center text-muted-foreground">—</span>}</td>
+                      <td className="px-2 py-1 text-right font-num tabular-nums text-muted-foreground">{r.volume > 0 ? formatCompactIN(r.volume) : "—"}</td>
+                      <td className="px-2 py-1 text-right font-num tabular-nums">{r.oi > 0 ? formatCompactIN(r.oi) : "—"}</td>
+                      <td className={cn("px-2 py-1 text-right font-num tabular-nums", r.oiChange > 0 ? "text-bullish" : r.oiChange < 0 ? "text-bearish" : "text-muted-foreground")}>
                         {r.oiChange ? `${r.oiChange > 0 ? "+" : ""}${formatCompactIN(r.oiChange)}` : "—"}
                       </td>
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-1">
                         <div className="flex justify-center">
                           <MiniChart symbol={r.symbol} width={80} height={24} disabled={r.sample} />
                         </div>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-1">
                         <RowActions symbol={r.symbol} onChart={() => setChartSymbol(r.symbol)} onRemove={() => remove(r.symbol)} />
                       </td>
                     </tr>
@@ -382,15 +402,15 @@ export default function Watchlist() {
             </tbody>
             {!loading && withData.length > 0 ? (
               <tfoot>
-                <tr className="border-t-2 border-border bg-surface text-body-sm">
-                  <td colSpan={2} className="px-3 py-2 text-muted-foreground">
+                <tr className="bg-surface text-body-sm [&>td]:hairline-t">
+                  <td colSpan={2} className="px-3 py-1.5 font-sans text-muted-foreground">
                     {visible.length} shown · {withData.length} with quotes
                   </td>
-                  <td className="px-2 py-2" />
-                  <td className="px-2 py-2 text-right font-num tabular-nums">
+                  <td className="px-2 py-1.5" />
+                  <td className="px-2 py-1.5 text-right font-num tabular-nums">
                     <span className="text-bullish">▲ {adv}</span> / <span className="text-bearish">▼ {dec}</span>
                   </td>
-                  <td className={cn("px-2 py-2 text-right font-num tabular-nums", avg > 0 ? "text-bullish" : avg < 0 ? "text-bearish" : "text-muted-foreground")}>Avg {formatPct(avg, { signed: true })}</td>
+                  <td className={cn("px-2 py-1.5 text-right font-num tabular-nums", avg > 0 ? "text-bullish" : avg < 0 ? "text-bearish" : "text-muted-foreground")}>Avg {formatPct(avg, { signed: true })}</td>
                   <td colSpan={cols - 5} />
                 </tr>
               </tfoot>
@@ -410,7 +430,7 @@ export default function Watchlist() {
               const [k, dir] = e.target.value.split(":");
               setSort(k ? { key: k as SortKey, dir: dir as SortDir } : { key: null, dir: "desc" });
             }}
-            className="h-9 flex-1 rounded-md border border-input bg-card px-2 text-body focus-visible:border-primary focus-visible:shadow-ember focus-visible:outline-none"
+            className="h-9 flex-1 rounded-pill bg-control px-2 text-body shadow-control focus-visible:shadow-focus focus-visible:outline-none"
           >
             <option value="">My order</option>
             <option value="changePercent:desc">Top gainers</option>
@@ -421,18 +441,18 @@ export default function Watchlist() {
           </select>
         </div>
         {loading ? (
-          Array.from({ length: 4 }, (_, i) => `wl-card-skeleton-${i}`).map((id) => <Skeleton key={id} className="h-20 w-full rounded-card" />)
+          Array.from({ length: 4 }, (_, i) => `wl-card-skeleton-${i}`).map((id) => <Skeleton key={id} className="h-16 w-full rounded-md" />)
         ) : visible.length === 0 ? (
           <Card className="p-6 text-center text-body text-muted-foreground">{filter ? "No symbols match your filter." : "This watchlist is empty. Add a symbol above."}</Card>
         ) : (
-          <ul className="space-y-2">
+          <Card className="overflow-hidden">
+          <ul className="divide-y divide-separator">
             {visible.map((r) => (
-              <li key={r.symbol}>
-                <Card className={cn("p-3 motion-safe:transition-colors motion-safe:duration-500", flash[r.symbol] === "up" && "bg-wash-profit", flash[r.symbol] === "down" && "bg-wash-loss")}>
+              <li key={r.symbol} className={cn("px-3 py-2.5 motion-safe:transition-colors motion-safe:duration-500", flash[r.symbol] === "up" && "bg-wash-profit", flash[r.symbol] === "down" && "bg-wash-loss")}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <Link to={`/option-chain?symbol=${encodeURIComponent(r.symbol)}`} className="rounded-sm text-lead font-semibold hover:underline focus-visible:shadow-ember focus-visible:outline-none">
+                        <Link to={`/option-chain?symbol=${encodeURIComponent(r.symbol)}`} className="rounded-sm text-headline hover:underline focus-visible:shadow-focus focus-visible:outline-none">
                           {r.symbol}
                         </Link>
                         <BanBadge symbol={r.symbol} banned={banned} nearBan={nearBan} />
@@ -445,7 +465,7 @@ export default function Watchlist() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-num text-lead font-bold tabular-nums">{r.hasData ? n2(r.ltp) : "—"}</p>
+                      <p className="font-num text-headline tabular-nums">{r.hasData ? n2(r.ltp) : "—"}</p>
                       {r.hasData ? <PctChip v={r.changePercent} /> : null}
                     </div>
                   </div>
@@ -453,10 +473,10 @@ export default function Watchlist() {
                     {r.hasData && r.high > r.low ? <div className="flex-1"><RangeBar r={r} /></div> : <div className="flex-1" />}
                     <RowActions symbol={r.symbol} onChart={() => setChartSymbol(r.symbol)} onRemove={() => remove(r.symbol)} />
                   </div>
-                </Card>
               </li>
             ))}
           </ul>
+          </Card>
         )}
       </div>
 
@@ -490,7 +510,7 @@ function PctChip({ v }: { v: number }) {
   const up = v > 0;
   const flat = v === 0;
   return (
-    <span className={cn("inline-flex rounded-chip px-1.5 py-0.5 font-num text-body-sm font-semibold tabular-nums", flat ? "bg-muted text-muted-foreground" : up ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
+    <span className={cn("inline-flex rounded-chip px-1.5 font-num text-body-sm font-semibold tabular-nums", flat ? "bg-muted text-muted-foreground" : up ? "bg-wash-profit text-bullish" : "bg-wash-loss text-bearish")}>
       <span aria-hidden="true">{flat ? "■" : up ? "▲" : "▼"}&nbsp;</span>
       {formatPct(v, { signed: true })}
     </span>
@@ -532,7 +552,7 @@ function BanBadge({ symbol, banned, nearBan }: { symbol: string; banned: Set<str
 }
 
 function RowActions({ symbol, onChart, onRemove }: { symbol: string; onChart: () => void; onRemove: () => void }) {
-  const btn = "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none";
+  const btn = "inline-flex h-6 w-6 items-center justify-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:w-8";
   return (
     <div className="flex items-center justify-end gap-0.5">
       <button type="button" className={btn} onClick={onChart} aria-label={`Open ${symbol} price chart`}>
@@ -553,13 +573,13 @@ function SortTh({ label, k, sort, setSort, align = "right" }: { label: string; k
   const ariaSort = active ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
   const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <th scope="col" aria-sort={ariaSort} className={cn("px-2 py-2 font-[650]", align === "right" ? "text-right" : "text-left")}>
+    <th scope="col" aria-sort={ariaSort} className={cn("px-2 py-1.5 font-semibold", align === "right" ? "text-right" : "text-left")}>
       <button
         type="button"
         onClick={() => setSort(nextSort(sort, k))}
         // Label then icon, as in the Screener table; right-aligned headers keep the label edge
         // flush with the numbers below by letting the icon sit just past it.
-        className={cn("inline-flex items-center gap-1 rounded-sm uppercase hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none", active && "text-foreground", align === "right" && "-mr-4")}
+        className={cn("inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none", active && "text-foreground", align === "right" && "-mr-4")}
       >
         {label}
         <Icon className={cn("h-3 w-3", !active && "opacity-50")} aria-hidden="true" />
@@ -598,16 +618,16 @@ function ListTabs({ state, setState }: { state: WatchlistState; setState: (fn: (
         }}
       >
         <label htmlFor="wl-rename" className="sr-only">New name</label>
-        <Input id="wl-rename" autoFocus value={renameText} onChange={(e) => setRenameText(e.target.value)} maxLength={40} className="h-8 w-[160px]" onKeyDown={(e) => e.key === "Escape" && setRenaming(null)} />
-        <Button type="submit" size="sm" className="h-8">Save</Button>
-        <Button type="button" size="sm" variant="ghost" className="h-8" onClick={() => setRenaming(null)}>Cancel</Button>
+        <Input id="wl-rename" autoFocus value={renameText} onChange={(e) => setRenameText(e.target.value)} maxLength={40} className="w-[160px]" onKeyDown={(e) => e.key === "Escape" && setRenaming(null)} />
+        <Button type="submit">Save</Button>
+        <Button type="button" variant="ghost" onClick={() => setRenaming(null)}>Cancel</Button>
       </form>
     );
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div ref={tabsRef} role="tablist" aria-label="Watchlists" className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1 scrollbar-hide" onKeyDown={onKeyDown}>
+      <div ref={tabsRef} role="tablist" aria-label="Watchlists" className="flex h-7 max-w-full gap-px overflow-x-auto rounded-pill bg-control-track p-0.5 scrollbar-hide" onKeyDown={onKeyDown}>
         {state.lists.map((l) => {
           const selected = l.id === state.activeId;
           return (
@@ -620,8 +640,8 @@ function ListTabs({ state, setState }: { state: WatchlistState; setState: (fn: (
               tabIndex={selected ? 0 : -1}
               onClick={() => setState((s) => ({ ...s, activeId: l.id }))}
               className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-tab border px-3 text-body-sm font-medium transition-colors focus-visible:shadow-ember focus-visible:outline-none",
-                selected ? "border-border bg-card text-foreground shadow-card" : "border-transparent bg-muted text-muted-foreground hover:text-foreground",
+                "inline-flex h-full shrink-0 items-center gap-1.5 rounded-[5px] px-2.5 text-body font-medium transition-[background-color,color,box-shadow] duration-base ease-spring focus-visible:shadow-focus focus-visible:outline-none",
+                selected ? "bg-control text-foreground shadow-control" : "text-foreground/80 hover:text-foreground",
               )}
             >
               {l.name}
@@ -637,8 +657,8 @@ function ListTabs({ state, setState }: { state: WatchlistState; setState: (fn: (
         <>
           <Popover open={newOpen} onOpenChange={setNewOpen}>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" size="sm" className="h-8 gap-1" disabled={state.lists.length >= MAX_LISTS} title={state.lists.length >= MAX_LISTS ? `Up to ${MAX_LISTS} watchlists` : undefined}>
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> New list
+              <Button type="button" variant="ghost" disabled={state.lists.length >= MAX_LISTS} title={state.lists.length >= MAX_LISTS ? `Up to ${MAX_LISTS} watchlists` : undefined}>
+                <Plus className="!size-3.5" aria-hidden="true" /> New list
               </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-[260px] p-3">
@@ -651,15 +671,17 @@ function ListTabs({ state, setState }: { state: WatchlistState; setState: (fn: (
                 }}
                 className="space-y-2"
               >
-                <label htmlFor="wl-new" className="text-label uppercase text-muted-foreground">List name</label>
-                <Input id="wl-new" autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Banks" maxLength={40} className="h-9" />
-                <Button type="submit" size="sm" className="w-full">Create</Button>
+                <label htmlFor="wl-new" className="text-label text-muted-foreground">List name</label>
+                <Input id="wl-new" autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Banks" maxLength={40} />
+                <div className="flex justify-end">
+                  <Button type="submit">Create</Button>
+                </div>
               </form>
             </PopoverContent>
           </Popover>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Actions for ${list.name}`}>
+              <Button type="button" variant="ghost" size="icon" aria-label={`Actions for ${list.name}`}>
                 <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>

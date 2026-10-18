@@ -16,6 +16,7 @@ export type RouteGroup =
   | "Volatility"
   | "Positioning"
   | "Strategy"
+  | "Trade"
   | "Portfolio"
   | "Learn"
   | "Settings";
@@ -51,12 +52,14 @@ export const ROUTE_GROUPS: readonly RouteGroup[] = [
   "Volatility",
   "Positioning",
   "Strategy",
+  "Trade",
   "Portfolio",
   "Learn",
   "Settings",
 ];
 
-export const APP_NAME = "Mr. Chartist";
+/** Appended to every page title: "Option Chain · Option Hub by Mr. Chartist". */
+export const APP_NAME = "Option Hub by Mr. Chartist";
 
 // ── Page loaders ──────────────────────────────────────────────────────────
 //
@@ -338,6 +341,33 @@ export const ROUTES: RouteDef[] = [
     lazy: pageLoader("Calculators"),
   },
 
+  // ── Trade (1Cliq execution; real orders need Live Trading on in Broker settings) ──
+  {
+    path: "/one-cliq",
+    title: "1Cliq Trade",
+    navLabel: "1Cliq Trade",
+    group: "Trade",
+    icon: "Zap",
+    shortcut: "g t",
+    keywords: ["1cliq", "one click", "oneclick", "scalping", "execution", "terminal", "hotkeys", "panic", "close all", "f6", "f7", "stop loss", "target", "trade"],
+    badge: "Beta",
+    description: "One-click scalping terminal: hotkeys, server-side SL/target, F6 close all, F7 cancel all.",
+    page: "OneCliq",
+    lazy: pageLoader("OneCliq"),
+  },
+  {
+    path: "/orders",
+    title: "Orders",
+    navLabel: "Orders",
+    group: "Trade",
+    icon: "ListOrdered",
+    keywords: ["orders", "order book", "orderbook", "pending", "cancel", "dhan", "live orders"],
+    badge: "Beta",
+    description: "Today's real Dhan order book, with cancel for resting orders.",
+    page: "Orders",
+    lazy: pageLoader("Orders"),
+  },
+
   // ── Portfolio ───────────────────────────────────────────────────────────
   {
     path: "/position-tracker",
@@ -414,6 +444,18 @@ export const ROUTES: RouteDef[] = [
     lazy: pageLoader("LearnLesson"),
   },
 
+  {
+    path: "/ecosystem",
+    title: "Mr. Chartist ecosystem",
+    navLabel: "Mr. Chartist ecosystem",
+    group: "Learn",
+    icon: "Blocks",
+    keywords: ["mr chartist", "ecosystem", "products", "fii dii data", "ipo decode", "tradebook", "optionsdesk", "fundadesk", "chartbook", "nism", "books", "socials", "github", "sebi"],
+    description: "More from Mr. Chartist: products, courses, socials and the SEBI RA details.",
+    page: "Ecosystem",
+    lazy: pageLoader("Ecosystem"),
+  },
+
   // ── Settings ────────────────────────────────────────────────────────────
   {
     path: "/broker-settings",
@@ -458,6 +500,16 @@ export const LEGACY_REDIRECTS: Readonly<Record<string, string>> = {
   "/calendar": "/events",
   "/rollover": "/futures",
   "/alert": "/alerts",
+  "/more": "/ecosystem",
+  "/products": "/ecosystem",
+  "/1cliq": "/one-cliq",
+  "/oneclick": "/one-cliq",
+  "/one-click": "/one-cliq",
+  "/order-book": "/orders",
+  // Sub-pages of the old split OI analysis (PR #11); main's OI analysis covers them in one page.
+  "/oi-analysis/trending-oi": "/oi-analysis",
+  "/oi-analysis/strike-analysis": "/oi-analysis",
+  "/oi-analysis/delta-tracker": "/oi-analysis",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────

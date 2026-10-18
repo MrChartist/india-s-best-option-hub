@@ -1,0 +1,50 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/Limits",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"actid\":\"PM00000\"}"
+      },
+      "json": {
+        "request_time": "18:07:31 29-05-2020",
+        "stat": "Ok",
+        "cash": "1500000.00",
+        "payin": "0.00",
+        "payout": "0.00",
+        "brkcollamt": "0.00",
+        "unclearedcash": "0.00",
+        "daycash": "0.00",
+        "turnoverlmt": "50000000.00",
+        "pendordvallmt": "20000000.00",
+        "turnover": "3915000.00",
+        "pendordval": "2871000.00",
+        "marginused": "394554.00",
+        "mtomcurper": "0.00",
+        "urmtom": "30540.00",
+        "grexpo": "3915000.00",
+        "uzpnl_e_i": "15270.00",
+        "uzpnl_e_m": "61080.00",
+        "uzpnl_e_c": "-45810.00"
+      }
+    }
+  ]
+}

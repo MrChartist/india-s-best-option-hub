@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BuildupBadge } from "@/components/ui/buildup-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,6 +25,12 @@ export interface ChainSummaryBarProps {
 
 type Tone = "bullish" | "bearish" | "warning" | "primary";
 
+/**
+ * One grouped box with hairline dividers between the stats (macOS inspector / Stocks style),
+ * instead of a row of separately shadowed tiles. The 1px gaps show the separator colour.
+ */
+const STAT_GRID = "grid gap-px overflow-hidden rounded-tile border border-separator bg-separator shadow-card";
+
 interface StatProps {
   label: string;
   /** Learn metric id: wraps the label in MetricHelp. */
@@ -38,9 +44,9 @@ interface StatProps {
 }
 
 function Stat({ label, metric, metricValue, value, sub, hint, tone, className }: StatProps) {
-  const labelEl = <span className="text-micro uppercase leading-tight text-muted-foreground [overflow-wrap:anywhere]">{label}</span>;
+  const labelEl = <span className="text-label leading-tight text-muted-foreground [overflow-wrap:anywhere]">{label}</span>;
   return (
-    <div className={cn("min-w-0 rounded-tile border border-border bg-card px-2.5 py-1.5 shadow-card", className)}>
+    <div className={cn("min-w-0 bg-card px-3 py-2", className)}>
       <div className="flex min-w-0 items-center">
         {metric ? (
           <MetricHelp metric={metric} value={metricValue}>
@@ -52,10 +58,10 @@ function Stat({ label, metric, metricValue, value, sub, hint, tone, className }:
       </div>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div tabIndex={0} aria-label={`${label}. ${hint}`} className="rounded-chip focus-visible:shadow-ember focus-visible:outline-none">
+          <div tabIndex={0} aria-label={`${label}. ${hint}`} className="mt-0.5 rounded-chip focus-visible:shadow-focus focus-visible:outline-none">
             <div
               className={cn(
-                "font-num text-[14px] font-bold tabular-nums leading-tight [overflow-wrap:anywhere]",
+                "font-num text-lead font-semibold tabular-nums leading-tight [overflow-wrap:anywhere]",
                 tone === "bullish" && "text-bullish",
                 tone === "bearish" && "text-bearish",
                 tone === "warning" && "text-warning",
@@ -64,17 +70,17 @@ function Stat({ label, metric, metricValue, value, sub, hint, tone, className }:
             >
               {value}
             </div>
-            {sub ? <div className="text-[10.5px] leading-snug tabular-nums text-muted-foreground [overflow-wrap:anywhere]">{sub}</div> : null}
+            {sub ? <div className="text-body-sm tabular-nums text-muted-foreground [overflow-wrap:anywhere]">{sub}</div> : null}
           </div>
         </TooltipTrigger>
-        <TooltipContent className="max-w-[260px] text-xs">{hint}</TooltipContent>
+        <TooltipContent className="max-w-[260px]">{hint}</TooltipContent>
       </Tooltip>
     </div>
   );
 }
 
 function MethodTag({ children }: { children: ReactNode }) {
-  return <span className="inline-flex h-[14px] shrink-0 items-center whitespace-nowrap rounded-chip bg-muted px-1 align-middle text-[9px] font-semibold tracking-[0.02em] text-muted-foreground">{children}</span>;
+  return <span className="inline-flex h-[15px] shrink-0 items-center whitespace-nowrap rounded-chip bg-control-track px-1 align-middle text-micro font-semibold text-muted-foreground">{children}</span>;
 }
 
 const n2 = (v: number) => formatNumberIN(v, 2, { minDecimals: 2 });
@@ -92,7 +98,7 @@ export function ChainSummaryBar({ symbol, model, lotSize, lotEffectiveFrom, dte,
   const emStraddle = ok(model.straddle.straddle) ? expectedMoveFromStraddle(model.straddle.straddle, model.spot) : null;
 
   const priority = (
-    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+    <div className={cn(STAT_GRID, "grid-cols-3 sm:grid-cols-6")}>
       <Stat
         label={`${symbol} spot`}
         value={ok(model.spot) ? n2(model.spot) : "—"}
@@ -142,7 +148,7 @@ export function ChainSummaryBar({ symbol, model, lotSize, lotEffectiveFrom, dte,
               <span className="whitespace-nowrap">{ok(emIv?.move) ? `±${formatNumberIN(emIv.move, 0)}` : "—"}</span>
               <MethodTag>IV 1σ</MethodTag>
             </span>
-            <span className="flex flex-wrap items-center gap-x-1 text-[12px] font-semibold text-muted-foreground">
+            <span className="flex flex-wrap items-center gap-x-1 text-body-sm font-semibold text-muted-foreground">
               <span className="whitespace-nowrap">{ok(emStraddle?.move) ? `±${formatNumberIN(emStraddle.move, 0)}` : "—"}</span>
               <MethodTag>Straddle ×0.85</MethodTag>
             </span>
@@ -175,15 +181,15 @@ export function ChainSummaryBar({ symbol, model, lotSize, lotEffectiveFrom, dte,
           aria-expanded={moreOpen}
           aria-controls={moreId}
           onClick={() => setMoreOpen((v) => !v)}
-          className="inline-flex items-center gap-1 rounded-chip px-1 py-0.5 text-xs font-semibold text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
+          className="inline-flex h-6 items-center gap-1 rounded-chip pl-0.5 pr-1.5 text-body font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
         >
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-fast", moreOpen && "rotate-180")} aria-hidden="true" />
+          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-base ease-spring", moreOpen && "rotate-90")} aria-hidden="true" />
           {moreOpen ? "Fewer stats" : "More stats"}
         </button>
         {moreOpen && (
           <div
             id={moreId}
-            className="mt-1.5 flex snap-x snap-mandatory gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-6"
+            className={cn(STAT_GRID, "mt-1 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:thin] sm:grid sm:grid-cols-3 sm:overflow-hidden lg:grid-cols-6")}
           >
             <Stat
               className={moreTile}
@@ -236,10 +242,10 @@ export function ChainSummaryBar({ symbol, model, lotSize, lotEffectiveFrom, dte,
               metric="buildup"
               value={
                 buildup && total(buildup.ce) + total(buildup.pe) > 0 ? (
-                  <span className="flex flex-wrap gap-0.5 text-[11px]">
+                  <span className="flex flex-wrap gap-1 text-body-sm">
                     {(["LB", "SB", "SC", "LU"] as const).map((k) => (
                       <span key={k} className="inline-flex items-center gap-0.5">
-                        <BuildupBadge kind={k} variant="compact" className="h-4 min-w-0 px-1 text-[9px]" />
+                        <BuildupBadge kind={k} variant="compact" className="h-4 min-w-0 px-1 text-micro" />
                         <span className="tabular-nums">{buildup.ce[k] + buildup.pe[k]}</span>
                       </span>
                     ))}

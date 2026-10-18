@@ -1,0 +1,239 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://margincalculator.angelone.in/OpenAPI_File/files/OpenAPIScripMaster.json",
+      "json": [
+        {
+          "token": "99926000",
+          "symbol": "Nifty 50",
+          "name": "NIFTY",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "NSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99926009",
+          "symbol": "Nifty Bank",
+          "name": "BANKNIFTY",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "NSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99919000",
+          "symbol": "SENSEX",
+          "name": "SENSEX",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "BSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "99919012",
+          "symbol": "BANKEX",
+          "name": "BANKEX",
+          "expiry": "",
+          "strike": "0.000000",
+          "lotsize": "1",
+          "instrumenttype": "AMXIDX",
+          "exch_seg": "BSE",
+          "tick_size": "0.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "2885",
+          "symbol": "RELIANCE-EQ",
+          "name": "RELIANCE",
+          "expiry": "",
+          "strike": "-1.000000",
+          "lotsize": "1",
+          "instrumenttype": "",
+          "exch_seg": "NSE",
+          "tick_size": "10.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40001",
+          "symbol": "NIFTY20OCT2624950CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2495000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40002",
+          "symbol": "NIFTY20OCT2624950PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2495000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40003",
+          "symbol": "NIFTY20OCT2625000CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40004",
+          "symbol": "NIFTY20OCT2625000PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40005",
+          "symbol": "NIFTY20OCT2625050CE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2505000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "40006",
+          "symbol": "NIFTY20OCT2625050PE",
+          "name": "NIFTY",
+          "expiry": "20OCT2026",
+          "strike": "2505000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "51440",
+          "symbol": "NIFTY27OCT2625000CE",
+          "name": "NIFTY",
+          "expiry": "27OCT2026",
+          "strike": "2500000.000000",
+          "lotsize": "65",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "48699",
+          "symbol": "BANKNIFTY27OCT26FUT",
+          "name": "BANKNIFTY",
+          "expiry": "27OCT2026",
+          "strike": "-1.000000",
+          "lotsize": "30",
+          "instrumenttype": "FUTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "20.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "1125429",
+          "symbol": "SENSEX26O2282000CE",
+          "name": "SENSEX",
+          "expiry": "22OCT2026",
+          "strike": "8200000.000000",
+          "lotsize": "20",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "864500",
+          "symbol": "BANKEX26OCT60000PE",
+          "name": "BANKEX",
+          "expiry": "29OCT2026",
+          "strike": "6000000.000000",
+          "lotsize": "30",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "BFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "106743",
+          "symbol": "RELIANCE27OCT261460CE",
+          "name": "RELIANCE",
+          "expiry": "27OCT2026",
+          "strike": "146000.000000",
+          "lotsize": "500",
+          "instrumenttype": "OPTSTK",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        },
+        {
+          "token": "90003",
+          "symbol": "NIFTYNXT5027OCT2670000CE",
+          "name": "NIFTYNXT50",
+          "expiry": "27OCT2026",
+          "strike": "7000000.000000",
+          "lotsize": "25",
+          "instrumenttype": "OPTIDX",
+          "exch_seg": "NFO",
+          "tick_size": "5.000000",
+          "freeze_qty": "1800",
+          "is_cas_enabled": false
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

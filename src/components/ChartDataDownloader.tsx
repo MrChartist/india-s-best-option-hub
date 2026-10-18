@@ -372,20 +372,20 @@ export function ChartDataDownloader() {
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button onClick={exportAll} variant="outline" size="sm" className="gap-2" disabled={isDownloading || doneCount === 0}>
+            <FileDown className="h-3.5 w-3.5" aria-hidden /> Export all CSV
+          </Button>
           {isDownloading ? (
-            <Button onClick={() => (cancelRef.current = true)} variant="outline" className="flex-1 gap-2" size="sm">
+            <Button onClick={() => (cancelRef.current = true)} variant="outline" className="gap-2" size="sm">
               <StopCircle className="h-3.5 w-3.5" aria-hidden /> Stop after this symbol
             </Button>
           ) : (
-            <Button onClick={handleDownload} disabled={selectedCount === 0} className="flex-1 gap-2" size="sm">
+            <Button onClick={handleDownload} disabled={selectedCount === 0} className="gap-2" size="sm">
               <Download className="h-3.5 w-3.5" aria-hidden />
               Download {selectedCount} symbols ({timeframeLabel}, {intervalLabel})
             </Button>
           )}
-          <Button onClick={exportAll} variant="outline" size="sm" className="gap-2" disabled={isDownloading || doneCount === 0}>
-            <FileDown className="h-3.5 w-3.5" aria-hidden /> Export all CSV
-          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-muted-foreground">

@@ -1,0 +1,72 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"c60131f6bb954617d7612f777977cd90dc8d22c8a03f61fcba6e426a66a7f720\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyZebuAccessToken",
+        "refresh_token": "dummyZebuRefreshToken",
+        "expires_in": "3600",
+        "request_time": "10:06:54 16-10-2026"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://go.mynt.in/NorenWClientAPI/OrderBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"Z12345\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch": "NFO",
+          "tsym": "NIFTY20OCT26C25000",
+          "norenordno": "26101600000002",
+          "prc": "95.00",
+          "qty": "130",
+          "prd": "M",
+          "status": "OPEN",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "fillshares": "0",
+          "avgprc": "0",
+          "exchordid": "250620000000343421",
+          "uid": "Z12345",
+          "actid": "Z12345",
+          "ret": "DAY",
+          "amo": "No",
+          "token": "40003",
+          "norentm": "09:41:00 16-10-2026"
+        },
+        {
+          "stat": "Ok",
+          "exch": "NSE",
+          "tsym": "ABB-EQ",
+          "norenordno": "26101600000003",
+          "prc": "5830.00",
+          "qty": "50",
+          "prd": "C",
+          "status": "REJECTED",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "fillshares": "0",
+          "avgprc": "0",
+          "rejreason": "Insufficient funds",
+          "uid": "Z12345",
+          "actid": "Z12345",
+          "ret": "DAY",
+          "amo": "No",
+          "token": "13",
+          "norentm": "09:42:10 16-10-2026"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -51,7 +51,7 @@ export function MirrorChart({ series }: Props) {
   const last = data[data.length - 1];
 
   if (data.length < 2) {
-    return <div className="flex h-[260px] items-center justify-center rounded-tile border border-dashed border-border text-body-sm text-muted-foreground">The mirror needs at least two days of history.</div>;
+    return <div className="flex h-[260px] items-center justify-center rounded-tile bg-muted/40 text-body-sm text-muted-foreground">The mirror needs at least two days of history.</div>;
   }
 
   const fmtNull = (v: number) => (Number.isFinite(v) ? v : null);
@@ -61,10 +61,10 @@ export function MirrorChart({ series }: Props) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ToggleGroup type="single" value={measure} onValueChange={(v) => v && setMeasure(v as Measure)} aria-label="Measure">
-          <ToggleGroupItem value="fut" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="fut" size="sm">
             Index futures net
           </ToggleGroupItem>
-          <ToggleGroupItem value="direction" size="sm" className="h-8 px-2.5 text-xs">
+          <ToggleGroupItem value="direction" size="sm">
             Net index direction
           </ToggleGroupItem>
         </ToggleGroup>

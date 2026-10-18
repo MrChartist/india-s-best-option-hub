@@ -1,0 +1,96 @@
+{
+  "args": [
+    {
+      "token": "22",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"exch\":\"NSE\",\"token\":\"22\"}"
+      },
+      "json": {
+        "request_time": "16:40:05 04-12-2025",
+        "stat": "Ok",
+        "exch": "NSE",
+        "tsym": "ACC-EQ",
+        "cname": "ACC LIMITED",
+        "symname": "ACC",
+        "seg": "EQT",
+        "instname": "EQ",
+        "isin": "INE012A01025",
+        "pp": "2",
+        "ls": "1",
+        "ti": "0.10",
+        "mult": "1",
+        "lut": "1764667383",
+        "uc": "2208.20",
+        "lc": "1472.20",
+        "token": "22",
+        "lp": "1847.00",
+        "c": "1850.50",
+        "h": "1857.00",
+        "l": "1844.20",
+        "ap": "1849.64",
+        "o": "1850.50",
+        "v": "60469",
+        "ltq": "1",
+        "ltt": "14:52:58",
+        "ltd": "02-12-2025",
+        "tbq": "38589",
+        "tsq": "48125",
+        "bp1": "1846.30",
+        "sp1": "1847.00",
+        "bp2": "1846.20",
+        "sp2": "1847.70",
+        "bp3": "1846.10",
+        "sp3": "1847.80",
+        "bp4": "1846.00",
+        "sp4": "1847.90",
+        "bp5": "1845.90",
+        "sp5": "1848.00",
+        "bq1": "1",
+        "sq1": "19",
+        "bq2": "8",
+        "sq2": "19",
+        "bq3": "4",
+        "sq3": "15",
+        "bq4": "53",
+        "sq4": "27",
+        "bq5": "9",
+        "sq5": "464",
+        "bo1": "1",
+        "so1": "1",
+        "bo2": "2",
+        "so2": "2",
+        "bo3": "2",
+        "so3": "2",
+        "bo4": "8",
+        "so4": "4",
+        "bo5": "3",
+        "so5": "5"
+      }
+    }
+  ]
+}

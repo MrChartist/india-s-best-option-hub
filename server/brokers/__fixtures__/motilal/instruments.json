@@ -1,0 +1,32 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://openapi.motilaloswal.com/getscripmastercsv?name=NSEFO",
+      "text": "exchange,exchangename,scripcode,scripname,marketlot,scripshortname,issuspended,instrumentname,expirydate,strikeprice,optiontype,markettype,foexposurepercent,ticksize,scripisinno,indicesidentifier,isbanscrip,scripfullname,facevalue,calevel,maxqtyperorder\n2,NSEFO,52826,NIFTY 20-Oct-2026 CE 25000,65,NIFTY,N,OPTIDX,1476973800,25000.000,CE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 CE 25000,0,0,1755\n2,NSEFO,52827,NIFTY 20-Oct-2026 PE 25000,65,NIFTY,N,OPTIDX,1476973800,25000.000,PE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 PE 25000,0,0,1755\n2,NSEFO,52828,NIFTY 20-Oct-2026 CE 25050,65,NIFTY,N,OPTIDX,1476973800,25050.000,CE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 CE 25050,0,0,1755\n2,NSEFO,52829,NIFTY 20-Oct-2026 PE 25050,65,NIFTY,N,OPTIDX,1476973800,25050.000,PE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 PE 25050,0,0,1755\n2,NSEFO,52830,NIFTY 20-Oct-2026 CE 24950,65,NIFTY,N,OPTIDX,1476973800,24950.000,CE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 CE 24950,0,0,1755\n2,NSEFO,52831,NIFTY 20-Oct-2026 PE 24950,65,NIFTY,N,OPTIDX,1476973800,24950.000,PE, ,0,0.05,,0,N,NIFTY 20-Oct-2026 PE 24950,0,0,1755\n2,NSEFO,53001,NIFTY 27-Oct-2026 CE 25000,65,NIFTY,N,OPTIDX,1477578600,25000.000,CE, ,0,0.05,,0,N,NIFTY 27-Oct-2026 CE 25000,0,0,1755\n2,NSEFO,53002,NIFTY 27-Oct-2026,65,NIFTY,N,FUTIDX,1477578600,0.000,XX, ,0,0.05,,0,N,NIFTY 27-Oct-2026,0,0,1755\n2,NSEFO,54001,BANKNIFTY 27-Oct-2026 CE 56000,30,BANKNIFTY,N,OPTIDX,1477578600,56000.000,CE, ,0,0.05,,0,N,BANKNIFTY 27-Oct-2026 CE 56000,0,0,1755\n2,NSEFO,55001,RELIANCE 27-Oct-2026 CE 1460,500,RELIANCE,N,OPTSTK,1477578600,1460.000,CE, ,0,0.05,,0,N,RELIANCE 27-Oct-2026 CE 1460,0,0,1755\n2,NSEFO,56001,NIFTYNXT50 27-Oct-2026 CE 70000,25,NIFTYNXT50,N,OPTIDX,1477578600,70000.000,CE, ,0,0.05,,0,N,NIFTYNXT50 27-Oct-2026 CE 70000,0,0,1755\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://openapi.motilaloswal.com/getscripmastercsv?name=BSEFO",
+      "text": "exchange,exchangename,scripcode,scripname,marketlot,scripshortname,issuspended,instrumentname,expirydate,strikeprice,optiontype,markettype,foexposurepercent,ticksize,scripisinno,indicesidentifier,isbanscrip,scripfullname,facevalue,calevel,maxqtyperorder\n4,BSEFO,861001,BSX 22-Oct-2026 CE 82000,20,BSX,N,OPTIDX,1477146600,82000.000,CE, ,0,0.05,,0,N,BSX 22-Oct-2026 CE 82000,0,0,1755\n4,BSEFO,861002,BSX 22-Oct-2026 PE 82000,20,BSX,N,OPTIDX,1477146600,82000.000,PE, ,0,0.05,,0,N,BSX 22-Oct-2026 PE 82000,0,0,1755\n4,BSEFO,862001,BKX 29-Oct-2026 CE 64000,30,BKX,N,OPTIDX,1477751400,64000.000,CE, ,0,0.05,,0,N,BKX 29-Oct-2026 CE 64000,0,0,1755\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 10,
+    "underlyings": [
+      "NIFTY",
+      "BANKNIFTY",
+      "SENSEX",
+      "BANKEX"
+    ]
+  }
+}

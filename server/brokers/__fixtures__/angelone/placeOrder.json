@@ -1,0 +1,48 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT2625000CE",
+      "token": "40003",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/placeOrder$",
+      "expectBody": {
+        "variety": "NORMAL",
+        "tradingsymbol": "NIFTY20OCT2625000CE",
+        "symboltoken": "40003",
+        "transactiontype": "BUY",
+        "exchange": "NFO",
+        "ordertype": "LIMIT",
+        "producttype": "CARRYFORWARD",
+        "duration": "DAY",
+        "price": "104.5",
+        "quantity": "130"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "script": "NIFTY20OCT2625000CE",
+          "orderid": "200910000000111",
+          "uniqueorderid": "34reqfachdfih"
+        }
+      }
+    }
+  ]
+}

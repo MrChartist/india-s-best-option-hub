@@ -1,0 +1,61 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/tradebook",
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "ALGO_ID": "0",
+            "BUY_SELL": "Sell",
+            "CLIENT_ID": "MA123456",
+            "EXCHANGE": "NSE",
+            "EXCH_ORDER_NUMBER": "1100000048872942",
+            "EXPIRY_DATE": "0",
+            "INSTRUMENT_NAME": "EQUITY",
+            "OPT_TYPE": "XX",
+            "ORDER_DATE_TIME": "16-10-2026 13:08:42",
+            "ORDER_NUMBER": "21612610161476",
+            "ORDER_TYPE": "MARKET",
+            "PRICE": 6.98,
+            "PRODUCT": "CNC",
+            "QUANTITY": 4,
+            "SEC_ID": "14366",
+            "SEGMENT": "E",
+            "SYMBOL": "IDEA",
+            "TRADE_NUMBER": "206465040",
+            "TRADE_VALUE": 27.92
+          },
+          {
+            "ALGO_ID": "0",
+            "BUY_SELL": "Buy",
+            "CLIENT_ID": "MA123456",
+            "EXCHANGE": "NSE",
+            "INSTRUMENT_NAME": "OPTIDX",
+            "ORDER_DATE_TIME": "16-10-2026 12:43:56",
+            "ORDER_NUMBER": "21612610161398",
+            "ORDER_TYPE": "LIMIT",
+            "PRICE": 96.8,
+            "PRODUCT": "NRML",
+            "QUANTITY": 65,
+            "SEC_ID": "40003",
+            "SEGMENT": "D",
+            "SYMBOL": "NIFTY",
+            "TRADE_NUMBER": "205988815",
+            "TRADE_VALUE": 6292
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

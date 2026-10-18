@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { isTradingDay, isoWeekday } from "@/lib/options";
 import { EVENT_KIND_LABEL, eventLinks, groupByDate, type MarketEvent } from "@/lib/events";
 import { cn } from "@/lib/utils";
@@ -14,13 +15,13 @@ export function EventRow({ event: e, today, compact = false, stacked = false }: 
   const past = e.date < today;
   return (
     <li
-      className={cn("flex min-w-0 flex-col gap-2 py-2.5", !stacked && "sm:flex-row sm:items-start sm:gap-3", past && "opacity-75")}
+      className={cn("flex min-w-0 flex-col gap-2 py-2", !stacked && "sm:flex-row sm:items-start sm:gap-3", past && "opacity-75")}
       data-event-id={e.id}
       data-event-kind={e.kind}
     >
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
         <span className="w-12 shrink-0 pt-0.5 text-right font-num text-body-sm tabular-nums text-muted-foreground">
-          {e.time ?? <span className="text-micro uppercase">All day</span>}
+          {e.time ?? <span className="text-micro">All day</span>}
         </span>
         <EventMarker event={e} variant="icon" noTooltip />
         <div className="min-w-0 flex-1">
@@ -38,7 +39,7 @@ export function EventRow({ event: e, today, compact = false, stacked = false }: 
             ))}
           </div>
           {!compact && e.detail ? <p className="mt-0.5 line-clamp-2 text-body-sm text-muted-foreground">{e.detail}</p> : null}
-          <p className="mt-0.5 text-micro uppercase text-muted-foreground">
+          <p className="mt-0.5 text-micro text-muted-foreground">
             {EVENT_KIND_LABEL[e.kind]}
             {e.category && e.category !== "Results" ? ` · ${e.category}` : ""}
             {e.company && e.company !== e.symbol ? ` · ${e.company}` : ""}
@@ -54,10 +55,10 @@ export function EventRow({ event: e, today, compact = false, stacked = false }: 
               to={l.href}
               title={l.title}
               aria-label={l.title}
-              className="inline-flex h-7 items-center gap-1 rounded-chip border border-border bg-card px-2 text-body-sm font-medium text-foreground transition-colors duration-fast hover:border-primary/50 hover:text-primary-ink focus-visible:shadow-ember focus-visible:outline-none"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               {l.label}
-              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+              <ArrowUpRight className="!size-3 text-muted-foreground" aria-hidden="true" />
             </Link>
           ))}
         </div>
@@ -98,9 +99,9 @@ export function EventList({
   return (
     <div className="space-y-4">
       {groups.map((g) => (
-        <section key={g.date} aria-label={dayLabel(g.date)} data-date={g.date} className={cn("min-w-0 rounded-tile", !hideHeadings && g.date === today && "bg-wash-brand/40 p-2 sm:p-3")}>
+        <section key={g.date} aria-label={dayLabel(g.date)} data-date={g.date} className={cn("min-w-0 rounded-tile", !hideHeadings && g.date === today && "bg-wash-brand/40 px-2 py-1.5 sm:px-3 sm:py-2")}>
           {hideHeadings ? null : <DayHeading date={g.date} today={today} />}
-          <ul className="mt-1 divide-y divide-border">
+          <ul className="mt-1 divide-y divide-separator">
             {g.events.map((e) => (
               <EventRow key={e.id} event={e} today={today} compact={compact} stacked={stacked} />
             ))}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/PageHeader";
+import { ProductCrossLink } from "@/components/brand/ProductCrossLink";
 import { BuildupBadge } from "@/components/ui/buildup-badge";
 import { buildSampleChainData, useLiveOptionChain } from "@/hooks/useMarketData";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -32,6 +33,7 @@ import { ChainSummaryBar } from "@/components/option-chain/ChainSummaryBar";
 import { ChainTable } from "@/components/option-chain/ChainTable";
 import { BasketDrawer } from "@/components/option-chain/BasketDrawer";
 import { StrikeAlertDialog } from "@/components/option-chain/StrikeAlertDialog";
+import { StrikeInspector } from "@/components/option-chain/StrikeInspector";
 import { ByStrikeView } from "@/components/option-chain/ByStrikeView";
 import { visibleColumns } from "@/components/option-chain/columns";
 import {
@@ -64,6 +66,7 @@ import { useLatestCallback, useStableBadgeMap, useStableRows } from "@/component
 import { useBasket, useStrikeAlerts } from "@/components/option-chain/hooks";
 import {
   DELTA_VIEW_KEY,
+  INSPECTOR_KEY,
   MOBILE_BREAKPOINT,
   MOBILE_COLUMNS_KEY,
   MOBILE_DEFAULT_PRESET,
@@ -76,7 +79,11 @@ import {
   type ColumnPrefs,
 } from "@/components/option-chain/preferences";
 import { downloadText as saveText } from "@/lib/download";
-import { ALL_SYMBOLS, canonicalSymbol } from "@/components/option-chain/symbols";
+import { ALL_SYMBOLS, canonicalSymbol, isKnownFnoSymbol } from "@/components/option-chain/symbols";
+
+/** macOS group box: hairline edge, near-flat shadow, 10px radius (matches the Card primitive). */
+const GROUP_BOX = "rounded-tile border border-separator bg-card shadow-card";
+const EMPTY_STATE = "flex flex-col items-center justify-center gap-2 px-4 py-14 text-center";
 
 const SKELETON_ROWS = Array.from({ length: 12 }, (_, n) => `skeleton-row-${n + 1}`);
 
@@ -85,11 +92,6 @@ const StockChart = lazy(() => import("@/components/StockChart").then((m) => ({ d
 
 function downloadText(filename: string, text: string, type = "text/csv") {
   if (!saveText(filename, text, type)) toast.error("Could not start the download in this browser");
-}
-
-/** True for an index or stock in the F&O universe (static catalogue or specs loaded from the proxy). */
-function isKnownFnoSymbol(symbol: string): boolean {
-  return ALL_SYMBOLS.some((s) => s.value === symbol) || !!getContractSpec(symbol);
 }
 
 function editDistance(a: string, b: string): number {
@@ -225,6 +227,8 @@ export default function OptionChain() {
   const [range, setRangeState] = useState<StrikeRange>(() => readRange());
   const [deltaView, setDeltaViewState] = useState<boolean>(() => readBool(DELTA_VIEW_KEY));
   const [showChart, setShowChart] = useState(false);
+  const [showInspector, setShowInspectorState] = useState<boolean>(() => readBool(INSPECTOR_KEY));
+  const setShowInspector = useCallback((v: boolean) => { setShowInspectorState(v); writeBool(INSPECTOR_KEY, v); }, []);
   const setRange = useCallback((r: StrikeRange) => { setRangeState(r); writeRange(r); }, []);
   const setDeltaView = useCallback((v: boolean) => { setDeltaViewState(v); writeBool(DELTA_VIEW_KEY, v); }, []);
 
@@ -555,15 +559,20 @@ export default function OptionChain() {
     return { expiry, anchor, iv: model.atmIv / 100 };
   }, [hasData, expiry, model.forward, model.spot, model.atmIv]);
   const spikeRef = useRef<HTMLDivElement>(null);
+  // The inspector follows the focused strike and falls back to ATM.
+  const inspectedRow = useMemo(
+    () => (hasData ? rowByStrike(focusedStrike ?? model.atmStrike) : undefined),
+    [hasData, rowByStrike, focusedStrike, model.atmStrike],
+  );
   const spikesOverflow = useCanScrollRight(spikeRef, [spikes.length, viewMode]);
 
   return (
     <div className="space-y-3 pb-4">
       <PageHeader
         icon={TableProperties}
-        eyebrow="Chain & OI"
         title="Option Chain"
         description="NSE and BSE chain with Greeks, OI build-up, probabilities and a basket that hands off to the Strategy Builder or Paper Trading."
+        source={<ProductCrossLink id="optionsDesk" campaign="option-chain" lead="More options tools:" />}
       />
 
       <ChainToolbar
@@ -590,13 +599,15 @@ export default function OptionChain() {
         onDownloadCSV={downloadCSV}
         onDownloadSnapshot={(e) => void downloadSnapshot(e)}
         snapshotBusy={snapshotBusy}
+        showInspector={showInspector}
+        onToggleInspector={() => setShowInspector(!showInspector)}
       />
 
       {showChart && !unknownSymbol && (
-        <section aria-label={`${symbol} price chart with option levels`} className="rounded-card border border-border bg-card p-3 shadow-card">
+        <section aria-label={`${symbol} price chart with option levels`} className={cn(GROUP_BOX, "p-3")}>
           <Suspense
             fallback={
-              <div className="flex h-[280px] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+              <div className="flex h-[280px] items-center justify-center gap-2 text-body text-muted-foreground" role="status">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading chart…
               </div>
             }
@@ -617,35 +628,35 @@ export default function OptionChain() {
         </section>
       )}
       {!isSample && data?.afterHours && hasData && (
-        <div role="status" className="flex items-start gap-2 rounded-tile border border-border bg-surface px-3 py-2 text-muted-foreground">
-          <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-          <p className="text-xs">
+        <div role="status" className="flex items-start gap-2 rounded-tile bg-control-track px-3 py-2 text-muted-foreground">
+          <WifiOff className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
+          <p className="text-body-sm">
             <span className="font-semibold text-foreground">Market closed.</span> Showing the last session's chain{data.cachedAt ? `, saved ${Math.max(1, Math.round((Date.now() - data.cachedAt) / 60000))} min ago` : ""}. OI, PCR and max pain reflect the closing picture.
           </p>
         </div>
       )}
 
       {unknownSymbol ? (
-        <div role="alert" className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border bg-card px-4 py-16 text-center">
-          <SearchX className="h-10 w-10 text-muted-foreground opacity-40" aria-hidden="true" />
-          <p className="font-semibold">Unknown F&amp;O symbol &ldquo;{symbol}&rdquo;</p>
-          <p className="max-w-sm text-xs text-muted-foreground">
+        <div role="alert" className={cn(GROUP_BOX, EMPTY_STATE)}>
+          <SearchX className="h-9 w-9 text-muted-foreground opacity-50" aria-hidden="true" />
+          <p className="text-headline">Unknown F&amp;O symbol &ldquo;{symbol}&rdquo;</p>
+          <p className="max-w-sm text-body-sm text-muted-foreground">
             {symbol} is not in the NSE or BSE derivatives list, so there is no option chain to show. Check the spelling, or pick one of these:
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-1.5">
             {nearestSymbols(symbol).map((s) => (
-              <Button key={s} variant="outline" size="sm" onClick={() => setSymbol(s)}>
+              <Button key={s} variant="outline" onClick={() => setSymbol(s)}>
                 {s}
               </Button>
             ))}
           </div>
         </div>
       ) : isError && !data ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border bg-card py-16 text-center">
-          <WifiOff className="h-10 w-10 text-muted-foreground opacity-40" />
-          <p className="font-semibold">Could not load the {symbol} chain</p>
-          <p className="max-w-sm text-xs text-muted-foreground">{error instanceof Error ? error.message : "The data source did not respond."}</p>
-          <Button variant="outline" size="sm" onClick={() => void refetch()} className="mt-2">
+        <div className={cn(GROUP_BOX, EMPTY_STATE)}>
+          <WifiOff className="h-9 w-9 text-muted-foreground opacity-50" aria-hidden="true" />
+          <p className="text-headline">Could not load the {symbol} chain</p>
+          <p className="max-w-sm text-body-sm text-muted-foreground">{error instanceof Error ? error.message : "The data source did not respond."}</p>
+          <Button variant="outline" onClick={() => void refetch()} className="mt-2">
             <RefreshCw /> Try again
           </Button>
         </div>
@@ -665,9 +676,9 @@ export default function OptionChain() {
           )}
 
           {viewMode === "expiration" && spikes.length > 0 && (
-            <div className="flex items-center gap-2 rounded-tile border border-primary/25 bg-wash-brand/60 px-3 py-1.5 text-xs">
+            <div className={cn(GROUP_BOX, "flex items-center gap-2 py-1 pl-3 pr-1.5 text-body-sm")}>
               <Flame className="h-3.5 w-3.5 shrink-0 text-primary-ink" aria-hidden="true" />
-              <span className="shrink-0 font-semibold text-primary-ink">Volume spikes</span>
+              <span className="shrink-0 font-semibold">Volume spikes</span>
               <Badge variant="neutral" className="shrink-0" title="Volume above 3× the average OI on that side. Derived, not trade-level flow.">Derived</Badge>
               <div
                 ref={spikeRef}
@@ -686,7 +697,7 @@ export default function OptionChain() {
                       setFocusedStrike(s.strike);
                       scrollToStrike(s.strike, "centre");
                     }}
-                    className="shrink-0 rounded-chip border border-border bg-card px-1.5 py-0.5 tabular-nums hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+                    className="h-6 shrink-0 rounded-pill px-2 tabular-nums text-foreground/90 transition-colors duration-fast hover:bg-control-track focus-visible:shadow-focus focus-visible:outline-none"
                   >
                     {formatStrike(s.strike)} {s.ce && <span className="text-bearish">CE</span>}
                     {s.ce && s.pe && "+"}
@@ -698,85 +709,103 @@ export default function OptionChain() {
           )}
 
           {viewMode === "expiration" ? (
-            <section className="overflow-hidden rounded-card border border-border bg-card shadow-card" aria-busy={isLoading}>
-              {isLoading && !data ? (
-                <div className="space-y-2 p-4" aria-label="Loading chain">
-                  {SKELETON_ROWS.map((id) => (
-                    <div key={id} className="flex items-center gap-2">
-                      <Skeleton className="h-6 flex-1" />
-                      <Skeleton className="h-6 w-20" />
-                      <Skeleton className="h-6 flex-1" />
+            <div className="flex items-start gap-3">
+              <section className={cn(GROUP_BOX, "min-w-0 flex-1 overflow-hidden")} aria-busy={isLoading}>
+                {isLoading && !data ? (
+                  <div className="space-y-1.5 p-3" aria-label="Loading chain">
+                    {SKELETON_ROWS.map((id) => (
+                      <div key={id} className="flex items-center gap-2">
+                        <Skeleton className="h-5 flex-1" />
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 flex-1" />
+                      </div>
+                    ))}
+                  </div>
+                ) : !hasData ? (
+                  <div className={cn(EMPTY_STATE, "text-muted-foreground")}>
+                    <WifiOff className="h-9 w-9 opacity-50" aria-hidden="true" />
+                    <p className="text-headline text-foreground">No strikes for {symbol} {expiry ? `(${expiry})` : ""}</p>
+                    <p className="max-w-sm text-body-sm">The source returned an empty chain. Try another expiry, or check that the proxy is running on port 4002.</p>
+                    <Button variant="outline" className="mt-2" onClick={() => void refetch()}>
+                      <RefreshCw /> Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <ChainTable
+                        ref={tableRef}
+                        symbol={symbol}
+                        expiry={expiry}
+                        model={model}
+                        rows={rows}
+                        columns={columns}
+                        deltaView={deltaView}
+                        deltas={deltas}
+                        gammaMap={gammaMap}
+                        focusedStrike={focusedStrike}
+                        focusedSide={focusedSide}
+                        onFocusRow={onFocusRow}
+                        sigmaPoints={sigmaPoints}
+                        onTrade={onTrade}
+                        onStraddle={onStraddle}
+                        onStrangle={onStrangle}
+                        onIronFly={onIronFly}
+                        onAlert={onAlert}
+                        onOIAnalysis={onOIAnalysis}
+                        onOpenContract={onOpenContract}
+                      />
+                      {/* Right-edge fade: the table scrolls sideways when the put side does not fit. */}
+                      <div
+                        aria-hidden="true"
+                        className={cn(
+                          "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent transition-opacity duration-fast",
+                          tableScrollsRight ? "opacity-100" : "opacity-0",
+                        )}
+                      />
                     </div>
-                  ))}
-                </div>
-              ) : !hasData ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-                  <WifiOff className="h-10 w-10 opacity-40" />
-                  <p className="font-semibold text-foreground">No strikes for {symbol} {expiry ? `(${expiry})` : ""}</p>
-                  <p className="max-w-sm text-xs">The source returned an empty chain. Try another expiry, or check that the proxy is running on port 4002.</p>
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => void refetch()}>
-                    <RefreshCw /> Retry
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="relative">
-                  <ChainTable
-                    ref={tableRef}
-                    symbol={symbol}
-                    expiry={expiry}
-                    model={model}
-                    rows={rows}
-                    columns={columns}
-                    deltaView={deltaView}
-                    deltas={deltas}
-                    gammaMap={gammaMap}
-                    focusedStrike={focusedStrike}
-                    focusedSide={focusedSide}
-                    onFocusRow={onFocusRow}
-                    sigmaPoints={sigmaPoints}
-                    onTrade={onTrade}
-                    onStraddle={onStraddle}
-                    onStrangle={onStrangle}
-                    onIronFly={onIronFly}
-                    onAlert={onAlert}
-                    onOIAnalysis={onOIAnalysis}
-                    onOpenContract={onOpenContract}
-                  />
-                  {/* Right-edge fade: the table scrolls sideways when the put side does not fit. */}
-                  <div
-                    aria-hidden="true"
-                    className={cn(
-                      "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent transition-opacity duration-fast",
-                      tableScrollsRight ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-surface px-3 py-2 text-[11px] text-muted-foreground">
-                    <span>
-                      Showing {rows.length} of {model.rows.length} strikes · step {model.step}
-                    </span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] border border-border bg-[hsl(var(--wash-itm))]" aria-hidden="true" /> In the money</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-brand/30 ring-1 ring-primary/55" aria-hidden="true" /> ATM</span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="inline-flex h-[14px] items-center rounded-chip bg-wash-warning px-1 text-[9px] font-bold leading-none text-warning" aria-hidden="true">MP</span> Max pain
-                    </span>
-                    {columns.some((c) => c.id === "buildup") && (
-                      <span className="inline-flex flex-wrap items-center gap-1" aria-label="OI build-up: LB long build-up, SB short build-up, SC short covering, LU long unwinding">
-                        {(["LB", "SB", "SC", "LU"] as const).map((k) => (
-                          <BuildupBadge key={k} kind={k} variant="compact" className="h-4 text-[10px]" />
-                        ))}
-                        <span>build-up</span>
+                    <div className="hairline-t flex flex-wrap items-center gap-x-4 gap-y-1 bg-surface px-3 py-1.5 text-body-sm text-muted-foreground">
+                      <span>
+                        Showing {rows.length} of {model.rows.length} strikes · step {model.step}
                       </span>
-                    )}
-                    {deltaView && <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-info" aria-hidden="true" /> 16Δ / 30Δ</span>}
-                    {gammaMap.size > 0 && <span>CW call wall · PW put wall · AG abs. gamma · FLIP gamma flip</span>}
-                    <span className="hidden md:inline">Right-click a row for straddles, alerts, the contract page and OI analysis.</span>
-                    <span>Premium traded total {formatCompactIN(model.totals.cePremium + model.totals.pePremium, { symbol: true })}</span>
-                  </div>
-                </>
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-itm shadow-[0_0_0_var(--hairline)_hsl(var(--separator-strong))]" aria-hidden="true" /> In the money</span>
+                      <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-brand/40 shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]" aria-hidden="true" /> ATM</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-flex h-[14px] items-center rounded-[3px] bg-wash-warning px-1 text-[9px] font-bold leading-none text-warning" aria-hidden="true">MP</span> Max pain
+                      </span>
+                      {columns.some((c) => c.id === "buildup") && (
+                        <span className="inline-flex flex-wrap items-center gap-1" aria-label="OI build-up: LB long build-up, SB short build-up, SC short covering, LU long unwinding">
+                          {(["LB", "SB", "SC", "LU"] as const).map((k) => (
+                            <BuildupBadge key={k} kind={k} variant="compact" className="h-4 text-[10px]" />
+                          ))}
+                          <span>build-up</span>
+                        </span>
+                      )}
+                      {deltaView && <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-[3px] bg-wash-info" aria-hidden="true" /> 16Δ / 30Δ</span>}
+                      {gammaMap.size > 0 && <span>CW call wall · PW put wall · AG abs. gamma · FLIP gamma flip</span>}
+                      <span className="hidden md:inline">Right-click a row for straddles, alerts, the contract page and OI analysis.</span>
+                      <span>Premium traded total {formatCompactIN(model.totals.cePremium + model.totals.pePremium, { symbol: true })}</span>
+                    </div>
+                  </>
+                )}
+              </section>
+              {showInspector && (
+                <StrikeInspector
+                  className="sticky top-3 hidden w-[272px] shrink-0 lg:flex"
+                  symbol={symbol}
+                  expiry={expiry}
+                  row={inspectedRow}
+                  focused={focusedStrike !== null && inspectedRow?.strike === focusedStrike}
+                  isATM={inspectedRow?.strike === model.atmStrike}
+                  isMaxPain={inspectedRow?.strike === model.maxPain}
+                  onTrade={onTrade}
+                  onOpenContract={onOpenContract}
+                  onAlert={onAlert}
+                  onOIAnalysis={onOIAnalysis}
+                  onClose={() => setShowInspector(false)}
+                />
               )}
-            </section>
+            </div>
           ) : (
             <ByStrikeView
               symbol={symbol}
@@ -792,7 +821,7 @@ export default function OptionChain() {
         </>
       )}
 
-      <p className="text-center text-[11px] text-muted-foreground">
+      <p className="text-center text-body-sm text-muted-foreground">
         Data for education and research. Not investment advice. IV and Greeks marked with a dotted underline are computed locally (Black-76 on the chain forward); probabilities assume a lognormal distribution.
       </p>
 

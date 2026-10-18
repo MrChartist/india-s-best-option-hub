@@ -1,0 +1,55 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/orders$",
+      "json": {
+        "code": 200,
+        "message": "",
+        "s": "ok",
+        "orderBook": [
+          {
+            "clientId": "XXXXX86",
+            "exchange": 10,
+            "fyToken": "101000000014366",
+            "id": "23080444447604",
+            "id_fyers": "c6697c04-d9ab-4a7c-a6f4-b0cc4ca698f6",
+            "offlineOrder": false,
+            "source": "W",
+            "status": 2,
+            "type": 1,
+            "pan": "",
+            "limitPrice": 8.1,
+            "productType": "INTRADAY",
+            "qty": 1,
+            "disclosedQty": 0,
+            "remainingQuantity": 0,
+            "segment": 10,
+            "symbol": "NSE:IDEA-EQ",
+            "description": "VODAFONE IDEA LIMITED",
+            "ex_sym": "IDEA",
+            "orderDateTime": "02-Aug-2023 13:01:42",
+            "side": 1,
+            "orderValidity": "DAY",
+            "stopPrice": 0,
+            "tradedPrice": 8.1,
+            "filledQty": 1,
+            "exchOrdId": "1100000024706527",
+            "message": "",
+            "ch": -0.35,
+            "chp": -4.24,
+            "lp": 7.9,
+            "orderNumStatus": "23080444447604:2",
+            "slNo": 1,
+            "orderTag": "1:Ordertag",
+            "takeProfit": 0,
+            "stopLoss": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

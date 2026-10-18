@@ -81,9 +81,9 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
       actions={
         <div className="flex flex-wrap items-end gap-2">
           <div className="grid gap-1">
-            <Label htmlFor="hz-side" className="text-label uppercase text-muted-foreground">Side</Label>
+            <Label htmlFor="hz-side" className="text-label text-muted-foreground">Side</Label>
             <Select value={side} onValueChange={(v) => setSide(v as "ALL" | "CE" | "PE")}>
-              <SelectTrigger id="hz-side" className="h-8 w-[92px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="hz-side" className="w-[92px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All</SelectItem>
                 <SelectItem value="CE">Calls</SelectItem>
@@ -92,9 +92,9 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
             </Select>
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="hz-cap" className="text-label uppercase text-muted-foreground">Price under</Label>
+            <Label htmlFor="hz-cap" className="text-label text-muted-foreground">Price under</Label>
             <Select value={maxPrice} onValueChange={setMaxPrice}>
-              <SelectTrigger id="hz-cap" className="h-8 w-[84px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="hz-cap" className="w-[84px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="5">₹5</SelectItem>
                 <SelectItem value="10">₹10</SelectItem>
@@ -103,9 +103,9 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
             </Select>
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="hz-sort" className="text-label uppercase text-muted-foreground">Sort by</Label>
+            <Label htmlFor="hz-sort" className="text-label text-muted-foreground">Sort by</Label>
             <Select value={sort} onValueChange={(v) => setSort(v as HeroSort)}>
-              <SelectTrigger id="hz-sort" className="h-8 w-[128px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="hz-sort" className="w-[128px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {SORTS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -116,7 +116,7 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
         </div>
       }
     >
-      <div role="note" className="mb-3 flex items-start gap-2 rounded-tile border border-bearish/30 bg-wash-loss px-3 py-2 text-body-sm text-bearish">
+      <div role="note" className="mb-3 flex items-start gap-2 rounded-tile bg-wash-loss px-3 py-2 text-body-sm text-bearish">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>
           Treat these like lottery tickets. A ₹3 option can go to ₹30 on a sharp move, but far more often it goes to zero by 15:30. Size only what you can lose in full. POP is the model chance of finishing beyond strike plus premium.
@@ -155,7 +155,7 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
                   <TableCell className="whitespace-nowrap font-num tabular-nums">
                     <Link
                       to={contractPath(symbol, expiry, x.strike, x.type)}
-                      className="inline-flex items-center gap-1 rounded-chip underline-offset-2 hover:underline focus-visible:shadow-ember focus-visible:outline-none"
+                      className="inline-flex items-center gap-1 rounded-chip underline-offset-2 hover:underline focus-visible:shadow-focus focus-visible:outline-none"
                       aria-label={`Open the ${symbol} ${formatStrike(x.strike)} ${x.type} contract page`}
                     >
                       {formatStrike(x.strike)} <Badge variant={x.type === "CE" ? "bearish" : "bullish"} className="ml-1">{x.type}</Badge>
@@ -174,10 +174,10 @@ export function HeroZeroTable({ symbol, chain, spot, expiry, r, q, lotSize, snap
                   <TableCell className="hidden text-right font-num tabular-nums lg:table-cell">{lotSize > 0 ? formatINR(x.ltp * lotSize, { decimals: 0 }) : "—"}</TableCell>
                   <TableCell className="whitespace-nowrap text-right">
                     <div className="inline-flex items-center gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => addToBasket(x)} aria-label={`Add ${formatStrike(x.strike)} ${x.type} to basket`} title="Add to basket (buy 1 lot)">
+                      <Button size="icon" variant="ghost" onClick={() => addToBasket(x)} aria-label={`Add ${formatStrike(x.strike)} ${x.type} to basket`} title="Add to basket (buy 1 lot)">
                         <ShoppingBasket aria-hidden="true" />
                       </Button>
-                      <Button asChild size="icon" variant="ghost" className="h-7 w-7">
+                      <Button asChild size="icon" variant="ghost">
                         <Link to={contractPath(symbol, expiry, x.strike, x.type)} aria-label={`${formatStrike(x.strike)} ${x.type} contract details`} title="Contract details">
                           <ScanSearch aria-hidden="true" />
                         </Link>

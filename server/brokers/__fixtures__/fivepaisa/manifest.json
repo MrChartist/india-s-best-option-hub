@@ -1,0 +1,30 @@
+{
+  "brokerId": "fivepaisa",
+  "creds": {
+    "appName": "dummyApp",
+    "appSource": "1234",
+    "userKey": "dummyUserKey",
+    "encryptionKey": "dummyEncKey",
+    "userId": "dummyUserId",
+    "clientCode": "trader@example.com"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://xstream.5paisa.com/dev-docs/user-authentication-system/access-token",
+    "https://xstream.5paisa.com/dev-docs/user-authentication-system/login (TOTPLogin: head.Key, body Email_ID/TOTP/PIN -> RequestToken; confirmed via the search-indexed copy, the page now 404s to a direct fetch)",
+    "https://xstream.5paisa.com/dev-docs/docFundamentals/scrip-master",
+    "https://xstream.5paisa.com/dev-docs/market-data-system/market-snapshot",
+    "https://xstream.5paisa.com/dev-docs/market-data-system/market-depth",
+    "https://xstream.5paisa.com/dev-docs/market-data-system/historical-candles",
+    "https://xstream.5paisa.com/dev-docs/portfolio-management-system/netwise-positions",
+    "https://xstream.5paisa.com/dev-docs/portfolio-management-system/holdings",
+    "https://xstream.5paisa.com/dev-docs/funds-management-system/margin",
+    "https://xstream.5paisa.com/dev-docs/order-tracking-system/order-book",
+    "https://xstream.5paisa.com/dev-docs/order-tracking-system/trade-book",
+    "https://xstream.5paisa.com/dev-docs/order-management-system/place-order",
+    "https://xstream.5paisa.com/dev-docs/order-management-system/modify-order",
+    "https://xstream.5paisa.com/dev-docs/order-management-system/cancel-order"
+  ],
+  "notes": "Payloads follow the field names and envelopes of the official Xstream doc samples (checked 2026-10); the docs' samples are for RELIANCE/ITC/BANKNIFTY 2024 contracts, so option rows carry dummy NIFTY/SENSEX October 2026 ScripCodes in the documented scrip-master format. The scrip-master Expiry column is shown as 'YYYY-MM-DD HH:MM:SS' (the doc types it INTEGER without a sample; the parser also accepts /Date(ms)/ and 'DD Mon YYYY'). Session fields are added per fixture so manifest.creds stays logged out for sessionLogin.test.mjs. Every token, id and name is a dummy."
+}

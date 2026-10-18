@@ -4,6 +4,7 @@
  */
 import type { ReactNode } from "react";
 import { Activity, BarChart3, Globe, Radio, TrendingUp, Zap } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAllIndices, useFnOStocks, useLiveOptionChain, useProxyHealth } from "@/hooks/useMarketData";
 import { useWebSocketStatus, useWebSocketVix } from "@/hooks/useWebSocket";
@@ -89,7 +90,7 @@ export function DataSourcesBar() {
         <button
           type="button"
           title="Data sources"
-          className="inline-flex h-8 items-center gap-1.5 rounded-capsule border border-border bg-card px-3 text-body-sm font-medium text-foreground hover:bg-accent focus-visible:shadow-ember focus-visible:outline-none"
+          className={cn(buttonVariants({ variant: "outline" }), "px-2.5")}
         >
           <span className={cn("h-2 w-2 rounded-full", DOT[overall])} aria-hidden="true" />
           <span className="font-num tabular-nums">
@@ -100,7 +101,7 @@ export function DataSourcesBar() {
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[300px] p-2">
-        <p className="px-2 pb-1.5 pt-1 text-label uppercase text-muted-foreground">Data sources</p>
+        <p className="px-2 pb-1 pt-1 text-label text-muted-foreground">Data sources</p>
         <ul className="space-y-0.5">
           {sources.map((s) => (
             <li key={s.name} className="flex items-start gap-2 rounded-md px-2 py-1.5">
@@ -109,7 +110,7 @@ export function DataSourcesBar() {
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
                   <span className="text-body font-medium">{s.name}</span>
-                  <span className={cn("text-label uppercase", TEXT[s.status])}>{LABEL[s.status]}</span>
+                  <span className={cn("text-body-sm font-medium", TEXT[s.status])}>{LABEL[s.status]}</span>
                 </span>
                 <span className="block text-body-sm leading-snug text-muted-foreground">{s.detail}</span>
               </span>
@@ -120,5 +121,3 @@ export function DataSourcesBar() {
     </Popover>
   );
 }
-
-export default DataSourcesBar;

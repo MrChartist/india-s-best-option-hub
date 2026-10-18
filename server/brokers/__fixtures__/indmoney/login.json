@@ -1,0 +1,20 @@
+{
+  "secrets": {
+    "mpin": "4321",
+    "totpCode": "278460"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.indstocks.com/generate/token",
+      "expectBody": {
+        "mpin": "4321",
+        "totp": "278460"
+      },
+      "json": {
+        "token": "eyJh.dummy-session-token",
+        "expires_in": 1785461400
+      }
+    }
+  ]
+}

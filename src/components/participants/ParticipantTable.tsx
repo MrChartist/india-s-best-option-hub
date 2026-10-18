@@ -120,7 +120,7 @@ export function ParticipantTable({ views, vol, volMode, oiRowsForCheck }: Props)
             className="w-max justify-start"
           >
             {PRODUCTS.map((p) => (
-              <ToggleGroupItem key={p} value={p} size="sm" className="h-8 px-2.5 text-xs">
+              <ToggleGroupItem key={p} value={p} size="sm">
                 {PRODUCT_LABEL[p]}
               </ToggleGroupItem>
             ))}
@@ -129,13 +129,12 @@ export function ParticipantTable({ views, vol, volMode, oiRowsForCheck }: Props)
         <div className="flex items-center gap-2">
           {m === "vol" && volMode ? <SourceBadge mode={volMode} /> : null}
           <ToggleGroup type="single" value={m} onValueChange={(v) => v && setMetric(v as Metric)} aria-label="Measure">
-            <ToggleGroupItem value="oi" size="sm" className="h-8 px-2.5 text-xs">
+            <ToggleGroupItem value="oi" size="sm">
               Open interest
             </ToggleGroupItem>
             <ToggleGroupItem
               value="vol"
               size="sm"
-              className="h-8 px-2.5 text-xs"
               disabled={!hasVol}
               title={hasVol ? undefined : "Volume file not available for this date"}
             >
@@ -149,20 +148,20 @@ export function ParticipantTable({ views, vol, volMode, oiRowsForCheck }: Props)
         label={`${PRODUCT_LABEL[product]} by participant`}
         className="relative -mx-4 w-auto sm:mx-0 [&>div]:w-max [&>div]:min-w-full [&>div]:overflow-visible"
       >
-        <Table className="min-w-[640px] text-body">
+        <Table className="min-w-[640px]">
           <caption className="sr-only">
             {PRODUCT_LABEL[product]} {m === "oi" ? "open interest" : "volume"} by participant, in contracts
           </caption>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-label uppercase">Participant</TableHead>
-              <TableHead className="text-right text-label uppercase">{longLabel}</TableHead>
-              <TableHead className="text-right text-label uppercase">{shortLabel}</TableHead>
-              <TableHead className="text-right text-label uppercase">Net</TableHead>
-              {m === "oi" ? <TableHead className="text-right text-label uppercase">Net chg</TableHead> : null}
-              <TableHead className="text-right text-label uppercase">{m === "oi" ? "Long %" : "Buy %"}</TableHead>
-              {m === "oi" ? <TableHead className="text-right text-label uppercase">Long % chg</TableHead> : null}
-              <TableHead className="text-right text-label uppercase">L/S</TableHead>
+              <TableHead>Participant</TableHead>
+              <TableHead className="text-right">{longLabel}</TableHead>
+              <TableHead className="text-right">{shortLabel}</TableHead>
+              <TableHead className="text-right">Net</TableHead>
+              {m === "oi" ? <TableHead className="text-right">Net chg</TableHead> : null}
+              <TableHead className="text-right">{m === "oi" ? "Long %" : "Buy %"}</TableHead>
+              {m === "oi" ? <TableHead className="text-right">Long % chg</TableHead> : null}
+              <TableHead className="text-right">L/S</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -214,7 +213,7 @@ export function ParticipantTable({ views, vol, volMode, oiRowsForCheck }: Props)
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell className="text-label uppercase text-muted-foreground">Market total</TableCell>
+              <TableCell className="text-label text-muted-foreground">Market total</TableCell>
               <TableCell className="text-right font-num tabular-nums">{fmtContracts(totalLong)}</TableCell>
               <TableCell className="text-right font-num tabular-nums">{fmtContracts(totalShort)}</TableCell>
               <TableCell className="text-right font-num tabular-nums text-muted-foreground">

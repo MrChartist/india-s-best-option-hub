@@ -1,0 +1,67 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "51450",
+        "exchange": "NFO"
+      },
+      "interval": "1d",
+      "from": "2026-10-13",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://historical-api\\.arrow\\.trade/candle/nfo/51450/day\\?from=2026-10-13T00%3A00%3A00&to=2026-10-16T23%3A59%3A59&oi=1$",
+      "json": [
+        [
+          "2026-10-14T00:00:00+0530",
+          26000,
+          41505,
+          21400,
+          33330,
+          2950530,
+          487485
+        ],
+        [
+          "2026-10-13T00:00:00+0530",
+          28930,
+          60000,
+          25520,
+          40705,
+          13948425,
+          1778205
+        ],
+        [
+          "2026-10-15T00:00:00+0530",
+          42400,
+          44800,
+          28810,
+          32915,
+          26726955,
+          3863355
+        ]
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://algozy.rathi.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey04",
+        "secretKey": "dummyIaSecret04",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://algozy.rathi.com/interactive/portfolio/positions?dayOrNet=NetWise",
+      "json": {
+        "type": "success",
+        "code": "s-portfolio-0001",
+        "description": "Success position",
+        "result": {
+          "positionList": [
+            {
+              "AccountID": "DUMMY1",
+              "TradingSymbol": "NIFTY26O2025000CE",
+              "ExchangeSegment": "NSEFO",
+              "ExchangeInstrumentID": "40003",
+              "ProductType": "NRML",
+              "Marketlot": "75",
+              "Multiplier": "1",
+              "BuyAveragePrice": "118.45",
+              "SellAveragePrice": "0",
+              "OpenBuyQuantity": "75",
+              "OpenSellQuantity": "0",
+              "Quantity": "75",
+              "BuyAmount": "8883.75",
+              "SellAmount": "0",
+              "NetAmount": "-8883.75",
+              "UnrealizedMTM": "33.75",
+              "RealizedMTM": "0",
+              "MTM": "33.75",
+              "BEP": "118.45",
+              "SumOfTradedQuantityAndPriceBuy": "8883.75",
+              "SumOfTradedQuantityAndPriceSell": "0",
+              "statisticsLevel": "ParentLevel",
+              "isInterOpPosition": "true"
+            },
+            {
+              "AccountID": "DUMMY1",
+              "TradingSymbol": "SENSEX26O2282000PE",
+              "ExchangeSegment": "BSEFO",
+              "ExchangeInstrumentID": "1140002",
+              "ProductType": "MIS",
+              "Marketlot": "20",
+              "Multiplier": "1",
+              "BuyAveragePrice": "0",
+              "SellAveragePrice": "370.1",
+              "OpenBuyQuantity": "0",
+              "OpenSellQuantity": "20",
+              "Quantity": "-20",
+              "BuyAmount": "0",
+              "SellAmount": "7402",
+              "NetAmount": "7402",
+              "UnrealizedMTM": "86",
+              "RealizedMTM": "0",
+              "MTM": "86",
+              "BEP": "370.1",
+              "SumOfTradedQuantityAndPriceBuy": "0",
+              "SumOfTradedQuantityAndPriceSell": "7402",
+              "statisticsLevel": "ParentLevel",
+              "isInterOpPosition": "true"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

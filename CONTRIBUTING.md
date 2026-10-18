@@ -118,7 +118,14 @@ test: add charges reference cases
 
 ## License
 
-By contributing you agree that your contributions are licensed under the MIT License.
+Option Hub is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE), and commercial licences are offered separately by the copyright holder (see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
+
+By submitting a contribution (a pull request, patch, issue attachment or suggested code), you confirm that you wrote it or have the right to submit it, and you agree that:
+
+1. it is licensed to everyone under the same PolyForm Noncommercial License 1.0.0 as the project; and
+2. you grant Rohit Singh (Mr. Chartist) a perpetual, worldwide, royalty-free, irrevocable licence to use, change, sublicense and distribute your contribution under any licence, including commercial licences.
+
+You keep the copyright in your contribution. If you cannot agree to this, please open an issue to discuss before sending code.
 
 ---
 

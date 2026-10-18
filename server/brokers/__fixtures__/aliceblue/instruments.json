@@ -1,0 +1,29 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://v2api.aliceblueonline.com/restpy/static/contract_master/V2/NFO.csv",
+      "text": "Exch,Exchange Segment,Symbol,Token,Instrument Type,Option Type,Strike Price,Instrument Name,Formatted Ins Name,Trading Symbol,Expiry Date,Lot Size,Tick Size\nNFO,nse_fo,NIFTY,47425,OPTIDX,CE,25000,NIFTY,NIFTY 20th OCT 25000 CE,NIFTY20OCT26C25000,2026-10-20,65,0.05\nNFO,nse_fo,NIFTY,47426,OPTIDX,PE,25000,NIFTY,NIFTY 20th OCT 25000 PE,NIFTY20OCT26P25000,2026-10-20,65,0.05\nNFO,nse_fo,NIFTY,51440,OPTIDX,CE,25000,NIFTY,NIFTY 27th OCT 25000 CE,NIFTY27OCT26C25000,2026-10-27,65,0.05\nNFO,nse_fo,BANKNIFTY,35000,OPTIDX,CE,69400,BANKNIFTY,BANKNIFTY 29th DEC 69400 CE,BANKNIFTY29DEC26C69400,2026-12-29,30,0.05\nNFO,nse_fo,NIFTY,48704,FUTIDX,,-1,NIFTY,NIFTY 27th OCT FUT,NIFTY27OCT26F,2026-10-27,65,0.1\nNFO,nse_fo,NIFTYNXT50,90003,OPTIDX,CE,70000,NIFTYNXT50,NIFTYNXT50 27th OCT 70000 CE,NIFTYNXT5027OCT26C70000,2026-10-27,25,0.05\nNFO,nse_fo,RELIANCE,106737,OPTSTK,CE,1400,RELIANCE INDUSTRIES LTD,RELIANCE 27th OCT 1400 CE,RELIANCE27OCT26C1400,2026-10-27,500,0.05\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://v2api.aliceblueonline.com/restpy/static/contract_master/V2/BFO.csv",
+      "text": "Exch,Exchange Segment,Symbol,Token,Instrument Type,Option Type,Strike Price,Instrument Name,Trading Symbol,Formatted Ins Name,Expiry Date,Lot Size,Tick Size,pdc\nBFO,bse_fo,SENSEX,1125429,IO,CE,82000,SENSEX,SENSEX26O2282000CE,SENSEX 22nd OCT 82000 CE,2026-10-22,20,0.05,1.85\nBFO,bse_fo,BANKEX,1155242,IO,CE,54300,BANKEX,BANKEX26DEC54300CE,BANKEX 31st DEC 54300 CE,2026-12-31,30,0.05,\nBFO,bse_fo,APLAPOLLO,1163268,SO,CE,1920,AATL,APLAPOLLO26DEC1920CE,APLAPOLLO 31st DEC 1920 CE,2026-12-31,350,0.05,\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 8,
+    "underlyings": [
+      "NIFTY",
+      "BANKNIFTY",
+      "SENSEX",
+      "BANKEX"
+    ]
+  }
+}

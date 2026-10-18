@@ -133,8 +133,8 @@ export function VolScreener({ onSelectSymbol }: VolScreenerProps) {
   const exportCsv = () => downloadCsv(`iv-screener-${istDateString()}.csv`, screenerCsv(sorted, (ts) => `${formatDateIST(ts)} ${formatTimeIST(ts)}`));
 
   const leaderboard = (title: string, list: ScreenerRow[], up: boolean) => (
-    <div className="min-w-0 rounded-tile border border-border bg-surface/50 p-3">
-      <p className={`mb-2 flex items-center gap-1.5 text-label uppercase ${up ? "text-bearish" : "text-bullish"}`}>
+    <div className="min-w-0 rounded-tile bg-muted/50 p-3">
+      <p className={`mb-2 flex items-center gap-1.5 text-label ${up ? "text-bearish" : "text-bullish"}`}>
         {up ? <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />}
         {title}
       </p>
@@ -189,9 +189,9 @@ export function VolScreener({ onSelectSymbol }: VolScreenerProps) {
               {lastPass ? ` · last pass ${formatTimeIST(lastPass)}` : ""}
             </p>
           </div>
-          <ToggleGroup type="single" value={filter} onValueChange={(v) => v && setFilter(v as Filter)} className="rounded-tab bg-muted p-0.5" aria-label="Filter">
+          <ToggleGroup type="single" value={filter} onValueChange={(v) => v && setFilter(v as Filter)} aria-label="Filter">
             {(["all", "INDEX", "STOCK"] as Filter[]).map((f) => (
-              <ToggleGroupItem key={f} value={f} className="h-7 rounded-md px-2.5 text-xs data-[state=on]:bg-card data-[state=on]:shadow-card">
+              <ToggleGroupItem key={f} value={f}>
                 {f === "all" ? "All" : f === "INDEX" ? "Indices" : "Stocks"}
               </ToggleGroupItem>
             ))}
@@ -215,21 +215,21 @@ export function VolScreener({ onSelectSymbol }: VolScreenerProps) {
               {leaderboard("Top IV gainers", gainers, true)}
               {leaderboard("Top IV losers", losers, false)}
             </div>
-            <div className="overflow-x-auto rounded-tile border border-border">
+            <div className="overflow-hidden rounded-tile hairline">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead aria-sort={ariaSort("symbol")}>
-                      <button type="button" className="uppercase focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("symbol")}>Symbol</button>
+                      <button type="button" className="focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("symbol")}>Symbol</button>
                     </TableHead>
                     <TableHead>Expiry</TableHead>
                     <TableHead className="text-right">Spot</TableHead>
                     <TableHead className="text-right" aria-sort={ariaSort("iv")}>
-                      <button type="button" className="uppercase focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("iv")}>ATM IV</button>
+                      <button type="button" className="focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("iv")}>ATM IV</button>
                     </TableHead>
                     <TableHead className="text-right">Prev close</TableHead>
                     <TableHead className="text-right" aria-sort={ariaSort("change")}>
-                      <button type="button" className="uppercase focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("change")}>Change</button>
+                      <button type="button" className="focus-visible:shadow-ember focus-visible:outline-none" onClick={() => toggleSort("change")}>Change</button>
                     </TableHead>
                   </TableRow>
                 </TableHeader>

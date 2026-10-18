@@ -1,0 +1,29 @@
+{
+  "secrets": {
+    "password": "8642",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://apiconnect.angelone.in/rest/auth/angelbroking/user/v1/loginByPassword",
+      "expectBody": {
+        "clientcode": "A123456",
+        "password": "8642",
+        "totp": "123456"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "jwtToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+          "refreshToken": "dummy-refresh",
+          "feedToken": "dummy-feed",
+          "state": null
+        }
+      }
+    }
+  ]
+}

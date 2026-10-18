@@ -1,0 +1,48 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/holdings/CNC$",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "isin": "INE669E01016",
+            "nseInstrumentId": "14366",
+            "bseInstrumentId": "532822",
+            "nseTradingSymbol": "IDEA-EQ",
+            "bseTradingSymbol": "IDEA",
+            "previousDayClose": 7.17,
+            "product": "DELIVERY",
+            "formattedInstrumentName": "IDEA",
+            "averageTradedPrice": 7.17,
+            "collateralQuantity": 0,
+            "authorizedQuantity": 0,
+            "dpQuantity": 36,
+            "totalQuantity": 0,
+            "t1Quantity": 0,
+            "ltp": 8.12,
+            "sellableQty": 2,
+            "investedPrice": 8.11
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

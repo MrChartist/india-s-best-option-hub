@@ -664,10 +664,6 @@ export async function getSnapshotStats(): Promise<{ count: number; symbols: stri
   return { count, symbols, recording, lastTs };
 }
 
-export async function exportSnapshotsCSV(symbol: string, expiry: string): Promise<string> {
-  return snapshotsToCSV(await getSnapshots(symbol, expiry));
-}
-
 /** IST trading date of a snapshot timestamp. */
 export function snapshotDateIST(ts: number): string {
   return istDateString(new Date(ts));

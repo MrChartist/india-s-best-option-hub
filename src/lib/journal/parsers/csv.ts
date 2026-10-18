@@ -78,13 +78,3 @@ export function parseNum(s: string | undefined): number {
   const v = Number(t);
   return Number.isFinite(v) ? v : NaN;
 }
-
-/** Tiny stable hash (FNV-1a, base 36) for ids of rows without a trade id. */
-export function hashId(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(36);
-}

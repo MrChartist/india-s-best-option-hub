@@ -87,4 +87,33 @@ describe("rule editor draft", () => {
     expect(retypeDraft(DEFAULT_DRAFT, "strike_level")).toMatchObject({ side: "CE", cooldownMin: "0" });
     expect(retypeDraft(DEFAULT_DRAFT, "price_level", 25_040).level).toBe("25000");
   });
+
+  it("rejects blank numeric fields instead of saving them as 0", () => {
+    const cases = [
+      { ...DEFAULT_DRAFT, type: "ivp_level" as const, level: "", direction: "above" as const },
+      { ...DEFAULT_DRAFT, type: "position_pnl" as const, symbol: ANY_SYMBOL, level: "", direction: "below" as const },
+      { ...DEFAULT_DRAFT, type: "position_greek" as const, level: " " },
+      { ...DEFAULT_DRAFT, type: "premium_tide" as const, tideCrore: "" },
+      {
+        ...DEFAULT_DRAFT,
+        type: "strike_level" as const,
+        expiry: "2026-10-20",
+        strike: "25000",
+        field: "oiChange" as const,
+        value: "",
+      },
+    ];
+    for (const d of cases) {
+      const r = draftToRule(d);
+      expect(r.ok, d.type).toBe(false);
+    }
+  });
+
+  it("rejects look-back windows shorter than 1 minute", () => {
+    const spike = retypeDraft({ ...DEFAULT_DRAFT }, "atm_iv_spike", 25_000);
+    expect(draftToRule({ ...spike, windowMin: "0.2" }).ok).toBe(false);
+    expect(draftToRule({ ...spike, windowMin: "1" }).ok).toBe(true);
+    const hits = retypeDraft({ ...DEFAULT_DRAFT }, "repeated_hits", 25_000);
+    expect(draftToRule({ ...hits, windowMin: "0.5" }).ok).toBe(false);
+  });
 });

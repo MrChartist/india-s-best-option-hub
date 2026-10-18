@@ -49,7 +49,7 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
         right={isSample ? <SampleBadge /> : <DerivedBadge />}
       />
       <CardContent className="space-y-4 p-4 pt-0">
-        <div className="rounded-tile border border-border bg-surface/50 p-3">
+        <div className="rounded-tile bg-muted/50 p-3">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-body font-semibold">
               {formatDateIST(front.expiry)} · {front.dte} day{front.dte === 1 ? "" : "s"}
@@ -58,8 +58,8 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
               {EM_METHOD_LABEL.iv} ±{n0(front.iv1.move)} ({formatPct(front.iv1.pct)}) · {EM_METHOD_LABEL.straddle} ±{n0(front.straddleMove.move)}
             </p>
           </div>
-          <div className="relative h-9 rounded-md bg-muted" role="img" aria-label={`2 sigma range ${n0(lo2)} to ${n0(hi2)}, 1 sigma range ${n0(front.iv1.lower)} to ${n0(front.iv1.upper)}, spot ${n0(spot)}`}>
-            <div className="absolute inset-y-0 rounded-md bg-info/15" style={{ left: at(front.iv1.lower), right: `calc(100% - ${at(front.iv1.upper)})` }} />
+          <div className="relative h-9 rounded-sm bg-muted" role="img" aria-label={`2 sigma range ${n0(lo2)} to ${n0(hi2)}, 1 sigma range ${n0(front.iv1.lower)} to ${n0(front.iv1.upper)}, spot ${n0(spot)}`}>
+            <div className="absolute inset-y-0 rounded-sm bg-info/15" style={{ left: at(front.iv1.lower), right: `calc(100% - ${at(front.iv1.upper)})` }} />
             {Number.isFinite(front.straddleMove.lower) ? (
               <div className="absolute inset-y-2 rounded-sm border border-dashed border-primary/70" style={{ left: at(front.straddleMove.lower), right: `calc(100% - ${at(front.straddleMove.upper)})` }} />
             ) : null}
@@ -75,7 +75,7 @@ export function ExpectedMoveTable({ symbol, spot, rows, isSample, hitRows, hitLa
           <p className="mt-1 text-body-sm text-muted-foreground">Shaded: 1σ IV range. Dashed: straddle range. Ends: 2σ.</p>
         </div>
 
-        <div className="overflow-x-auto rounded-tile border border-border">
+        <div className="overflow-hidden rounded-tile hairline">
           <Table>
             <TableHeader>
               <TableRow>

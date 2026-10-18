@@ -10,7 +10,7 @@ import { dteLabel, formatDateIST, formatINR, formatNumberIN } from "@/lib/option
 import type { PaperPosition, PaperTrade } from "@/lib/paperTrading";
 import { cn } from "@/lib/utils";
 import { feedSourceToQuote, signedClass, signedINR } from "@/components/positions/helpers";
-import { EmptyState, SourceBadge } from "@/components/positions/ui";
+import { EmptyState, SourceBadge, STICKY_CELL } from "@/components/positions/ui";
 import { ContextChips } from "./ContextChips";
 
 function RiskInput({ value, label, onCommit }: { value?: number; label: string; onCommit: (v: number | null) => void }) {
@@ -86,7 +86,7 @@ export function PaperPositions({
           const mtm = p.netLots * p.lotSize * (ltp - p.avgPrice);
           return (
             <TableRow key={p.key}>
-              <TableCell className="sticky left-0 z-[1] bg-card font-semibold">
+              <TableCell className={cn(STICKY_CELL, "font-semibold")}>
                 <div className="flex items-center gap-1.5 whitespace-nowrap">
                   {p.symbol} {formatNumberIN(p.strike)} <Badge variant={p.type === "CE" ? "bearish" : "bullish"}>{p.type}</Badge>
                 </div>
@@ -136,10 +136,10 @@ export function PaperPositions({
       </TableBody>
       <TableFooter>
         <TableRow>
-          <TableCell colSpan={4} className="sticky left-0 bg-surface text-label uppercase text-muted-foreground">
+          <TableCell colSpan={4} className="sticky left-0 bg-surface text-label text-muted-foreground">
             Unrealised (before exit charges)
           </TableCell>
-          <TableCell className={cn("text-right font-bold tabular-nums", signedClass(total))}>{signedINR(total)}</TableCell>
+          <TableCell className={cn("text-right font-semibold tabular-nums", signedClass(total))}>{signedINR(total)}</TableCell>
           <TableCell colSpan={4} />
         </TableRow>
       </TableFooter>

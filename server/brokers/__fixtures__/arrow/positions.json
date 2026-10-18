@@ -1,0 +1,137 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/user/positions",
+      "json": {
+        "data": [
+          {
+            "userID": "AJ0001",
+            "accountID": "",
+            "token": "51450",
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C25000",
+            "segment": "FO",
+            "product": "M",
+            "qty": "65",
+            "avgPrice": "98.5",
+            "dayBuyQty": "130",
+            "daySellQty": "65",
+            "dayBuyAmount": "12805",
+            "dayBuyAvgPrice": "98.5",
+            "daySellAmount": "6727.5",
+            "daySellAvgPrice": "103.5",
+            "carryForwardBuyQty": "0",
+            "carryForwardSellQty": "0",
+            "carryForwardBuyAmount": "0",
+            "carryForwardBuyAvgPrice": "0",
+            "carryForwardSellAmount": "0",
+            "carryForwardSellAvgPrice": "0",
+            "carryForwardAvgPrice": "",
+            "ltp": "104.95",
+            "realisedPnL": "",
+            "unrealisedMarkToMarket": "",
+            "breakEvenPrice": "",
+            "multiplier": "0",
+            "pricePrecision": "2",
+            "priceFactor": "",
+            "tickSize": "0.05",
+            "lotSize": "65",
+            "uploadPrice": "",
+            "netUploadPrice": ""
+          },
+          {
+            "userID": "AJ0001",
+            "accountID": "",
+            "token": "1531822",
+            "exchange": "BSE",
+            "symbol": "IDEA",
+            "segment": "CM",
+            "product": "I",
+            "qty": "0",
+            "avgPrice": "0",
+            "dayBuyQty": "1",
+            "daySellQty": "1",
+            "dayBuyAmount": "9.9",
+            "dayBuyAvgPrice": "9.9",
+            "daySellAmount": "10.59",
+            "daySellAvgPrice": "10.59",
+            "carryForwardBuyQty": "",
+            "carryForwardSellQty": "",
+            "carryForwardBuyAmount": "",
+            "carryForwardBuyAvgPrice": "",
+            "carryForwardSellAmount": "",
+            "carryForwardSellAvgPrice": "",
+            "carryForwardAvgPrice": "",
+            "ltp": "11.17",
+            "realisedPnL": "",
+            "unrealisedMarkToMarket": "",
+            "breakEvenPrice": "",
+            "multiplier": "0",
+            "pricePrecision": "0",
+            "priceFactor": "",
+            "tickSize": "0.01",
+            "lotSize": "1",
+            "uploadPrice": "",
+            "netUploadPrice": ""
+          },
+          {
+            "userID": "AJ0001",
+            "accountID": "",
+            "token": "1398464",
+            "exchange": "MCXFO",
+            "symbol": "GOLDPETAL31JUL26F",
+            "segment": "FO",
+            "product": "M",
+            "qty": "0",
+            "avgPrice": "0",
+            "dayBuyQty": "1",
+            "daySellQty": "1",
+            "dayBuyAmount": "14300",
+            "dayBuyAvgPrice": "14300",
+            "daySellAmount": "14320",
+            "daySellAvgPrice": "14320",
+            "carryForwardBuyQty": "0",
+            "carryForwardSellQty": "0",
+            "carryForwardBuyAmount": "0",
+            "carryForwardBuyAvgPrice": "0",
+            "carryForwardSellAmount": "0",
+            "carryForwardSellAvgPrice": "0",
+            "carryForwardAvgPrice": "",
+            "ltp": "14310",
+            "realisedPnL": "",
+            "unrealisedMarkToMarket": "",
+            "breakEvenPrice": "",
+            "multiplier": "0",
+            "pricePrecision": "2",
+            "priceFactor": "",
+            "tickSize": "1",
+            "lotSize": "1",
+            "uploadPrice": "",
+            "netUploadPrice": ""
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

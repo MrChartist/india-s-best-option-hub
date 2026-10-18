@@ -107,7 +107,7 @@ export function VolCone({ symbol, bars, barsLoading, term, isSample, barsIsSampl
           <LegendChip color={chartColors.foreground} label="Realised now" />
           {ivPts.length ? <LegendChip color={chartColors.spot} label="ATM IV term structure" /> : null}
         </div>
-        <div className="overflow-x-auto rounded-tile border border-border">
+        <div className="overflow-hidden rounded-tile hairline">
           <Table>
             <TableHeader>
               <TableRow>

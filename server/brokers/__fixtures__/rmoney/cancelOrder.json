@@ -1,0 +1,22 @@
+{
+  "args": [
+    "2190766863"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/orders?appOrderID=2190766863&orderUniqueIdentifier=mrchub",
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Request sent",
+        "result": [
+          {
+            "AppOrderID": 2190766863,
+            "ClientID": "DUMMY1"
+          }
+        ]
+      }
+    }
+  ]
+}

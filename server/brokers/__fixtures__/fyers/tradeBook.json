@@ -1,0 +1,56 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/tradebook$",
+      "json": {
+        "s": "ok",
+        "code": 200,
+        "message": "",
+        "tradeBook": [
+          {
+            "clientId": "FXXXXX",
+            "orderDateTime": "07-Aug-2020 13:51:12",
+            "orderNumber": "120080789075",
+            "exchangeOrderNo": "1200000009204725",
+            "exchange": 10,
+            "side": 1,
+            "segment": 10,
+            "orderType": 2,
+            "fyToken": "101000000010666",
+            "productType": "CNC",
+            "tradedQty": 10,
+            "tradePrice": 32.7,
+            "tradeValue": 327,
+            "tradeNumber": "52605023",
+            "row": 52605023,
+            "symbol": "NSE:PNB-EQ",
+            "orderTag": "1:Ordertag"
+          },
+          {
+            "clientId": "FXXXXX",
+            "orderDateTime": "07-Aug-2020 13:48:12",
+            "orderNumber": "120080789139",
+            "exchangeOrderNo": "1000000012031528",
+            "exchange": 10,
+            "side": 1,
+            "segment": 10,
+            "orderType": 2,
+            "fyToken": "101000000010454",
+            "productType": "CNC",
+            "tradedQty": 19,
+            "tradePrice": 14.1,
+            "tradeValue": 267.9,
+            "tradeNumber": "3281523",
+            "row": 3281523,
+            "symbol": "NSE:CENTRUM-EQ",
+            "orderTag": "1:Ordertag"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

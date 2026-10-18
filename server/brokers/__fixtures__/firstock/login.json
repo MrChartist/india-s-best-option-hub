@@ -1,0 +1,28 @@
+{
+  "secrets": {
+    "password": "Hunter2Pass!",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/login",
+      "expectBody": {
+        "userId": "AB1234",
+        "TOTP": "123456",
+        "vendorCode": "AB1234_API",
+        "apiKey": "dummyApiKey"
+      },
+      "json": {
+        "status": "success",
+        "message": "Login successful",
+        "data": {
+          "actid": "AB1234",
+          "userName": "DUMMY USER",
+          "susertoken": "dummy-susertoken",
+          "email": "dummy@example.com"
+        }
+      }
+    }
+  ]
+}

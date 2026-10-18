@@ -29,7 +29,7 @@ import type { OptionData, IndexData, ExpiryDate } from "@/lib/mockData";
 import type { DataSource, OptionDataExt, ProxyHealthDTO, SourceMeta } from "@/lib/types/market";
 import { useWebSocketIndices, useWebSocketVix, useWebSocketStatus } from "@/hooks/useWebSocket";
 import { getAllPriceSnapshots, getCandleHistory, type PriceSnapshot } from "@/lib/localDatabase";
-import { resetProxyGate, shouldTryProxy } from "@/lib/api/proxyClient";
+import { shouldTryProxy } from "@/lib/api/proxyClient";
 import {
   allIndicesRefetchInterval,
   buildCachedIndices,
@@ -52,15 +52,26 @@ export { isLiveSession };
 // ── Local database cache singleton ──
 let cachedPrices: PriceSnapshot[] | null = null;
 let cachedPricesPromise: Promise<PriceSnapshot[]> | null = null;
+// Bumped by invalidateLocalPriceCache(): a read that started before the invalidation must not
+// write its (pre-update) snapshot back into the cache when it finishes.
+let cachedPricesGen = 0;
 
 async function getCachedPricesOnce(): Promise<PriceSnapshot[]> {
   if (cachedPrices !== null) return cachedPrices;
   if (cachedPricesPromise) return cachedPricesPromise;
-  cachedPricesPromise = getAllPriceSnapshots()
-    .then((p) => (cachedPrices = p))
-    .catch(() => (cachedPrices = []));
-  return cachedPricesPromise;
+  const gen = cachedPricesGen;
+  const promise = getAllPriceSnapshots()
+    .catch(() => [] as PriceSnapshot[])
+    .then((p) => {
+      if (gen === cachedPricesGen) cachedPrices = p;
+      return p;
+    });
+  cachedPricesPromise = promise;
+  return promise;
 }
+
+/** Reason shown when the proxy answered with its last saved NSE copy. */
+const SAVED_COPY_REASON = "NSE unavailable. Showing the last saved NSE copy.";
 
 // ── Hook: Live Indices (WebSocket primary, polling fallback, DB cache tertiary) ──
 export function useLiveIndices() {
@@ -72,7 +83,8 @@ export function useLiveIndices() {
       let reason = "Proxy offline";
       if (shouldTryProxy()) {
         try {
-          const data = await fetchLiveIndices();
+          const { data, stale, cachedAt } = await fetchLiveIndices();
+          if (data.length > 0 && stale) return { data, isLive: false, ...meta("nse", cachedAt ?? Date.now(), true, SAVED_COPY_REASON) };
           if (data.length > 0) return { data, isLive: true, ...meta("nse") };
           reason = "Live sources returned no index prices";
         } catch (e) {
@@ -136,8 +148,9 @@ export function useMarketStatus() {
     queryFn: async () => {
       if (shouldTryProxy()) {
         try {
-          const data = await fetchMarketStatus();
-          if (data?.marketState) {
+          const { data, stale } = await fetchMarketStatus();
+          // A saved copy can say "Open" hours after the close: use the IST clock instead.
+          if (!stale && data?.marketState) {
             const nseStatus = data.marketState.find((m) => m.market === "Capital Market" || m.market === "CM");
             const n = (v: unknown) => (typeof v === "number" ? v : parseFloat(String(v ?? "").replace(/,/g, "")) || 0);
             const giftNifty = data.giftnifty
@@ -342,8 +355,8 @@ export function useExpiryList(symbol: string) {
     queryFn: async (): Promise<{ expiries: ExpiryDate[]; isLive: boolean } & SourceMeta> => {
       if (shouldTryProxy()) {
         try {
-          const expiries = await fetchExpiryList(symbol);
-          if (expiries.length > 0) return { expiries, isLive: true, ...meta("dhan") };
+          const { list, source } = await fetchExpiryList(symbol);
+          if (list.length > 0) return { expiries: list, isLive: true, ...meta(source) };
         } catch {
           /* derive from the calendar below */
         }
@@ -371,7 +384,8 @@ export function useAllIndices() {
     queryFn: async (): Promise<AllIndicesData> => {
       if (shouldTryProxy()) {
         try {
-          const data = await fetchAllIndices();
+          const { data, stale, cachedAt } = await fetchAllIndices();
+          if (data && stale) return { ...data, isLive: false, ...meta("nse", cachedAt ?? Date.now(), true, SAVED_COPY_REASON) };
           if (data) return { ...data, isLive: true, ...meta("nse") };
         } catch {
           /* empty snapshot below */
@@ -421,11 +435,14 @@ export function useFnOStocks() {
     queryFn: async () => {
       if (shouldTryProxy()) {
         try {
-          const stocks = await fetchLiveFnOStocks();
+          const { data: stocks, stale, cachedAt } = await fetchLiveFnOStocks();
           if (stocks.length > 0) {
             const hasOI = stocks.some((s) => (s.openInterest || 0) > 0);
             const source = hasOI ? ("nse" as const) : ("tradingview" as const);
             // `source` keeps its historical values ("nse" | "tradingview" | "database" | "none").
+            if (stale) {
+              return { ...summariseStocks(stocks), allStocks: stocks, isLive: false, source, asOf: cachedAt ?? Date.now(), stale: true, reason: "Live sources unavailable. Showing the last saved copy." as string | undefined };
+            }
             return { ...summariseStocks(stocks), allStocks: stocks, isLive: true, source, asOf: Date.now(), stale: false, reason: undefined as string | undefined };
           }
         } catch {
@@ -482,13 +499,9 @@ export function useStoredCandles(symbol: string, interval: string = "5") {
   });
 }
 
-/** Forget the proxy's reachability (next request probes again). Kept for existing callers. */
-export function resetProxyStatus() {
-  resetProxyGate();
-}
-
 /** Invalidate the local price cache so the next fetch re-reads IndexedDB (call after a DB update). */
 export function invalidateLocalPriceCache() {
+  cachedPricesGen++;
   cachedPrices = null;
   cachedPricesPromise = null;
 }

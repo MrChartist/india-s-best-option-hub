@@ -25,8 +25,8 @@ const TONE_TEXT: Record<PayoffTone, string> = {
 
 function ResultsTableImpl({ results, view, onOpen, onAddToBasket, onPaperTrade, neutralView = false }: ResultsTableProps) {
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-card shadow-card">
-      <Table aria-label="Ranked strategies table" className="min-w-[720px] text-[12px] [&_td]:px-2 [&_th]:px-2">
+    <div className="overflow-hidden rounded-tile border border-separator bg-card shadow-card">
+      <Table aria-label="Ranked strategies table" className="min-w-[720px] text-body-sm [&_td]:px-2 [&_th]:px-2">
         <TableHeader>
           <TableRow>
             <TableHead scope="col" className="w-10 text-right">
@@ -55,20 +55,20 @@ function ResultsTableImpl({ results, view, onOpen, onAddToBasket, onPaperTrade, 
             const tag = tagFor(c, view);
             const primary = i === 0;
             return (
-              <TableRow key={c.id} className={cn(primary && "bg-wash-brand/40")}>
+              <TableRow key={c.id} className={cn(primary && "bg-control-track [&>td:first-child]:shadow-[inset_2px_0_0_hsl(var(--primary))]")}>
                 <TableCell className="text-right align-top font-semibold text-muted-foreground">{c.rank}</TableCell>
                 <TableCell className="align-top">
                   <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                    <span className="font-display text-[13px] font-bold text-foreground">{c.label}</span>
-                    <span className="text-[11px] text-muted-foreground">· {sizeLabel(c)}</span>
+                    <span className="font-display text-headline text-foreground">{c.label}</span>
+                    <span className="text-body-sm text-muted-foreground">· {sizeLabel(c)}</span>
                     {!c.definedRisk && <Badge variant="warning">Undefined risk</Badge>}
                     {c.matchesView && <HintChip label="Matches your view" hint={neutralView ? VIEW_HINT_NEUTRAL : VIEW_HINT_DIRECTIONAL} variant="default" icon={<Target aria-hidden="true" />} />}
                   </div>
-                  <div className={cn("mt-0.5 font-sans text-[12px] font-semibold", TONE_TEXT[tag.tone])}>{tag.text}</div>
+                  <div className={cn("mt-0.5 font-sans text-body-sm font-semibold", TONE_TEXT[tag.tone])}>{tag.text}</div>
                 </TableCell>
                 <TableCell className="text-right align-top tabular-nums">
-                  <div className={cn("font-bold", c.roi >= 0 ? "text-bullish" : "text-bearish")}>{formatPct(c.roi * 100, { decimals: 1, signed: true })}</div>
-                  <div className="text-[11px] text-muted-foreground" title="Net profit at target after charges">
+                  <div className={cn("font-semibold", c.roi >= 0 ? "text-bullish" : "text-bearish")}>{formatPct(c.roi * 100, { decimals: 1, signed: true })}</div>
+                  <div className="text-body-sm text-muted-foreground" title="Net profit at target after charges">
                     {formatINR(c.netProfit, { decimals: 0 })}
                   </div>
                 </TableCell>

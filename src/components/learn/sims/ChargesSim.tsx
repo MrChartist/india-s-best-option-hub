@@ -35,7 +35,7 @@ function Breakdown({ charges }: { charges: ChargesBreakdown }) {
       <caption className="sr-only">Charges breakdown</caption>
       <tbody>
         {ROWS.map((r) => (
-          <tr key={r.key} className="border-b border-border last:border-0">
+          <tr key={r.key} className="border-b border-separator last:border-0">
             <th scope="row" className="py-1.5 pr-2 text-left font-normal text-muted-foreground">
               {r.label}
             </th>

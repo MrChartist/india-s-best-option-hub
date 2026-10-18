@@ -1,0 +1,37 @@
+{
+  "args": [
+    {
+      "symbol": "NSE:NIFTY26O2025000CE",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "productType": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "limitPrice": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/orders/sync$",
+      "expectBody": {
+        "symbol": "NSE:NIFTY26O2025000CE",
+        "qty": 130,
+        "type": 1,
+        "side": 1,
+        "productType": "MARGIN",
+        "limitPrice": 104.5,
+        "stopPrice": 0,
+        "validity": "DAY",
+        "offlineOrder": false
+      },
+      "json": {
+        "s": "ok",
+        "code": 1101,
+        "message": "Order submitted successfully. Your Order Ref. No.808058117761",
+        "id": "808058117761"
+      }
+    }
+  ]
+}

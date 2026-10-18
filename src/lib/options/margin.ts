@@ -156,7 +156,10 @@ function estimateCore(legs: Leg[], o: MarginOptions): Omit<FundedMarginEstimate,
 
   const pl = maxProfitLoss(legs);
   const hasFut = legs.some((l) => l.type === "FUT");
-  const definedRisk = !hasFut && !pl.unlimitedLoss && Number.isFinite(pl.maxLoss);
+  // maxProfitLoss values every leg at intrinsic as if all expired together. With mixed expiries a
+  // far short leg is naked once the near long leg expires, so the expiry max loss is no cap there.
+  const singleExpiry = new Set(legs.filter((l) => l.type !== "FUT").map((l) => l.expiry)).size <= 1;
+  const definedRisk = singleExpiry && !hasFut && !pl.unlimitedLoss && Number.isFinite(pl.maxLoss);
   let span = worst;
   let method: MarginEstimate["method"] = "scenario-approx";
   if (definedRisk) {

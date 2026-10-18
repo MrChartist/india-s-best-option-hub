@@ -1,0 +1,410 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/option-chain",
+      "expectBody": {
+        "underlying": "NIFTY",
+        "exchange": "INDEX",
+        "expiry": "20-OCT-2026"
+      },
+      "json": {
+        "data": [
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C24950",
+            "token": "51448",
+            "optionType": "CE",
+            "strikePrice": "24950.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          },
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C25000",
+            "token": "51450",
+            "optionType": "CE",
+            "strikePrice": "25000.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          },
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C25050",
+            "token": "51452",
+            "optionType": "CE",
+            "strikePrice": "25050.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          },
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26P24950",
+            "token": "51449",
+            "optionType": "PE",
+            "strikePrice": "24950.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          },
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26P25000",
+            "token": "51451",
+            "optionType": "PE",
+            "strikePrice": "25000.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          },
+          {
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26P25050",
+            "token": "51453",
+            "optionType": "PE",
+            "strikePrice": "25050.00",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65"
+          }
+        ],
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/quote/ltp",
+      "expectBody": {
+        "exchange": "INDEX",
+        "symbol": "NIFTY"
+      },
+      "json": {
+        "data": {
+          "close": 2496080,
+          "ltp": 2501215,
+          "token": 26000
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/quotes/full",
+      "json": {
+        "data": [
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 9880,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 9885,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 9870,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 9860,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 9855,
+                "quantity": 1950
+              }
+            ],
+            "close": 11070,
+            "high": 12370,
+            "low": 6870,
+            "lowerLimit": 5,
+            "ltp": 9870,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 1422330,
+            "oiDayHigh": 1472330,
+            "oiDayLow": 1382625,
+            "open": 10670,
+            "openingOI": 1392625,
+            "symbol": "NIFTY20OCT26P25050",
+            "time": 1792213201,
+            "token": 51453,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 2070630
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 13220,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 13225,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 13210,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 13200,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 13195,
+                "quantity": 1950
+              }
+            ],
+            "close": 14410,
+            "high": 15710,
+            "low": 10210,
+            "lowerLimit": 5,
+            "ltp": 13210,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 1022330,
+            "oiDayHigh": 1072330,
+            "oiDayLow": 958400,
+            "open": 14010,
+            "openingOI": 968400,
+            "symbol": "NIFTY20OCT26C24950",
+            "time": 1792213201,
+            "token": 51448,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 1070630
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 10500,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 10505,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 10495,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 10490,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 10485,
+                "quantity": 1950
+              }
+            ],
+            "close": 11695,
+            "high": 12995,
+            "low": 7495,
+            "lowerLimit": 5,
+            "ltp": 10495,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 2168400,
+            "oiDayHigh": 2218400,
+            "oiDayLow": 2004195,
+            "open": 11295,
+            "openingOI": 2014195,
+            "symbol": "NIFTY20OCT26C25000",
+            "time": 1792213201,
+            "token": 51450,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 12070630
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 7990,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 7995,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 7980,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 7975,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 7970,
+                "quantity": 1950
+              }
+            ],
+            "close": 9180,
+            "high": 10480,
+            "low": 4980,
+            "lowerLimit": 5,
+            "ltp": 7980,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 1814195,
+            "oiDayHigh": 1864195,
+            "oiDayLow": 1780000,
+            "open": 8780,
+            "openingOI": 1790000,
+            "symbol": "NIFTY20OCT26C25050",
+            "time": 1792213201,
+            "token": 51452,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 9070630
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 7030,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 7035,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 7020,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 7010,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 7005,
+                "quantity": 1950
+              }
+            ],
+            "close": 8220,
+            "high": 9520,
+            "low": 4020,
+            "lowerLimit": 5,
+            "ltp": 7020,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 1392625,
+            "oiDayHigh": 1442625,
+            "oiDayLow": 1412330,
+            "open": 7820,
+            "openingOI": 1422330,
+            "symbol": "NIFTY20OCT26P24950",
+            "time": 1792213201,
+            "token": 51449,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 5070630
+          },
+          {
+            "asks": [
+              {
+                "orders": 4,
+                "price": 8360,
+                "quantity": 1300
+              },
+              {
+                "orders": 2,
+                "price": 8365,
+                "quantity": 650
+              }
+            ],
+            "avgPrice": 8350,
+            "bids": [
+              {
+                "orders": 3,
+                "price": 8340,
+                "quantity": 975
+              },
+              {
+                "orders": 8,
+                "price": 8335,
+                "quantity": 1950
+              }
+            ],
+            "close": 9550,
+            "high": 10850,
+            "low": 5350,
+            "lowerLimit": 5,
+            "ltp": 8350,
+            "ltq": 65,
+            "ltt": 1792213200,
+            "netChange": 120,
+            "netChangeIndicator": 45,
+            "oi": 2314195,
+            "oiDayHigh": 2364195,
+            "oiDayLow": 2158400,
+            "open": 9150,
+            "openingOI": 2168400,
+            "symbol": "NIFTY20OCT26P25000",
+            "time": 1792213201,
+            "token": 51451,
+            "totalBuyQty": 565903,
+            "totalSellQty": 122528,
+            "upperLimit": 90000,
+            "volume": 11070630
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/user/trades",
+      "json": {
+        "data": [
+          {
+            "userID": "AJ0001",
+            "accountID": "",
+            "exchange": "NFO",
+            "symbol": "NIFTY20OCT26C25000",
+            "id": "26101602000013",
+            "quantity": "130",
+            "product": "M",
+            "transactionType": "B",
+            "order": "LMT",
+            "fillShares": "65",
+            "averagePrice": "98.5",
+            "exchangeOrderID": "1400000055208129",
+            "remarks": "",
+            "retention": "",
+            "pricePrecision": "2",
+            "tickSize": "0.05",
+            "lotSize": "65",
+            "customFirm": "",
+            "fillTime": "1792128376",
+            "fillID": "4349940",
+            "fillPrice": "98.5",
+            "fillQuantity": "65",
+            "orderSource": "1",
+            "token": "51450",
+            "exchangeUpdateTime": "2026-10-16T10:16:16",
+            "snoOrderDirection": "",
+            "snoOrderID": "",
+            "requestTime": "2026-10-16T10:16:16",
+            "errorMessage": ""
+          }
+        ],
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

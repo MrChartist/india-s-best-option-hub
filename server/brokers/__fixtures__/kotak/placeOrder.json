@@ -1,0 +1,35 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "args": [
+    {
+      "tradingSymbol": "NIFTY26O2025000CE",
+      "token": "40001",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://cis.kotaksecurities.com/quick/order/rule/ms/place?sId=server1",
+      "expectBody": {
+        "jData": "{\"am\":\"NO\",\"dq\":\"0\",\"es\":\"nse_fo\",\"mp\":\"0\",\"pc\":\"NRML\",\"pf\":\"N\",\"pr\":\"104.5\",\"pt\":\"L\",\"qt\":\"130\",\"rt\":\"DAY\",\"tp\":\"0\",\"ts\":\"NIFTY26O2025000CE\",\"tt\":\"B\",\"os\":\"NEOTRADEAPI\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "nOrdNo": "261020000612876",
+        "stCode": 200
+      }
+    }
+  ]
+}
