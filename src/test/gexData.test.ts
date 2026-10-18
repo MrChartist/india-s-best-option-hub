@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OptionData, OptionLegData } from "@/lib/mockData";
 import { black76Price, generateSampleChain, istDateString, addTradingDays } from "@/lib/options";
 import {
@@ -168,6 +168,15 @@ describe("gexData: units", () => {
 });
 
 describe("gexData: multi-expiry and aggregation", () => {
+  // Time to expiry is measured to the minute from the clock, so comparing two builds taken a few
+  // milliseconds apart drifts under load. Freeze the clock for the comparisons.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("builds a strike × expiry matrix with NaN for unlisted strikes", () => {
     const near = symmetricChain(10);
     const far = symmetricChain(20);

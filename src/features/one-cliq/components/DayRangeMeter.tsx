@@ -5,6 +5,7 @@ interface Props {
   high: number | null;
   current: number | null;
   open?: number | null;
+  /** Accepted for layout symmetry with the quote card; the range always reads low (left) to high (right). */
   align?: "left" | "center" | "right";
 }
 
@@ -17,7 +18,7 @@ interface Props {
  * the execution layer depends on. This is a static, aria-hidden readout with the
  * real numbers exposed to screen readers separately.
  */
-export function DayRangeMeter({ low, high, current, open, align = "left" }: Props) {
+export function DayRangeMeter({ low, high, current, open }: Props) {
   const { pct, openPct, valid } = useMemo(() => {
     const ok = low !== null && high !== null && current !== null && high > low;
     if (!ok) return { pct: 50, openPct: null as number | null, valid: false };
@@ -31,11 +32,10 @@ export function DayRangeMeter({ low, high, current, open, align = "left" }: Prop
   }, [low, high, current, open]);
 
   const fmt = (v: number | null) => (v === null || !Number.isFinite(v) ? "—" : v.toFixed(2));
-  const justify = align === "right" ? "flex-row-reverse" : align === "center" ? "justify-center" : "";
 
   return (
     <div className="w-full select-none">
-      <div className={`flex items-baseline gap-2 text-[10px] font-mono text-muted-foreground ${justify}`}>
+      <div className={`flex items-baseline gap-2 text-[10px] font-mono text-muted-foreground`}>
         <span>L: {fmt(low)}</span>
         <span className="flex-1" />
         <span>{fmt(high)} :H</span>

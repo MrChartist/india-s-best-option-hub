@@ -229,7 +229,7 @@ export function ByStrikeView({ symbol, expiries, strikes, atmStrike, selectedStr
               <LineChart data={termData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
                 <CartesianGrid {...gridProps} />
                 <XAxis dataKey="label" {...axisProps} />
-                <YAxis {...axisProps} unit="%" domain={["auto", "auto"]} width={52} />
+                <YAxis {...axisProps} domain={["auto", "auto"]} width={56} tickFormatter={(v: number) => `${v.toFixed(2)}%`} />
                 <RTooltip contentStyle={tooltipStyle} formatter={(v: number | string) => (typeof v === "number" ? `${v.toFixed(2)}%` : v)} />
                 <Legend wrapperStyle={legendStyle} />
                 <Line type="monotone" dataKey="atmIv" name="ATM IV" stroke={chartColors.iv} strokeWidth={2.25} dot={{ r: 3 }} connectNulls isAnimationActive={false} />

@@ -96,7 +96,7 @@ export function MonthView({ month, events, today, selected, onSelect }: MonthVie
                         "flex h-full min-h-[64px] w-full min-w-0 flex-col items-stretch gap-1 p-1 text-left transition-colors duration-fast focus-visible:relative focus-visible:z-10 focus-visible:shadow-focus focus-visible:outline-none sm:min-h-[104px] sm:p-1.5",
                         cell.inMonth ? "bg-card" : "bg-surface text-muted-foreground",
                         !cell.trading && cell.inMonth && "bg-surface/70",
-                        isSel ? "bg-wash-brand" : "hover:bg-control-track",
+                        isSel ? "bg-wash-brand dark:bg-wash-brand/45" : "hover:bg-control-track",
                       )}
                     >
                       {/* Name comes from this hidden text (not aria-label) so the visible day number never conflicts with it. */}
