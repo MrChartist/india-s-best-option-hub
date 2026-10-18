@@ -1,78 +1,169 @@
-Required Notice: Copyright (c) 2026 Rohit Singh (Mr. Chartist). All rights reserved except as licensed below.
-Required Notice: Option Hub by Mr. Chartist is licensed for noncommercial use only under the PolyForm Noncommercial License 1.0.0. Commercial use needs a separate written licence from the copyright holder. Contact: rohit@mrchartist.com. Details: COMMERCIAL-LICENSE.md
+Option Hub Personal Use Licence 1.0
 
----
+Copyright (c) 2026 Rohit Singh (Mr. Chartist). All rights reserved except as
+expressly granted below.
 
-# PolyForm Noncommercial License 1.0.0
+Software: "Option Hub by Mr. Chartist", the source code, documentation, images
+and other files in this repository, including any part of them and any work
+based on them.
 
-<https://polyformproject.org/licenses/noncommercial/1.0.0>
+Licensor: Rohit Singh (Mr. Chartist). Contact: rohit@mrchartist.com
 
-## Acceptance
+-------------------------------------------------------------------------------
 
-In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+1. WHO MAY USE THE SOFTWARE
 
-## Copyright License
+1.1 This licence is granted only to a natural person (an individual), acting
+    for themselves. It is not granted to any company, LLP, partnership, firm,
+    trust, society, school, college, university, charity, government body or
+    any other organisation, or to an individual acting for one.
 
-The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
+1.2 If you are using the Software for, on behalf of, or inside an
+    organisation, you have no licence under these terms. You must get a
+    separate written licence from the Licensor first (see section 5).
 
-## Distribution License
+2. WHAT YOU MAY DO (PERSONAL USE)
 
-The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
+    Subject to these terms, the Licensor grants you a personal, worldwide,
+    royalty-free, non-exclusive, non-transferable and revocable licence to:
 
-## Notices
+2.1 download, install and run the Software on devices you own or control,
+    for your own personal use;
 
-You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
+2.2 read and study the source code, and change it for your own personal use;
 
-> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+2.3 use the Software to research, analyse and trade your own brokerage and
+    demat accounts, and keep any profit or loss from that trading. This is
+    personal use even though trading can earn money;
 
-## Changes and New Works License
+2.4 share copies of the Software, with or without your changes, free of
+    charge and only for other people's personal use, provided that:
+    (a) you include this LICENCE file unchanged and keep every copyright and
+        "Required Notice" line;
+    (b) you clearly say that you changed the Software, if you did;
+    (c) you do not charge for it, or for access to it, in any form; and
+    (d) the people you share it with receive it under these same terms.
 
-The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
+2.5 write free, non-monetised reviews, blog posts or tutorials about the
+    Software that credit "Option Hub by Mr. Chartist" and link to
+    https://github.com/MrChartist/india-s-best-option-hub
 
-## Patent License
+3. WHAT YOU MAY NOT DO
 
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+    Without the Licensor's prior written permission, you may not, and you may
+    not help or allow anyone else to:
 
-## Noncommercial Purposes
+3.1 use the Software for any commercial purpose. Commercial purpose means any
+    use intended for or directed towards commercial advantage or payment of
+    any kind, including use by or for a business, and any use that earns
+    income other than from trading your own account under section 2.3;
 
-Any noncommercial purpose is a permitted purpose.
+3.2 sell, rent, lease or sublicense the Software, or charge for access to it,
+    for installation, for support or for any service that includes it;
 
-## Personal Uses
+3.3 host, run or offer the Software, or any part of it, as a website, web
+    app, mobile app, SaaS, API or other service used by anyone other than
+    you, whether paid, free, ad-supported or sponsored;
 
-Personal use for research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application, is use for a permitted purpose.
+3.4 use the Software to trade, research, advise or manage money for, or on
+    behalf of, any other person, client or organisation, including as a
+    broker, sub-broker, authorised person, research analyst, investment
+    adviser, portfolio manager, algo provider, fintech or proprietary
+    trading desk;
 
-## Noncommercial Organizations
+3.5 use the Software, its output or screenshots in a paid course, paid
+    community, paid Telegram, WhatsApp or Discord group, signal service,
+    tipping service or any other paid or sponsored product or content;
 
-Use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution is use for a permitted purpose regardless of the source of funding or obligations resulting from the funding.
+3.6 build the Software, or any part of it, into another product or service
+    that is not for your own personal use;
 
-## Fair Use
+3.7 white-label, rebrand or remove the Mr. Chartist name, logo, copyright
+    notices, licence notices or Required Notice lines;
 
-You may have "fair use" rights for the software under the law. These terms do not limit them.
+3.8 use the names "Mr. Chartist", "Option Hub", the Mr. Chartist logo or the
+    names of other Mr. Chartist products to name, brand or promote anything
+    else; or
 
-## No Other Rights
+3.9 use the Software in breach of any law, regulation, exchange rule or your
+    broker's terms of use.
 
-These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+4. YOUR CONTRIBUTIONS
 
-## Patent Defense
+    If you send the Licensor a contribution (for example a pull request or a
+    patch), you confirm you have the right to send it, and you grant the
+    Licensor a perpetual, worldwide, royalty-free, irrevocable licence to
+    use, change, sublicense and distribute it under any terms, including
+    commercial licences. You keep your copyright in it. Contributions are
+    shared with other users under this licence.
 
-If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+5. COMMERCIAL AND ORGANISATIONAL USE
 
-## Violations
+    Any use not allowed by section 2, including any use described in section
+    1.2 or section 3, needs a separate written licence from the Licensor.
+    Email rohit@mrchartist.com with the subject "Option Hub commercial
+    licence". The Licensor may agree or refuse at its sole discretion and on
+    its own terms. Nothing in this licence obliges the Licensor to grant one.
 
-The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+6. THIRD-PARTY MATERIAL
 
-## No Liability
+    Open-source libraries used by the Software, and files contributed earlier
+    under other licences, keep their own licences. See NOTICE.md. This
+    licence does not change your rights under those licences for that
+    material.
 
-***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+7. NO WARRANTY
 
-## Definitions
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE, ACCURACY AND NON-INFRINGEMENT. MARKET
+    DATA, CALCULATIONS, ESTIMATES (INCLUDING MARGIN, CHARGES, PROBABILITIES
+    AND GREEKS) AND SAMPLE DATA MAY BE WRONG, LATE OR INCOMPLETE.
 
-The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+8. NOT INVESTMENT ADVICE
 
-**You** refers to the individual or entity agreeing to these terms.
+    The Software is for education and research. It is not investment advice
+    or a recommendation to buy or sell any security. Trading in derivatives
+    carries substantial risk of loss. You alone are responsible for your
+    trading decisions and for checking every number with your broker.
 
-**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all organizations that have control over, are under the control of, or are under common control with that organization.  **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+9. LIMITATION OF LIABILITY
 
-**Your licenses** are all the licenses granted to you for the software under these terms.
+    TO THE MAXIMUM EXTENT ALLOWED BY LAW, THE LICENSOR AND CONTRIBUTORS ARE
+    NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL
+    OR EXEMPLARY DAMAGES, OR FOR ANY TRADING LOSS, LOST PROFIT OR LOST DATA,
+    ARISING FROM OR CONNECTED WITH THE SOFTWARE OR ITS USE, EVEN IF ADVISED
+    OF THE POSSIBILITY OF SUCH DAMAGES.
 
-**Use** means anything you do with the software requiring one of your licenses.
+10. TERMINATION
+
+10.1 This licence ends automatically if you break any of its terms.
+
+10.2 If it is your first breach and you stop it and fix it within 30 days
+     after you learn of it or the Licensor tells you about it, your licence
+     is restored.
+
+10.3 When your licence ends you must stop using the Software and delete all
+     copies you control. Sections 4 and 6 to 11 continue after termination.
+
+11. GENERAL
+
+11.1 This licence is governed by the laws of India. Courts in India have
+     exclusive jurisdiction over any dispute about it.
+
+11.2 If any part of this licence is held unenforceable, the rest stays in
+     effect, and that part is applied as far as the law allows.
+
+11.3 The Licensor may publish new versions of this licence. A new version
+     does not take away rights you already have under the version you
+     received with a copy of the Software.
+
+11.4 Earlier versions of the Software that were published under the MIT
+     License or the PolyForm Noncommercial License 1.0.0 remain available
+     under those licences for those earlier versions only. Every version
+     published with this file is licensed only under this licence.
+
+-------------------------------------------------------------------------------
+
+Required Notice: Copyright (c) 2026 Rohit Singh (Mr. Chartist). Option Hub by Mr. Chartist.
+Required Notice: Licensed for personal use by individuals only under the Option Hub Personal Use Licence 1.0. Commercial or organisational use needs a written licence: rohit@mrchartist.com

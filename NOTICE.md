@@ -1,6 +1,6 @@
 # Notices
 
-Option Hub by Mr. Chartist is © 2026 Rohit Singh (Mr. Chartist). It is licensed under the PolyForm Noncommercial License 1.0.0 (see [LICENSE](LICENSE)), with the extra permissions in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+Option Hub by Mr. Chartist is © 2026 Rohit Singh (Mr. Chartist). It is licensed for personal use by individuals only under the Option Hub Personal Use Licence 1.0 (see [LICENSE](LICENSE) and the plain-English summary in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
 
 This file lists material that carries its own notice.
 

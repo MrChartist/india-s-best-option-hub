@@ -440,4 +440,4 @@ A machine-readable list with titles, routes, themes, sizes and descriptions is i
 
 ---
 
-Option Hub is free for personal use under the [PolyForm Noncommercial licence](../../LICENSE); see [COMMERCIAL-LICENSE.md](../../COMMERCIAL-LICENSE.md) for commercial use. Data for education and research. Not investment advice.
+Option Hub is free for personal use by individuals under the [Option Hub Personal Use Licence](../../LICENSE); see [COMMERCIAL-LICENSE.md](../../COMMERCIAL-LICENSE.md) for commercial use. Data for education and research. Not investment advice.

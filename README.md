@@ -13,7 +13,7 @@
 Option chain, OI, max pain, GEX, volatility, flow, strategy builder, optimizer, backtester and paper trading, in one app that runs on your own computer.
 
 [![CI](https://github.com/MrChartist/india-s-best-option-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/MrChartist/india-s-best-option-hub/actions/workflows/ci.yml)
-[![License: PolyForm Noncommercial](https://img.shields.io/badge/licence-personal_use_free_·_commercial_by_permission-111111.svg)](COMMERCIAL-LICENSE.md)
+[![Licence: personal use only](https://img.shields.io/badge/licence-personal_use_only_·_commercial_by_permission-111111.svg)](COMMERCIAL-LICENSE.md)
 [![Tests](https://img.shields.io/badge/tests-1%2C400%2B_passing-2f7d4f.svg)](#quality)
 [![Made for India](https://img.shields.io/badge/Made_for-NSE_%26_BSE-e8642c.svg)](#built-for-indian-markets)
 [![Stars](https://img.shields.io/github/stars/MrChartist/india-s-best-option-hub?style=flat&color=111111)](https://github.com/MrChartist/india-s-best-option-hub/stargazers)
@@ -547,21 +547,21 @@ Option Hub is for **education and research only**. It is **not investment advice
 
 ## Licence
 
-**Free for personal use. Commercial use needs permission.**
+**Free for personal use by individuals only. Any commercial or organisational use needs written permission.**
 
-Option Hub is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE), with extra permissions from the licensor in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+Option Hub is source-available under the [Option Hub Personal Use Licence 1.0](LICENSE). A plain-English summary is in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
-| ✅ Free, no permission needed | ❌ Needs a commercial licence |
+| ✅ Free, for individuals | ❌ Needs written permission |
 |---|---|
-| Running it on your own computer and trading **your own** account | Selling it, or selling access to it |
-| Learning, studying and changing the code for yourself | Hosting it for other people (website, app, SaaS), paid or ad-supported |
-| Sharing your changes for free, under the same licence | Using it inside a broker, adviser, research, fintech, prop or other business |
-| Schools, colleges, researchers, charities and government bodies, for noncommercial work | Paid courses, paid groups, signal or advisory services built on it |
-| Free, credited reviews and tutorials | White-labelling, or removing the Mr. Chartist name and notices |
+| Running it on your own computer and trading **your own** account | Any use by or for a company, firm, school, charity, government body or other organisation |
+| Learning, studying and changing the code for yourself | Any commercial purpose, or selling or charging for it in any form |
+| Sharing it free with other individuals, with the LICENCE and notices kept | Hosting it for other people (website, app, SaaS, API), paid or free |
+| Free, credited reviews and tutorials | Trading or advising for clients, or paid courses, groups, signals or sponsored content |
+| Contributing back to this repository | White-labelling, or removing the Mr. Chartist name, logo and notices |
 
-**For a commercial licence, email [rohit@mrchartist.com](mailto:rohit@mrchartist.com?subject=Option%20Hub%20commercial%20licence)** and tell us who you are and how you want to use it. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) for details.
+**For permission or a commercial licence, email [rohit@mrchartist.com](mailto:rohit@mrchartist.com?subject=Option%20Hub%20commercial%20licence)** and tell us who you are and how you want to use it.
 
-Versions released before this change were under the MIT License, and those versions stay MIT. Third-party notices are in [NOTICE.md](NOTICE.md).
+Earlier versions released under the MIT License or the PolyForm Noncommercial License 1.0.0 keep those licences for those versions only. Third-party notices are in [NOTICE.md](NOTICE.md).
 
 <div align="center">
 
