@@ -1,0 +1,86 @@
+{
+  "args": [
+    {
+      "token": "51450",
+      "exchange": "NFO",
+      "tradingSymbol": "NIFTY20OCT26C25000"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/info/quote/full",
+      "expectBody": {
+        "exchange": "NFO",
+        "symbol": "NIFTY20OCT26C25000"
+      },
+      "json": {
+        "data": {
+          "asks": [
+            {
+              "orders": 4,
+              "price": 10500,
+              "quantity": 1300
+            },
+            {
+              "orders": 2,
+              "price": 10505,
+              "quantity": 650
+            }
+          ],
+          "avgPrice": 10495,
+          "bids": [
+            {
+              "orders": 3,
+              "price": 10490,
+              "quantity": 975
+            },
+            {
+              "orders": 8,
+              "price": 10485,
+              "quantity": 1950
+            }
+          ],
+          "close": 11695,
+          "high": 12995,
+          "low": 7495,
+          "lowerLimit": 5,
+          "ltp": 10495,
+          "ltq": 65,
+          "ltt": 1792213200,
+          "netChange": 120,
+          "netChangeIndicator": 45,
+          "oi": 2168400,
+          "oiDayHigh": 2218400,
+          "oiDayLow": 2004195,
+          "open": 11295,
+          "openingOI": 2014195,
+          "symbol": "NIFTY20OCT26C25000",
+          "time": 1792213201,
+          "token": 51450,
+          "totalBuyQty": 565903,
+          "totalSellQty": 122528,
+          "upperLimit": 90000,
+          "volume": 12070630
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

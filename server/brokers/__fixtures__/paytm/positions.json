@@ -1,0 +1,58 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/orders/v1/position",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "message": "",
+        "data": [
+          {
+            "client_id": "1194654",
+            "exchange": "NSE",
+            "segment": "D",
+            "product": "I",
+            "security_id": "35000",
+            "mkt_type": "NL",
+            "display_name": "BANKNIFTY 15 OCT 18700 CALL",
+            "tot_buy_qty": 0,
+            "tot_buy_val": 0,
+            "buy_avg": 0,
+            "tot_sell_qty": 25,
+            "tot_sell_val": 50000,
+            "sell_avg": 2000,
+            "net_qty": -25,
+            "net_val": 50000,
+            "net_avg": 2000,
+            "last_traded_price": 3538,
+            "realised_profit": 0,
+            "isin": "NA",
+            "display_pos_type": "S",
+            "display_pos_status": "Open",
+            "display_product": "Intraday",
+            "tick_size": 5,
+            "lot_size": 25,
+            "strike_price": 18700,
+            "expiry_date": "2020-10-15",
+            "opt_type": "CE",
+            "instrument": "FUTSTK",
+            "tot_buy_qty_cf": 0,
+            "tot_sell_qty_cf": 0,
+            "tot_buy_val_cf": 0,
+            "tot_sell_val_cf": 0,
+            "tot_buy_qty_day": 0,
+            "tot_sell_qty_day": 25,
+            "tot_buy_val_day": 0,
+            "tot_sell_val_day": 50000,
+            "cost_price": 0.0,
+            "instrument_type": "ES"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

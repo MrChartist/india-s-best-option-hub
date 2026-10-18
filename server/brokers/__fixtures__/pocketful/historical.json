@@ -1,0 +1,74 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "40001",
+        "exchange": "NFO"
+      },
+      "interval": "1m",
+      "from": "2026-10-16T03:45:00Z",
+      "to": "2026-10-16T03:48:00Z"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v1/contract/Compact?info=download&exchanges=NSE,NFO,BSE,BFO",
+      "status": 200,
+      "text": "PK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000Z@!J/\u0002\u0000\u0000/\u0002\u0000\u0000\u0013\u0000\u0000\u0000NSECompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n26000,Nifty 50,,25001.20,,0.0000,0.0000,0,,,INDICES,NSE,,\n26009,Nifty Bank,,56010.50,,0.0000,0.0000,0,,,INDICES,NSE,,\n26037,Nifty Fin Service,,26364.20,,0.0000,0.0000,0,,,INDICES,NSE,,\n26074,NIFTY MID SELECT,,13722.60,,0.0000,0.0000,0,,,INDICES,NSE,,\n26017,India VIX,,14.03,,0.0000,0.0000,0,,,INDICES,NSE,,\n2885,RELIANCE-EQ,\"RELIANCE INDUSTRIES LTD\",1211.2,,0.0000,0.1000,1,EQ,,EQ,NSE,,\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u000011$]~\u0002\u0000\u0000~\u0002\u0000\u0000\u0013\u0000\u0000\u0000BSECompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n1,SENSEX,SENSEX,82015.61,,0.0000,0.0000,0,,,IDX,BSE,,\n12,BANKEX,BANKEX,62899.26,,0.0000,0.0000,0,,,IDX,BSE,,\n47,SNSX50,SNSX50,24200.62,,0.0000,0.0000,0,,,IDX,BSE,,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000\u001dc_\u0005\u0005\u0005\u0000\u0000\u0005\u0005\u0000\u0000\u0013\u0000\u0000\u0000NFOCompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n40001,NIFTY26O2025000CE,NIFTY,116.5,20-Oct-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n40002,NIFTY26O2025000PE,NIFTY,104,20-Oct-2026,25000.0000,0.0500,65,OPTIDX,PE,XX,NFO,,\n40003,NIFTY26O2025100CE,NIFTY,66,20-Oct-2026,25100.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n40004,NIFTY26O2025100PE,NIFTY,155,20-Oct-2026,25100.0000,0.0500,65,OPTIDX,PE,XX,NFO,,\n40011,NIFTY26OCT25000CE,NIFTY,210,27-Oct-2026,25000.0000,0.0500,65,OPTIDX,CE,XX,NFO,,\n48704,NIFTY26OCTFUT,NIFTY,25119.2,27-Oct-2026,-0.0100,0.1000,65,FUTIDX,XX,XX,NFO,,\n41001,BANKNIFTY26OCT56000CE,BANKNIFTY,400,27-Oct-2026,56000.0000,0.0500,30,OPTIDX,CE,XX,NFO,,\n42001,FINNIFTY26OCT26000PE,FINNIFTY,150,27-Oct-2026,26000.0000,0.0500,60,OPTIDX,PE,XX,NFO,,\n43001,MIDCPNIFTY26OCT13000CE,MIDCPNIFTY,80,27-Oct-2026,13000.0000,0.0500,120,OPTIDX,CE,XX,NFO,,\n43501,NIFTYNXT5026OCT70000CE,NIFTYNXT50,80,27-Oct-2026,70000.0000,0.0500,25,OPTIDX,CE,XX,NFO,,\n44001,RELIANCE26OCT1220CE,RELIANCE,18,27-Oct-2026,1220.0000,0.0500,500,OPTSTK,CE,XX,NFO,,\n44002,RELIANCE26OCT1220PE,RELIANCE,22,27-Oct-2026,1220.0000,0.0500,500,OPTSTK,PE,XX,NFO,,\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000%2vH\b\u0002\u0000\u0000\b\u0002\u0000\u0000\u0013\u0000\u0000\u0000BFOCompactScrip.csvexchange_token,trading_symbol,company_name,close_price,expiry,strike,tick_size,lot_size,instrument_name,option_type,segment,exchange,fin_instrm_pdct_tp_cd,asset_code\n1125419,SENSEX26O2282000CE,SENSEX,300,22-Oct-2026,82000.0000,0.0500,20,IO,CE,IO,BFO,BSXOPT,BSX\n1125420,SENSEX26O2282000PE,SENSEX,280,22-Oct-2026,82000.0000,0.0500,20,IO,PE,IO,BFO,BSXOPT,BSX\n1155242,BANKEX26OCT62000CE,BANKEX,500,29-Oct-2026,62000.0000,0.0500,30,IO,CE,IO,BFO,BKXOPT,BKX\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000Z@!J/\u0002\u0000\u0000/\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000NSECompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u000011$]~\u0002\u0000\u0000~\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`\u0002\u0000\u0000BSECompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000\u001dc_\u0005\u0005\u0005\u0000\u0000\u0005\u0005\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u000f\u0005\u0000\u0000NFOCompactScrip.csvPK\u0001\u0002\n\u0000\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000!\u0000%2vH\b\u0002\u0000\u0000\b\u0002\u0000\u0000\u0013\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000E\n\u0000\u0000BFOCompactScrip.csvPK\u0005\u0006\u0000\u0000\u0000\u0000\u0004\u0000\u0004\u0000\u0004\u0001\u0000\u0000~\f\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://algo.pocketful.in/api/data/v1/historical",
+      "expectBody": {
+        "symbol": "NIFTY",
+        "product_type": "options",
+        "type": "CE",
+        "strike_price": 25000,
+        "expiry_date": "2026-10-20",
+        "interval": "1minute",
+        "from_date": "2026-10-16T09:15:00",
+        "to_date": "2026-10-16T09:18:00"
+      },
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "timestamp": "2026-10-16T09:15:00Z",
+            "open": 110.5,
+            "high": 112.25,
+            "low": 109.8,
+            "close": 112.1,
+            "volume": 65000,
+            "open_interest": 1220000
+          },
+          {
+            "timestamp": "2026-10-16T09:16:00Z",
+            "open": 112.1,
+            "high": 114,
+            "low": 111.2,
+            "close": 113.4,
+            "volume": 52000,
+            "open_interest": 1225000
+          },
+          {
+            "timestamp": "2026-10-16T09:17:00Z",
+            "open": 113.4,
+            "high": 113.9,
+            "low": 111,
+            "close": 111.5,
+            "volume": 47000,
+            "open_interest": 1226000
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

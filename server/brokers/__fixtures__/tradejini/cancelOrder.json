@@ -1,0 +1,22 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "args": [
+    "261016000000082"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://api.tradejini.com/v2/api/oms/cancel-order?orderId=261016000000082",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": {
+          "orderId": "261016000000082",
+          "msg": "Order Cancelled Successfully"
+        }
+      }
+    }
+  ]
+}

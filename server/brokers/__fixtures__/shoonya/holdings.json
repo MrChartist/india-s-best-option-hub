@@ -1,0 +1,61 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/Holdings",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"prd\":\"C\"}"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "13",
+              "tsym": "ABB-EQ"
+            }
+          ],
+          "holdqty": "20",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1800.00"
+        },
+        {
+          "stat": "Ok",
+          "exch_tsym": [
+            {
+              "exch": "NSE",
+              "token": "22",
+              "tsym": "ACC-EQ"
+            }
+          ],
+          "holdqty": "15",
+          "colqty": "0",
+          "btstqty": "0",
+          "btstcolqty": "0",
+          "usedqty": "0",
+          "upldprc": "1400.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

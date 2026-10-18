@@ -1,0 +1,29 @@
+{
+  "brokerId": "samco",
+  "creds": {
+    "apiKey": "dummyAesApiKey",
+    "apiSecret": "dummyAesApiSecret"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://docs-tradeapi.samco.in/session/generate-token.html",
+    "https://docs-tradeapi.samco.in/option-chain.html",
+    "https://docs-tradeapi.samco.in/quote/multi-quote.html",
+    "https://docs-tradeapi.samco.in/quote/index-quote.html",
+    "https://docs-tradeapi.samco.in/quote/get-quote.html",
+    "https://docs-tradeapi.samco.in/market-depth.html",
+    "https://docs-tradeapi.samco.in/user-limit.html",
+    "https://docs-tradeapi.samco.in/position/user-position.html",
+    "https://docs-tradeapi.samco.in/user-holding.html",
+    "https://docs-tradeapi.samco.in/order/order-book.html",
+    "https://docs-tradeapi.samco.in/trade-book.html",
+    "https://docs-tradeapi.samco.in/order/place-order.html",
+    "https://docs-tradeapi.samco.in/order/modify-order.html",
+    "https://docs-tradeapi.samco.in/order/cancel-order.html",
+    "https://docs-tradeapi.samco.in/historical/historical-candle-data.html",
+    "https://docs-tradeapi.samco.in/intraday/intraday-candle-data.html",
+    "https://developers.stocknote.com/doc/ScripMaster.csv"
+  ],
+  "notes": "Payloads are the official Samco Trade API v3.2 documentation samples (docs-tradeapi.samco.in), trimmed, with ids, names and dates replaced by dummy values. The scrip master fixture uses the live file's header row with a handful of dummy rows."
+}

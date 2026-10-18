@@ -1,0 +1,58 @@
+{
+  "secrets": {
+    "pin": "864209",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/TOTPLogin",
+      "expectBody": {
+        "head": {
+          "Key": "dummyUserKey"
+        },
+        "body": {
+          "Email_ID": "trader@example.com",
+          "TOTP": "123456",
+          "PIN": "864209"
+        }
+      },
+      "status": 200,
+      "json": {
+        "body": {
+          "RequestToken": "dummy-request-token",
+          "Status": 0,
+          "Message": "Success"
+        },
+        "head": {
+          "Status": 0,
+          "statusDescription": "Success"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/GetAccessToken",
+      "expectBody": {
+        "body": {
+          "RequestToken": "dummy-request-token",
+          "EncryKey": "dummyEncKey",
+          "UserId": "dummyUserId"
+        }
+      },
+      "status": 200,
+      "json": {
+        "body": {
+          "AccessToken": "dummy-access-token",
+          "ClientCode": "55512345",
+          "Message": "",
+          "Status": 0
+        },
+        "head": {
+          "Status": 0,
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ]
+}

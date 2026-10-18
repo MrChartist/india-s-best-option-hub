@@ -1,0 +1,34 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/trades",
+      "status": 200,
+      "json": [
+        {
+          "dhanClientId": "1000000001",
+          "orderId": "112111182045",
+          "exchangeOrderId": "15112111182045",
+          "exchangeTradeId": "15112111182045",
+          "transactionType": "BUY",
+          "exchangeSegment": "NSE_EQ",
+          "productType": "INTRADAY",
+          "orderType": "LIMIT",
+          "tradingSymbol": "TCS",
+          "securityId": "11536",
+          "tradedQuantity": 40,
+          "tradedPrice": 3345.8,
+          "createTime": "2021-03-10 11:20:06",
+          "updateTime": "2021-11-25 17:35:12",
+          "exchangeTime": "2021-11-25 17:35:12",
+          "drvExpiryDate": null,
+          "drvOptionType": null,
+          "drvStrikePrice": 0.0
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

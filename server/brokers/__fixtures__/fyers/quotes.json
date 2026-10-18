@@ -1,0 +1,88 @@
+{
+  "args": [
+    [
+      {
+        "token": "NSE:SBIN-EQ",
+        "exchange": "NSE"
+      },
+      {
+        "token": "NSE:IDEA-EQ",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/data/quotes\\?symbols=NSE%3ASBIN-EQ%2CNSE%3AIDEA-EQ$",
+      "json": {
+        "code": 200,
+        "d": [
+          {
+            "n": "NSE:SBIN-EQ",
+            "s": "ok",
+            "v": {
+              "ask": 0,
+              "bid": 590.5,
+              "ch": -7.95,
+              "chp": -1.33,
+              "description": "NSE:SBIN-EQ",
+              "exchange": "NSE",
+              "fyToken": "10100000003045",
+              "high_price": 600.85,
+              "low_price": 585,
+              "lp": 590.5,
+              "open_price": 598.7,
+              "original_name": "NSE:SBIN-EQ",
+              "prev_close_price": 598.45,
+              "atp": 428.07,
+              "imbalance": -2969,
+              "mkt_imbalance": 32522,
+              "reference_price": 427.25,
+              "indicative_price": 426.9,
+              "short_name": "SBIN-EQ",
+              "spread": -590.5,
+              "symbol": "NSE:SBIN-EQ",
+              "tt": "1691020800",
+              "volume": 27774877
+            }
+          },
+          {
+            "n": "NSE:IDEA-EQ",
+            "s": "ok",
+            "v": {
+              "ask": 7.85,
+              "bid": 0,
+              "ch": -0.05,
+              "chp": -0.63,
+              "description": "NSE:IDEA-EQ",
+              "exchange": "NSE",
+              "fyToken": "101000000014366",
+              "high_price": 8.05,
+              "low_price": 7.8,
+              "lp": 7.85,
+              "open_price": 7.9,
+              "original_name": "NSE:IDEA-EQ",
+              "prev_close_price": 7.9,
+              "atp": 7.5,
+              "imbalance": -1250400,
+              "mkt_imbalance": 0,
+              "reference_price": 7.9,
+              "indicative_price": 7.85,
+              "short_name": "IDEA-EQ",
+              "spread": 7.85,
+              "symbol": "NSE:IDEA-EQ",
+              "tt": "1691020800",
+              "volume": 78116800
+            }
+          }
+        ],
+        "message": "",
+        "s": "ok"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

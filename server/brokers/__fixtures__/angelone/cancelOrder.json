@@ -1,0 +1,58 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "args": [
+    "201020000000080"
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/getOrderBook$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "variety": "NORMAL",
+            "ordertype": "LIMIT",
+            "producttype": "INTRADAY",
+            "duration": "DAY",
+            "price": "194.00",
+            "triggerprice": "0",
+            "quantity": "1",
+            "tradingsymbol": "SBIN-EQ",
+            "transactiontype": "BUY",
+            "exchange": "NSE",
+            "symboltoken": "3045",
+            "filledshares": "0",
+            "unfilledshares": "1",
+            "orderid": "201020000000080",
+            "status": "open",
+            "orderstatus": "open"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/cancelOrder$",
+      "expectBody": {
+        "variety": "NORMAL",
+        "orderid": "201020000000080"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "orderid": "201020000000080",
+          "uniqueorderid": "34reqfachdfih"
+        }
+      }
+    }
+  ]
+}

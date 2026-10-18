@@ -1,0 +1,50 @@
+{
+  "args": [
+    "26101602000013",
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "price": 99.0,
+      "qty": 130
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "PATCH",
+      "url": "https://edge.arrow.trade/order/regular/26101602000013",
+      "expectBody": {
+        "exchange": "NFO",
+        "symbol": "NIFTY20OCT26C25000",
+        "quantity": "130",
+        "order": "LMT",
+        "price": "99"
+      },
+      "json": {
+        "data": {
+          "orderNo": "26101602000013",
+          "requestTime": "10:20:05 16-10-2026"
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

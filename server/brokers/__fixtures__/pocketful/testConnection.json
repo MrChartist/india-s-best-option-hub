@@ -1,0 +1,27 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v1/user/profile?client_id=DUMMY1",
+      "status": 200,
+      "json": {
+        "data": {
+          "broker_id": "Pocketful",
+          "client_id": "DUMMY1",
+          "email_id": "",
+          "exchanges_subscribed": "[\"BFO\",\"BSE\",\"MCX\",\"NFO\",\"NSE\"]",
+          "lastlogintime": "",
+          "name": "DUMMY USER",
+          "phone_number": "",
+          "products_enabled": "[\"NRML\",\"MIS\",\"CNC\",\"MTF\"]"
+        },
+        "errorcode": "",
+        "message": "SUCCESS",
+        "status": true
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}

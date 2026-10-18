@@ -1,0 +1,91 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "2885",
+        "exchange": "NSE"
+      },
+      "interval": "5m",
+      "from": "2026-10-16",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://vortex-api.rupeezy.in/v2/user/session",
+      "expectBody": {
+        "checksum": "4e7fd315fb271daab919d53db1f372dc43ef93080778ed84cb339acff9b701ad",
+        "applicationId": "dev_TEST01",
+        "token": "dummyAuthToken123"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "access_token": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.dummy.payload",
+          "user_name": "JOHN DOE",
+          "login_time": "2026-Oct-19 09:10:50",
+          "email": "JOHN.DOE@EXAMPLE.COM",
+          "mobile": "9999999999",
+          "exchanges": [
+            "NSE_EQ",
+            "NSE_FO",
+            "MCX_FO",
+            "NSE_CUR"
+          ],
+          "product_types": [
+            "INTRADAY",
+            "DELIVERY",
+            "MTF"
+          ],
+          "others": {
+            "userCode": "NXAAE",
+            "POA": 2
+          },
+          "user_id": "XX9999",
+          "tradingActive": true
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://vortex-api\\.rupeezy\\.in/v2/data/history\\?exchange=NSE_EQ&token=2885&from=1792089000&to=1792175399&resolution=5$",
+      "json": {
+        "s": "ok",
+        "t": [
+          1792143600,
+          1792143300,
+          1792143000
+        ],
+        "c": [
+          1765.7,
+          1766.7,
+          1765.9
+        ],
+        "o": [
+          1765.9,
+          1760.65,
+          1766.55
+        ],
+        "h": [
+          1765.95,
+          1769.35,
+          1766.85
+        ],
+        "l": [
+          1764.7,
+          1760.65,
+          1765
+        ],
+        "v": [
+          850,
+          3625,
+          3910
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

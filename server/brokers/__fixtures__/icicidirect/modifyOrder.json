@@ -1,0 +1,172 @@
+{
+  "args": [
+    "20261019N300001234",
+    {
+      "price": 121.5
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/customerdetails",
+      "expectBody": {
+        "SessionToken": "58593123",
+        "AppKey": "8g791N029R47I831B8153O2f7u8g"
+      },
+      "json": {
+        "Success": {
+          "exg_trade_date": {
+            "NSE": "19-Oct-2026",
+            "BSE": "19-Oct-2026",
+            "FNO": "19-Oct-2026",
+            "NDX": "19-Oct-2026"
+          },
+          "exg_status": {
+            "NSE": "O",
+            "BSE": "O",
+            "FNO": "Y",
+            "NDX": "O"
+          },
+          "segments_allowed": {
+            "Trading": "Y",
+            "Equity": "Y",
+            "Derivatives": "Y",
+            "Currency": "Z"
+          },
+          "idirect_userid": "379XTZ300",
+          "session_token": "QUgzNzkzMDA6NDUwNTM0MjI=",
+          "idirect_user_name": "JOHN SMITH",
+          "idirect_ORD_TYP": "N",
+          "idirect_lastlogin_time": "19-Oct-2026 09:50:42",
+          "mf_holding_mode_popup_flg": "N",
+          "commodity_exchange_status": "N",
+          "commodity_trade_date": "19-Oct-2026",
+          "commodity_allowed": "O"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/order",
+      "expectBody": {
+        "exchange_code": "NSE"
+      },
+      "json": {
+        "Success": [
+          {
+            "order_id": "20261019N300001235",
+            "exchange_order_id": null,
+            "exchange_code": "NSE",
+            "stock_code": "ITC",
+            "product_type": "Cash",
+            "action": "Buy",
+            "order_type": "Limit",
+            "stoploss": "0.00",
+            "quantity": "1",
+            "price": "420.00",
+            "validity": "Day",
+            "disclosed_quantity": "0",
+            "expiry_date": null,
+            "right": null,
+            "strike_price": 0,
+            "average_price": "419.95",
+            "cancelled_quantity": "0",
+            "pending_quantity": "0",
+            "status": "Executed",
+            "user_remark": "",
+            "order_datetime": "19-Oct-2026 09:26",
+            "parent_order_id": null,
+            "modification_number": null,
+            "exchange_acknowledgement_date": null,
+            "SLTP_price": null,
+            "exchange_acknowledge_number": null,
+            "initial_limit": null,
+            "intial_sltp": null,
+            "LTP": null,
+            "limit_offset": null,
+            "mbc_flag": null,
+            "cutoff_price": null,
+            "validity_date": ""
+          }
+        ],
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/order",
+      "expectBody": {
+        "exchange_code": "NFO"
+      },
+      "json": {
+        "Success": [
+          {
+            "order_id": "20261019N300001234",
+            "exchange_order_id": null,
+            "exchange_code": "NFO",
+            "stock_code": "NIFTY",
+            "product_type": "Options",
+            "action": "Buy",
+            "order_type": "Limit",
+            "stoploss": "0.00",
+            "quantity": "65",
+            "price": "120.00",
+            "validity": "Day",
+            "disclosed_quantity": "0",
+            "expiry_date": "03-Nov-2026",
+            "right": "Call",
+            "strike_price": 25000,
+            "average_price": "0",
+            "cancelled_quantity": "0",
+            "pending_quantity": "65",
+            "status": "Ordered",
+            "user_remark": "",
+            "order_datetime": "19-Oct-2026 09:26",
+            "parent_order_id": null,
+            "modification_number": null,
+            "exchange_acknowledgement_date": null,
+            "SLTP_price": null,
+            "exchange_acknowledge_number": null,
+            "initial_limit": null,
+            "intial_sltp": null,
+            "LTP": null,
+            "limit_offset": null,
+            "mbc_flag": null,
+            "cutoff_price": null,
+            "validity_date": ""
+          }
+        ],
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/order",
+      "expectBody": {
+        "order_id": "20261019N300001234",
+        "exchange_code": "NFO",
+        "order_type": "limit",
+        "stoploss": "",
+        "quantity": "65",
+        "price": "121.5",
+        "validity": "day",
+        "disclosed_quantity": "0",
+        "expiry_date": "2026-11-03T06:00:00.000Z",
+        "right": "call",
+        "strike_price": "25000"
+      },
+      "json": {
+        "Success": {
+          "message": "Successfully Modified the order",
+          "order_id": "20261019N300001234"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V3/Holding",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "ClientCode": "55512345"
+        }
+      },
+      "json": {
+        "body": {
+          "CacheTime": 300,
+          "Data": [
+            {
+              "AvgRate": 455.7229,
+              "BseCode": 500875,
+              "CurrentPrice": 440.1,
+              "DPQty": 7,
+              "Exch": "N",
+              "ExchType": "C",
+              "FullName": "ITC LTD",
+              "NseCode": 1660,
+              "POASigned": "N",
+              "PoolQty": 0,
+              "Quantity": 7,
+              "ScripMultiplier": 1,
+              "Symbol": "ITC"
+            },
+            {
+              "AvgRate": 242.45,
+              "BseCode": 543940,
+              "CurrentPrice": 253.8,
+              "DPQty": 40,
+              "Exch": "N",
+              "ExchType": "C",
+              "FullName": "JIO FIN SERVICES LTD",
+              "NseCode": 18143,
+              "POASigned": "N",
+              "PoolQty": 0,
+              "Quantity": 40,
+              "ScripMultiplier": 1,
+              "Symbol": "JIOFIN"
+            }
+          ],
+          "Message": "Success",
+          "Status": 0
+        },
+        "head": {
+          "responseCode": "5PHoldingV3",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

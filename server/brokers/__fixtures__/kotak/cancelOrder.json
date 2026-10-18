@@ -1,0 +1,25 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "args": [
+    "261020000612876"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://cis.kotaksecurities.com/quick/order/cancel?sId=server1",
+      "expectBody": {
+        "jData": "{\"on\":\"261020000612876\",\"am\":\"NO\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "nOrdNo": "261020000612876",
+        "stCode": 200
+      }
+    }
+  ]
+}

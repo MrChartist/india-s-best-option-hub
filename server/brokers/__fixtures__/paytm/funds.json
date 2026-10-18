@@ -1,0 +1,35 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.paytmmoney.com/accounts/v1/funds/summary?config=true",
+      "status": 200,
+      "json": {
+        "meta": {},
+        "data": {
+          "funds_summary": {
+            "trade_balance": 13941.56,
+            "utilised_amount": 0.0,
+            "withdrawal_balance": 3341.56,
+            "adhoc_limit": 0.0,
+            "opening_balance": -658.44,
+            "funds_added": 14600.0,
+            "collaterals": 0.0
+          },
+          "config": {
+            "credit": {
+              "min": 50,
+              "max": 20000000,
+              "decimal_length": 0
+            },
+            "debit": {
+              "min": 1,
+              "max": 10000000,
+              "decimal_length": 2
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "args": [
+    "26101700000017"
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/CancelOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "14:14:10 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

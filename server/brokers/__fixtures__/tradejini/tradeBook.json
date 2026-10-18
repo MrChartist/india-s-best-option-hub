@@ -1,0 +1,51 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.tradejini.com/v2/api/oms/trades?symDetails=true",
+      "status": 200,
+      "json": {
+        "s": "ok",
+        "d": [
+          {
+            "symId": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+            "side": "buy",
+            "type": "limit",
+            "validity": "day",
+            "product": "normal",
+            "orderId": "261016000000079",
+            "fillId": "195300",
+            "fillQty": 130,
+            "fillPrice": 118,
+            "fillValue": 15340,
+            "time": "16-10-2026 10:47:05",
+            "exchOrderId": "1100000000000001",
+            "avgPrice": 118,
+            "sym": {
+              "id": "OPTIDX_NIFTY_NFO_2026-10-20_25000_CE",
+              "symbol": "NIFTY",
+              "tradSymbol": "NIFTY 20OCT 25000 CE",
+              "exchange": "NFO",
+              "lot": "65",
+              "instrument": "OPTIDX",
+              "companyName": "",
+              "expiry": "",
+              "dispSymbol": "NIFTY 20OCT 25000 CE",
+              "asset": "option",
+              "empty": false
+            },
+            "remarks": "",
+            "legType": "",
+            "mainLegOrderId": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

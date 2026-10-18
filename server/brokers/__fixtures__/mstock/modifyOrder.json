@@ -1,0 +1,98 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "args": [
+    "1132261016107",
+    {
+      "price": 96.5
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/orders",
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "variety": null,
+            "ordertype": "SL",
+            "producttype": "MARGIN",
+            "duration": "DAY",
+            "price": "120.00",
+            "triggerprice": "118",
+            "quantity": "65",
+            "disclosedquantity": "0",
+            "tradingsymbol": "NIFTY-20Oct2026-25000-CE",
+            "transactiontype": "BUY",
+            "exchange": "NSE",
+            "symboltoken": "40003",
+            "instrumenttype": "OPTIDX",
+            "strikeprice": "25000",
+            "optiontype": "CE",
+            "expirydate": "2026-Oct-20",
+            "averageprice": "0",
+            "filledshares": "0",
+            "unfilledshares": "0",
+            "orderid": "1142261016106",
+            "text": "EXCH:16284:The order price is out of the days price range.",
+            "status": "Rejected",
+            "orderstatus": "Rejected",
+            "updatetime": "2026-Oct-16 12:42:18",
+            "exchorderupdatetime": "2026-Oct-16 12:42:18"
+          },
+          {
+            "variety": null,
+            "ordertype": "LIMIT",
+            "producttype": "CARRYFORWARD",
+            "duration": "DAY",
+            "price": "95.00",
+            "triggerprice": "0",
+            "quantity": "130",
+            "disclosedquantity": "0",
+            "tradingsymbol": "NIFTY-20Oct2026-25000-CE",
+            "transactiontype": "BUY",
+            "exchange": "NSE",
+            "symboltoken": "40003",
+            "instrumenttype": "OPTIDX",
+            "averageprice": "0",
+            "filledshares": "0",
+            "unfilledshares": "130",
+            "orderid": "1132261016107",
+            "text": "CONFIRMED",
+            "status": "Pending",
+            "orderstatus": "Pending",
+            "updatetime": "2026-Oct-16 12:41:00",
+            "exchorderupdatetime": "2026-Oct-16 12:41:00"
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://api.mstock.trade/openapi/typeb/orders/regular/1132261016107",
+      "expectBody": {
+        "orderid": "1132261016107",
+        "ordertype": "LIMIT",
+        "quantity": "130",
+        "price": "96.5",
+        "producttype": "CARRYFORWARD",
+        "symboltoken": "40003",
+        "modqty_remng": "0"
+      },
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "orderid": " 1132261016107",
+          "uniqueorderid": ""
+        }
+      }
+    }
+  ]
+}

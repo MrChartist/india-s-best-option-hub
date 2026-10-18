@@ -1,0 +1,81 @@
+{
+  "args": [
+    {
+      "instrument": {
+        "token": "1333",
+        "exchange": "NSE"
+      },
+      "interval": "1d",
+      "from": "2012-01-11",
+      "to": "2012-01-15"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.dhan.co/v2/charts/historical",
+      "expectBody": {
+        "securityId": "1333",
+        "exchangeSegment": "NSE_EQ",
+        "instrument": "EQUITY",
+        "fromDate": "2012-01-11",
+        "toDate": "2012-01-16"
+      },
+      "status": 200,
+      "json": {
+        "open": [
+          3978,
+          3856,
+          3925,
+          3918,
+          3877.85
+        ],
+        "high": [
+          3978,
+          3925,
+          3929,
+          3923,
+          3977
+        ],
+        "low": [
+          3861,
+          3856,
+          3836.55,
+          3857,
+          3860.05
+        ],
+        "close": [
+          3879.85,
+          3915.9,
+          3859.9,
+          3897.9,
+          3968.15
+        ],
+        "volume": [
+          3937092,
+          1906106,
+          3203744,
+          6684507,
+          3348123
+        ],
+        "timestamp": [
+          1326220200,
+          1326306600,
+          1326393000,
+          1326479400,
+          1326565800
+        ],
+        "open_interest": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 5
+  }
+}

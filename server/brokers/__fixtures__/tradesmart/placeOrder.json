@@ -1,0 +1,43 @@
+{
+  "args": [
+    {
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "exchange": "NFO",
+      "transactionType": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "validity": "DAY",
+      "lots": 2,
+      "price": 104.5,
+      "correlationId": "mrc-0001"
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"6a76a56e380cc889be44fbec86e469424319d8c20031325172ea9313e08b96b9\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "access_token": "dummyTradesmartAccessToken",
+        "actid": "FZ00000",
+        "expires_in": 28800
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://v2api.tradesmartonline.in/NorenWClientAPIv2/PlaceOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"dscqty\":\"0\",\"prc\":\"104.5\",\"prd\":\"M\",\"trantype\":\"B\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\",\"remarks\":\"mrc-0001\"}"
+      },
+      "json": {
+        "request_time": "10:48:03 17-10-2026",
+        "stat": "Ok",
+        "norenordno": "26101700000017"
+      }
+    }
+  ]
+}

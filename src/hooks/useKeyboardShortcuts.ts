@@ -98,7 +98,7 @@ export function isOverlayOpen(doc: Document | undefined = typeof document === "u
 
 /**
  * Global keyboard shortcuts:
- * - "g" then a letter jumps to a page (from the ROUTES registry: g d, g c, g o, g s, g v, g x, g f, g p, g l)
+ * - "g" then a letter jumps to a page (from the ROUTES registry: g d, g c, g o, g s, g v, g x, g f, g t, g p, g l)
  * - "/" opens search, "?" opens the shortcut overlay, Alt+A opens alerts, Shift+G toggles Greeks
  *
  * Ignored while typing in inputs/contentEditable or while a dialog is open.

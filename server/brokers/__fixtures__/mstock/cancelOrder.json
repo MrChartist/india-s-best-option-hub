@@ -1,0 +1,28 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "args": [
+    "1132261016107"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://api.mstock.trade/openapi/typeb/orders/regular/1132261016107",
+      "expectBody": {
+        "variety": "NORMAL",
+        "orderid": "1132261016107"
+      },
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "orderid": "1132261016107",
+          "uniqueorderid": ""
+        }
+      }
+    }
+  ]
+}

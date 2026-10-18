@@ -1,0 +1,44 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/trades",
+      "json": {
+        "status": "SUCCESS",
+        "trades": [
+          {
+            "order_id": "26101600000011",
+            "exchange": "NFO",
+            "price_type": "MARKET",
+            "validity": "DAY",
+            "product_type": "NORMAL",
+            "fill_id": "4627",
+            "fill_time": "16-10-2026 10:16:16",
+            "order_type": "SELL",
+            "tradingsymbol": "NIFTY27OCT26F",
+            "quantity": "65",
+            "token": "48757",
+            "filled_qty": "65",
+            "last_fill_qty": "65",
+            "price_precision": "2",
+            "lotsize": "65",
+            "ticksize": "0.05",
+            "price": "0.00",
+            "fill_price": "25120.00",
+            "exchange_time": "16-10-2026 10:16:16",
+            "exchange_orderid": "1001234567890 "
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

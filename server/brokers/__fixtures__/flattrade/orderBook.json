@@ -1,0 +1,71 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/OrderBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "exch": "NFO",
+          "tsym": "NIFTY20OCT26C25000",
+          "norenordno": "26101700000001",
+          "prc": "104.50",
+          "qty": "130",
+          "prd": "M",
+          "status": "OPEN",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "fillshares": "65",
+          "avgprc": "104.50",
+          "exchordid": "1100000000034342",
+          "uid": "FZ00000",
+          "actid": "FZ00000",
+          "ret": "DAY",
+          "token": "40003",
+          "norentm": "09:20:11 17-10-2026"
+        },
+        {
+          "stat": "Ok",
+          "exch": "NSE",
+          "tsym": "ABB-EQ",
+          "norenordno": "26101700000002",
+          "prc": "1278.30",
+          "qty": "50",
+          "prd": "C",
+          "status": "REJECTED",
+          "trantype": "B",
+          "prctyp": "LMT",
+          "fillshares": "0",
+          "avgprc": "0",
+          "rejreason": "Insufficient funds",
+          "uid": "FZ00000",
+          "actid": "FZ00000",
+          "ret": "DAY",
+          "norentm": "09:21:40 17-10-2026"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

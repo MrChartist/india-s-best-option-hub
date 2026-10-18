@@ -1,0 +1,43 @@
+{
+  "args": [
+    "26101700000017",
+    {
+      "exchange": "NFO",
+      "tradingSymbol": "NIFTY20OCT26C25000",
+      "quantity": 130,
+      "price": 105,
+      "orderType": "LIMIT",
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/ModifyOrder",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"norenordno\":\"26101700000017\",\"exch\":\"NFO\",\"tsym\":\"NIFTY20OCT26C25000\",\"qty\":\"130\",\"prc\":\"105\",\"prctyp\":\"LMT\",\"ret\":\"DAY\",\"ordersource\":\"API\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": {
+        "request_time": "14:14:08 17-10-2026",
+        "stat": "Ok",
+        "result": "26101700000017"
+      }
+    }
+  ]
+}

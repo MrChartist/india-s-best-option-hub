@@ -1,0 +1,33 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.upstox.com/v2/order/trades/get-trades-for-day",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "exchange": "NSE",
+            "product": "D",
+            "trading_symbol": "GMRINFRA-EQ",
+            "tradingsymbol": "GMRINFRA-EQ",
+            "instrument_token": "151064324",
+            "order_type": "MARKET",
+            "transaction_type": "BUY",
+            "quantity": 1,
+            "exchange_order_id": "221013001021540",
+            "order_id": "221013001021539",
+            "exchange_timestamp": "03-Aug-2017 15:03:42",
+            "average_price": 299.4,
+            "trade_id": "50091502",
+            "order_ref_id": "udapi-aqwsed14356",
+            "order_timestamp": "23-Apr-2021 14:22:06"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

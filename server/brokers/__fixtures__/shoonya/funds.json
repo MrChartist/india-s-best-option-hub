@@ -1,0 +1,45 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/Limits",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\"}"
+      },
+      "json": {
+        "request_time": "18:07:31 29-05-2020",
+        "stat": "Ok",
+        "cash": "1500000.00",
+        "payin": "0.00",
+        "payout": "0.00",
+        "brkcollamt": "0.00",
+        "unclearedcash": "0.00",
+        "daycash": "0.00",
+        "turnoverlmt": "50000000.00",
+        "pendordvallmt": "20000000.00",
+        "turnover": "391500.00",
+        "pendordval": "287100.00",
+        "marginused": "394554.00",
+        "mtomcurper": "0.00",
+        "urmtom": "30540.00",
+        "grexpo": "391500.00",
+        "uzpnl_e_i": "15270.00",
+        "uzpnl_e_m": "61080.00",
+        "uzpnl_e_c": "-45810.00"
+      }
+    }
+  ]
+}

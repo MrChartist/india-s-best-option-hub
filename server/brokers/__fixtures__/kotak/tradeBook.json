@@ -1,0 +1,79 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/quick/user/trades?sId=server1",
+      "json": {
+        "stat": "ok",
+        "stCode": 200,
+        "data": [
+          {
+            "actId": "",
+            "algCat": "NA",
+            "algId": "NA",
+            "avgPrc": "104.50",
+            "boeSec": 1792471516,
+            "brdLtQty": 65,
+            "brkClnt": "NA",
+            "cstFrm": "C",
+            "exOrdId": "1100000059569867",
+            "exp": "20 Oct, 2026",
+            "expDt": "20 Oct, 2026",
+            "exSeg": "nse_fo",
+            "exTm": "20-Oct-2026 10:05:01",
+            "fldQty": 130,
+            "flDt": "20-Oct-2026",
+            "flId": "207983744",
+            "flLeg": 1,
+            "flTm": "10:05:16",
+            "minQty": 0,
+            "nOrdNo": "261020000612876",
+            "nReqId": "1",
+            "optTp": "CE",
+            "ordDur": "NA",
+            "ordGenTp": "--",
+            "prcTp": "L",
+            "prod": "NRML",
+            "rmk": "--",
+            "rptTp": "fill",
+            "series": "XX",
+            "stkPrc": "25000.00",
+            "sym": "NIFTY",
+            "trdSym": "NIFTY26O2025000CE",
+            "trnsTp": "B",
+            "usrId": "AAAPZ0000Z",
+            "genDen": "1",
+            "genNum": "1",
+            "hsUpTm": "2026/10/20 10:05:16",
+            "GuiOrdId": "",
+            "locId": "111111111111100",
+            "lotSz": "65",
+            "multiplier": "1",
+            "ordSrc": "NA",
+            "prcNum": "1",
+            "prcDen": "1",
+            "strategyCode": "",
+            "precision": "2",
+            "tok": "40001",
+            "updRecvTm": 1792471516355319300,
+            "uSec": "1792471516",
+            "posFlg": "",
+            "prc": "",
+            "qty": 0,
+            "tm": "",
+            "it": "OPTIDX"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

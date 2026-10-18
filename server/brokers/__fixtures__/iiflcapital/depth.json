@@ -1,0 +1,70 @@
+{
+  "args": [
+    {
+      "token": "35008",
+      "exchange": "NFO"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/marketdata/marketdepth",
+      "expectBody": {
+        "exchange": "NSEFO",
+        "instrumentId": "35008"
+      },
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": {
+          "exchange": "NSEFO",
+          "instrumentId": 35008,
+          "totalBidQuantity": 404715,
+          "totalAskQuantity": 216809,
+          "marketDepth": {
+            "bids": [
+              {
+                "price": 182.35,
+                "quantity": 650,
+                "orders": 3
+              },
+              {
+                "price": 182.3,
+                "quantity": 1300,
+                "orders": 5
+              },
+              {
+                "price": 0,
+                "quantity": 0,
+                "orders": 0
+              }
+            ],
+            "asks": [
+              {
+                "price": 182.45,
+                "quantity": 325,
+                "orders": 2
+              },
+              {
+                "price": 182.5,
+                "quantity": 975,
+                "orders": 4
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

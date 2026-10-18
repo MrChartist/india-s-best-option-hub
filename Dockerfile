@@ -45,6 +45,8 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/package.json /app/proxy-server.mjs ./
+# proxy-server.mjs imports the 1Cliq risk/panic/basket engines and broker adapters from server/.
+COPY --from=build --chown=node:node /app/server ./server
 
 # Tiny dependency-free static server for dist/ (SPA fallback, long-cache hashed
 # assets, security headers). It also supervises the proxy process: if either

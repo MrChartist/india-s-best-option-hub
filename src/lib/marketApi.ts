@@ -5,6 +5,7 @@
  * loosely-typed upstream DTOs from src/lib/types/market.ts.
  */
 import type { ExpiryDate, IndexData } from "./mockData";
+import { getActiveBroker, getBrokerInfo } from "./brokerConfig";
 import { calendarDaysBetween, formatDateIST, istDateString, normalizeExpiry } from "@/lib/options";
 import {
   PROXY_BASE,
@@ -109,6 +110,98 @@ export function legacyStamp(raw: unknown): { stale: boolean; cachedAt: number | 
   const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as { stale?: unknown; cachedAt?: unknown }) : {};
   const cachedAt = typeof o.cachedAt === "number" && Number.isFinite(o.cachedAt) ? o.cachedAt : null;
   return { stale: o.stale === true, cachedAt };
+}
+
+// ── Generic multi-broker proxy (server/brokers/registry.mjs) ──
+
+/** UTF-8 safe base64 of a credential map, for the x-broker-credentials header. */
+export function encodeCredsHeader(values: Record<string, string>): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(values));
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary);
+}
+
+/** The active broker when it is an integrated non-Dhan broker (its data goes through /api/broker-proxy). */
+function activeOtherBroker(): { brokerId: string; values: Record<string, string> } | null {
+  const active = getActiveBroker();
+  if (!active || active.brokerId === "dhan") return null;
+  return getBrokerInfo(active.brokerId)?.integrated ? active : null;
+}
+
+async function fetchBrokerProxy<T>(broker: { brokerId: string; values: Record<string, string> }, endpoint: string, params: Record<string, string>): Promise<T> {
+  // proxyFetchJSON only attaches x-dhan-* headers; the broker's own keys travel in x-broker-credentials.
+  if (!shouldTryProxy()) throw new Error("Proxy unreachable");
+  const qp = new URLSearchParams({ broker: broker.brokerId, endpoint, ...params });
+  const res = await fetch(`${PROXY_BASE}/api/broker-proxy?${qp.toString()}`, {
+    headers: { Accept: "application/json", "x-broker-credentials": encodeCredsHeader(broker.values) },
+  });
+  markProxyOnline();
+  if (!res.ok) throw new Error(`Broker proxy ${res.status}`);
+  return (await res.json()) as T;
+}
+
+/** Test a broker connection with arbitrary (possibly unsaved) credential values (Broker settings). */
+export async function testBrokerConnection(brokerId: string, values: Record<string, string>): Promise<{ status: string; message: string }> {
+  let res: Response;
+  try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(20000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/broker-test-connection?${new URLSearchParams({ broker: brokerId })}`, {
+      headers: { "x-broker-credentials": encodeCredsHeader(values) },
+      signal,
+    });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
+    const body = (await res.json()) as { status?: string; message?: string; reason?: string };
+    return { status: body.status || (res.ok ? "success" : "error"), message: body.message || body.reason || "" };
+  } catch {
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
+  }
+}
+
+export type BrokerSessionLoginResult =
+  | { status: "success"; session: Record<string, string>; expiresAt: number }
+  | { status: "error"; message: string; code?: string };
+
+/**
+ * Open a session for a session-login broker. `secrets` (password/PIN + the current 6-digit TOTP code)
+ * are sent once in a POST body to the local proxy and never stored; only the returned session is.
+ */
+export async function loginBrokerSession(
+  brokerId: string,
+  values: Record<string, string>,
+  secrets: Record<string, string>,
+): Promise<BrokerSessionLoginResult> {
+  let res: Response;
+  try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(30000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/broker-session-login?${new URLSearchParams({ broker: brokerId })}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ values, secrets }),
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
+    const body = (await res.json()) as { status?: string; session?: Record<string, string>; expiresAt?: number; message?: string; reason?: string; code?: string };
+    if (res.ok && body.status === "success" && body.session && typeof body.expiresAt === "number") {
+      return { status: "success", session: body.session, expiresAt: body.expiresAt };
+    }
+    return { status: "error", message: body.message || body.reason || `Login failed (HTTP ${res.status})`, code: body.code };
+  } catch {
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
+  }
 }
 
 // ── Parse Dhan Option Chain ──
@@ -326,12 +419,55 @@ async function fetchNSEChain(symbol: string, expiry?: string): Promise<LiveOptio
   };
 }
 
+/** Option chain from the active non-Dhan broker. Every broker module normalises to Dhan's shape. */
+async function fetchOtherBrokerChain(
+  broker: { brokerId: string; values: Record<string, string> },
+  symbol: string,
+  expiry?: string,
+): Promise<LiveOptionChainResult | null> {
+  const params: Record<string, string> = { symbol };
+  if (expiry) params.expiry = expiry;
+  const raw = await fetchBrokerProxy<DhanOptionChainDTO>(broker, "option-chain", params);
+  if (raw?.status !== "success") return null;
+  const parsed = parseDhanOptionChain(raw);
+  if (parsed.chain.length === 0) return null;
+  let expiries: ExpiryDate[] = [];
+  try {
+    const list = await fetchBrokerProxy<DhanExpiryListDTO>(broker, "expiry-list", { symbol });
+    expiries = toExpiryDates(list?.data);
+  } catch {
+    /* chain is still useful without the list */
+  }
+  const stale = !!(raw.stale || raw.afterHours);
+  return {
+    ...parsed,
+    expiries,
+    expiry: normalizeExpiry(raw.expiry ?? expiry ?? "") || expiries[0]?.value || "",
+    // The chain parser and the UI only distinguish Dhan-shaped data from NSE data.
+    source: "dhan",
+    afterHours: !!raw.afterHours,
+    stale,
+    cachedAt: raw.cachedAt ?? null,
+    asOf: stale && raw.cachedAt ? raw.cachedAt : Date.now(),
+  };
+}
+
 /**
- * Live option chain. Dhan is accepted only when it returns a non-empty chain; a stale (last-good)
- * Dhan copy is used only when NSE has nothing fresher. Throws when both sources fail.
+ * Live option chain. An active, integrated non-Dhan broker is tried first (that is the point of
+ * connecting your own broker). Dhan is accepted only when it returns a non-empty chain; a stale
+ * (last-good) Dhan copy is used only when NSE has nothing fresher. Throws when every source fails.
  */
 export async function fetchLiveOptionChain(symbol: string, expiry?: string): Promise<LiveOptionChainResult> {
   const sym = symbol.toUpperCase();
+  const other = activeOtherBroker();
+  if (other) {
+    try {
+      const fromBroker = await fetchOtherBrokerChain(other, sym, expiry);
+      if (fromBroker && !fromBroker.stale) return fromBroker;
+    } catch {
+      /* fall through to Dhan / NSE */
+    }
+  }
   let dhan: LiveOptionChainResult | null = null;
   try {
     dhan = await fetchDhanChain(sym, expiry);
@@ -678,3 +814,7 @@ export async function fetchHistoricalCandles(
 export async function fetchYahooChart(symbol: string, interval: string = "D", fromDate?: string, toDate?: string): Promise<HistoricalCandleResponse> {
   return proxyFetchJSON<HistoricalCandleResponse>("/api/yahoo-chart", { symbol, interval, fromDate, toDate }, { withDhan: false });
 }
+
+// ── Order placement (Dhan only, real money): see dhanOrderApi.ts ──
+export { placeOrder, fetchOrders, cancelOrder } from "./dhanOrderApi";
+export type { PlaceOrderParams, DhanOrderResult } from "./dhanOrderApi";

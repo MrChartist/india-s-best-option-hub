@@ -1,0 +1,72 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/portfolio/holdings",
+      "json": {
+        "type": "success",
+        "code": "s-portfolio-0012",
+        "description": "Success holding",
+        "result": {
+          "ClientId": "DUMMY1",
+          "RMSHoldingList": [
+            {
+              "Holdings": {
+                "INE002A01018": {
+                  "ISIN": "INE002A01018",
+                  "RMSHoldingId": 21885,
+                  "ClientId": "DUMMY1",
+                  "ExchangeNSEInstrumentId": 2885,
+                  "ExchangeBSEInstrumentId": 500325,
+                  "ExchangeMSEIInstrumentId": 0,
+                  "HoldingType": 3,
+                  "HoldingQuantity": 10,
+                  "CollateralValuationType": 1,
+                  "Haircut": 15,
+                  "CollateralQuantity": 0,
+                  "CreatedBy": "ADMIN",
+                  "LastUpdatedBy": "ADMIN",
+                  "CreatedOn": "2026-07-06T12:18:21",
+                  "LastUpdatedOn": "2026-07-06T11:39:29",
+                  "UsedQuantity": 0,
+                  "IsCollateralHolding": false,
+                  "BuyAvgPrice": 2650.5,
+                  "IsBuyAvgPriceProvided": true,
+                  "AuthorizeQuantity": 0,
+                  "IsNeedToDelete": false
+                },
+                "INE009A01021": {
+                  "ISIN": "INE009A01021",
+                  "RMSHoldingId": 21885,
+                  "ClientId": "DUMMY1",
+                  "ExchangeNSEInstrumentId": 0,
+                  "ExchangeBSEInstrumentId": 500209,
+                  "ExchangeMSEIInstrumentId": 0,
+                  "HoldingType": 3,
+                  "HoldingQuantity": 5,
+                  "CollateralValuationType": 1,
+                  "Haircut": 15,
+                  "CollateralQuantity": 0,
+                  "CreatedBy": "ADMIN",
+                  "LastUpdatedBy": "ADMIN",
+                  "CreatedOn": "2026-07-06T12:18:21",
+                  "LastUpdatedOn": "2026-07-06T11:39:29",
+                  "UsedQuantity": 0,
+                  "IsCollateralHolding": false,
+                  "BuyAvgPrice": 1520,
+                  "IsBuyAvgPriceProvided": true,
+                  "AuthorizeQuantity": 0,
+                  "IsNeedToDelete": false
+                }
+              }
+            }
+          ],
+          "CollateralHoldingList": []
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

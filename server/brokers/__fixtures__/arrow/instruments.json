@@ -1,0 +1,33 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/all",
+      "text": "Exchange,Segment,ExchSeg,Token,FullName,Symbol,TradingSymbol,Series,ISIN,LotSize,TickSize,PricePrecision,OptionType,Underlying,UnderlyingToken,StrikePrice,Expiry,FreezeQty,Lower Band,Upper Band,SurCodes,Events,ExchangeID\nNSE,CM,NSECM,3045,STATE BANK OF INDIA,SBIN,SBIN-EQ,EQ,INE062A01020,1,0.10,2,,,0,0.00,,0,1073.20,1311.60,,,3045\nNSE,CM,NSECM,2885,RELIANCE INDUSTRIES LTD,RELIANCE,RELIANCE-EQ,EQ,INE002A01018,1,0.10,2,,,0,0.00,,0,1304.10,1593.70,,,2885\nNSE,CM,NSECM,9999,\"SOME CO, LTD\",SOMECO,SOMECO-BE,BE,INE000A01000,1,0.05,2,,,0,0.00,,0,10.00,12.00,,,9999\nNSE,FO,NSEFO,51450,NIFTY,NIFTY,NIFTY20OCT26C25000,XX,,65,0.05,2,CE,NIFTY,26000,25000.00,20-Oct-2026,1800,1.00,900.00,,,51450\nNSE,FO,NSEFO,51451,NIFTY,NIFTY,NIFTY20OCT26P25000,XX,,65,0.05,2,PE,NIFTY,26000,25000.00,20-Oct-2026,1800,1.00,900.00,,,51451\nNSE,FO,NSEFO,52210,NIFTY,NIFTY,NIFTY27OCT26C25000,XX,,65,0.05,2,CE,NIFTY,26000,25000.00,27-Oct-2026,1800,1.00,900.00,,,52210\nNSE,FO,NSEFO,52001,NIFTY,NIFTY,NIFTY27OCT26F,XX,,65,0.10,2,,NIFTY,26000,0.00,27-Oct-2026,1800,22000.00,28000.00,,,52001\nNSE,FO,NSEFO,104034,RELIANCE,RELIANCE,RELIANCE27OCT26C1460,XX,,500,0.05,2,CE,RELIANCE,2885,1460.00,27-Oct-2026,10000,1.00,200.00,,,104034\nNSE,FO,NSEFO,90003,NIFTYNXT50,NIFTYNXT50,NIFTYNXT5027OCT26C70000,XX,,25,0.05,2,CE,NIFTYNXT50,26013,70000.00,27-Oct-2026,600,1.00,9000.00,,,90003\nBSE,FO,BSEFO,2131475,SENSEX,SENSEX,SENSEX22OCT26C82000,XX,,20,0.05,2,CE,SENSEX,1,82000.00,22-Oct-2026,1000,1.00,3000.00,,,2131475\nNSE,INDEX,NSEIDX,26000,,Nifty 50,,,,,1,,,,,,,,,,,,26000\nNSE,INDEX,NSEIDX,26009,,Nifty Bank,,,,,1,,,,,,,,,,,,26009\nNSE,INDEX,NSEIDX,26017,,India VIX,,,,,1,,,,,,,,,,,,26017\nMCX,FO,MCXFO,1398464,GOLDPETAL,GOLDPETAL,GOLDPETAL31JUL26F,XX,,1,1,2,,GOLDPETAL,0,0.00,31-Jul-2026,0,0,0,,,1398464\n"
+    }
+  ],
+  "expect": {
+    "minRows": 9,
+    "underlyings": [
+      "NIFTY",
+      "SENSEX",
+      "RELIANCE"
+    ]
+  }
+}

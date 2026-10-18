@@ -1,0 +1,24 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.dhan.co/v2/marketfeed/ltp",
+      "expectBody": {
+        "IDX_I": [
+          13
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": {
+          "IDX_I": {
+            "13": {
+              "last_price": 25041.35
+            }
+          }
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

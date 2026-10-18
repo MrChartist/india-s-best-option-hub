@@ -1,0 +1,72 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.iiflcapital.com/v1/positions",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "instrumentId": "35382",
+            "tradingSymbol": "NIFTY26OCTFUT",
+            "formattedInstrumentName": "NIFTY 27 Oct 2026",
+            "exchange": "NSEFO",
+            "product": "NORMAL",
+            "realizedPnl": 1000,
+            "netQuantity": 65,
+            "netAveragePrice": "25010.5",
+            "overnightQuantity": 0,
+            "overnightPrice": "0",
+            "buyQuantity": 65,
+            "buyPrice": 25010.5,
+            "sellQuantity": 0,
+            "sellPrice": 0,
+            "dayBuyQuantity": "65",
+            "dayBuyPrice": 25010.5,
+            "dayBuyValue": "1625682.50",
+            "daySellQuantity": "0",
+            "daySellPrice": "0.00",
+            "daySellValue": "0.00",
+            "multiplier": "1",
+            "lotSize": "65",
+            "tickSize": "0.10",
+            "previousDayClose": "24987.85"
+          },
+          {
+            "instrumentId": "1594",
+            "tradingSymbol": "INFY-EQ",
+            "formattedInstrumentName": "INFOSYS LIMITED",
+            "exchange": "NSEEQ",
+            "product": "INTRADAY",
+            "realizedPnl": -12.5,
+            "netQuantity": 0,
+            "netAveragePrice": "0",
+            "buyQuantity": 5,
+            "buyPrice": 1410,
+            "sellQuantity": 5,
+            "sellPrice": 1407.5,
+            "multiplier": "1",
+            "lotSize": "1",
+            "tickSize": "0.10",
+            "previousDayClose": "1389.65"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

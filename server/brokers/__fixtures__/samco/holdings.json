@@ -1,0 +1,85 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://tradeapi.samco.in/holding/getHoldings",
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Request successful",
+        "holdingSummary": {
+          "gainingTodayCount": "0",
+          "losingTodayCount": "1",
+          "totalGainAndLossAmount": "0.00",
+          "dayGainAndLossAmount": "-7.65",
+          "portfolioValue": "4650.00"
+        },
+        "holdingDetails": [
+          {
+            "averagePrice": "1560.15",
+            "exchange": "BSE",
+            "markToMarketPrice": "-182.70",
+            "lastTradedPrice": "1,550.00",
+            "previousClose": "1552.55",
+            "productCode": "CNC",
+            "symbolDescription": "RELIANCE INDUSTRIES LTD.",
+            "tradingSymbol": "RELIANCE",
+            "totalGainAndLoss": "-30.45",
+            "calculatedNetQuantity": "3.0",
+            "holdingsQuantity": "3",
+            "collateralQuantity": "2",
+            "holdingsValue": "4650.00",
+            "isin": "INE002A01018",
+            "sellableQuantity": "1",
+            "totalMarketToMarketPrice": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "secrets": {
+    "password": "Hunter2Pass!",
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.mstock.trade/openapi/typeb/connect/login",
+      "expectBody": {
+        "clientcode": "MA123456",
+        "totp": "",
+        "state": ""
+      },
+      "json": {
+        "status": "true",
+        "message": "Please enter the OTP that we sent on XXXXXXX452",
+        "errorcode": "",
+        "data": {
+          "jwtToken": "dummy-login-token",
+          "refreshToken": "",
+          "feedToken": "",
+          "state": "live"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.mstock.trade/openapi/typeb/session/verifytotp",
+      "expectBody": {
+        "refreshToken": "dummy-login-token",
+        "totp": "123456"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "ClientName": "DUMMY",
+          "ClientId": "MA123456",
+          "exchanges": [
+            "NSE",
+            "NFO"
+          ],
+          "jwtToken": "dummy-jwt",
+          "refreshToken": "dummy-refresh",
+          "feedToken": "dummy-feed"
+        }
+      }
+    }
+  ]
+}

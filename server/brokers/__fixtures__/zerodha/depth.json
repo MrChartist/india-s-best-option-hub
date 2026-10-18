@@ -1,0 +1,108 @@
+{
+  "args": [
+    {
+      "token": "408065",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/NSE",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n256265,1001,NIFTY 50,\"NIFTY 50\",0,,0,0,0,EQ,INDICES,NSE\n260105,1016,NIFTY BANK,\"NIFTY BANK\",0,,0,0,0,EQ,INDICES,NSE\n738561,2885,RELIANCE,\"RELIANCE INDUSTRIES\",0,,0,0.1,1,EQ,NSE,NSE\n408065,1594,INFY,\"INFOSYS\",0,,0,0.05,1,EQ,NSE,NSE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/quote?i=NSE%3AINFY",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "NSE:INFY": {
+            "instrument_token": 408065,
+            "timestamp": "2026-10-16 15:29:59",
+            "last_trade_time": "2026-10-16 15:29:58",
+            "last_price": 1412.95,
+            "last_quantity": 65,
+            "buy_quantity": 0,
+            "sell_quantity": 5191,
+            "volume": 7360198,
+            "average_price": 1412.95,
+            "oi": 0,
+            "oi_day_high": 0,
+            "oi_day_low": 0,
+            "net_change": 0,
+            "lower_circuit_limit": 0.05,
+            "upper_circuit_limit": 4238.85,
+            "ohlc": {
+              "open": 1396,
+              "high": 1421.75,
+              "low": 1395.55,
+              "close": 1389.65
+            },
+            "depth": {
+              "buy": [
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ],
+              "sell": [
+                {
+                  "price": 1412.95,
+                  "quantity": 5191,
+                  "orders": 13
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                },
+                {
+                  "price": 0,
+                  "quantity": 0,
+                  "orders": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

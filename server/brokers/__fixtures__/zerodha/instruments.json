@@ -1,0 +1,50 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/NSE",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n256265,1001,NIFTY 50,\"NIFTY 50\",0,,0,0,0,EQ,INDICES,NSE\n260105,1016,NIFTY BANK,\"NIFTY BANK\",0,,0,0,0,EQ,INDICES,NSE\n738561,2885,RELIANCE,\"RELIANCE INDUSTRIES\",0,,0,0.1,1,EQ,NSE,NSE\n408065,1594,INFY,\"INFOSYS\",0,,0,0.05,1,EQ,NSE,NSE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/BSE",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n265,1,SENSEX,\"SENSEX\",0,,0,0,0,EQ,INDICES,BSE\n274441,1072,BANKEX,\"BANKEX\",0,,0,0,0,EQ,INDICES,BSE\n128083204,500325,RELIANCE,\"RELIANCE INDUSTRIES\",0,,0,0.05,1,EQ,BSE,BSE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/NFO",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n12010242,46915,NIFTY26OCT25000CE,\"NIFTY\",0,2026-10-27,25000,0.05,65,CE,NFO-OPT,NFO\n12010498,46916,NIFTY26OCT25000PE,\"NIFTY\",0,2026-10-27,25000,0.05,65,PE,NFO-OPT,NFO\n12010754,46917,NIFTY26OCT25050CE,\"NIFTY\",0,2026-10-27,25050,0.05,65,CE,NFO-OPT,NFO\n12011010,46918,NIFTY26OCT25050PE,\"NIFTY\",0,2026-10-27,25050,0.05,65,PE,NFO-OPT,NFO\n12011266,46919,NIFTY26OCT25100CE,\"NIFTY\",0,2026-10-27,25100,0.05,65,CE,NFO-OPT,NFO\n12011522,46920,NIFTY26OCT25100PE,\"NIFTY\",0,2026-10-27,25100,0.05,65,PE,NFO-OPT,NFO\n12090370,47228,NIFTY26N0325000CE,\"NIFTY\",0,2026-11-03,25000,0.05,65,CE,NFO-OPT,NFO\n12090626,47229,NIFTY26N0325000PE,\"NIFTY\",0,2026-11-03,25000,0.05,65,PE,NFO-OPT,NFO\n12601602,49225,NIFTY26OCTFUT,\"NIFTY\",0,2026-10-27,0,0.1,65,FUT,NFO-FUT,NFO\n13502978,52746,BANKNIFTY26OCT56000CE,\"BANKNIFTY\",0,2026-10-27,56000,0.05,30,CE,NFO-OPT,NFO\n17105410,66818,RELIANCE26OCT1400CE,\"RELIANCE\",0,2026-10-27,1400,0.05,500,CE,NFO-OPT,NFO\n17105666,66819,RELIANCE26OCT1400PE,\"RELIANCE\",0,2026-10-27,1400,0.05,500,PE,NFO-OPT,NFO\n14400002,56250,NIFTYNXT5026DEC81600CE,\"NIFTYNXT50\",0,2026-12-29,81600,0.05,25,CE,NFO-OPT,NFO\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.kite.trade/instruments/BFO",
+      "status": 200,
+      "text": "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange\n287960325,1124865,SENSEX26O2282000CE,\"SENSEX\",0,2026-10-22,82000,0.05,20,CE,BFO-OPT,BFO\n287960581,1124866,SENSEX26O2282000PE,\"SENSEX\",0,2026-10-22,82000,0.05,20,PE,BFO-OPT,BFO\n287995397,1125002,SENSEX26OCT82000CE,\"SENSEX\",0,2026-10-29,82000,0.05,20,CE,BFO-OPT,BFO\n288040453,1125178,BANKEX26NOV67500PE,\"BANKEX\",0,2026-11-26,67500,0.05,30,PE,BFO-OPT,BFO\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 20,
+    "underlyings": [
+      "NIFTY",
+      "BANKNIFTY",
+      "SENSEX",
+      "BANKEX",
+      "RELIANCE"
+    ]
+  }
+}

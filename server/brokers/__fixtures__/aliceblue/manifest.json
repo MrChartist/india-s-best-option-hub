@@ -1,0 +1,27 @@
+{
+  "brokerId": "aliceblue",
+  "creds": {
+    "userId": "AB1234",
+    "appCode": "ABC123XYZ",
+    "apiSecret": "dummy-api-secret-value",
+    "authCode": "dummy-auth-code-0001"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://ant.aliceblueonline.com/productdocumentation/",
+    "https://ant.aliceblueonline.com/productdocumentation/Authentication/",
+    "https://ant.aliceblueonline.com/productdocumentation/Profile/",
+    "https://ant.aliceblueonline.com/productdocumentation/portfolio/",
+    "https://ant.aliceblueonline.com/productdocumentation/Funds/",
+    "https://ant.aliceblueonline.com/productdocumentation/orders%20Management/",
+    "https://ant.aliceblueonline.com/productdocumentation/Option%20Chain/",
+    "https://ant.aliceblueonline.com/productdocumentation/Market%20Data/",
+    "https://ant.aliceblueonline.com/productdocumentation/Historical%20Data/",
+    "https://ant.aliceblueonline.com/productdocumentation/Contract%20Master/",
+    "https://ant.aliceblueonline.com/productdocumentation/Appendix/",
+    "https://ant.aliceblueonline.com/productdocumentation/Error%20Code/",
+    "https://ant.aliceblueonline.com/productdocumentation/Rates%20Limits/"
+  ],
+  "notes": "Envelopes and field names follow the official Alice Blue V2 docs samples (sources). The docs' option-chain sample is for NIFTY 25AUG26; here the same structure carries 20OCT26 strikes. Contract-master rows use the live V2 CSV headers. The getUserDetails exchange is included in every fixture because the session cache may or may not already hold it. Every token, id and name is a dummy."
+}

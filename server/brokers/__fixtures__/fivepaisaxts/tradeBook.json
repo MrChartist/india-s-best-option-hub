@@ -1,0 +1,107 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://xtsmum.5paisa.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey05",
+        "secretKey": "dummyIaSecret05",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://xtsmum.5paisa.com/interactive/orders/trades",
+      "json": {
+        "type": "success",
+        "code": "s-trades-0001",
+        "description": "Success trade book",
+        "result": [
+          {
+            "LoginID": "DUMMY1",
+            "ClientID": "DUMMY1",
+            "AppOrderID": 648468732,
+            "OrderReferenceID": "",
+            "GeneratedBy": "TWSAPI",
+            "ExchangeOrderID": "1005239196374109",
+            "OrderCategoryType": "NORMAL",
+            "ExchangeSegment": "NSEFO",
+            "ExchangeInstrumentID": "40003",
+            "TradingSymbol": "NIFTY26O2025000CE",
+            "OrderSide": "BUY",
+            "OrderType": "Limit",
+            "ProductType": "NRML",
+            "TimeInForce": "DAY",
+            "OrderPrice": 118.5,
+            "OrderQuantity": 75,
+            "OrderStopPrice": 0,
+            "OrderStatus": "Filled",
+            "OrderAverageTradedPrice": 118.45,
+            "LeavesQuantity": 0,
+            "CumulativeQuantity": 75,
+            "OrderDisclosedQuantity": 0,
+            "OrderGeneratedDateTime": "16-10-2026 11:17:29",
+            "ExchangeTransactTime": "16-10-2026 11:17:30",
+            "LastUpdateDateTime": "16-10-2026 11:17:29",
+            "OrderUniqueIdentifier": "123abc",
+            "OrderLegStatus": "SingleOrderLeg",
+            "LastTradedPrice": 118.45,
+            "LastTradedQuantity": 75,
+            "LastExecutionTransactTime": "16-10-2026 11:17:29",
+            "ExecutionID": "3308927",
+            "ExecutionReportIndex": 3,
+            "IsSpread": false,
+            "MessageCode": 9005,
+            "MessageVersion": 4,
+            "TokenID": 0,
+            "ApplicationType": 0,
+            "SequenceNumber": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

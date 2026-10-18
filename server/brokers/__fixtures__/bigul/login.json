@@ -1,0 +1,25 @@
+{
+  "secrets": {
+    "totpCode": "123456"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/auth/connect/login",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "totp": "123456"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "TOTP verified successfully",
+        "data": {
+          "token": "dummy.bigul.jwt.token"
+        },
+        "error": null
+      }
+    }
+  ]
+}

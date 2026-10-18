@@ -1,0 +1,53 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V1/TradeBook",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "ClientCode": "55512345"
+        }
+      },
+      "json": {
+        "body": {
+          "Message": "",
+          "Status": 0,
+          "TradeBookDetail": [
+            {
+              "BuySell": "S",
+              "DelvIntra": "D",
+              "Exch": "N",
+              "ExchOrderID": "1000000021496830",
+              "ExchType": "D",
+              "ExchangeTradeID": "2114466",
+              "ExchangeTradeTime": "/Date(1792471550000+0530)/",
+              "Multiplier": 1,
+              "OrgQty": 650,
+              "PendingQty": 0,
+              "Qty": 65,
+              "Rate": 2.55,
+              "ScripCode": 51406,
+              "ScripName": "NIFTY 20 Oct 2026 PE 24950.00",
+              "TradeType": "ON"
+            }
+          ]
+        },
+        "head": {
+          "responseCode": "5PTrdBkV1",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

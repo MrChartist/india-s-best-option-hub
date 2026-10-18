@@ -1,0 +1,36 @@
+{
+  "creds": {
+    "sessionToken": "dummy.bigul.jwt.token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/user-limits",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "seg": "ALL",
+        "exch": "ALL",
+        "prod": "ALL"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": {
+          "AddPreExpMrgnMisPrsnt": "0.00",
+          "CurExpMrgnNrmlPrsnt": "0.00",
+          "RmsPayOutAmt": "0.00",
+          "AdhocMargin": "0.00",
+          "tid": "server1_6228",
+          "AmountUtilizedPrsnt": "12500.00",
+          "CollateralValue": "12474366.00",
+          "RMSRequiredMargin": "0.00",
+          "stCode": 200,
+          "BoardLotLimit": "0"
+        },
+        "error": null
+      }
+    }
+  ]
+}

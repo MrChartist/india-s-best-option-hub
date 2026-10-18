@@ -1,0 +1,34 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/user/v1/getRMS$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "net": "9999999999999",
+          "availablecash": "9999999999999",
+          "availableintradaypayin": "0",
+          "availablelimitmargin": "0",
+          "collateral": "0",
+          "m2munrealized": "0",
+          "m2mrealized": "0",
+          "utiliseddebits": "0",
+          "utilisedspan": "0",
+          "utilisedoptionpremium": "0",
+          "utilisedholdingsales": "0",
+          "utilisedexposure": "0",
+          "utilisedturnover": "0",
+          "utilisedpayout": "0"
+        }
+      }
+    }
+  ]
+}

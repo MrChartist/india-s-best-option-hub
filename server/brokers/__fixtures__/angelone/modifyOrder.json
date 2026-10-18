@@ -1,0 +1,46 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "args": [
+    "201020000000080",
+    {
+      "tradingSymbol": "SBIN-EQ",
+      "token": "3045",
+      "exchange": "NSE",
+      "orderType": "LIMIT",
+      "product": "INTRADAY",
+      "price": 194,
+      "qty": 1
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/modifyOrder$",
+      "expectBody": {
+        "variety": "NORMAL",
+        "orderid": "201020000000080",
+        "ordertype": "LIMIT",
+        "producttype": "INTRADAY",
+        "duration": "DAY",
+        "price": "194",
+        "quantity": "1",
+        "tradingsymbol": "SBIN-EQ",
+        "symboltoken": "3045",
+        "exchange": "NSE"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": {
+          "orderid": "201020000000080",
+          "uniqueorderid": "34reqfachdfih"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "args": [
+    {
+      "tradingsymbol": "NIFTY26OCT25000CE",
+      "exchange": "NFO",
+      "transactionType": "BUY",
+      "orderType": "MARKET",
+      "product": "INTRADAY",
+      "validity": "DAY",
+      "lots": 2
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.kite.trade/orders/regular",
+      "expectBody": {
+        "tradingsymbol": "NIFTY26OCT25000CE",
+        "exchange": "NFO",
+        "transaction_type": "BUY",
+        "order_type": "MARKET",
+        "quantity": "130",
+        "product": "MIS",
+        "validity": "DAY",
+        "price": "0",
+        "market_protection": "-1"
+      },
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "151220000000000"
+        }
+      }
+    }
+  ]
+}

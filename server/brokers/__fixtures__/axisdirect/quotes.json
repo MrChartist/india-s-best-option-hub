@@ -1,0 +1,52 @@
+{
+  "args": [
+    [
+      {
+        "token": "3340003",
+        "exchange": "NFO"
+      },
+      {
+        "token": "9926000",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://welcome-api.axisdirect.in/handshake",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyOA9By2klDcoiVEZI8+9EFf/JyGuzmAL9xUuehyGeW+BqHx3F/ynLBc+pr2fmFRxcrP6Skt3x9nsltoxunQFEgpZV6jRn+sRPzJBScIuCKx5dBoVYfD9Tdkle/guhoEnNh/V1WcPsdJ+1tRp2JC0SSjHOEL9PDFtcYdMqz2Tzvka8G89gUoIXqc/U/UCoKvYl78zyEdne34tChFEcn3eDFUssa/Y87lx4UyS4jfSLn9V8DjnNdhge2pJnhLvq5R1BHEA8uwqnCZkGfwzWiyBDUmMCIgCGRg3lekcYWA47zxd6psiQoS6BAJNW8mJEsAj9PcD6V3RlyH5RbIHxHF5AwIDAQAB"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://welcome-api.axisdirect.in/sso/authenticate",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "payload": "AAAAAAAAAAAAAAAAAAAAAQ==.qfBkIQr/Lp9cMNFGxrdT6g==.rYhvne7cCtsGUZ/0mW/8Xd5uLz6KJKBfD38TIm8Nf7rmnxrVCLaFg5W2MOxcmjMYy11XfaShE9iG1VA1mfhHtmZR5bTP9fMTK+XUaMo5wV0f5GBcUvbU1Yqt+b7RzpxdZfkBAyjAXhabjgM0EqKJGbnOH61MCAaeXsM0jDlSbxjMngX5JoBXacrnO242wa2VxG/f8nFIRpV8zWXSPvErpcmQ/OKNwxn6ULhvqxRc5BQfsJAH2jE9fq30BPSb5qIGmVrhFRq4DlSWiFc+RrSVcErUiMCKQhQtCyPkMPc6RC6GLo3ZzyUAAk5MxTyg0X3jymZBfJTdaHiLvjIN8h1jOoFCi4aZD3t7xgBiLMpuhi0MrJn+6MtLwsauGyYfRoBfxO4LQDHmiY5uFuyLrtvqY9dcwII9PWL4Z4r4jhtFOQVy138nEVbTgI2lbH8dZo3HWoWvfrFkkF/zJKXA0uNcui5u40YXK9QlVgxqCJ4AsHFNn7eFPAtp2E1ZYPqP5jsMkMdk5wv9qOxsq8XR7/B524uukep7SeXTSDb08HDKvecUuK0EnZX0un7i2GG1kY8YoEufGEYsU6tmp/JreHUbnBxM+fEoeOphqjclM4T2c+9a0s9cwdgMwcacvL6ucLICIWsks1CU6ThmKw4nz4lC9NnA+7+P5FAXSYwV/l5Xv9gwePvRKDuWtA=="
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://invest-api.axisdirect.in/feedbroadcast/multi-touch-line",
+      "json": {
+        "statusCode": 200,
+        "status": "OK",
+        "data": {
+          "payload": "AAAAAAAAAAAAAAAAAAAABQ==.M8vhKhsuEqIGIjUi1BUNEw==.yyRI790pzBtc0plcYqZP4vm7nFdz8Hyk42c4teQVu438oAt3zh1nf8hzAi7ozvHWNH5X3BVSS34YPjgQPaR9kk76aXcePk53IU14aGNik6hwOBIK7cDmvvLr3LVNamq8uhXB6h3UuZeje5sY1jjVhdVUEuDWgxiEa32D9ER1nJz/FBNSf3aCyhVY1lFt0bkeHsLQE34w+KT9xGaQv6tl4Uws4o5XAltwb0j2gGTd8H732BS5RWd91RsVYobbnZ2EZzdGmODTjmeZZEzqX7l8kHbuuhVRSWTXPeestdb90EUsRAZmB6lMiA+Kk70JSj94U8P+vP2coy+VrovVT7NM+1zKpIR7zKiG+NHMFUVDWEmWS2K0jYfxqtPJLfExwXwHi74S3adPaiw+1PdtGn/DZK6XY44A7n9aCBJhJ8mV5SnoDtFG1QptTJQmPH731RZ/DbeIiESxGIKB2oDsv0g9+ppaSc2YZ2NCYN+g2DviDR1A5VtLO5HhAwFDEUFvGKeU4gb74FsselAe/rIeGk2hS5Q13unUiyRyktZxY+pasbzgJ7gRrndkAA8ke5kt9d07ptMaJsjnKGOiqbupQO7XOgffO7jXKoXCobAQuCwSweIKhitiJnwR/UWP7wC9YlwJ4ufmhdGWv2kxmbItz8hCOEwYRlZW9ti71+S0jcfdvefTGT3yr0ecLPFXYiaSJMAWZQHvEqHiqQ/DeSTeDFcRtxxzxYt9ujO06n5BiOPxnocKmOBtXAceFltMD40zu7Tt/CIg6elvGCXmjKJKbInnr1q/lAkzFZSw8kSqA3p4hMvoQNFm6IWLIkEK1Q2fAk+ml+lL4xe1lg2Qkx88yuTk9cxpBVAJBo0KkgcbggiPCgzUsNgdW00kPsXOVOslHd24R7j5OaK7Hkx/gaqOzBSrOKLztRIlwdarxP8As8rYWi2Y8kgFd/mX6rOw/g0i52uE7RmPs6fDK8e4EHSlMEpvC8BSHgEoGhwBEoZmhMaB4LYTU66gqhy6WxZJMVEzeuubX3bKirHGmm5q0vCx6OwQV266pURIFiBVSIYKF4hI9f/uUOnYtuDGDtg+56ydQMJKK3qxajJinzmj4TWo+yGEfMcUBkTCi93Bwg1iT++iZd6vo8Oks1cjQQMMXDTf3s04rC9wG+8NRk5aGFIvoxhthW1vm87TZ2/qF8fsUipgKz5IBQCxdnBQH1AH4DQ2ALjKT3MeUUK3+Au73zyScegux6fynV9Y4GqN7HJSt8clTckegQODlEZbM3ZxeTVVOnJXO1ySdq2RCm64mC/nalRUyUIHPHbRY+kYun35PthU2QfRYtBYc5wpvdlQxmxcI+2PxKzMAKhaony3XVIb8h8RQ4w="
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

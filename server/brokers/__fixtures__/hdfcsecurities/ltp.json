@@ -1,0 +1,39 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsec.com/oapi/v1/security-master",
+      "status": 200,
+      "text": "exchange,security_id,instrument_segment,expiry_date,strike_price,option_type,lot_size,tick_size,close_price,exch_security_id,symbol_name,underline_symbol,open_price\nNSE,NIFTYEQEQNR,EQUITY,,,,1,5,0,26000,NIFTY,,0\nNSE,BANKNIFTEQNR,EQUITY,,,,5,.05,0,26009,BANKNIFTY,,0\nNSE,FINNIFTY,EQUITY,,,,5,5,0,26037,FINNIFTY,,0\nNSE,MIDCPNIFTY,EQUITY,,,,1,1,0,26074,MIDCPNIFTY,,0\nBSE,SENSEX,EQUITY,,,,1,5,0,1,SENSEX,,0\nBSE,BANKEX,EQUITY,,,,1,5,0,12,BANKEX,,0\nNSE,RELINDEQNR,EQUITY,,,,1,10,1402.5,2885,RELIANCE,,1398\nNSE,MFDUMMYNR,EQUITY,,,,1,1,10,DUMMY1234,SOMEMF,,10\nNSE,51288,OPTIDX,2026-10-27,25000,CE,65,5,182.4,51288,NIFTY,NIFTYEQEQNR,0\nNSE,51289,OPTIDX,2026-10-27,25000,PE,65,5,141.1,51289,NIFTY,NIFTYEQEQNR,0\nNSE,51290,OPTIDX,2026-10-27,25100,CE,65,5,131.6,51290,NIFTY,NIFTYEQEQNR,0\nNSE,51291,OPTIDX,2026-10-27,25100,PE,65,5,190.3,51291,NIFTY,NIFTYEQEQNR,0\nNSE,43801,OPTIDX,2026-11-03,25000,CE,65,5,231.0,43801,NIFTY,NIFTYEQEQNR,0\nNSE,43802,OPTIDX,2026-11-03,25000,PE,65,5,198.2,43802,NIFTY,NIFTYEQEQNR,0\nNSE,52222,FUTIDX,2026-10-27,-0.01,,65,10,25110,52222,NIFTY,NIFTYEQEQNR,0\nNSE,61001,OPTIDX,2026-10-27,56000,CE,30,5,410,61001,BANKNIFTY,BANKNIFTEQNR,0\nNSE,61101,OPTIDX,2026-10-27,27000,PE,60,5,220,61101,FINNIFTY,FINNIFTY,0\nNSE,61201,OPTIDX,2026-10-27,13000,CE,120,5,95,61201,MIDCPNIFTY,MIDCPNIFTY,0\nBSE,B842869,OPTIDX,2026-10-29,82000,CE,20,5,512.3,842869,SENSEX,SENSEX,0\nBSE,B842870,OPTIDX,2026-10-29,82000,PE,20,5,488.1,842870,SENSEX,SENSEX,0\nBSE,B864500,OPTIDX,2026-10-29,60000,PE,30,5,610,864500,BANKEX,BANKEX,0\nNSE,106474,OPTSTK,2026-10-27,1400,CE,500,5,31.2,106474,RELIANCE,RELINDEQNR,0\nMCX,GOLDFUT,FUTCOM,2026-12-04,0,,1,100,120000,454818,GOLD,GOLD,0\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "PUT",
+      "url": "https://developer.hdfcsec.com/oapi/v1/fetch-ltp?api_key=dummy-ir-api-key",
+      "expectBody": {
+        "data": [
+          {
+            "exchange": "NSE_INDEX"
+          }
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "prev_close": 25012.35,
+            "ltp": 25061.4,
+            "exchange": "NSE_INDEX",
+            "token": 26000
+          }
+        ],
+        "meta": {
+          "statusCode": "OK",
+          "statusMsg": "OK"
+        }
+      }
+    }
+  ]
+}

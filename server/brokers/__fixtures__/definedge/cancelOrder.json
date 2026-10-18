@@ -1,0 +1,22 @@
+{
+  "creds": {
+    "apiSessionKey": "dummy-api-session-key",
+    "wsSessionKey": "dummy-ws-key",
+    "uid": "DUMMY01",
+    "actid": "DUMMY01"
+  },
+  "args": [
+    "26101600000013"
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://integrate.definedgesecurities.com/dart/v1/cancel/26101600000013",
+      "json": {
+        "status": "SUCCESS",
+        "order_id": "26101600000013",
+        "request_time": "10:20:27 16-10-2026"
+      }
+    }
+  ]
+}

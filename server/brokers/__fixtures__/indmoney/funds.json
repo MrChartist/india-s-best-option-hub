@@ -1,0 +1,36 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/funds",
+      "json": {
+        "status": "success",
+        "data": {
+          "sod_balance": 9060.28,
+          "pledge_received": 0,
+          "pledge_remained": 0,
+          "detailed_avl_balance": {
+            "option_sell": 1468.8027400000137,
+            "future": 1468.8027400000137,
+            "option_buy": 69686.30274000001,
+            "comm_option_buy": 1468.8027400000137,
+            "eq_mis": 1468.8027400000137,
+            "eq_cnc": 1468.8027400000137,
+            "eq_mtf": 963.3452400000124
+          },
+          "withdrawal_balance": 1528.8027400000074,
+          "funds_added": 0,
+          "funds_withdrawn": 0,
+          "realized_pnl": 31725.982500000002,
+          "unrealized_pnl": 39.137500000000486,
+          "brokerage": 0,
+          "eq_charges": 462.18999999999994,
+          "fno_charges": 0
+        }
+      }
+    }
+  ]
+}

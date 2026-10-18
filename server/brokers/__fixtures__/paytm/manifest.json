@@ -1,0 +1,28 @@
+{
+  "brokerId": "paytm",
+  "creds": {
+    "apiKey": "dummy-paytm-api-key",
+    "apiSecret": "dummy-paytm-api-secret",
+    "accessToken": "dummy.paytm.access.token"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-27",
+  "sources": [
+    "https://developer.paytmmoney.com/docs/api/login/",
+    "https://developer.paytmmoney.com/docs/api/generate-access-token/",
+    "https://developer.paytmmoney.com/docs/api/user-details/",
+    "https://developer.paytmmoney.com/docs/api/security-master/",
+    "https://developer.paytmmoney.com/docs/api/live-market-data-api/",
+    "https://developer.paytmmoney.com/docs/api/option-chain-config/",
+    "https://developer.paytmmoney.com/docs/api/option-chain/",
+    "https://developer.paytmmoney.com/docs/api/position-api/",
+    "https://developer.paytmmoney.com/docs/api/user-holdings-data-api/",
+    "https://developer.paytmmoney.com/docs/api/get-funds-summary/",
+    "https://developer.paytmmoney.com/docs/api/order-book-all-orders/",
+    "https://developer.paytmmoney.com/docs/api/trade-book-api/",
+    "https://developer.paytmmoney.com/docs/api/place-regular-order/",
+    "https://developer.paytmmoney.com/docs/api/modify-regular-order/",
+    "https://developer.paytmmoney.com/docs/api/cancel-regular-order/"
+  ],
+  "notes": "JSON payloads are the official Paytm Money docs samples (user-details, live-market-data-api LTP/FULL models, option-chain-config, option-chain, position-api, user-holdings-data-api, get-funds-summary, order-book-all-orders, trade-book-api, place/modify/cancel-regular-order) with ids, prices and dates moved to dummy October 2026 values. Docs typos fixed so the samples parse (curly quotes in funds and holdings, the nested object in trade-book-api). CSV headers are the official security-master files' header (identical across files); rows are dummies in that format. Ids for the six indices match the live index master."
+}

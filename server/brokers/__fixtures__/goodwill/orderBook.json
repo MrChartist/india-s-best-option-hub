@@ -1,0 +1,130 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.gwcindia.in/v1/login-response",
+      "expectBody": {
+        "api_key": "dummyGwApiKey456",
+        "request_token": "5ca9e0b42c4e94759030e850",
+        "signature": "933ae0dc4f6d7d17f0fd42927c616e8b4a39a332a39c0f2c9f829b88521dfdcf"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "clnt_id": "GQ1A0007",
+          "name": "TEST USER",
+          "email": "TEST@EXAMPLE.COM",
+          "exarr": [
+            "BSE",
+            "NFO",
+            "NSE",
+            "MCX",
+            "ICEX"
+          ],
+          "prarr": [
+            "BO",
+            "CNC",
+            "CO",
+            "MIS",
+            "NRML"
+          ],
+          "orarr": [
+            "L",
+            "MKT",
+            "SL",
+            "SL-M"
+          ],
+          "exchDetail": {
+            "EQUITY": [
+              {
+                "product": [
+                  "BO",
+                  "CNC",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_cm",
+                "exch": "NSE"
+              }
+            ],
+            "DERIVATIVE": [
+              {
+                "product": [
+                  "BO",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_fo",
+                "exch": "NFO"
+              }
+            ]
+          },
+          "usersessionid": "3279379865",
+          "access_token": "8a5e32e1126025fefbcefc88eb6eb9a9"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.gwcindia.in/v1/orderbook",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "exchange": "NFO",
+            "token": "35008",
+            "tsym": "NIFTY03NOV26C25000",
+            "product": "NRML",
+            "pricetype": "L",
+            "validity": "DAY",
+            "price": "120.00",
+            "trgprc": "",
+            "qty": "65",
+            "dscqty": "0",
+            "trantype": "B",
+            "avgprc": "",
+            "fillshares": "0",
+            "remarks": "",
+            "exchordid": "1100000017705694",
+            "syomorderid": "",
+            "nstordno": "23031400017243",
+            "orderentrytime": "13:10:32 19-10-2026",
+            "exchconfrmtime": "19-10-2026 13:10:32",
+            "status": "open",
+            "ordvaldate": "",
+            "rejreason": ""
+          },
+          {
+            "exchange": "NSE",
+            "token": "14366",
+            "tsym": "IDEA-EQ",
+            "product": "CNC",
+            "pricetype": "MKT",
+            "validity": "DAY",
+            "price": "0.00",
+            "trgprc": "",
+            "qty": "1",
+            "dscqty": "0",
+            "trantype": "S",
+            "avgprc": "6.55",
+            "fillshares": "1",
+            "remarks": "",
+            "exchordid": "1100000017705695",
+            "syomorderid": "",
+            "nstordno": "23031400017244",
+            "orderentrytime": "13:10:32 14-03-2023",
+            "exchconfrmtime": "14-03-2023 13:10:32",
+            "status": "complete",
+            "ordvaldate": "",
+            "rejreason": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

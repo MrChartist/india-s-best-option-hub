@@ -1,0 +1,51 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsec.com/oapi/v1/user/margins?api_key=dummy-ir-api-key",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "equity": {
+            "total_available_limit": 9.99,
+            "total_utilised_limit": 184,
+            "total_limit": 9.99,
+            "totalAvailableLimitDetails": {
+              "cash": 9.99,
+              "mtf": 9.99,
+              "equity_intraday": 9.99,
+              "equity_margin": 9.99,
+              "cover_order": 9.99,
+              "derivative_future_shortOption": 9.99,
+              "option_buy": 9.99,
+              "mutual_fund": 9.99,
+              "cdx_future_shortOption": 9.99,
+              "cdx_option_buy": 9.99,
+              "com_derivative_future_shortOption": 9.99,
+              "com_derivative_option_buy": 9.99
+            },
+            "totalUtilizationDetails": {
+              "cash": 1597,
+              "mtf": 20,
+              "equity_margin_intraday_cover": 240,
+              "derivative_future_shortOption": 0.0,
+              "option_buy": 0.0,
+              "mutual_fund": 0.0,
+              "cdxFutureShortOption": 0.0,
+              "cdxOptionBuy": 0.0,
+              "comDerivativeFutureShortOption": 0.0
+            },
+            "totalLimitDetails": {
+              "bank_hold": 0.0,
+              "intraday_sales_proceed": 0.0,
+              "ledger_balance": 0.0,
+              "adhoc_limit": 0.0,
+              "pledge_limit": 0.0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

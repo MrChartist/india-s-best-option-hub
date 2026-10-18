@@ -51,10 +51,29 @@ Most serious options tools for Indian traders sit behind a monthly fee. The best
 | **Volatility** | Volatility | IV rank and percentile, smile, term structure, volatility cone, expected move, India VIX analytics, symbol compare |
 | **Positioning** | Gamma Exposure · Options Flow · FII / DII Positioning · Futures & Rollover | GEX profile, call and put walls, gamma flip, DEX / VEX / CEX, derived flow tape, unusual activity, participant-wise OI, rollover and basis |
 | **Strategy** | Strategy Builder · Optimizer · Backtester · Calculators | Multi-leg payoff with target-date and IV sliders, lognormal POP, margin and charges estimate, strategy optimizer by view and budget, backtests on past expiries, charges, margin, position size, option price and IV calculators |
+| **Trade** (beta) | 1Cliq Trade · Orders | Keyboard-first one-click terminal with arming, server-side stop-loss and target engine, <kbd>F6</kbd> close all and <kbd>F7</kbd> cancel all, trading lock, and today's Dhan order book with cancel. Paper fills until you turn on Live trading |
 | **Portfolio** | Positions · Paper Trading · Trade Journal · Alerts | Live P&L and Greeks, paper trading with a real order ticket, tradebook import and analytics, price, IV, PCR and OI alerts |
 | **Learn** | Learn · Mr. Chartist ecosystem | Lessons from options basics to dealer gamma, quizzes and simulators, links to every Mr. Chartist product |
+| **Settings** | Broker Settings | 41 Indian brokers in one directory with a capability matrix, encrypted key vault, per-session Log in for brokers that need a PIN and TOTP, data-source health and the Live trading switch. See [docs/BROKERS.md](docs/BROKERS.md) |
 
 Press <kbd>Ctrl</kbd> <kbd>K</kbd> anywhere to jump to any page or symbol, and <kbd>?</kbd> to see every keyboard shortcut.
+
+### 1Cliq Trade and Orders (beta)
+
+A keyboard-first execution terminal at `/one-cliq` (<kbd>G</kbd> then <kbd>T</kbd>), with today's order book at `/orders`. The full build spec is in [`1CLIQ-TRADE-SPEC.md`](1CLIQ-TRADE-SPEC.md).
+
+- **Live trading is off by default.** Fills are simulated paper trades until you turn on **Live trading** in Broker Settings, accept the real-money warning and arm the terminal (<kbd>O</kbd>). Arming never survives a reload and switches itself off when idle.
+- **Keys:** arrow keys for market orders, <kbd>+</kbd> / <kbd>-</kbd> lots, <kbd>1</kbd> to <kbd>5</kbd> lot presets, <kbd>F6</kbd> close all (press twice), <kbd>F7</kbd> cancel all, <kbd>Esc</kbd> disarm, <kbd>?</kbd> cheat sheet.
+- **Risk engine on the proxy, not in the tab.** Every Dhan tick reaches the server risk engine before any browser, so a closed or throttled tab cannot delay an exit. Spot-referenced stop-loss and target, trailing ratchet, a position state machine and a one-second dead-man's switch. Real exit orders from the risk engine are not wired yet: it calls a stub, so treat its stop-loss and target as alerts for now.
+- **Panic layer.** Close all cancels first, then closes shorts, hedges and futures in three waves, always re-reading the order book from Dhan and confirming before it reports success.
+- **Trading lock** with a server-computed cooling-off period.
+- **Save as basket** in Strategy Builder resolves legs against the live chain. It never places orders.
+
+Orders are placed through Dhan only. The other 40 brokers supply data. Every state-changing route on the proxy is POST-only, behind the same host and origin checks as the rest of the proxy.
+
+### 41 brokers
+
+Broker Settings lists **41 Indian brokers** (Dhan, Zerodha, Upstox, Angel One, Fyers, Flattrade, Shoonya, Kotak Neo, 5paisa and more) with what each adapter can do: option chain, quotes, depth, candles, Greeks, portfolio and orders. Dhan is verified with a live account; the others are fixture-tested and marked beta. Passwords, PINs and TOTP secrets are never stored: brokers that need them ask in a **Log in** dialog each session and only the returned session token is kept. Full list and capability matrix: [docs/BROKERS.md](docs/BROKERS.md).
 
 ---
 
@@ -181,12 +200,14 @@ That is all you need. Without broker keys the app still runs, with NSE and publi
 
 ### Optional: add Dhan for real-time chains and Greeks
 
-A free [Dhan API](https://dhanhq.co/docs/v2/) key gives you the best option chain, Greeks and live WebSocket ticks. Either enter it in the app under **Broker Settings**, or put it in a `.env` file:
+A free [Dhan API](https://dhanhq.co/docs/v2/) key gives you the best option chain, Greeks and live WebSocket ticks, and is the broker 1Cliq Trade places orders with. Either enter it in the app under **Broker Settings**, or put it in a `.env` file:
 
 ```bash
 cp .env.example .env
 # then set DHAN_CLIENT_ID and DHAN_ACCESS_TOKEN
 ```
+
+Using another broker? Add its keys under **Broker Settings → All brokers**. The active broker then supplies option chains and expiries through the local proxy; the live feed and 1Cliq orders stay on Dhan. See [docs/BROKERS.md](docs/BROKERS.md).
 
 ### Run with Docker
 
@@ -211,7 +232,8 @@ flowchart LR
 
 | Source | Provides | Key needed |
 |---|---|---|
-| **Dhan API** | Option chain, Greeks, expiry list, live WebSocket ticks | Yes (free) |
+| **Dhan API** | Option chain, Greeks, expiry list, live WebSocket ticks, 1Cliq orders | Yes (free) |
+| **40 other brokers** | Option chain, quotes and more, per the [capability matrix](docs/BROKERS.md) | Yes (your own keys) |
 | **NSE** | Indices, sectors, advance/decline, option chain fallback, participant-wise OI, bhavcopy | No |
 | **TradingView** | F&O stock prices and volumes | No |
 | **Yahoo Finance** | Historical OHLCV candles for charts | No |
@@ -260,6 +282,7 @@ flowchart LR
 | <kbd>G</kbd> then <kbd>X</kbd> | Gamma Exposure |
 | <kbd>G</kbd> then <kbd>F</kbd> | Options Flow |
 | <kbd>G</kbd> then <kbd>S</kbd> | Strategy Builder |
+| <kbd>G</kbd> then <kbd>T</kbd> | 1Cliq Trade |
 | <kbd>G</kbd> then <kbd>P</kbd> | Positions |
 | <kbd>G</kbd> then <kbd>L</kbd> | Learn |
 

@@ -1,0 +1,82 @@
+{
+  "args": [
+    {
+      "token": "22",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"dummyAuthCode\",\"checksum\":\"b894ff8fdbb86fe5174916655bcbd12e05c37ca430e03f185fad52ad420cfa70\"}"
+      },
+      "json": {
+        "stat": "Ok",
+        "susertoken": "dummyShoonyaAccessToken",
+        "uid": "FZ00000",
+        "actid": "FZ00000"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.shoonya.com/NorenWClientAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"exch\":\"NSE\",\"token\":\"22\"}"
+      },
+      "json": {
+        "request_time": "12:05:21 18-05-2021",
+        "stat": "Ok",
+        "exch": "NSE",
+        "tsym": "ACC-EQ",
+        "cname": "ACC LIMITED",
+        "symname": "ACC",
+        "seg": "EQT",
+        "instname": "EQ",
+        "isin": "INE012A01025",
+        "pp": "2",
+        "ls": "1",
+        "ti": "0.05",
+        "mult": "1",
+        "uc": "2093.95",
+        "lc": "1713.25",
+        "token": "22",
+        "lp": "1902.35",
+        "h": "1910.00",
+        "l": "1890.10",
+        "v": "182400",
+        "bp1": "1902.30",
+        "sp1": "1902.45",
+        "bp2": "1902.25",
+        "sp2": "1902.50",
+        "bp3": "1902.20",
+        "sp3": "1902.55",
+        "bp4": "0.00",
+        "sp4": "0.00",
+        "bp5": "0.00",
+        "sp5": "0.00",
+        "bq1": "12",
+        "sq1": "30",
+        "bq2": "8",
+        "sq2": "5",
+        "bq3": "40",
+        "sq3": "9",
+        "bq4": "0",
+        "sq4": "0",
+        "bq5": "0",
+        "sq5": "0",
+        "bo1": "2",
+        "so1": "3",
+        "bo2": "1",
+        "so2": "1",
+        "bo3": "4",
+        "so3": "2",
+        "bo4": "0",
+        "so4": "0",
+        "bo5": "0",
+        "So5": "0"
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://piconnect.flattrade.in/PiConnectAPI/PositionBook",
+      "expectBody": {
+        "jData": "{\"uid\":\"FZ00000\",\"actid\":\"FZ00000\"}",
+        "jKey": "GHUDWU53H32MTHPA536Q32WR"
+      },
+      "json": [
+        {
+          "stat": "Ok",
+          "uid": "FZ00000",
+          "actid": "FZ00000",
+          "exch": "NSE",
+          "tsym": "ACC-EQ",
+          "prarr": "C",
+          "pp": "2",
+          "ls": "1",
+          "ti": "5.00",
+          "mult": "1",
+          "prcftr": "1.000000",
+          "daybuyqty": "2",
+          "daysellqty": "2",
+          "daybuyamt": "2610.00",
+          "daybuyavgprc": "1305.00",
+          "daysellamt": "2610.00",
+          "daysellavgprc": "1305.00",
+          "cfbuyqty": "0",
+          "cfsellqty": "0",
+          "cfbuyamt": "0.00",
+          "cfbuyavgprc": "0.00",
+          "cfsellamt": "0.00",
+          "cfsellavgprc": "0.00",
+          "openbuyqty": "0",
+          "opensellqty": "23",
+          "openbuyamt": "0.00",
+          "openbuyavgprc": "0.00",
+          "opensellamt": "30015.00",
+          "opensellavgprc": "1305.00",
+          "netqty": "0",
+          "netavgprc": "0.00",
+          "lp": "0.00",
+          "urmtom": "0.00",
+          "rpnl": "0.00",
+          "cforgavgprc": "0.00"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

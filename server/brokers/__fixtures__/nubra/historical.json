@@ -1,0 +1,322 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "739119",
+        "exchange": "NFO"
+      },
+      "interval": "1m",
+      "from": "2026-10-16T03:45:00Z",
+      "to": "2026-10-16T03:48:00Z"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.nubra\\.io/refdata/refdata/\\d{4}-\\d{2}-\\d{2}\\?exchange=NSE$",
+      "json": {
+        "exchange": "NSE",
+        "is_trading_on": true,
+        "message": "refdata",
+        "refdata": [
+          {
+            "ref_id": 739119,
+            "strike_price": 2500000,
+            "option_type": "CE",
+            "token": 35187,
+            "stock_name": "NIFTY26O2025000CE",
+            "series": "__",
+            "zanskar_name": "OPT_NIFTY_20261020_CE_2500000",
+            "lot_size": 65,
+            "asset": "NIFTY",
+            "expiry": 20261020,
+            "exchange": "NSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 739120,
+            "strike_price": 2500000,
+            "option_type": "PE",
+            "token": 35188,
+            "stock_name": "NIFTY26O2025000PE",
+            "series": "__",
+            "zanskar_name": "OPT_NIFTY_20261020_PE_2500000",
+            "lot_size": 65,
+            "asset": "NIFTY",
+            "expiry": 20261020,
+            "exchange": "NSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 741001,
+            "strike_price": 2500000,
+            "option_type": "CE",
+            "token": 35301,
+            "stock_name": "NIFTY26OCT25000CE",
+            "series": "__",
+            "zanskar_name": "OPT_NIFTY_20261027_CE_2500000",
+            "lot_size": 65,
+            "asset": "NIFTY",
+            "expiry": 20261027,
+            "exchange": "NSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 741500,
+            "strike_price": 0,
+            "option_type": "N/A",
+            "token": 35400,
+            "stock_name": "NIFTY26OCTFUT",
+            "series": "__",
+            "zanskar_name": "FUT_NIFTY_20261027_N/A_0",
+            "lot_size": 65,
+            "asset": "NIFTY",
+            "expiry": 20261027,
+            "exchange": "NSE",
+            "derivative_type": "FUT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 10,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 752001,
+            "strike_price": 146000,
+            "option_type": "CE",
+            "token": 45001,
+            "stock_name": "RELIANCE26OCT1460CE",
+            "series": "__",
+            "zanskar_name": "OPT_RELIANCE_20261027_CE_146000",
+            "lot_size": 500,
+            "asset": "RELIANCE",
+            "expiry": 20261027,
+            "exchange": "NSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "STOCK_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 753001,
+            "strike_price": 7000000,
+            "option_type": "CE",
+            "token": 46001,
+            "stock_name": "NIFTYNXT5026OCT70000CE",
+            "series": "__",
+            "zanskar_name": "OPT_NIFTYNXT50_20261027_CE_7000000",
+            "lot_size": 25,
+            "asset": "NIFTYNXT50",
+            "expiry": 20261027,
+            "exchange": "NSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 70115,
+            "strike_price": 0,
+            "option_type": "N/A",
+            "token": 2885,
+            "stock_name": "RELIANCE",
+            "series": "__",
+            "zanskar_name": "STOCK_RELIANCE_0_N/A_0",
+            "lot_size": 1,
+            "asset": "RELIANCE",
+            "expiry": 0,
+            "exchange": "NSE",
+            "derivative_type": "STOCK",
+            "isin": "N/A",
+            "asset_type": "STOCK",
+            "tick_size": 10,
+            "underlying_prev_close": 2496080
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://api\\.nubra\\.io/refdata/refdata/\\d{4}-\\d{2}-\\d{2}\\?exchange=BSE$",
+      "json": {
+        "exchange": "BSE",
+        "is_trading_on": true,
+        "message": "refdata",
+        "refdata": [
+          {
+            "ref_id": 847001,
+            "strike_price": 8200000,
+            "option_type": "CE",
+            "token": 870001,
+            "stock_name": "SENSEX26O2282000CE",
+            "series": "__",
+            "zanskar_name": "OPT_SENSEX_20261022_CE_8200000",
+            "lot_size": 20,
+            "asset": "SENSEX",
+            "expiry": 20261022,
+            "exchange": "BSE",
+            "derivative_type": "OPT",
+            "isin": "N/A",
+            "asset_type": "INDEX_FO",
+            "tick_size": 5,
+            "underlying_prev_close": 2496080
+          },
+          {
+            "ref_id": 847854,
+            "strike_price": 0,
+            "option_type": "N/A",
+            "token": 532648,
+            "stock_name": "YESBANK",
+            "series": "__",
+            "zanskar_name": "STOCK_YESBANK_0_N/A_0",
+            "lot_size": 1,
+            "asset": "YESBANK",
+            "expiry": 0,
+            "exchange": "BSE",
+            "derivative_type": "STOCK",
+            "isin": "N/A",
+            "asset_type": "STOCK",
+            "tick_size": 1,
+            "underlying_prev_close": 2496080
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.nubra.io/charts/timeseries",
+      "expectBody": {
+        "query": [
+          {
+            "exchange": "NSE",
+            "type": "OPT",
+            "values": [
+              "NIFTY26O2025000CE"
+            ],
+            "interval": "1m",
+            "startDate": "2026-10-16T03:45:00.000Z"
+          }
+        ]
+      },
+      "json": {
+        "market_time": "2026-10-16T04:00:00.0Z",
+        "message": "charts",
+        "result": [
+          {
+            "exchange": "NSE",
+            "type": "OPT",
+            "values": [
+              {
+                "NIFTY26O2025000CE": {
+                  "open": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 10000
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 10195
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 10220
+                    }
+                  ],
+                  "high": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 10200
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 10295
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 10310
+                    }
+                  ],
+                  "low": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 9950
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 10090
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 10180
+                    }
+                  ],
+                  "close": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 10195
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 10220
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 10285
+                    }
+                  ],
+                  "tick_volume": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 12650
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 9367
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 7150
+                    }
+                  ],
+                  "cumulative_oi": [
+                    {
+                      "ts": 1792122300000000000,
+                      "v": 2140000
+                    },
+                    {
+                      "ts": 1792122360000000000,
+                      "v": 2150000
+                    },
+                    {
+                      "ts": 1792122420000000000,
+                      "v": 2155000
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

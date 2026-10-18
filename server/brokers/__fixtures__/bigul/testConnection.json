@@ -1,0 +1,30 @@
+{
+  "creds": {
+    "sessionToken": "dummy.bigul.jwt.token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/index-list",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "exch": "NSE"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": {
+          "idxList": [
+            "Nifty 50",
+            "Nifty Next 50",
+            "Nifty Bank",
+            "Nifty IT"
+          ]
+        },
+        "error": null
+      }
+    }
+  ]
+}

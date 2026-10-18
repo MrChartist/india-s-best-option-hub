@@ -1,0 +1,63 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://authapi.flattrade.in/trade/apitoken",
+      "expectBody": {
+        "api_key": "dummyApiKey",
+        "request_code": "dummyRequestCode",
+        "api_secret": "a190f8f05e45f1496d6fc314fdc4c8b302438e5ed385da25220441c43ed4ec25"
+      },
+      "json": {
+        "token": "GHUDWU53H32MTHPA536Q32WR",
+        "client": "FZ00000",
+        "status": "Ok",
+        "emsg": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Nfo_Index_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nNFO,40001,65,NIFTY,NIFTY20OCT26C24950,OPTIDX,20-OCT-2026,24950,CE\nNFO,40002,65,NIFTY,NIFTY20OCT26P24950,OPTIDX,20-OCT-2026,24950,PE\nNFO,40003,65,NIFTY,NIFTY20OCT26C25000,OPTIDX,20-OCT-2026,25000,CE\nNFO,40004,65,NIFTY,NIFTY20OCT26P25000,OPTIDX,20-OCT-2026,25000,PE\nNFO,40005,65,NIFTY,NIFTY20OCT26C25050,OPTIDX,20-OCT-2026,25050,CE\nNFO,40006,65,NIFTY,NIFTY20OCT26P25050,OPTIDX,20-OCT-2026,25050,PE\nNFO,40011,65,NIFTY,NIFTY27OCT26C25000,OPTIDX,27-OCT-2026,25000,CE\nNFO,40012,65,NIFTY,NIFTY27OCT26P25000,OPTIDX,27-OCT-2026,25000,PE\nNFO,40020,65,NIFTY,NIFTY27OCT26F,FUTIDX,27-OCT-2026,0,XX\nNFO,40031,30,BANKNIFTY,BANKNIFTY27OCT26C56000,OPTIDX,27-OCT-2026,56000,CE\nNFO,40041,60,FINNIFTY,FINNIFTY27OCT26C26500,OPTIDX,27-OCT-2026,26500,CE\nNFO,40051,120,MIDCPNIFTY,MIDCPNIFTY27OCT26P13000,OPTIDX,27-OCT-2026,13000,PE\nNFO,40061,25,NIFTYNXT50,NIFTYNXT5027OCT26C68000,OPTIDX,27-OCT-2026,68000,CE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Nfo_Equity_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nNFO,106743,500,RELIANCE,RELIANCE27OCT26C1460,OPTSTK,27-OCT-2026,1460,CE\nNFO,106744,500,RELIANCE,RELIANCE27OCT26P1460,OPTSTK,27-OCT-2026,1460,PE\nNFO,106700,500,RELIANCE,RELIANCE27OCT26F,FUTSTK,27-OCT-2026,0,XX\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/Bfo_Index_Derivatives.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument,Expiry,Strike,Optiontype\nBFO,825001,20,SENSEX,SENSEX22OCT2682000CE,OPTIDX,22-OCT-2026,82000,CE\nBFO,825002,20,SENSEX,SENSEX22OCT2682000PE,OPTIDX,22-OCT-2026,82000,PE\nBFO,825101,30,BANKEX,BANKEX29OCT2663000CE,OPTIDX,29-OCT-2026,63000,CE\nBFO,825201,60,SENSEX50,SENSEX5022OCT2626900CE,OPTIDX,22-OCT-2026,26900,CE\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://flattrade.s3.ap-south-1.amazonaws.com/scripmaster/NSE_Equity.csv",
+      "text": "Exchange,Token,Lotsize,Symbol,Tradingsymbol,Instrument\nNSE,2885,1,RELIANCE,RELIANCE-EQ,EQ\nNSE,22,1,ACC,ACC-EQ,EQ\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 20,
+    "underlyings": [
+      "NIFTY",
+      "BANKNIFTY",
+      "FINNIFTY",
+      "MIDCPNIFTY",
+      "SENSEX",
+      "BANKEX",
+      "RELIANCE"
+    ]
+  }
+}

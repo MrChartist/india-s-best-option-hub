@@ -1,0 +1,69 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://tradeapi.samco.in/limit/getLimits",
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "User Limit details retrieved successfully",
+        "equityLimit": {
+          "grossAvailableMargin": "125000.00",
+          "payInToday": "0",
+          "notionalCash": "0",
+          "marginUsed": "15202.50",
+          "netAvailableMargin": "109797.50"
+        },
+        "commodityLimit": {
+          "grossAvailableMargin": "0.00",
+          "payInToday": "0",
+          "notionalCash": "0",
+          "marginUsed": "0",
+          "netAvailableMargin": "0.00"
+        }
+      }
+    }
+  ]
+}

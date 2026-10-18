@@ -1,0 +1,51 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/portfolio/holdings",
+      "json": {
+        "status": "true",
+        "message": "SUCCESS",
+        "errorcode": null,
+        "data": [
+          {
+            "tradingsymbol": "BANK OF MAHARASHTRA",
+            "exchange": null,
+            "isin": "INE457A01014",
+            "t1quantity": 0,
+            "realisedquantity": 0,
+            "quantity": 10,
+            "product": null,
+            "collateralquantity": 0,
+            "averageprice": 30,
+            "ltp": 84.7,
+            "symboltoken": "11377",
+            "close": 51.1,
+            "profitandloss": 0,
+            "pnlpercentage": 0
+          },
+          {
+            "tradingsymbol": "PSP PROJECTS LIMITED",
+            "exchange": null,
+            "isin": "INE488V01015",
+            "t1quantity": 0,
+            "quantity": 100,
+            "collateralquantity": 100,
+            "averageprice": 513.35,
+            "ltp": 774.75,
+            "symboltoken": "20877",
+            "close": 659.95,
+            "profitandloss": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

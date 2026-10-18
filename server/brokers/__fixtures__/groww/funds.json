@@ -1,0 +1,48 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.groww.in/v1/margins/detail/user",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "clear_cash": 5000,
+          "net_margin_used": 35000,
+          "brokerage_and_charges": 200,
+          "collateral_used": 3000,
+          "collateral_available": 7000,
+          "adhoc_margin": 1500,
+          "fno_margin_details": {
+            "net_fno_margin_used": 15000,
+            "span_margin_used": 7000,
+            "exposure_margin_used": 4000,
+            "future_balance_available": 3000,
+            "option_buy_balance_available": 11000,
+            "option_sell_balance_available": 1000
+          },
+          "equity_margin_details": {
+            "net_equity_margin_used": 10000,
+            "cnc_margin_used": 5000,
+            "mis_margin_used": 3000,
+            "cnc_balance_available": 9000,
+            "mis_balance_available": 1000
+          }
+        }
+      }
+    }
+  ]
+}

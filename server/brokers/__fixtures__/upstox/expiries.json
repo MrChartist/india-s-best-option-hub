@@ -1,0 +1,92 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.upstox.com/v2/option/contract?instrument_key=NSE_INDEX%7CNifty+50",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "name": "NIFTY",
+            "segment": "NSE_FO",
+            "exchange": "NSE",
+            "expiry": "2026-11-03",
+            "instrument_key": "NSE_FO|54332",
+            "exchange_token": "54332",
+            "trading_symbol": "NIFTY 25000 CE 03 NOV 26",
+            "tick_size": 5,
+            "lot_size": 65,
+            "instrument_type": "CE",
+            "freeze_quantity": 3510,
+            "underlying_key": "NSE_INDEX|Nifty 50",
+            "underlying_type": "INDEX",
+            "underlying_symbol": "NIFTY",
+            "strike_price": 25000,
+            "minimum_lot": 65,
+            "weekly": true
+          },
+          {
+            "name": "NIFTY",
+            "segment": "NSE_FO",
+            "exchange": "NSE",
+            "expiry": "2026-10-27",
+            "instrument_key": "NSE_FO|51440",
+            "exchange_token": "51440",
+            "trading_symbol": "NIFTY 25000 CE 27 OCT 26",
+            "tick_size": 5,
+            "lot_size": 65,
+            "instrument_type": "CE",
+            "freeze_quantity": 3510,
+            "underlying_key": "NSE_INDEX|Nifty 50",
+            "underlying_type": "INDEX",
+            "underlying_symbol": "NIFTY",
+            "strike_price": 25000,
+            "minimum_lot": 65,
+            "weekly": false
+          },
+          {
+            "name": "NIFTY",
+            "segment": "NSE_FO",
+            "exchange": "NSE",
+            "expiry": "2026-10-27",
+            "instrument_key": "NSE_FO|51441",
+            "exchange_token": "51441",
+            "trading_symbol": "NIFTY 25000 PE 27 OCT 26",
+            "tick_size": 5,
+            "lot_size": 65,
+            "instrument_type": "PE",
+            "freeze_quantity": 3510,
+            "underlying_key": "NSE_INDEX|Nifty 50",
+            "underlying_type": "INDEX",
+            "underlying_symbol": "NIFTY",
+            "strike_price": 25000,
+            "minimum_lot": 65,
+            "weekly": false
+          },
+          {
+            "name": "NIFTY",
+            "segment": "NSE_FO",
+            "exchange": "NSE",
+            "expiry": "2026-11-10",
+            "instrument_key": "NSE_FO|57001",
+            "exchange_token": "57001",
+            "trading_symbol": "NIFTY 25000 CE 10 NOV 26",
+            "tick_size": 5,
+            "lot_size": 65,
+            "instrument_type": "CE",
+            "freeze_quantity": 3510,
+            "underlying_key": "NSE_INDEX|Nifty 50",
+            "underlying_type": "INDEX",
+            "underlying_symbol": "NIFTY",
+            "strike_price": 25000,
+            "minimum_lot": 65,
+            "weekly": true
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 3
+  }
+}

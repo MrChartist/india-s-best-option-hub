@@ -1,0 +1,56 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://api-t1\\.fyers\\.in/api/v3/positions$",
+      "json": {
+        "s": "ok",
+        "code": 200,
+        "message": "",
+        "netPositions": [
+          {
+            "netQty": 1,
+            "qty": 1,
+            "avgPrice": 72256,
+            "netAvg": 71856,
+            "side": 1,
+            "productType": "MARGIN",
+            "realized_profit": 400,
+            "unrealized_profit": 461,
+            "pl": 861,
+            "ltp": 72717,
+            "buyQty": 2,
+            "buyAvg": 72256,
+            "buyVal": 144512,
+            "sellQty": 1,
+            "sellAvg": 72656,
+            "sellVal": 72656,
+            "slNo": 0,
+            "fyToken": "1120200831217406",
+            "crossCurrency": "N",
+            "rbiRefRate": 1,
+            "qtyMulti_com": 1,
+            "segment": 20,
+            "symbol": "MCX:SILVERMIC20AUGFUT",
+            "id": "MCX:SILVERMIC20AUGFUT-MARGIN",
+            "cfBuyQty": 0,
+            "cfSellQty": 0,
+            "dayBuyQty": 0,
+            "daySellQty": 1,
+            "exchange": 10
+          }
+        ],
+        "overall": {
+          "count_total": 1,
+          "count_open": 1,
+          "pl_total": 861,
+          "pl_realized": 400,
+          "pl_unrealized": 461
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

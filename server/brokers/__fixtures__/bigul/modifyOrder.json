@@ -1,0 +1,84 @@
+{
+  "creds": {
+    "sessionToken": "dummy.bigul.jwt.token"
+  },
+  "args": [
+    "1300000000011514",
+    {
+      "orderType": "LIMIT",
+      "qty": 100,
+      "price": 1560
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/order-book",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": [
+          {
+            "brkClnt": "--",
+            "ordValDt": "NA",
+            "exUsrInfo": "NA",
+            "mfdBy": "NA",
+            "rmk": "HT",
+            "ordSrc": "EnterpriseWeb",
+            "prc": "1564.90",
+            "prcTp": "L",
+            "cnlQty": 0,
+            "qty": 100,
+            "unFldSz": 100,
+            "exOrdId": "1300000000011514",
+            "actId": "DUMMY1",
+            "trgPrc": "0.00",
+            "tok": "2885",
+            "fldQty": 0,
+            "ordDtTm": "24-Dec-2025 11:49:18",
+            "avgPrc": "0.00",
+            "stat": "Ok",
+            "prod": "CNC",
+            "exSeg": "nse_cm",
+            "ordSt": "open pending",
+            "trnsTp": "B",
+            "nOrdNo": "1300000000011514",
+            "trdSym": "RELIANCE-EQ"
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://capi.bigul.co/api/v1/order/vr-modify",
+      "expectBody": {
+        "source": "CLIENT",
+        "clientCode": "DUMMY1",
+        "no": "1300000000011514",
+        "es": "nse_cm",
+        "pc": "CNC",
+        "pr": "1560",
+        "pt": "L",
+        "qt": "100",
+        "tk": "2885",
+        "ts": "RELIANCE-EQ",
+        "tt": "B"
+      },
+      "status": 200,
+      "json": {
+        "status": true,
+        "message": "Request successful.",
+        "data": {
+          "nOrdNo": "1300000000011514"
+        },
+        "error": null
+      }
+    }
+  ]
+}

@@ -33,6 +33,9 @@ const REQUIRED_PATHS = [
   "/alerts",
   "/events",
   "/ecosystem",
+  // 1Cliq Trade (PR #11)
+  "/one-cliq",
+  "/orders",
 ];
 
 /** Browser noise caused by the proxy being offline. Anything else fails the test. */

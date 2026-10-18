@@ -1,0 +1,36 @@
+{
+  "creds": {
+    "sessionToken": "dummy.trade.token",
+    "sessionSid": "dummy-trade-sid",
+    "sessionBaseUrl": "https://cis.kotaksecurities.com",
+    "sessionServerId": "server1"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://cis.kotaksecurities.com/script-details/1.0/masterscrip/file-paths",
+      "json": {
+        "filesPaths": [
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/bse_cm.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/cde_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/mcx_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_cm.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_fo.csv",
+          "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/bse_fo.csv"
+        ],
+        "baseFolder": "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/2026-10-17/transformed/nse_fo.csv",
+      "text": "pSymbol,pGroup,pExchSeg,pInstType,pSymbolName,pTrdSymbol,pOptionType,pScripRefKey,pISIN,pAssetCode,pSubGroup,pCombinedSymbol,pDesc,pAmcCode,pContractId,dTickSize ,lLotSize,lExpiryDate ,lMultiplier ,lPrecision,dStrikePrice;\n40001,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025000CE,CE,NIFTY26O2025000CE,,26000,,,,,,5,65,1476973800,-1,2,2500000\n40002,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025000PE,PE,NIFTY26O2025000PE,,26000,,,,,,5,65,1476973800,-1,2,2500000\n40003,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025050CE,CE,NIFTY26O2025050CE,,26000,,,,,,5,65,1476973800,-1,2,2.505e+06\n40004,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2025050PE,PE,NIFTY26O2025050PE,,26000,,,,,,5,65,1476973800,-1,2,2.505e+06\n40005,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2024950CE,CE,NIFTY26O2024950CE,,26000,,,,,,5,65,1476973800,-1,2,2495000\n40006,XX,nse_fo,OPTIDX,NIFTY,NIFTY26O2024950PE,PE,NIFTY26O2024950PE,,26000,,,,,,5,65,1476973800,-1,2,2495000\n41001,XX,nse_fo,OPTIDX,NIFTY,NIFTY26OCT25000CE,CE,NIFTY26OCT25000CE,,26000,,,,,,5,65,1477578600,-1,2,2500000\n41002,XX,nse_fo,FUTIDX,NIFTY,NIFTY26OCTFUT,XX,NIFTY26OCTFUT,,26000,,,,,,10,65,1477578600,-1,2,-1\n42001,XX,nse_fo,OPTIDX,BANKNIFTY,BANKNIFTY26OCT56000CE,CE,BANKNIFTY26OCT56000CE,,26009,,,,,,5,30,1477578600,-1,2,5600000\n43001,XX,nse_fo,OPTSTK,RELIANCE,RELIANCE26OCT1460CE,CE,RELIANCE26OCT1460CE,,2885,,,,,,5,500,1477578600,-1,2,146000\n44001,XX,nse_fo,OPTIDX,NIFTYNXT50,NIFTYNXT5026OCT70000CE,CE,NIFTYNXT5026OCT70000CE,,26013,,,,,,5,25,1477578600,-1,2,7000000\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

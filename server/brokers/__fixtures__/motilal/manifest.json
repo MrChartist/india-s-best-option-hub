@@ -1,0 +1,13 @@
+{
+  "brokerId": "motilal",
+  "creds": {
+    "apiKey": "dummyApiKey",
+    "clientId": "EMUM123456"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://invest.motilaloswal.com/moAPI/APIDocumentation/Introduction (single-page official moAPI docs: Header Parameters, Login through API, Generate Access Token, Get Profile, Place/Modify/Cancel Order, OrderBook, Trade Book, Holding, Position, Margin Summary, Price/LTP, Scrip/Instrument (CSV Format), INDEX DATA (CSV Format), INDEX LTP DATA API, Error Codes And Description, Parameters / Constants)"
+  ],
+  "notes": "Payloads use the field names and envelopes of the official doc samples (IDBI/INFY/RELAXO/BANKNIFTY 2022 examples) re-pointed at dummy NIFTY/SENSEX October 2026 contracts; getltpdata values are in paise as the doc states, trade-book prices are scaled by 10^precision as in the doc sample. The BSEFO house codes BSX/BKX for SENSEX/BANKEX come from OpenAlgo (the official page shows NSEFO samples only). Session fields are added per fixture so manifest.creds stays logged out. Every token, id and name is a dummy."
+}

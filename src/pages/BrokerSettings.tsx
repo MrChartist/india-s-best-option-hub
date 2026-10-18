@@ -24,28 +24,20 @@ import {
   isVaultLocked,
   lockVault,
   onBrokerCredentialsChange,
-  removeBrokerCredentials,
-  saveBrokerCredentials,
-  setActiveBroker,
   switchToSessionMode,
   unlockVault,
   wipeAllCredentials,
-  type BrokerCredentials,
   type BrokerInfo,
   type StorageState,
 } from "@/lib/brokerConfig";
 import { testDhanConnection } from "@/lib/marketApi";
+import { LiveTradingToggle } from "@/components/LiveTradingToggle";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useFeedStatus } from "@/hooks/useWebSocket";
-import { formatDateIST, formatTimeIST } from "@/lib/options";
+import { formatTimeIST } from "@/lib/options";
 import {
-  ExternalLink,
   Trash2,
   CheckCircle2,
-  Eye,
-  EyeOff,
-  Info,
-  Key,
   Plug,
   Lock,
   LockOpen,
@@ -61,6 +53,8 @@ import {
   Clock3,
   LineChart,
 } from "lucide-react";
+import { BrokerKeysCard } from "@/components/broker-settings/BrokerKeysCard";
+import { BrokerDirectory } from "@/components/broker-settings/BrokerDirectory";
 import { DatabaseManager } from "@/components/DatabaseManager";
 import { ChartDataDownloader } from "@/components/ChartDataDownloader";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -299,187 +293,6 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
   );
 }
 
-// ── Dhan credential card ──
-
-function DhanCard({
-  broker,
-  saved,
-  isActive,
-  disabled,
-}: {
-  broker: BrokerInfo;
-  saved?: BrokerCredentials;
-  isActive: boolean;
-  disabled: boolean;
-}) {
-  const [values, setValues] = useState<Record<string, string>>(saved?.values ?? {});
-  const [show, setShow] = useState<Record<string, boolean>>({});
-  const [editing, setEditing] = useState(!saved);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setValues(saved?.values ?? {});
-    setEditing(!saved);
-  }, [saved]);
-
-  const onSave = async (e: FormEvent) => {
-    e.preventDefault();
-    const missing = broker.fields.filter((f) => f.required && !values[f.key]?.trim());
-    if (missing.length > 0) return toast.error(`Please fill: ${missing.map((f) => f.label).join(", ")}`);
-    setBusy(true);
-    try {
-      await saveBrokerCredentials({ brokerId: broker.id, values, addedAt: new Date().toISOString() });
-      toast.success(`${broker.name} keys saved`);
-      setEditing(false);
-    } catch (err) {
-      toast.error(errMsg(err, "Could not save keys"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill bg-primary text-body-sm font-semibold text-primary-foreground"
-              aria-hidden
-            >
-              {broker.logo}
-            </span>
-            <div className="min-w-0">
-              <CardTitle className="flex flex-wrap items-center gap-2">
-                {broker.name}
-                {saved && <Badge variant={isActive ? "default" : "secondary"}>{isActive ? "Active" : "Saved"}</Badge>}
-              </CardTitle>
-              <CardDescription className="mt-0.5">{broker.description}</CardDescription>
-            </div>
-          </div>
-          <a
-            href={broker.docsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-pill text-muted-foreground hover:bg-control-track hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
-            aria-label={`${broker.name} API docs (opens in a new tab)`}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden />
-          </a>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {broker.features.map((f) => (
-            <Badge key={f} variant="outline" className="font-normal">
-              {f}
-            </Badge>
-          ))}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {disabled ? (
-          <p className="flex items-center gap-1.5 text-body-sm text-muted-foreground">
-            <Lock aria-hidden /> Unlock the vault above to view or edit these keys.
-          </p>
-        ) : editing ? (
-          <form onSubmit={onSave} className="space-y-3">
-            {broker.fields.map((field) => (
-              <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={`f-${field.key}`} className="text-body-sm">
-                  {field.label}{" "}
-                  {field.required && (
-                    <span className="text-destructive" aria-hidden>
-                      *
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id={`f-${field.key}`}
-                    type={field.type === "password" && !show[field.key] ? "password" : "text"}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder={field.placeholder}
-                    value={values[field.key] || ""}
-                    onChange={(e) => setValues({ ...values, [field.key]: e.target.value })}
-                    className="pr-8"
-                    aria-describedby={field.helpText ? `h-${field.key}` : undefined}
-                  />
-                  {field.type === "password" && (
-                    <button
-                      type="button"
-                      onClick={() => setShow({ ...show, [field.key]: !show[field.key] })}
-                      className="absolute right-0.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-chip text-muted-foreground hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
-                      aria-label={show[field.key] ? `Hide ${field.label}` : `Show ${field.label}`}
-                    >
-                      {show[field.key] ? (
-                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5" aria-hidden />
-                      )}
-                    </button>
-                  )}
-                </div>
-                {field.helpText && (
-                  <p id={`h-${field.key}`} className="flex items-center gap-1 text-body-sm text-muted-foreground">
-                    <Info className="h-3 w-3 shrink-0" aria-hidden /> {field.helpText}
-                  </p>
-                )}
-              </div>
-            ))}
-            <div className="flex justify-end gap-2 pt-1">
-              {saved && (
-                <Button type="button" variant="outline" onClick={() => setEditing(false)}>
-                  Cancel
-                </Button>
-              )}
-              <Button type="submit" disabled={busy}>
-                {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Key aria-hidden />} Save keys
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div className="space-y-2">
-            <p className="flex flex-wrap items-center gap-2 text-body text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-bullish" aria-hidden />
-              Client ID {saved?.values.clientId ? `••••${saved.values.clientId.slice(-4)}` : "—"}
-              <span className="text-body-sm">· added {saved ? formatDateIST(saved.addedAt) : "—"}</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {!isActive && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await setActiveBroker(broker.id);
-                    toast.success(`${broker.name} is now active`);
-                  }}
-                >
-                  Set active
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-                onClick={async () => {
-                  await removeBrokerCredentials(broker.id);
-                  toast.info(`${broker.name} keys removed`);
-                }}
-                aria-label={`Remove ${broker.name} keys`}
-              >
-                <Trash2 aria-hidden /> Remove
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── Connection status ──
 
 type Status = "online" | "offline" | "unknown" | "degraded";
@@ -650,7 +463,7 @@ export default function BrokerSettings() {
       <PageHeader
         icon={Plug}
         title="Broker and Data Settings"
-        description="Connect Dhan for live option chains and the real-time feed. Without keys the terminal uses NSE data through the local proxy."
+        description={`Connect Dhan or any of ${BROKERS.length - 1} other Indian brokers for live option chains. Without keys the terminal uses NSE data through the local proxy.`}
       />
 
       <Card className="bg-wash-warning/40">
@@ -661,11 +474,16 @@ export default function BrokerSettings() {
             <ul className="list-disc space-y-0.5 pl-4 text-body-sm text-muted-foreground">
               <li>Keys stay in this browser. Mr. Chartist has no server and never receives them.</li>
               <li>
-                When the terminal needs Dhan data, the keys go to the proxy running on your own machine (127.0.0.1),
-                which forwards them to Dhan over HTTPS.
+                When the terminal needs broker data, the keys go to the proxy running on your own machine (127.0.0.1),
+                which forwards them to that broker over HTTPS.
               </li>
               <li>
-                We never ask for your login password, MPIN or TOTP. Use a Dhan data token, not trading credentials.
+                Only Dhan is verified with a live account. The other {BROKERS.length - 1} brokers are in beta, and none of them can place an
+                order from this app.
+              </li>
+              <li>
+                Your login password, PIN, MPIN and TOTP secret are never saved. Brokers that need them ask in a Log in dialog
+                each session; only the session token the broker returns is kept, like any other key.
               </li>
               <li>
                 Anyone using this browser profile, or a malicious extension, can read keys while they are unlocked. Lock
@@ -681,12 +499,18 @@ export default function BrokerSettings() {
       {/* The Dhan card sits beside Data sources, so neither leaves an empty half-row. */}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <section aria-label="Broker" className="min-w-0">
-          <DhanCard broker={dhan} saved={dhanSaved} isActive={activeId === "dhan"} disabled={locked} />
+          <BrokerKeysCard broker={dhan} saved={dhanSaved} isActive={activeId === "dhan"} disabled={locked} />
         </section>
         <section aria-label="Data sources" className="min-w-0">
           <ConnectionStatusPanel />
         </section>
       </div>
+
+      <section aria-label="Live trading">
+        <LiveTradingToggle />
+      </section>
+
+      <BrokerDirectory brokers={BROKERS} saved={saved} activeId={activeId} locked={locked} />
 
       <DatabaseManager />
       <ChartDataDownloader />

@@ -1,0 +1,128 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://tradeapi.samco.in/session/token",
+      "expectBody": {
+        "apiKey": "dummyAesApiKey",
+        "apiSecret": "dummyAesApiSecret"
+      },
+      "status": 200,
+      "json": {
+        "serverTime": "29/01/26 10:46:06",
+        "msgId": "00000000-0000-0000-0000-000000000001",
+        "status": "Success",
+        "statusMessage": "Session token generated successfully",
+        "sessionToken": "dummy-session-jwt",
+        "tokenId": "00000000-0000-0000-0000-000000000002",
+        "accountID": "DV99999",
+        "accountName": "DUMMY USER",
+        "exchangeList": [
+          "NSE",
+          "BSE",
+          "NFO",
+          "BFO",
+          "MCX"
+        ],
+        "orderTypeList": [
+          "L",
+          "MKT",
+          "SL",
+          "SL-M"
+        ],
+        "productList": [
+          "MIS",
+          "CNC",
+          "NRML"
+        ],
+        "srcIp": "203.0.113.10",
+        "primaryIp": "203.0.113.10",
+        "secondaryIp": ""
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://tradeapi.samco.in/position/getPositions?positionType=NET",
+      "status": 200,
+      "json": {
+        "serverTime": "17/10/26 10:00:00",
+        "msgId": "00000000-0000-0000-0000-000000000003",
+        "status": "Success",
+        "statusMessage": "Request successful",
+        "positionSummary": {
+          "gainingTodayCount": "1",
+          "losingTodayCount": "1",
+          "totalGainAndLossAmount": "0.00",
+          "dayGainAndLossAmount": "-182.70"
+        },
+        "positionDetails": [
+          {
+            "averagePrice": "1560.15",
+            "exchange": "BSE",
+            "markToMarketPrice": "-182.70",
+            "lastTradedPrice": "1,550.00",
+            "previousClose": "1552.55",
+            "productCode": "CNC",
+            "symbolDescription": "RELIANCE INDUSTRIES LTD.",
+            "tradingSymbol": "RELIANCE",
+            "calculatedNetQuantity": "18.0",
+            "averageBuyPrice": "1560.15",
+            "averageSellPrice": "0.00",
+            "boardLotQuantity": "1",
+            "boughtPrice": "28082.70",
+            "buyQuantity": "18",
+            "carryForwardQuantity": "0",
+            "carryForwardValue": "0.00",
+            "multiplier": "1",
+            "netPositionValue": "-182.70",
+            "netQuantity": "18",
+            "netValue": "-182.70",
+            "positionType": "NET",
+            "positionConversions": "CNC, NRML",
+            "soldValue": "0.00",
+            "transactionType": "BUY",
+            "realizedGainAndLoss": "0.00",
+            "unrealizedGainAndLoss": "-182.70",
+            "companyName": "RELIANCE INDUSTRIES LTD.",
+            "expiryDate": "--",
+            "optionType": "--"
+          },
+          {
+            "averagePrice": "120.00",
+            "exchange": "NFO",
+            "markToMarketPrice": "-32.50",
+            "lastTradedPrice": "120.50",
+            "previousClose": "116.50",
+            "productCode": "NRML",
+            "symbolDescription": "NIFTY 20 OCT 25000 CE",
+            "tradingSymbol": "NIFTY20OCT2625000CE",
+            "calculatedNetQuantity": "-65.0",
+            "averageBuyPrice": "0.00",
+            "averageSellPrice": "120.00",
+            "boardLotQuantity": "65",
+            "boughtPrice": "0.00",
+            "buyQuantity": "0",
+            "carryForwardQuantity": "0",
+            "carryForwardValue": "0.00",
+            "multiplier": "1",
+            "netPositionValue": "-32.50",
+            "netQuantity": "-65",
+            "netValue": "7800.00",
+            "positionType": "NET",
+            "positionConversions": "NRML, MIS",
+            "soldValue": "7800.00",
+            "transactionType": "SELL",
+            "realizedGainAndLoss": "0.00",
+            "unrealizedGainAndLoss": "-32.50",
+            "companyName": "NIFTY",
+            "expiryDate": "20 Oct 26",
+            "optionType": "CE"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

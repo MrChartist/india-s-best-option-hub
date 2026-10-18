@@ -1,0 +1,31 @@
+{
+  "brokerId": "upstox",
+  "creds": {
+    "apiKey": "dummy-api-key-0001",
+    "apiSecret": "dummy-api-secret-0001",
+    "accessToken": "dummy.upstox.access.token.0001"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-27",
+  "sources": [
+    "https://upstox.com/developer/api-documentation/authentication",
+    "https://upstox.com/developer/api-documentation/get-profile",
+    "https://upstox.com/developer/api-documentation/get-option-contracts",
+    "https://upstox.com/developer/api-documentation/get-pc-option-chain",
+    "https://upstox.com/developer/api-documentation/ltp-v3",
+    "https://upstox.com/developer/api-documentation/get-full-market-quote",
+    "https://upstox.com/developer/api-documentation/v3/get-historical-candle-data",
+    "https://upstox.com/developer/api-documentation/instruments",
+    "https://upstox.com/developer/api-documentation/get-positions",
+    "https://upstox.com/developer/api-documentation/get-holdings",
+    "https://upstox.com/developer/api-documentation/get-user-fund-margin",
+    "https://upstox.com/developer/api-documentation/get-order-book",
+    "https://upstox.com/developer/api-documentation/get-trade-history",
+    "https://upstox.com/developer/api-documentation/v3/place-order",
+    "https://upstox.com/developer/api-documentation/v3/modify-order",
+    "https://upstox.com/developer/api-documentation/v3/cancel-order",
+    "https://upstox.com/developer/api-documentation/v3/get-market-data-feed",
+    "https://assets.upstox.com/feed/market-data-feed/v3/MarketDataFeed.proto"
+  ],
+  "notes": "Payloads follow the response samples on Upstox's official API docs pages (field names and envelopes verbatim, values trimmed or re-dated to October 2026 contracts). instruments.json rows are copied from Upstox's public BOD file complete.json.gz (October 2026), served uncompressed in the fixture. Keys, tokens and account ids are dummies."
+}

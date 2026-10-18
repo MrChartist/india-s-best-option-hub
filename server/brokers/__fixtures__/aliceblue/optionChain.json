@@ -1,0 +1,188 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/obrest/optionChain/getOptionChain$",
+      "expectBody": {
+        "underlying": "NIFTY",
+        "expiry": "20OCT26",
+        "interval": 25,
+        "exch": "nse_fo"
+      },
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "data": [
+              {
+                "CE": {
+                  "forInsName": "NIFTY 20th OCT 24950 CE",
+                  "gval": "0",
+                  "ltp": "134.8",
+                  "oi": "99575.0",
+                  "pdc": "144.8",
+                  "pdoi": "102900",
+                  "token": "61515",
+                  "tradingsymbol": "NIFTY20OCT26C24950"
+                },
+                "PE": {
+                  "forInsName": "NIFTY 20th OCT 24950 PE",
+                  "gval": "0",
+                  "ltp": "69.05",
+                  "oi": "159075.0",
+                  "pdc": "79.05",
+                  "pdoi": "130550",
+                  "token": "61516",
+                  "tradingsymbol": "NIFTY20OCT26P24950"
+                }
+              },
+              {
+                "CE": {
+                  "forInsName": "NIFTY 20th OCT 25000 CE",
+                  "gval": "0",
+                  "ltp": "104.95",
+                  "oi": "165900.0",
+                  "pdc": "114.95",
+                  "pdoi": "155925",
+                  "token": "61517",
+                  "tradingsymbol": "NIFTY20OCT26C25000"
+                },
+                "PE": {
+                  "forInsName": "NIFTY 20th OCT 25000 PE",
+                  "gval": "0",
+                  "ltp": "89.2",
+                  "oi": "98175.0",
+                  "pdc": "99.2",
+                  "pdoi": "69825",
+                  "token": "61518",
+                  "tradingsymbol": "NIFTY20OCT26P25000"
+                }
+              },
+              {
+                "CE": {
+                  "forInsName": "NIFTY 20th OCT 25050 CE",
+                  "gval": "0",
+                  "ltp": "77.75",
+                  "oi": "631050.0",
+                  "pdc": "87.75",
+                  "pdoi": "607775",
+                  "token": "61519",
+                  "tradingsymbol": "NIFTY20OCT26C25050"
+                },
+                "PE": {
+                  "forInsName": "NIFTY 20th OCT 25050 PE",
+                  "gval": "0",
+                  "ltp": "111.75",
+                  "oi": "338100.0",
+                  "pdc": "121.75",
+                  "pdoi": "348075",
+                  "token": "61520",
+                  "tradingsymbol": "NIFTY20OCT26P25050"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/ChartAPIService/chart/get/multi/ohlc$",
+      "expectBody": [
+        {
+          "exchange": "NFO"
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "e": "NFO",
+            "ltp": 104.95,
+            "poi": 155925,
+            "ft": "15:29",
+            "volume": 543025,
+            "high": 110,
+            "avg": "104",
+            "low": 95,
+            "tk": "61517",
+            "oi": 165900,
+            "close": 120,
+            "open": 100
+          },
+          {
+            "e": "NFO",
+            "ltp": 89.2,
+            "poi": 69825,
+            "ft": "15:29",
+            "volume": 199500,
+            "high": 95,
+            "avg": "89",
+            "low": 80,
+            "tk": "61518",
+            "oi": 98175,
+            "close": 80,
+            "open": 85
+          }
+        ],
+        "reason": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://v2api.aliceblueonline.com/restpy/static/contract_master/V2/INDICES.csv",
+      "text": "exch,symbol,token\nNSE,NIFTY 50,26000\nNSE,NIFTY BANK,26009\nNSE,NIFTY FIN SERVICE,26037\nNSE,NIFTY MIDCAP SELECT,26074\nBSE,SENSEX,1\nBSE,BANKEX,12\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "POST",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/ChartAPIService/chart/get/multi/ohlc$",
+      "expectBody": [
+        {
+          "exchange": "NSE",
+          "token": "26000"
+        }
+      ],
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "e": "NSE",
+            "ltp": 25012.15,
+            "poi": 0,
+            "ft": "15:29",
+            "volume": 0,
+            "high": 25040.1,
+            "avg": "25001.2",
+            "low": 24950.6,
+            "tk": "26000",
+            "oi": 0,
+            "close": 24996.6,
+            "open": 24980.3
+          }
+        ],
+        "reason": null
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 3
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/limit",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "Successfully fetched RMS limits",
+        "data": {
+          "availableMargin": "152430.49",
+          "brkcollamt": "0.00",
+          "cash": "200000.00",
+          "collateral": "25000.00",
+          "expo": "4100.00",
+          "marginused": "72569.51",
+          "totalMargin": "225000.00",
+          "payin": "0.00",
+          "peak_mar": "0.00",
+          "premium": "6292.00",
+          "requestTime": "17:14:15 16-10-2026",
+          "span": "62177.51"
+        }
+      }
+    }
+  ]
+}

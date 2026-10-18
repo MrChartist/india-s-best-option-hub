@@ -1,0 +1,51 @@
+{
+  "creds": {
+    "sessionToken": "dummy-nubra-session-token"
+  },
+  "args": [
+    {
+      "token": "739119",
+      "exchange": "NFO"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.nubra.io/orderbooks/739119?levels=5",
+      "json": {
+        "orderBook": {
+          "inst_id": 62205,
+          "ref_id": 739119,
+          "ts": 1792213200000000000,
+          "bid": [
+            {
+              "p": 10490,
+              "q": 975,
+              "o": 3
+            },
+            {
+              "p": 10485,
+              "q": 1950,
+              "o": 8
+            }
+          ],
+          "ask": [
+            {
+              "p": 10500,
+              "q": 1300,
+              "o": 4
+            },
+            {
+              "p": 10505,
+              "q": 650,
+              "o": 2
+            }
+          ],
+          "ltp": 10495,
+          "ltq": 65,
+          "volume": 12070630
+        }
+      }
+    }
+  ]
+}

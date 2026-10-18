@@ -1,0 +1,106 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.gwcindia.in/v1/login-response",
+      "expectBody": {
+        "api_key": "dummyGwApiKey456",
+        "request_token": "5ca9e0b42c4e94759030e850",
+        "signature": "933ae0dc4f6d7d17f0fd42927c616e8b4a39a332a39c0f2c9f829b88521dfdcf"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "clnt_id": "GQ1A0007",
+          "name": "TEST USER",
+          "email": "TEST@EXAMPLE.COM",
+          "exarr": [
+            "BSE",
+            "NFO",
+            "NSE",
+            "MCX",
+            "ICEX"
+          ],
+          "prarr": [
+            "BO",
+            "CNC",
+            "CO",
+            "MIS",
+            "NRML"
+          ],
+          "orarr": [
+            "L",
+            "MKT",
+            "SL",
+            "SL-M"
+          ],
+          "exchDetail": {
+            "EQUITY": [
+              {
+                "product": [
+                  "BO",
+                  "CNC",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_cm",
+                "exch": "NSE"
+              }
+            ],
+            "DERIVATIVE": [
+              {
+                "product": [
+                  "BO",
+                  "CO",
+                  "MIS",
+                  "NRML"
+                ],
+                "exchseg": "nse_fo",
+                "exch": "NFO"
+              }
+            ]
+          },
+          "usersessionid": "3279379865",
+          "access_token": "8a5e32e1126025fefbcefc88eb6eb9a9"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.gwcindia.in/v1/getquote",
+      "expectBody": {
+        "exchange": "NSE",
+        "token": "26000"
+      },
+      "json": {
+        "status": "success",
+        "data": {
+          "symbol_name": "Nifty 50",
+          "trading_symbl": "NIFTY INDEX",
+          "token": "26000",
+          "company_name": "Nifty 50",
+          "last_trade_time": "13:18:29",
+          "last_price": "25012.35",
+          "change": "0.0",
+          "change_per": "0.0",
+          "last_quantity": "1",
+          "buy_quantity": "37308286",
+          "sell_quantity": "26519029",
+          "volume": "119231",
+          "average_price": "25012.35",
+          "open": "25010.35",
+          "high": "25017.35",
+          "low": "25006.35",
+          "close": "25011.35",
+          "tick_size": "0.05",
+          "multiplier": "1",
+          "lot_size": "1",
+          "decimalprecision": "2",
+          "yearly_low_price": "12.10",
+          "yearly_high_price": "24.75"
+        }
+      }
+    }
+  ]
+}

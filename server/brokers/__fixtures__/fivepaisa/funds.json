@@ -1,0 +1,66 @@
+{
+  "creds": {
+    "sessionToken": "dummy-access-token",
+    "sessionClientCode": "55512345"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V4/Margin",
+      "expectBody": {
+        "head": {
+          "key": "dummyUserKey"
+        },
+        "body": {
+          "ClientCode": "55512345"
+        }
+      },
+      "json": {
+        "body": {
+          "ClientCode": "55512345",
+          "EquityMargin": [
+            {
+              "AdhocMargin": 0,
+              "CollateralValueAfterHairCut": 113532.2,
+              "DPFreeStockValue": 34540.21,
+              "DerivativeMargin": 0,
+              "FundsPayln": 0,
+              "FundsWithdrawal": 0,
+              "GrossHoldingValue": 210693.2,
+              "GrossHoldingValueCoverPercentage": 100,
+              "HairCut": -51262.72,
+              "Ledgerbalance": 27787.39,
+              "MFCollateralValueAfterHaircut": 0,
+              "MarginBlockedForPendingOrders": 0,
+              "MarginBlockedforOpenPostion_Cash": 0,
+              "MarginBlockedforOpenPostion_Collateral": 0,
+              "MarginBlockedforPendingOrder_Cash": 0,
+              "MarginBlockedforPendingOrder_Collateral": 0,
+              "MarginUtilized": 12500.5,
+              "NetAvailableMargin": 152673.83,
+              "OptionsPremium": 0,
+              "TodaysLoss": 0,
+              "TotalCollateralValue": 134995.27,
+              "Unsettled_Credits": 0
+            }
+          ],
+          "MFMargin": [
+            {
+              "MFCollateralValue": 0,
+              "MFFreeStockValue": 0,
+              "MFHaircutValue": 0
+            }
+          ],
+          "Message": "",
+          "Status": 0,
+          "TimeStamp": "/Date(1707026698837+0530)/"
+        },
+        "head": {
+          "responseCode": "5PMarginV4",
+          "status": "0",
+          "statusDescription": "Success"
+        }
+      }
+    }
+  ]
+}

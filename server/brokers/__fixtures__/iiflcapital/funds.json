@@ -1,0 +1,35 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.iiflcapital.com/v1/getusersession",
+      "expectBody": {
+        "checkSum": "26ce98a193779ac750ccc884938bb45790670ceb55929fb1c5b38bcec4134aaa"
+      },
+      "json": {
+        "status": "Ok",
+        "userSession": "eyJhbGciOi.dummy.bx844uFwWA"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.iiflcapital.com/v1/limits",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": {
+          "tradingLimit": 19990000,
+          "openingCashLimit": 0,
+          "intradayPayin": 20000000,
+          "collateralMargin": 0,
+          "creditForSell": 0,
+          "adhocMargin": 0,
+          "utilizedMargin": 0,
+          "blockedForPayout": 10000,
+          "utilizedSpanMargin": 0,
+          "utilizedExposureMargin": 0
+        }
+      }
+    }
+  ]
+}

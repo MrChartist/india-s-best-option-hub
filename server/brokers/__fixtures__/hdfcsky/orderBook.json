@@ -1,0 +1,131 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsky.com/oapi/v1/orders?api_key=dummy-sky-api-key&type=pending&client_id=DEMO1",
+      "status": 200,
+      "json": {
+        "data": {
+          "orders": [
+            {
+              "trading_symbol": "PNB-EQ",
+              "average_trade_price": 0,
+              "exchange": "NSE",
+              "pro_cli": "CLIENT",
+              "market_protection_percentage": 0,
+              "order_entry_time": 1605682535,
+              "mode": "NEW",
+              "oms_order_id": "200018000000003",
+              "trailing_stop_loss": {},
+              "deposit": 0,
+              "square_off_value": {},
+              "disclosed_quantity": 0,
+              "stop_loss_value": {},
+              "price": 27.8,
+              "order_tag": "",
+              "device": "WEB",
+              "remaining_quantity": 1,
+              "last_activity_reference": 1290169535358022400,
+              "average_price": 0,
+              "square_off?": false,
+              "order_status_info": "",
+              "quantity": 1,
+              "execution_type": "REGULAR",
+              "client_id": "DEMO1",
+              "exchange_time": 1605682535,
+              "order_side": "BUY",
+              "login_id": "DEMO1",
+              "validity": "DAY",
+              "instrument_token": 10666,
+              "product": "MIS",
+              "trigger_price": 0,
+              "segment": "",
+              "trade_price": 0,
+              "order_type": "LIMIT",
+              "contract_description": {},
+              "rejection_code": 0,
+              "leg_order_indicator": "",
+              "exchange_order_id": "1200000007823258",
+              "order_status": "CONFIRMED",
+              "filled_quantity": 0,
+              "target_price_type": "absolute",
+              "is_trailing": false,
+              "user_order_id": "10002",
+              "lot_size": 1,
+              "series": "",
+              "nnf_id": 111111111111100,
+              "rejection_reason": "NONE"
+            }
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsky.com/oapi/v1/orders?api_key=dummy-sky-api-key&type=completed&client_id=DEMO1",
+      "status": 200,
+      "json": {
+        "data": {
+          "orders": [
+            {
+              "trading_symbol": "GOLDGUINEA20DECFUT",
+              "average_trade_price": 0,
+              "exchange": "MCX",
+              "pro_cli": "CLIENT",
+              "market_protection_percentage": 100,
+              "order_entry_time": 1605683238,
+              "mode": "NEW",
+              "oms_order_id": "200018000000004",
+              "trailing_stop_loss": {},
+              "deposit": 0,
+              "square_off_value": {},
+              "disclosed_quantity": 1,
+              "stop_loss_value": {},
+              "price": 40692,
+              "order_tag": "",
+              "device": "UNKNOWN",
+              "remaining_quantity": 0,
+              "last_activity_reference": 0,
+              "average_price": 40692,
+              "square_off?": false,
+              "order_status_info": "",
+              "quantity": 1,
+              "execution_type": "REGULAR",
+              "client_id": "DEMO1",
+              "exchange_time": 1605683260,
+              "order_side": "BUY",
+              "login_id": "ADMIN1",
+              "validity": "DAY",
+              "instrument_token": 224417,
+              "product": "NRML",
+              "trigger_price": 0,
+              "segment": "",
+              "trade_price": 0,
+              "order_type": "MARKET",
+              "contract_description": {},
+              "rejection_code": 0,
+              "leg_order_indicator": "",
+              "exchange_order_id": "202032300187889",
+              "order_status": "COMPLETE",
+              "filled_quantity": 1,
+              "target_price_type": "absolute",
+              "is_trailing": false,
+              "user_order_id": "900005",
+              "lot_size": 8,
+              "series": "",
+              "nnf_id": 500029001001010,
+              "rejection_reason": "NONE"
+            }
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

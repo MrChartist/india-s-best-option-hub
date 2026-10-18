@@ -1,0 +1,34 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsec.com/oapi/v1/portfolio/holdings?api_key=dummy-ir-api-key",
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "security_id": "",
+            "exchange": "BSE",
+            "company_name": "",
+            "sector_name": "",
+            "isin": "INF204KB17I5",
+            "quantity": 2,
+            "average_price": 40.67,
+            "investment_value": "",
+            "close_price": 42.28,
+            "realised": "",
+            "sip_indicator": "N",
+            "mtf_indicator": "N",
+            "ltcg_quantity": 0,
+            "corporate_action_indicator": "",
+            "corporate_action_message": ""
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

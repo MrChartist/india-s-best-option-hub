@@ -1,0 +1,39 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://openapi.motilaloswal.com/getindexdatacsv?name=NSE",
+      "text": "exchangename,indexcode,indexname\nNSE,26000,Nifty 50\nNSE,26009,Nifty Bank\nNSE,26012,Nifty 100\nNSE,26037,Nifty Fin Service\nNSE,26074,NIFTY MID SELECT\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/report/v3/getindexltpdata",
+      "expectBody": {
+        "exchange": "NSE",
+        "scripcode": "26000"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "message": "INDEX LTP DATA",
+        "errorcode": "",
+        "data": [
+          {
+            "exchange": "NSECASH",
+            "scripcode": 26000,
+            "open": 24980.5,
+            "high": 25040,
+            "low": 24951.2,
+            "close": 24950.4,
+            "ltp": 25012.15
+          }
+        ]
+      }
+    }
+  ]
+}

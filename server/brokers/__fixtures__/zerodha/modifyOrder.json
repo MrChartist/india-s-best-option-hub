@@ -1,0 +1,30 @@
+{
+  "args": [
+    "151220000000000",
+    {
+      "orderType": "LIMIT",
+      "quantity": 130,
+      "price": 181.5,
+      "validity": "DAY"
+    }
+  ],
+  "responses": [
+    {
+      "method": "PUT",
+      "url": "https://api.kite.trade/orders/regular/151220000000000",
+      "expectBody": {
+        "order_type": "LIMIT",
+        "quantity": "130",
+        "price": "181.5",
+        "validity": "DAY"
+      },
+      "status": 200,
+      "json": {
+        "status": "success",
+        "data": {
+          "order_id": "151220000000000"
+        }
+      }
+    }
+  ]
+}

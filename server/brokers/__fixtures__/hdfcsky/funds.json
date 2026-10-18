@@ -1,0 +1,70 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://developer.hdfcsky.com/oapi/v2/funds/view?api_key=dummy-sky-api-key&client_id=DEMO1&type=all",
+      "status": 200,
+      "json": {
+        "data": {
+          "client_id": "DEMO1",
+          "headers": [
+            "Description",
+            ""
+          ],
+          "values": [
+            {
+              "0": "Available Margin",
+              "1": "8239.85"
+            },
+            {
+              "0": "Margin Used",
+              "1": "19.34"
+            },
+            {
+              "0": "Opening Balance",
+              "1": "1781.24"
+            },
+            {
+              "0": "Adhoc Deposit",
+              "1": "6500.00"
+            },
+            {
+              "0": "Notion",
+              "1": "0.00"
+            },
+            {
+              "0": "Pay In",
+              "1": "0.00"
+            },
+            {
+              "0": "Pay out",
+              "1": "0.00"
+            },
+            {
+              "0": "Pledge Benefit",
+              "1": "0.00"
+            },
+            {
+              "0": "Equity Credit Sell",
+              "1": "0.00"
+            },
+            {
+              "0": "Option Credit For Sell",
+              "1": "0.00"
+            },
+            {
+              "0": "Realized MTM",
+              "1": "0.00"
+            },
+            {
+              "0": "Unrealized MTM",
+              "1": "-0.05"
+            }
+          ]
+        },
+        "message": "",
+        "status": "success"
+      }
+    }
+  ]
+}

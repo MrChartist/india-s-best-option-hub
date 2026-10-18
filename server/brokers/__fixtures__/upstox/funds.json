@@ -1,0 +1,31 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.upstox.com/v2/user/get-funds-and-margin",
+      "json": {
+        "status": "success",
+        "data": {
+          "equity": {
+            "used_margin": 0.8,
+            "payin_amount": 200.0,
+            "span_margin": 0.0,
+            "adhoc_margin": 0.0,
+            "notional_cash": 0.0,
+            "available_margin": 15507.46,
+            "exposure_margin": 0.0
+          },
+          "commodity": {
+            "used_margin": 0,
+            "payin_amount": 0,
+            "span_margin": 0,
+            "adhoc_margin": 0,
+            "notional_cash": 0,
+            "available_margin": 0,
+            "exposure_margin": 0
+          }
+        }
+      }
+    }
+  ]
+}

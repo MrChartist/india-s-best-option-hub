@@ -1,0 +1,73 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://edge.arrow.trade/auth/app/authenticate-token",
+      "expectBody": {
+        "appID": "AR00001",
+        "token": "dummy-request-token"
+      },
+      "json": {
+        "data": {
+          "name": "Example User",
+          "token": "dummy.arrow.access.token",
+          "userID": "USER0001"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://edge.arrow.trade/user/limits",
+      "json": {
+        "data": {
+          "allocations": [
+            {
+              "cashCurrent": "0",
+              "cashEqCurrent": "0",
+              "cashEqOpening": "0",
+              "cashOpening": "0",
+              "nonCashCurrent": "0",
+              "nonCashOpening": "0",
+              "segment": "CM"
+            },
+            {
+              "cashCurrent": "226462.37",
+              "cashEqCurrent": "0",
+              "cashEqOpening": "0",
+              "cashOpening": "226462.37",
+              "nonCashCurrent": "0",
+              "nonCashOpening": "0",
+              "segment": "FO"
+            },
+            {
+              "cashCurrent": "0",
+              "cashEqCurrent": "0",
+              "cashEqOpening": "0",
+              "cashOpening": "0",
+              "nonCashCurrent": "0",
+              "nonCashOpening": "0",
+              "segment": "MCX"
+            }
+          ],
+          "margin": {
+            "allocated": "226462.37",
+            "utilized": "-3641.75",
+            "brokerage": "0",
+            "buyOptionPremium": "12506.25",
+            "cashUsed": "-3641.75",
+            "exposureMargin": "0",
+            "intradayCashMargin": "0",
+            "otherMargin": "0",
+            "realizedPnl": "0",
+            "sellOptionPremium": "16148",
+            "spanMargin": "0",
+            "totalMargin": "0",
+            "unrealizedPnl": "1180.75"
+          }
+        },
+        "status": "success"
+      }
+    }
+  ]
+}

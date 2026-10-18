@@ -1,0 +1,138 @@
+{
+  "args": [
+    [
+      {
+        "token": "49081",
+        "exchange": "NFO"
+      },
+      {
+        "token": "IDX_I:13",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.dhan.co/v2/marketfeed/quote",
+      "expectBody": {
+        "NSE_FNO": [
+          49081
+        ],
+        "IDX_I": [
+          13
+        ]
+      },
+      "status": 200,
+      "json": {
+        "data": {
+          "NSE_FNO": {
+            "49081": {
+              "average_price": 0,
+              "buy_quantity": 1825,
+              "depth": {
+                "buy": [
+                  {
+                    "quantity": 1800,
+                    "orders": 1,
+                    "price": 77
+                  },
+                  {
+                    "quantity": 25,
+                    "orders": 1,
+                    "price": 50
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  }
+                ],
+                "sell": [
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  },
+                  {
+                    "quantity": 0,
+                    "orders": 0,
+                    "price": 0
+                  }
+                ]
+              },
+              "last_price": 368.15,
+              "last_quantity": 0,
+              "last_trade_time": "01/01/1980 00:00:00",
+              "lower_circuit_limit": 48.25,
+              "net_change": 0,
+              "ohlc": {
+                "open": 0,
+                "close": 368.15,
+                "high": 0,
+                "low": 0
+              },
+              "oi": 0,
+              "oi_day_high": 0,
+              "oi_day_low": 0,
+              "sell_quantity": 0,
+              "upper_circuit_limit": 510.85,
+              "volume": 0
+            }
+          },
+          "IDX_I": {
+            "13": {
+              "average_price": 0,
+              "buy_quantity": 0,
+              "depth": {
+                "buy": [],
+                "sell": []
+              },
+              "last_price": 25041.35,
+              "last_quantity": 0,
+              "last_trade_time": "17/10/2026 15:30:00",
+              "net_change": 105.2,
+              "ohlc": {
+                "open": 24950.1,
+                "close": 24936.15,
+                "high": 25080.4,
+                "low": 24921.3
+              },
+              "oi": 0,
+              "volume": 0
+            }
+          }
+        },
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

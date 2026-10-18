@@ -1,0 +1,202 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/customerdetails",
+      "expectBody": {
+        "SessionToken": "58593123",
+        "AppKey": "8g791N029R47I831B8153O2f7u8g"
+      },
+      "json": {
+        "Success": {
+          "exg_trade_date": {
+            "NSE": "19-Oct-2026",
+            "BSE": "19-Oct-2026",
+            "FNO": "19-Oct-2026",
+            "NDX": "19-Oct-2026"
+          },
+          "exg_status": {
+            "NSE": "O",
+            "BSE": "O",
+            "FNO": "Y",
+            "NDX": "O"
+          },
+          "segments_allowed": {
+            "Trading": "Y",
+            "Equity": "Y",
+            "Derivatives": "Y",
+            "Currency": "Z"
+          },
+          "idirect_userid": "379XTZ300",
+          "session_token": "QUgzNzkzMDA6NDUwNTM0MjI=",
+          "idirect_user_name": "JOHN SMITH",
+          "idirect_ORD_TYP": "N",
+          "idirect_lastlogin_time": "19-Oct-2026 09:50:42",
+          "mf_holding_mode_popup_flg": "N",
+          "commodity_exchange_status": "N",
+          "commodity_trade_date": "19-Oct-2026",
+          "commodity_allowed": "O"
+        },
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://directlink.icicidirect.com/NewSecurityMaster/SecurityMaster.zip",
+      "text": "PK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`tj!+\u0000\u0000\u0000+\u0000\u0000\u0000\u0012\u0000\u0000\u0000BSEScripMaster.txt\"Token\",\"ShortName\"\n\"500325\",\"RELIND\"\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001eLxA}\u0002\u0000\u0000}\u0002\u0000\u0000\u0014\u0000\u0000\u0000CDNSEScripMaster.txt\"Token\",\"ShortName\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000G\fW\u001e<\u0000\u0000\u0000<\u0000\u0000\u0000\u0014\u0000\u0000\u0000FOBSEScripMaster.txt\"Token\",\"InstrumentName\",\"ShortName\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000jRG@_\u0006\u0000\u0000_\u0006\u0000\u0000\u0014\u0000\u0000\u0000FONSEScripMaster.txt\"Token\",\"InstrumentName\",\"ShortName\",\"Series\",\"ExpiryDate\",\"StrikePrice\",\"OptionType\",\"LotSize\",\"TickSize\",\"CompanyName\",\"ExchangeCode\"\n\"51440\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"51441\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35008\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25000\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35009\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25000\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35010\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25050\",\"CE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35011\",\"OPTIDX\",\"NIFTY\",\"OPTION\",\"03-Nov-2026\",\"25050\",\"PE\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"61471\",\"FUTIDX\",\"NIFTY\",\"FUTURE\",\"27-Oct-2026\",\"0\",\"XX\",\"65\",\"5\",\"NIFTY 50\",\"NIFTY 50\"\n\"35000\",\"OPTIDX\",\"CNXBAN\",\"OPTION\",\"27-Oct-2026\",\"56000\",\"CE\",\"35\",\"5\",\"NIFTY BANK\",\"NIFTY BANK\"\n\"36001\",\"OPTIDX\",\"NIFFIN\",\"OPTION\",\"27-Oct-2026\",\"25000\",\"CE\",\"60\",\"5\",\"NIFTY FINANCIAL\",\"NIFTY FIN SERVICE\"\n\"35004\",\"OPTIDX\",\"NIFSEL\",\"OPTION\",\"27-Oct-2026\",\"13000\",\"PE\",\"120\",\"5\",\"NIFTY MIDCAP SELECT\",\"NIFTY MID SELECT\"\n\"37001\",\"OPTIDX\",\"NIFNEX\",\"OPTION\",\"27-Oct-2026\",\"70000\",\"CE\",\"25\",\"5\",\"NIFTY NEXT 50\",\"NIFTY NEXT 50\"\n\"36342\",\"OPTSTK\",\"RELIND\",\"OPTION\",\"27-Oct-2026\",\"1400\",\"CE\",\"500\",\"5\",\"RELIANCE INDUSTRIES\",\"RELIANCE\"\n\"36343\",\"OPTSTK\",\"RELIND\",\"OPTION\",\"27-Oct-2026\",\"1400\",\"PE\",\"500\",\"5\",\"RELIANCE INDUSTRIES\",\"RELIANCE\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0003\u0004\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0015\\_\r\u000e\u0002\u0000\u0000\u000e\u0002\u0000\u0000\u0012\u0000\u0000\u0000NSEScripMaster.txt\"Token\", \"ShortName\", \"Series\", \"CompanyName\", \"ticksize\", \"Lotsize\", \"ISINCode\", \"Symbol\", \"ExchangeCode\"\n\"NIFTY 50\",\"NIFTY\",\"0\",\"NIFTY 50\",\"0.01\",\"1\",\"\",\"\",\"NIFTY 50\"\n\"2885\",\"RELIND\",\"EQ\",\"RELIANCE INDUSTRIES\",\"0.1\",\"1\",\"INE002A01018\",\"\",\"RELIANCE\"\n\"1660\",\"ITC\",\"EQ\",\"ITC LIMITED\",\"0.05\",\"1\",\"INE154A01025\",\"\",\"ITC\"\n\"7075\",\"UNITEC\",\"EQ\",\"UNITECH LIMITED\",\"0.01\",\"1\",\"INE694A01020\",\"\",\"UNITECH\"\n\"0\",\"ACRTEC\",\"BE\",\"ACROPETAL TECHNOLOGIES LIMITED\",\"0.01\",\"1\",\"INE055L01013\",\"\",\"ACROPETAL\"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000`tj!+\u0000\u0000\u0000+\u0000\u0000\u0000\u0012\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000BSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001eLxA}\u0002\u0000\u0000}\u0002\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000[\u0000\u0000\u0000CDNSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000G\fW\u001e<\u0000\u0000\u0000<\u0000\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\n\u0003\u0000\u0000FOBSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000jRG@_\u0006\u0000\u0000_\u0006\u0000\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000x\u0003\u0000\u0000FONSEScripMaster.txtPK\u0001\u0002\u0014\u0000\u0014\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0015\\_\r\u000e\u0002\u0000\u0000\u000e\u0002\u0000\u0000\u0012\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\t\n\u0000\u0000NSEScripMaster.txtPK\u0005\u0006\u0000\u0000\u0000\u0000\u0005\u0000\u0005\u0000F\u0001\u0000\u0000G\f\u0000\u0000\u0000\u0000",
+      "headers": {
+        "content-type": "application/zip"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/OptionChain",
+      "expectBody": {
+        "stock_code": "NIFTY",
+        "exchange_code": "NFO",
+        "expiry_date": "2026-11-03T06:00:00.000Z",
+        "product_type": "options",
+        "right": "call"
+      },
+      "json": {
+        "Success": [
+          {
+            "exchange_code": "NFO",
+            "product_type": "Options",
+            "stock_code": "NIFTY",
+            "expiry_date": "03-Nov-2026",
+            "right": "Call",
+            "strike_price": 25000,
+            "ltp": 182.4,
+            "ltt": "19-Oct-2026 11:36:56",
+            "best_bid_price": 181.9,
+            "best_bid_quantity": "1500",
+            "best_offer_price": 182.9,
+            "best_offer_quantity": "150",
+            "open": 177.4,
+            "high": 190.4,
+            "low": 173.4,
+            "previous_close": 180.4,
+            "ltp_percent_change": 1.2,
+            "upper_circuit": 6750.4,
+            "lower_circuit": 0.05,
+            "total_quantity_traded": "623325",
+            "spot_price": "25012.35",
+            "ltq": "75",
+            "open_interest": 5110000,
+            "chnge_oi": 120000,
+            "total_buy_qty": "1000",
+            "total_sell_qty": "1200"
+          },
+          {
+            "exchange_code": "NFO",
+            "product_type": "Options",
+            "stock_code": "NIFTY",
+            "expiry_date": "03-Nov-2026",
+            "right": "Call",
+            "strike_price": 25050,
+            "ltp": 155.2,
+            "ltt": "19-Oct-2026 11:36:56",
+            "best_bid_price": 154.7,
+            "best_bid_quantity": "1500",
+            "best_offer_price": 155.7,
+            "best_offer_quantity": "150",
+            "open": 150.2,
+            "high": 163.2,
+            "low": 146.2,
+            "previous_close": 153.2,
+            "ltp_percent_change": 1.2,
+            "upper_circuit": 6750.4,
+            "lower_circuit": 0.05,
+            "total_quantity_traded": "623325",
+            "spot_price": "25012.35",
+            "ltq": "75",
+            "open_interest": 1250000,
+            "chnge_oi": -5000,
+            "total_buy_qty": "1000",
+            "total_sell_qty": "1200"
+          }
+        ],
+        "Status": 200,
+        "Error": null
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.icicidirect.com/breezeapi/api/v1/OptionChain",
+      "expectBody": {
+        "stock_code": "NIFTY",
+        "exchange_code": "NFO",
+        "expiry_date": "2026-11-03T06:00:00.000Z",
+        "product_type": "options",
+        "right": "put"
+      },
+      "json": {
+        "Success": [
+          {
+            "exchange_code": "NFO",
+            "product_type": "Options",
+            "stock_code": "NIFTY",
+            "expiry_date": "03-Nov-2026",
+            "right": "Put",
+            "strike_price": 25000,
+            "ltp": 160.05,
+            "ltt": "19-Oct-2026 11:36:56",
+            "best_bid_price": 159.55,
+            "best_bid_quantity": "1500",
+            "best_offer_price": 160.55,
+            "best_offer_quantity": "150",
+            "open": 155.05,
+            "high": 168.05,
+            "low": 151.05,
+            "previous_close": 158.05,
+            "ltp_percent_change": 1.2,
+            "upper_circuit": 6750.4,
+            "lower_circuit": 0.05,
+            "total_quantity_traded": "623325",
+            "spot_price": "25012.35",
+            "ltq": "75",
+            "open_interest": 5128500,
+            "chnge_oi": 300000,
+            "total_buy_qty": "1000",
+            "total_sell_qty": "1200"
+          },
+          {
+            "exchange_code": "NFO",
+            "product_type": "Options",
+            "stock_code": "NIFTY",
+            "expiry_date": "03-Nov-2026",
+            "right": "Put",
+            "strike_price": 25050,
+            "ltp": 183.9,
+            "ltt": "19-Oct-2026 11:36:56",
+            "best_bid_price": 183.4,
+            "best_bid_quantity": "1500",
+            "best_offer_price": 184.4,
+            "best_offer_quantity": "150",
+            "open": 178.9,
+            "high": 191.9,
+            "low": 174.9,
+            "previous_close": 181.9,
+            "ltp_percent_change": 1.2,
+            "upper_circuit": 6750.4,
+            "lower_circuit": 0.05,
+            "total_quantity_traded": "623325",
+            "spot_price": "25012.35",
+            "ltq": "75",
+            "open_interest": 636000,
+            "chnge_oi": 0,
+            "total_buy_qty": "1000",
+            "total_sell_qty": "1200"
+          }
+        ],
+        "Status": 200,
+        "Error": null
+      }
+    }
+  ],
+  "expect": {
+    "minStrikes": 2
+  }
+}

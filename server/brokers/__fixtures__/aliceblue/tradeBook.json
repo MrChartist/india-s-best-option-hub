@@ -1,0 +1,50 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://a3.aliceblueonline.com/open-api/od/v1/vendor/getUserDetails",
+      "expectBody": {
+        "checkSum": "8a8a5d8ec2a81ff30310b9df7b42fcb3a60f29370697ade128483acb97268b2f"
+      },
+      "json": {
+        "stat": "Ok",
+        "clientId": "AB1234",
+        "userSession": "dummy.alice.user.session"
+      }
+    },
+    {
+      "method": "GET",
+      "urlPattern": "^https://a3\\.aliceblueonline\\.com/open-api/od/v1/orders/trades$",
+      "json": {
+        "status": "Ok",
+        "message": "Success",
+        "result": [
+          {
+            "clientId": "AB1234",
+            "placedBy": "AB1234",
+            "brokerOrderId": "250526000005634",
+            "exchangeOrderId": "1100000067912030",
+            "exchangeTradeId": "207745115",
+            "formattedInstrumentName": "IDEA",
+            "tradingSymbol": "IDEA-EQ",
+            "instrumentId": "14366",
+            "exchange": "NSE",
+            "transactionType": "BUY",
+            "product": "LONGTERM",
+            "orderComplexity": "REGULAR",
+            "orderType": "MARKET",
+            "validity": "DAY",
+            "tradedPrice": 6.95,
+            "filledQuantity": 1,
+            "orderTime": "2025-05-26 14:27:43",
+            "fillTimestamp": "2025-05-26 14:27:43",
+            "orderTag": "--"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

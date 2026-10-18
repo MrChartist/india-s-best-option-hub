@@ -1,0 +1,71 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.groww.in/v1/positions/user",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "positions": [
+            {
+              "trading_symbol": "RELIANCE",
+              "credit_quantity": 10,
+              "credit_price": 12500,
+              "debit_quantity": 5,
+              "debit_price": 12000,
+              "carry_forward_credit_quantity": 8,
+              "carry_forward_credit_price": 12300,
+              "carry_forward_debit_quantity": 3,
+              "carry_forward_debit_price": 11800,
+              "exchange": "NSE",
+              "symbol_isin": "INE123A01016",
+              "quantity": 15,
+              "product": "CNC",
+              "net_carry_forward_quantity": 10,
+              "net_price": 12400,
+              "net_carry_forward_price": 12200,
+              "realised_pnl": 500
+            },
+            {
+              "trading_symbol": "NIFTY26OCT25000CE",
+              "segment": "FNO",
+              "credit_quantity": 130,
+              "credit_price": 95,
+              "debit_quantity": 0,
+              "debit_price": 0,
+              "carry_forward_credit_quantity": 0,
+              "carry_forward_credit_price": 0,
+              "carry_forward_debit_quantity": 0,
+              "carry_forward_debit_price": 0,
+              "exchange": "NSE",
+              "symbol_isin": "",
+              "quantity": 130,
+              "product": "NRML",
+              "net_carry_forward_quantity": 0,
+              "net_price": 95,
+              "net_carry_forward_price": 0,
+              "realised_pnl": 0
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

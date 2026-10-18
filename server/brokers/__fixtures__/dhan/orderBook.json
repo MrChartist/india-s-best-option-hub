@@ -1,0 +1,80 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/orders",
+      "status": 200,
+      "json": [
+        {
+          "dhanClientId": "1000000001",
+          "orderId": "112111182198",
+          "correlationId": "123abc678",
+          "orderStatus": "PENDING",
+          "transactionType": "BUY",
+          "exchangeSegment": "NSE_EQ",
+          "productType": "INTRADAY",
+          "orderType": "MARKET",
+          "validity": "DAY",
+          "tradingSymbol": "",
+          "securityId": "11536",
+          "quantity": 5,
+          "disclosedQuantity": 0,
+          "price": 0.0,
+          "triggerPrice": 0.0,
+          "afterMarketOrder": false,
+          "boProfitValue": 0.0,
+          "boStopLossValue": 0.0,
+          "legName": null,
+          "createTime": "2021-11-24 13:33:03",
+          "updateTime": "2021-11-24 13:33:03",
+          "exchangeTime": "2021-11-24 13:33:03",
+          "drvExpiryDate": null,
+          "drvOptionType": null,
+          "drvStrikePrice": 0.0,
+          "omsErrorCode": null,
+          "omsErrorDescription": null,
+          "algoId": "string",
+          "remainingQuantity": 5,
+          "averageTradedPrice": 0,
+          "filledQty": 0
+        },
+        {
+          "dhanClientId": "1000000001",
+          "orderId": "112111182199",
+          "correlationId": "",
+          "orderStatus": "REJECTED",
+          "transactionType": "SELL",
+          "exchangeSegment": "NSE_FNO",
+          "productType": "MARGIN",
+          "orderType": "LIMIT",
+          "validity": "DAY",
+          "tradingSymbol": "NIFTY-Oct2026-25000-CE",
+          "securityId": "40001",
+          "quantity": 75,
+          "disclosedQuantity": 0,
+          "price": 190.0,
+          "triggerPrice": 0.0,
+          "afterMarketOrder": false,
+          "boProfitValue": 0.0,
+          "boStopLossValue": 0.0,
+          "legName": null,
+          "createTime": "2021-11-24 13:34:00",
+          "updateTime": "2021-11-24 13:34:00",
+          "exchangeTime": "2021-11-24 13:34:00",
+          "drvExpiryDate": "2026-10-20",
+          "drvOptionType": "CALL",
+          "drvStrikePrice": 25000.0,
+          "omsErrorCode": "16387",
+          "omsErrorDescription": "Insufficient funds",
+          "algoId": "string",
+          "remainingQuantity": 75,
+          "averageTradedPrice": 0,
+          "filledQty": 0
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "args": [
+    {
+      "token": "52826",
+      "exchange": "NFO",
+      "side": "BUY",
+      "orderType": "LIMIT",
+      "product": "MARGIN",
+      "lots": 2,
+      "price": 104.5
+    },
+    65
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/trans/v2/placeorder",
+      "expectBody": {
+        "exchange": "NSEFO",
+        "symboltoken": 52826,
+        "buyorsell": "BUY",
+        "ordertype": "LIMIT",
+        "producttype": "NORMAL",
+        "orderduration": "DAY",
+        "price": 104.5,
+        "triggerprice": 0,
+        "quantityinlot": 2,
+        "amoorder": "N"
+      },
+      "json": {
+        "status": "SUCCESS",
+        "message": "Order Placed Successfully",
+        "errorcode": "",
+        "uniqueorderid": "2400155AA020"
+      }
+    }
+  ]
+}

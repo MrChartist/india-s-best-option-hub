@@ -1,0 +1,93 @@
+{
+  "args": [
+    [
+      {
+        "token": "40003",
+        "exchange": "NFO"
+      },
+      {
+        "token": "26000",
+        "exchange": "NSE"
+      }
+    ]
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GenAcsTok",
+      "expectBody": {
+        "jData": "{\"code\":\"1f775888-0000-4000-8000-000000000000\",\"checksum\":\"2dc9f68b47c952ee0563228101cd8ecba5f43566a3a4d3a08742961f29b5b73b\"}"
+      },
+      "json": {
+        "USERID": "PM00000",
+        "access_token": "dummyProfitmartAccessToken",
+        "expires_in": 28800,
+        "refresh_token": "dummyRefreshToken",
+        "scope": "trade",
+        "actid": "PM00000",
+        "uid": "PM00000",
+        "stat": "Ok",
+        "susertoken": "dummySuserToken"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"exch\":\"NFO\",\"token\":\"40003\"}"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NFO",
+        "tsym": "NIFTY20OCT26C25000",
+        "token": "40003",
+        "pp": "2",
+        "ls": "65",
+        "ti": "0.05",
+        "lp": "104.95",
+        "c": "104.95",
+        "h": "104.95",
+        "l": "104.95",
+        "o": "104.95",
+        "v": "5430250",
+        "oi": "3165900",
+        "poi": "2932500",
+        "bp1": "104.85",
+        "sp1": "105.05",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://profitmax.profitmart.in/NorenWClientAPI/GetQuotes",
+      "expectBody": {
+        "jData": "{\"uid\":\"PM00000\",\"exch\":\"NSE\",\"token\":\"26000\"}"
+      },
+      "json": {
+        "request_time": "10:05:21 17-10-2026",
+        "stat": "Ok",
+        "exch": "NSE",
+        "tsym": "Nifty 50",
+        "token": "26000",
+        "pp": "2",
+        "ls": "1",
+        "ti": "0.05",
+        "lp": "25012.15",
+        "c": "24980.55",
+        "h": "25060.35",
+        "l": "24931.80",
+        "o": "24950.10",
+        "v": "0",
+        "bp1": "0.00",
+        "sp1": "0.00",
+        "bq1": "650",
+        "sq1": "325"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

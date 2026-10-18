@@ -1,0 +1,49 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "99926000",
+        "exchange": "NSE"
+      },
+      "interval": "60m",
+      "from": "2023-09-06T11:15:00+05:30",
+      "to": "2023-09-06T12:00:00+05:30"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/historical/v1/getCandleData$",
+      "expectBody": {
+        "exchange": "NSE",
+        "symboltoken": "99926000",
+        "interval": "ONE_HOUR",
+        "fromdate": "2023-09-06 11:15",
+        "todate": "2023-09-06 12:00"
+      },
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          [
+            "2023-09-06T11:15:00+05:30",
+            19571.2,
+            19573.35,
+            19534.4,
+            19552.05,
+            0
+          ]
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

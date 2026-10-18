@@ -1,0 +1,26 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.dhan.co/v2/holdings",
+      "status": 200,
+      "json": [
+        {
+          "exchange": "ALL",
+          "tradingSymbol": "HDFC",
+          "securityId": "1330",
+          "isin": "INE001A01036",
+          "totalQty": 1000,
+          "dpQty": 1000,
+          "t1Qty": 0,
+          "availableQty": 1000,
+          "collateralQty": 0,
+          "avgCostPrice": 2655.0
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

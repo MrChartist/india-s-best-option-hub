@@ -1,0 +1,78 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://xts.rmoneyindia.co.in:3000/interactive/portfolio/positions?dayOrNet=NetWise",
+      "json": {
+        "type": "success",
+        "code": "s-portfolio-0001",
+        "description": "Success position",
+        "result": [
+          {
+            "AccountID": "DUMMY1",
+            "TradingSymbol": "NIFTY 27OCT2026",
+            "ExchangeSegment": "NSEFO",
+            "ExchangeInstrumentID": 40201,
+            "ProductType": "NRML",
+            "Marketlot": 75,
+            "Multiplier": 1,
+            "BuyAveragePrice": 25040,
+            "SellAveragePrice": 0,
+            "OpenBuyQuantity": 75,
+            "OpenSellQuantity": 0,
+            "Quantity": 75,
+            "BuyAmount": 1878000,
+            "SellAmount": 0,
+            "NetAmount": -1878000,
+            "UnrealizedMTM": 4500,
+            "RealizedMTM": 0,
+            "MTM": 4500,
+            "BEP": 25040,
+            "SumOfTradedQuantityAndPriceBuy": 1878000,
+            "SumOfTradedQuantityAndPriceSell": 0,
+            "statisticsLevel": "ParentLevel",
+            "isInterOpPosition": "true",
+            "MessageCode": 9002,
+            "MessageVersion": 1,
+            "TokenID": 0,
+            "ApplicationType": 0,
+            "SequenceNumber": 0
+          },
+          {
+            "AccountID": "DUMMY1",
+            "TradingSymbol": "RELIANCE",
+            "ExchangeSegment": "NSECM",
+            "ExchangeInstrumentID": 2885,
+            "ProductType": "MIS",
+            "Marketlot": 1,
+            "Multiplier": 1,
+            "BuyAveragePrice": 0,
+            "SellAveragePrice": 2851.4,
+            "OpenBuyQuantity": 0,
+            "OpenSellQuantity": 10,
+            "Quantity": -10,
+            "BuyAmount": 0,
+            "SellAmount": 28514,
+            "NetAmount": 28514,
+            "UnrealizedMTM": -120,
+            "RealizedMTM": 0,
+            "MTM": -120,
+            "BEP": 2851.4,
+            "SumOfTradedQuantityAndPriceBuy": 0,
+            "SumOfTradedQuantityAndPriceSell": 28514,
+            "statisticsLevel": "ParentLevel",
+            "isInterOpPosition": "true",
+            "MessageCode": 9002,
+            "MessageVersion": 1,
+            "TokenID": 0,
+            "ApplicationType": 0,
+            "SequenceNumber": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

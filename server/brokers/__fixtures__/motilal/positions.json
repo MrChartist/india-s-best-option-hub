@@ -1,0 +1,77 @@
+{
+  "creds": {
+    "sessionToken": "dummy-auth-token"
+  },
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://openapi.motilaloswal.com/rest/book/v4/getposition",
+      "json": {
+        "status": "SUCCESS",
+        "message": "Position Data",
+        "errorcode": "",
+        "data": [
+          {
+            "exchange": "NSEFO",
+            "clientcode": "EMUM123456",
+            "productname": "NORMAL",
+            "symboltoken": 52826,
+            "symbol": "NIFTY",
+            "buyquantity": 130,
+            "buyamount": 13585,
+            "sellquantity": 0,
+            "sellamount": 0,
+            "daybuyquantity": 130,
+            "daybuyamount": 13585,
+            "daysellquantity": 0,
+            "daysellamount": 0,
+            "LTP": 110.2,
+            "marktomarket": 741,
+            "bookedprofitloss": 0,
+            "cfbuyquantity": 0,
+            "cfbuyamount": 0,
+            "cfsellquantity": 0,
+            "cfsellamount": 0,
+            "actualbookedprofitloss": 0,
+            "actualmarktomarket": 741,
+            "series": "XX",
+            "expirydate": "20-Oct-2026",
+            "strikeprice": 25000,
+            "optiontype": "CE"
+          },
+          {
+            "exchange": "NSE",
+            "clientcode": "EMUM123456",
+            "productname": "NORMAL",
+            "symboltoken": 1660,
+            "symbol": "INFY",
+            "buyquantity": 0,
+            "buyamount": 0,
+            "sellquantity": 0,
+            "sellamount": 0,
+            "daybuyquantity": 0,
+            "daybuyamount": 0,
+            "daysellquantity": 0,
+            "daysellamount": 0,
+            "LTP": 0,
+            "marktomarket": 0,
+            "bookedprofitloss": 0,
+            "cfbuyquantity": 0,
+            "cfbuyamount": 0,
+            "cfsellquantity": 0,
+            "cfsellamount": 0,
+            "actualbookedprofitloss": 0,
+            "actualmarktomarket": 0,
+            "series": "EQ",
+            "expirydate": "0",
+            "strikeprice": 0,
+            "optiontype": "XX"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

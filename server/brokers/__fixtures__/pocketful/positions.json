@@ -1,0 +1,80 @@
+{
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://algo.pocketful.in/api/v1/positions?client_id=DUMMY1&type=historical",
+      "status": 200,
+      "json": {
+        "data": [
+          {
+            "average_buy_price": 0,
+            "average_price": 0,
+            "average_sell_price": 120,
+            "buy_amount": 0,
+            "buy_quantity": 0,
+            "cf_buy_amount": 0,
+            "cf_buy_quantity": 0,
+            "cf_sell_amount": 0,
+            "cf_sell_quantity": 0,
+            "client_id": "DUMMY1",
+            "close_price": 0,
+            "exchange": "NFO",
+            "instrument_token": 40001,
+            "ltp": 120.5,
+            "multiplier": 1,
+            "net_amount": 7800,
+            "net_quantity": -65,
+            "previous_close": 116.5,
+            "pro_cli": "CLIENT",
+            "prod_type": 0,
+            "product": "NRML",
+            "realized_mtm": 0,
+            "segment": "FutOpt",
+            "sell_amount": 7800,
+            "sell_quantity": 65,
+            "symbol": "NIFTY",
+            "token": 40001,
+            "trading_symbol": "NIFTY26O2025000CE",
+            "v_login_id": "DUMMY1"
+          },
+          {
+            "average_buy_price": 40520,
+            "average_price": 0,
+            "average_sell_price": 40538,
+            "buy_amount": 40520,
+            "buy_quantity": 1,
+            "cf_buy_amount": 0,
+            "cf_buy_quantity": 0,
+            "cf_sell_amount": 0,
+            "cf_sell_quantity": 0,
+            "client_id": "DUMMY1",
+            "close_price": 0,
+            "exchange": "MCX",
+            "instrument_token": 222895,
+            "ltp": 40520,
+            "multiplier": 1,
+            "net_amount": 18,
+            "net_quantity": 0,
+            "previous_close": 40697,
+            "pro_cli": "CLIENT",
+            "prod_type": 0,
+            "product": "NRML",
+            "realized_mtm": 18,
+            "segment": "FutOpt",
+            "sell_amount": 40538,
+            "sell_quantity": 1,
+            "symbol": "GOLDGUINEA",
+            "token": 222895,
+            "trading_symbol": "GOLDGUINEA26NOVFUT",
+            "v_login_id": "DUMMY1"
+          }
+        ],
+        "message": "",
+        "status": "success"
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

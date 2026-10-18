@@ -1,0 +1,22 @@
+{
+  "brokerId": "bigul",
+  "creds": {
+    "apiKey": "dummyAppKey",
+    "apiSecret": "dummyAppSecret",
+    "clientCode": "DUMMY1"
+  },
+  "symbol": "NIFTY",
+  "expiry": "2026-10-20",
+  "sources": [
+    "https://connect.bigul.co/docs#url_source_mapping (client base URL https://capi.bigul.co/api/v1, source CLIENT)",
+    "https://connect.bigul.co/docs#client_auth (POST /auth/connect/login: headers x-api-key/x-api-secret, body source/clientCode/totp, data.token, valid until 12:30 AM)",
+    "https://connect.bigul.co/docs#index_list (POST /order/index-list, error envelopes 400/401/429)",
+    "https://connect.bigul.co/docs#master_download_main (https://bigul.s3.ap-south-1.amazonaws.com/BigulMasters/Bigulmastercsv.zip; nse_cm/bse_cm/nse_fo/bse_fo CSV headers)",
+    "https://connect.bigul.co/docs#margin_required (POST /order/user-limits)",
+    "https://connect.bigul.co/docs#portfolio_reporting (POST /order/order-book)",
+    "https://connect.bigul.co/docs#trade_position_holdings (POST /order/trade-book, /order/get-position, /order/get-holdings)",
+    "https://connect.bigul.co/docs#place_order_api, #modify_order_api, #cancel_order_api (POST /order/vr-place, /order/vr-modify, /order/cancel)",
+    "https://connect.bigul.co/docs#ws_intro .. #ws_option_chain and https://bigul.co/downloads/pythonSDK.zip (official SDK: feed URL and binary layout)"
+  ],
+  "notes": "REST payloads are the docs' samples with dummy ids, moved onto the dummy master's contracts. The master is a stored ZIP with the live files' header rows and dummy rows. Data fixtures add a dummy sessionToken (manifest creds stay logged out). streamTicks feed the fake WebSocket in bigul.test.mjs. Regenerate with generate-fixtures.mjs."
+}

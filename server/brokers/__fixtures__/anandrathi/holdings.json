@@ -1,0 +1,119 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://algozy.rathi.com/interactive/user/session",
+      "expectBody": {
+        "appKey": "dummyIaAppKey04",
+        "secretKey": "dummyIaSecret04",
+        "source": "WebAPI"
+      },
+      "json": {
+        "type": "success",
+        "code": "s-user-0001",
+        "description": "Valid User",
+        "result": {
+          "enums": {
+            "socketEvent": [
+              "joined",
+              "error",
+              "warning",
+              "success",
+              "order",
+              "trade",
+              "logout",
+              "position"
+            ],
+            "orderSide": [
+              "BUY",
+              "SELL"
+            ]
+          },
+          "clientCodes": [
+            "DUMMY1"
+          ],
+          "exchangeSegmentArray": [
+            {
+              "key": "NSECM",
+              "value": "NSECM"
+            },
+            {
+              "key": "NSEFO",
+              "value": "NSEFO"
+            }
+          ],
+          "token": "dummy.ia.jwt.token",
+          "userID": "DUMMY1",
+          "isInvestorClient": true,
+          "isOneTouchUser": false
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://algozy.rathi.com/interactive/portfolio/holdings",
+      "json": {
+        "type": "success",
+        "code": "s-holding-0001",
+        "description": "Success holding",
+        "result": {
+          "ClientId": "DUMMY1",
+          "RMSHoldingList": {
+            "Holdings": {
+              "INE002A01018": {
+                "ISIN": "INE002A01018",
+                "RMSHoldingId": 21885,
+                "ClientId": "DUMMY1",
+                "ExchangeNSEInstrumentId": 2885,
+                "ExchangeBSEInstrumentId": 500325,
+                "ExchangeMSEIInstrumentId": 0,
+                "HoldingType": 2,
+                "HoldingQuantity": 10,
+                "CollateralValuationType": 1,
+                "Haircut": 15,
+                "CollateralQuantity": 0,
+                "CreatedBy": "ADMIN2",
+                "LastUpdatedBy": "ADMIN2",
+                "CreatedOn": "2026-07-06T12:18:21",
+                "LastUpdatedOn": "2026-07-06T11:39:29",
+                "UsedQuantity": 0,
+                "IsCollateralHolding": false,
+                "BuyAvgPrice": 1290.5,
+                "IsBuyAvgPriceProvided": true,
+                "AuthorizeQuantity": 0,
+                "IsNeedToDelete": false
+              },
+              "INE012A01025": {
+                "ISIN": "INE012A01025",
+                "RMSHoldingId": 21885,
+                "ClientId": "DUMMY1",
+                "ExchangeNSEInstrumentId": 22,
+                "ExchangeBSEInstrumentId": 500410,
+                "ExchangeMSEIInstrumentId": 0,
+                "HoldingType": 2,
+                "HoldingQuantity": 4,
+                "CollateralValuationType": 1,
+                "Haircut": 15,
+                "CollateralQuantity": 0,
+                "CreatedBy": "ADMIN2",
+                "LastUpdatedBy": "ADMIN2",
+                "CreatedOn": "2026-07-06T12:18:21",
+                "LastUpdatedOn": "2026-07-06T11:39:29",
+                "UsedQuantity": 0,
+                "IsCollateralHolding": false,
+                "BuyAvgPrice": 1920,
+                "IsBuyAvgPriceProvided": true,
+                "AuthorizeQuantity": 0,
+                "IsNeedToDelete": false
+              }
+            }
+          },
+          "CollateralHoldingList": {}
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "creds": {
+    "sessionToken": "dummy-susertoken"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "26000",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2026-10-16",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/indexList",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken"
+      },
+      "json": {
+        "status": "success",
+        "message": "All indexes",
+        "data": [
+          {
+            "exchange": "NSE",
+            "token": "26000",
+            "tradingSymbol": "NIFTY",
+            "symbol": "NIFTY",
+            "idxname": "NIFTY 50"
+          },
+          {
+            "exchange": "NSE",
+            "token": "26009",
+            "tradingSymbol": "BANKNIFTY",
+            "symbol": "BANKNIFTY",
+            "idxname": "NIFTY BANK"
+          },
+          {
+            "exchange": "NSE",
+            "token": "26074",
+            "tradingSymbol": "MIDCPNIFTY",
+            "symbol": "MIDCPNIFTY",
+            "idxname": "NIFTY MID SELECT"
+          },
+          {
+            "exchange": "BSE",
+            "token": "1",
+            "tradingSymbol": "SENSEX",
+            "symbol": "SENSEX",
+            "idxname": "SENSEX"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "https://api.firstock.in/V1/timePriceSeries",
+      "expectBody": {
+        "userId": "AB1234",
+        "jKey": "dummy-susertoken",
+        "exchange": "NSE",
+        "tradingSymbol": "NIFTY",
+        "interval": "1mi",
+        "startTime": "09:15:00 16-10-2026",
+        "endTime": "15:30:00 16-10-2026"
+      },
+      "json": {
+        "status": "success",
+        "message": "Successfully fetched charts data",
+        "data": [
+          {
+            "time": "2026-10-16T09:16:00",
+            "epochTime": 1792122360,
+            "open": 24961,
+            "high": 24970.5,
+            "low": 24955,
+            "close": 24968.2,
+            "volume": 0,
+            "oi": 0
+          },
+          {
+            "time": "2026-10-16T09:15:00",
+            "epochTime": 1792122300,
+            "open": 24960.35,
+            "high": 24990,
+            "low": 24940.1,
+            "close": 24961,
+            "volume": 0,
+            "oi": 0
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

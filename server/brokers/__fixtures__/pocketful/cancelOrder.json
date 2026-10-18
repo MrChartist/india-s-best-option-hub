@@ -1,0 +1,24 @@
+{
+  "args": [
+    "2026101644"
+  ],
+  "responses": [
+    {
+      "method": "DELETE",
+      "url": "https://algo.pocketful.in/api/v1/orders/2026101644",
+      "expectBody": {
+        "oms_order_id": "2026101644",
+        "client_id": "DUMMY1",
+        "execution_type": "REGULAR"
+      },
+      "status": 200,
+      "json": {
+        "data": {
+          "oms_order_id": "2026101644"
+        },
+        "message": "Order cancellation request submitted for OMS Order: 2026101644",
+        "status": "success"
+      }
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "creds": {
+    "accessToken": "dummy-indstocks-token"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/portfolio/positions?segment=derivative&product=margin",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "net_qty": 20,
+            "avg_price": 1.2,
+            "realized_profit": -1.0000000000000009,
+            "segment": "DERIVATIVE",
+            "product": "MARGIN",
+            "exchange": "",
+            "security_id": "823580",
+            "symbol": "SENSEX",
+            "drv_instrument": "OPTIDX",
+            "drv_expiry_date": "10/22/2026 14:00",
+            "drv_option_type": "CE",
+            "drv_strike_price": 81000,
+            "buy_qty": 40,
+            "buy_avg": 1.25,
+            "sell_qty": 20,
+            "sell_avg": 1.2,
+            "day_buy_qty": null,
+            "day_buy_val": null,
+            "day_sell_qty": null,
+            "day_sell_val": null,
+            "cf_buy_qty": null,
+            "cf_buy_val": null,
+            "cf_sell_qty": null,
+            "cf_sell_val": null,
+            "position_id": "535654528"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/portfolio/positions?segment=derivative&product=intraday",
+      "json": {
+        "status": "success",
+        "data": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/portfolio/positions?segment=equity&product=cnc",
+      "json": {
+        "status": "success",
+        "data": []
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.indstocks.com/portfolio/positions?segment=equity&product=intraday",
+      "json": {
+        "status": "success",
+        "data": [
+          {
+            "net_qty": 0,
+            "avg_price": 1146.85,
+            "realized_profit": -2.550000000000182,
+            "segment": "EQUITY",
+            "product": "INTRADAY",
+            "exchange": "NSE",
+            "isin": "INE560A01023",
+            "security_id": "1521",
+            "symbol": "INDIAGLYCO",
+            "drv_instrument": "",
+            "buy_qty": 1,
+            "buy_avg": 1149.4,
+            "sell_qty": 1,
+            "sell_avg": 1146.85,
+            "day_buy_qty": 1,
+            "day_buy_val": 1149.4,
+            "day_sell_qty": 1,
+            "day_sell_val": 1146.85,
+            "cf_buy_qty": null,
+            "cf_buy_val": null,
+            "cf_sell_qty": null,
+            "cf_sell_val": null,
+            "position_id": "86016462"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

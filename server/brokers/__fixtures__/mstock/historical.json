@@ -1,0 +1,58 @@
+{
+  "creds": {
+    "sessionToken": "dummy-jwt",
+    "feedToken": "dummy-feed"
+  },
+  "args": [
+    {
+      "instrument": {
+        "token": "26000",
+        "exchange": "NSE"
+      },
+      "interval": "1m",
+      "from": "2026-10-16",
+      "to": "2026-10-16"
+    }
+  ],
+  "responses": [
+    {
+      "method": "GET",
+      "url": "https://api.mstock.trade/openapi/typeb/instruments/historical",
+      "expectBody": {
+        "exchange": "NSE",
+        "symboltoken": "26000",
+        "interval": "ONE_MINUTE",
+        "fromdate": "2026-10-16 09:15",
+        "todate": "2026-10-16 15:30"
+      },
+      "json": {
+        "status": "true",
+        "message": "success",
+        "errorcode": "",
+        "data": {
+          "candles": [
+            [
+              "2026-10-16T09:16:00+05",
+              24961,
+              24970.5,
+              24955,
+              24968.2,
+              0
+            ],
+            [
+              "2026-10-16T09:15:00+05",
+              24960.35,
+              24990,
+              24940.1,
+              24961,
+              0
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 2
+  }
+}

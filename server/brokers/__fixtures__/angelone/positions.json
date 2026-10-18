@@ -1,0 +1,63 @@
+{
+  "creds": {
+    "sessionToken": "eyJhbGciOiJIUzUxMiJ9.dummy.jwt",
+    "feedToken": "dummy-feed",
+    "refreshToken": "dummy-refresh"
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "urlPattern": "^https://apiconnect\\.angelone\\.in/rest/secure/angelbroking/order/v1/getPosition$",
+      "json": {
+        "status": true,
+        "message": "SUCCESS",
+        "errorcode": "",
+        "data": [
+          {
+            "exchange": "NSE",
+            "symboltoken": "2885",
+            "producttype": "DELIVERY",
+            "tradingsymbol": "RELIANCE-EQ",
+            "symbolname": "RELIANCE",
+            "instrumenttype": "",
+            "priceden": "1",
+            "pricenum": "1",
+            "genden": "1",
+            "gennum": "1",
+            "precision": "2",
+            "multiplier": "-1",
+            "boardlotsize": "1",
+            "buyqty": "1",
+            "sellqty": "0",
+            "buyamount": "2235.80",
+            "sellamount": "0",
+            "symbolgroup": "EQ",
+            "strikeprice": "-1",
+            "optiontype": "",
+            "expirydate": "",
+            "lotsize": "1",
+            "cfbuyqty": "0",
+            "cfsellqty": "0",
+            "cfbuyamount": "0",
+            "cfsellamount": "0",
+            "buyavgprice": "2235.80",
+            "sellavgprice": "0",
+            "avgnetprice": "2235.80",
+            "netvalue": "- 2235.80",
+            "netqty": "1",
+            "totalbuyvalue": "2235.80",
+            "totalsellvalue": "0",
+            "cfbuyavgprice": "0",
+            "cfsellavgprice": "0",
+            "totalbuyavgprice": "2235.80",
+            "totalsellavgprice": "0",
+            "netprice": "2235.80"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "minRows": 1
+  }
+}

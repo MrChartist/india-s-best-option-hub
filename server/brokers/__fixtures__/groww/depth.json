@@ -1,0 +1,89 @@
+{
+  "args": [
+    {
+      "token": "2885",
+      "exchange": "NSE"
+    }
+  ],
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://growwapi-assets.groww.in/instruments/instrument.csv",
+      "text": "exchange,exchange_token,trading_symbol,groww_symbol,name,instrument_type,segment,series,isin,underlying_symbol,underlying_exchange_token,expiry_date,strike_price,lot_size,tick_size,freeze_quantity,is_reserved,buy_allowed,sell_allowed\nNSE,NIFTY,NIFTY,NSE-NIFTY,NIFTY 50,IDX,CASH,,NIFTY,,,,,,,,,0,0\nNSE,BANKNIFTY,BANKNIFTY,NSE-BANKNIFTY,NIFTY Bank,IDX,CASH,,BANKNIFTY,,,,,,,,,0,0\nNSE,FINNIFTY,FINNIFTY,NSE-FINNIFTY,Nifty Financial Services,IDX,CASH,,FINNIFTY,,,,,,,,,0,0\nNSE,NIFTYMIDSELECT,NIFTYMIDSELECT,NSE-NIFTYMIDSELECT,Nifty Midcap Select,IDX,CASH,,NIFTYMIDSELECT,,,,,,,,,0,0\nBSE,1,SENSEX,BSE-SENSEX,Bse Sensex,IDX,CASH,,SENSEX,,,,,,,,,0,0\nBSE,14,BANKEX,BSE-BANKEX,Bse Bankex,IDX,CASH,,BANKEX,,,,,,,,,0,0\nNSE,2885,RELIANCE,NSE-RELIANCE,Reliance Industries,EQ,CASH,EQ,INE002A01018,,,,,1,0.1,,,1,1\nNSE,61001,NIFTY26N0325000CE,NSE-NIFTY-03Nov26-25000-CE,,CE,FNO,,,NIFTY,26000,2026-11-03,25000,65,0.05,1801,0,1,1\nNSE,61002,NIFTY26N0325000PE,NSE-NIFTY-03Nov26-25000-PE,,PE,FNO,,,NIFTY,26000,2026-11-03,25000,65,0.05,1801,0,1,1\nNSE,61003,NIFTY26N0325050CE,NSE-NIFTY-03Nov26-25050-CE,,CE,FNO,,,NIFTY,26000,2026-11-03,25050,65,0.05,1801,0,1,1\nNSE,61004,NIFTY26N0325050PE,NSE-NIFTY-03Nov26-25050-PE,,PE,FNO,,,NIFTY,26000,2026-11-03,25050,65,0.05,1801,0,1,1\nNSE,51440,NIFTY26OCT25000CE,NSE-NIFTY-27Oct26-25000-CE,,CE,FNO,,,NIFTY,26000,2026-10-27,25000,65,0.05,1801,0,1,1\nNSE,51441,NIFTY26OCT25000PE,NSE-NIFTY-27Oct26-25000-PE,,PE,FNO,,,NIFTY,26000,2026-10-27,25000,65,0.05,1801,0,1,1\nNSE,48704,NIFTY26OCTFUT,NSE-NIFTY-27Oct26-FUT,,FUT,FNO,,,NIFTY,26000,2026-10-27,-0.01,65,0.1,3511,0,1,1\nNSE,49445,BANKNIFTY26OCT56000PE,NSE-BANKNIFTY-27Oct26-56000-PE,,PE,FNO,,,BANKNIFTY,26009,2026-10-27,56000,35,0.05,1801,0,1,1\nNSE,50319,FINNIFTY26OCT25000CE,NSE-FINNIFTY-27Oct26-25000-CE,,CE,FNO,,,FINNIFTY,26037,2026-10-27,25000,60,0.05,1801,0,1,1\nNSE,52001,MIDCPNIFTY26OCT13000CE,NSE-MIDCPNIFTY-27Oct26-13000-CE,,CE,FNO,,,MIDCPNIFTY,26074,2026-10-27,13000,140,0.05,1801,0,1,1\nBSE,1162037,SENSEX26O2281000CE,BSE-SENSEX-22Oct26-81000-CE,,CE,FNO,,,SENSEX,1,2026-10-22,81000,20,0.05,1801,0,1,1\nBSE,1162038,SENSEX26O2281000PE,BSE-SENSEX-22Oct26-81000-PE,,PE,FNO,,,SENSEX,1,2026-10-22,81000,20,0.05,1801,0,1,1\nBSE,1170001,BANKEX26OCT62000CE,BSE-BANKEX-29Oct26-62000-CE,,CE,FNO,,,BANKEX,14,2026-10-29,62000,30,0.05,1801,0,1,1\nNSE,73176,RELIANCE26OCT1400CE,NSE-RELIANCE-27Oct26-1400-CE,,CE,FNO,,,RELIANCE,2885,2026-10-27,1400,500,0.05,1801,0,1,1\nNSE,73177,RELIANCE26OCT1400PE,NSE-RELIANCE-27Oct26-1400-PE,,PE,FNO,,,RELIANCE,2885,2026-10-27,1400,500,0.05,1801,0,1,1\nNSE,80001,NIFTYNXT5026OCT70000CE,NSE-NIFTYNXT50-27Oct26-70000-CE,,CE,FNO,,,NIFTYNXT50,26013,2026-10-27,70000,25,0.05,1801,0,1,1\nMCX,450001,CRUDEOIL26NOV5000CE,MCX-CRUDEOIL-16Nov26-5000-CE,,CE,COMMODITY,,,CRUDEOIL,,2026-11-16,5000,100,0.1,,0,1,1\n",
+      "headers": {
+        "content-type": "text/csv"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.groww.in/v1/live-data/quote?exchange=NSE&segment=CASH&trading_symbol=RELIANCE",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "average_price": 150.25,
+          "bid_quantity": 1000,
+          "bid_price": 150,
+          "day_change": -0.5,
+          "day_change_perc": -0.33,
+          "upper_circuit_limit": 151,
+          "lower_circuit_limit": 148.5,
+          "ohlc": "{open: 149.50,high: 150.50,low: 148.50,close: 149.50}",
+          "depth": {
+            "buy": [
+              {
+                "price": 150,
+                "quantity": 1000
+              },
+              {
+                "price": 149.95,
+                "quantity": 500
+              }
+            ],
+            "sell": [
+              {
+                "price": 150.5,
+                "quantity": 2000
+              },
+              {
+                "price": 150.55,
+                "quantity": 300
+              }
+            ]
+          },
+          "high_trade_range": 150.5,
+          "implied_volatility": 0.25,
+          "last_trade_quantity": 500,
+          "last_trade_time": 1633072800000,
+          "low_trade_range": 148.25,
+          "last_price": 149.5,
+          "market_cap": 5000000000,
+          "offer_price": 150.5,
+          "offer_quantity": 2000,
+          "oi_day_change": 100,
+          "oi_day_change_percentage": 0.5,
+          "open_interest": 2000,
+          "previous_open_interest": 1900,
+          "total_buy_quantity": 5000,
+          "total_sell_quantity": 4000,
+          "volume": 10000,
+          "week_52_high": 160,
+          "week_52_low": 140
+        }
+      }
+    }
+  ]
+}

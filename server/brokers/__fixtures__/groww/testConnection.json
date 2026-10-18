@@ -1,0 +1,39 @@
+{
+  "responses": [
+    {
+      "method": "POST",
+      "url": "https://api.groww.in/v1/token/api/access",
+      "expectBody": {
+        "key_type": "approval"
+      },
+      "json": {
+        "token": "dummy-groww-access-token",
+        "tokenRefId": "ref-123",
+        "sessionName": "my-session",
+        "expiry": "2026-10-18T06:00:00",
+        "isActive": true
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.groww.in/v1/user/detail",
+      "json": {
+        "status": "SUCCESS",
+        "payload": {
+          "vendor_user_id": "d86890d1-c60d-4ebd-9730-4f451670",
+          "ucc": "924189",
+          "nse_enabled": true,
+          "bse_enabled": true,
+          "ddpi_enabled": false,
+          "active_segments": [
+            "CASH",
+            "FNO"
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "success"
+  }
+}
