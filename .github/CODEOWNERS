@@ -1,0 +1,4 @@
+# Every change to Option Hub needs approval from the owner.
+# With "Require review from Code Owners" enabled on the main branch ruleset,
+# no pull request can merge without @MrChartist's approval.
+* @MrChartist
