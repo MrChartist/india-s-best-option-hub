@@ -5,7 +5,7 @@
  * get-profile, get-option-contracts, get-pc-option-chain, ltp-v3, get-full-market-quote,
  * v3/get-historical-candle-data, instruments, get-positions, get-holdings, get-user-fund-margin,
  * get-order-book, get-trade-history, v3/place-order, v3/modify-order, v3/cancel-order,
- * v3/get-market-data-feed, error-codes, rate-limiting. OpenAlgo was read for facts only.
+ * v3/get-market-data-feed, error-codes, rate-limiting.
  *
  * Auth: oauthRedirect (OAuth 2.0 authorization code). The user is sent to
  * https://api.upstox.com/v2/login/authorization/dialog?response_type=code&client_id=<apiKey>&redirect_uri=...,

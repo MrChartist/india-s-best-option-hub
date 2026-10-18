@@ -12,7 +12,7 @@
  *    ("YYYY-MM-DD HH:mm"), reply data.candles[[time, o, h, l, c, v]] with time like
  *    "2024-01-01T09:15:00+05" (IST). https://tradingapi.mstock.com/docs/v1/typeB/historical-candle/
  *    Interval names beyond ONE_MINUTE are not listed there; THREE/FIVE/FIFTEEN/THIRTY_MINUTE, ONE_HOUR and
- *    ONE_DAY follow the intraday page's interval list and OpenAlgo's mapping (facts only).
+ *    ONE_DAY follow the intraday page's interval list (not on the historical page: needs live verification).
  *  - Rate limits: quotes 20/s; historical ("data APIs") 1/s, 1000/min.
  * There is no REST market-depth endpoint (depth is only in the binary WebSocket "Snap Quote" packet), so
  * the depth capability is not declared. IV and Greeks are solved locally (Black-Scholes).

@@ -1,8 +1,8 @@
 /**
  * 5paisa adapter on the broker contract (server/brokers/contract.mjs).
  *
- * Official docs: https://xstream.5paisa.com/dev-docs/ (checked 2026-10). OpenAlgo (AGPL) was read for facts
- * only; where it disagrees with the official pages we follow the official pages (see fivepaisaPortfolio.mjs and
+ * Official docs: https://xstream.5paisa.com/dev-docs/ (checked 2026-10). Where observed behaviour disagrees
+ * with the official pages we follow the official pages (see fivepaisaPortfolio.mjs and
  * fivepaisaMarket.mjs headers).
  *
  *  - Auth: session login (PIN + current TOTP code typed per session, never stored), fivepaisaAuth.mjs.

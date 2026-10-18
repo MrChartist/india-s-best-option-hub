@@ -1,6 +1,6 @@
 # Notices
 
-Option Hub by Mr. Chartist is © 2026 Rohit Singh (Mr. Chartist). It is licensed under the PolyForm Noncommercial License 1.0.0 (see [LICENSE](LICENSE)), with the extra permissions in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+Option Hub by Mr. Chartist is © 2026 Rohit Singh (Mr. Chartist). It is licensed for personal use by individuals only under the Option Hub Personal Use Licence 1.0 (see [LICENSE](LICENSE) and the plain-English summary in [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)).
 
 This file lists material that carries its own notice.
 
@@ -21,10 +21,6 @@ The Docker setup (`Dockerfile`, `.dockerignore` and the Docker section of the RE
 ## Third-party libraries
 
 Option Hub depends on open-source packages (React, Vite, Tailwind CSS, Radix UI, Recharts, Lightweight Charts, TanStack Query, Workbox and others). Each keeps its own licence, which ships with the package in `node_modules`. Run `npx license-checker --summary` to list them.
-
-## References
-
-Broker API details were cross-checked against each broker's official API documentation and, as a factual reference only, the OpenAlgo project (AGPL-3.0, <https://github.com/marketcalls/openalgo>). No OpenAlgo code is included in Option Hub.
 
 ## Brand
 

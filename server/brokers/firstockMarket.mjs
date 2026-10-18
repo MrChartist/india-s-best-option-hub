@@ -17,7 +17,7 @@
  *  - time-price-regular-interval/ and time-price-day-interval/ : POST /timePriceSeries { exchange,
  *    tradingSymbol, interval "1mi" | "3mi" | ... | "1d", startTime/endTime "HH:MM:SS DD-MM-YYYY" } ->
  *    data[] { time, epochTime, open, high, low, close, volume, oi }. "1mi"/"2mi"/"5mi" and "1d" are in the
- *    docs; 3mi/15mi/30mi/60mi follow the same pattern (OpenAlgo uses the same codes, facts only).
+ *    docs; 3mi/15mi/30mi/60mi follow the same pattern (not in the official docs: needs live verification).
  */
 
 import { BrokerInputError } from "./contract.mjs";

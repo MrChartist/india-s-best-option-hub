@@ -6,7 +6,7 @@
  * The docs do not describe the columns; they were read from the live file header (October 2026):
  *   exchange, security_id, instrument_segment, expiry_date, strike_price, option_type, lot_size,
  *   tick_size, close_price, exch_security_id, symbol_name, underline_symbol, open_price
- * Facts used here (live file; OpenAlgo's notes agree):
+ * Facts used here (read from the live file):
  *   - `exchange` is only NSE / BSE / MCX. Derivatives are told apart by `instrument_segment`
  *     (OPTIDX, OPTSTK, FUTIDX, FUTSTK, OPTCUR, FUTCUR, ...), so NFO = NSE + derivative segment.
  *   - Index spot rows are EQUITY rows in a reserved token band: NSE 26000-26999 (NIFTY 26000,

@@ -4,7 +4,6 @@
  * Official docs (checked October 2026): https://dhanhq.co/docs/v2/
  *   authentication (GET /profile), option-chain, market-quote, historical-data, instruments,
  *   live-market-feed, orders, portfolio, funds, annexure (segments, error codes).
- * OpenAlgo was read for facts only (endpoint names, field names); no code was taken from it.
  *
  * Auth: apiKeyToken. The user pastes the Client ID and a 24-hour access token generated on Dhan Web;
  * every call sends the `access-token` and `client-id` headers. There is no login call here.

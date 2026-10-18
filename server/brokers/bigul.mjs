@@ -8,7 +8,6 @@
  * WebSocket (bigulFeed.mjs) over the public daily master (bigulInstruments.mjs); IV and greeks are computed locally.
  * Portfolio (bigulPortfolio.mjs) and gated LIMIT/SL orders (bigulOrders.mjs) are REST.
  * Not declared: historical (no candle endpoint is documented). GTT/OCO/advance orders are out of scope.
- * OpenAlgo has no Bigul integration; nothing here comes from it.
  *
  * Needs a live check before it leaves beta: the feed's connect "source" value, the funds field mapping, and the
  * modify-order sr/au values.

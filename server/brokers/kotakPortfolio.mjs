@@ -145,7 +145,7 @@ export function mapHolding(h) {
 
 /**
  * Limits -> Funds. "Net" is the available margin the Kotak app shows; CollateralValue is the cash leg and
- * Collateral the pledged-securities leg (OpenAlgo verified this on a live account; the docs give no field glossary).
+ * Collateral the pledged-securities leg (observed on a live account, not in the docs, which give no field glossary: needs live verification).
  */
 export function mapFunds(l) {
   const cash = numOrNull(l?.CollateralValue);

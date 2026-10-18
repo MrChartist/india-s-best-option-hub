@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +11,7 @@ import { isLiveTradingEnabled } from "@/lib/brokerConfig";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { EmptyState } from "@/components/positions/ui";
 
 const CANCELLABLE_STATUSES = new Set(["PENDING", "TRANSIT"]);
 
@@ -90,25 +92,29 @@ export default function Orders() {
         }
       />
 
-      {!liveOn && (
-        <Card className="border-warning/30 bg-warning/5">
-          <CardContent className="py-3 text-body-sm text-muted-foreground">
-            Live Trading is off, so no real orders are being placed — this page will stay empty. Paper positions live in Position Tracker instead.
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardContent className="p-0 overflow-auto">
-          {liveOn && isLoading ? (
+          {!liveOn ? (
+            <EmptyState icon={<ListOrdered className="h-8 w-8" aria-hidden="true" />} title="Live trading is off">
+              <p>
+                No real orders are placed while Live trading is off, so this page stays empty. Paper trades from 1Cliq Trade appear in{" "}
+                <Link to="/position-tracker" className="text-primary-ink underline underline-offset-2">Positions</Link>.
+              </p>
+              <Button asChild size="sm" variant="outline" className="mt-3">
+                <Link to="/broker-settings">Open Broker Settings</Link>
+              </Button>
+            </EmptyState>
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-body">Loading orders...</span>
             </div>
           ) : rows.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-body">
-              No orders today — or Dhan rejected the request (check your connection in Broker Settings; remember order APIs need a static IP whitelisted with Dhan).
-            </div>
+            <EmptyState icon={<ListOrdered className="h-8 w-8" aria-hidden="true" />} title="No orders today">
+              <p>
+                Or Dhan refused the request. Check the connection in <Link to="/broker-settings" className="text-primary-ink underline underline-offset-2">Broker Settings</Link>; order APIs need a static IP whitelisted with Dhan.
+              </p>
+            </EmptyState>
           ) : (
             <Table>
               <TableHeader>

@@ -20,7 +20,7 @@
  *    NorenRestApiOAuth): /PlaceOrder, /OrderBook, /CancelOrder, /SingleOrdHist,
  *    and the fields tsym, qty, prc, prd, trantype, prctyp, ret, trgprc and the
  *    norenordno returned by a successful placement.
- * OpenAlgo was used only as a cross-check. Note: getOrderStatus() below calls
+ * Note: getOrderStatus() below calls
  * /SingleOrdStatus, which Shoonya's official SDK does not use (it reads one
  * order through /SingleOrdHist); confirm the path for each broker before it is
  * relied on. Nothing in this module is wired into a live order path today, and

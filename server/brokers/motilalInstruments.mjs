@@ -11,8 +11,8 @@
  *     1980-01-01 IST (1328365800 -> 03-Feb-2022 14:30 IST), so the scripname date is used.
  *   GET https://openapi.motilaloswal.com/getindexdatacsv?name=NSE|BSE  -> exchangename, indexcode, indexname
  *     ("BSE BANKEX" 999912 in the doc sample).
- * BSEFO lists SENSEX and BANKEX derivatives under the house codes BSX and BKX (OpenAlgo documents this; the official
- * page shows NSEFO samples only).
+ * BSEFO lists SENSEX and BANKEX derivatives under the house codes BSX and BKX (not in the official docs, which show
+ * NSEFO samples only: needs live verification).
  */
 
 import { getCachedOrFetch, ONE_DAY_MS } from "../lib/instrumentCache.mjs";

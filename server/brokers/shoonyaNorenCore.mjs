@@ -7,8 +7,7 @@
  * is supplied by each broker module through the `cfg` object passed to createNorenAdapter().
  *
  * Zebu also runs Noren but is owned separately and does not use this file (nor does it use
- * oms-noren.mjs today). Written from the brokers' official API documentation; facts were cross-checked
- * against OpenAlgo (AGPL, used as a factual reference only — nothing copied).
+ * oms-noren.mjs today). Written from the brokers' official API documentation.
  *
  * Facts common to the family (official sources are listed in each broker module's header):
  *  - Every REST call is a POST whose body is `jData=<json>` (plus `&jKey=<token>` on Flattrade).

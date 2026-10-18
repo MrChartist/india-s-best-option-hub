@@ -2,8 +2,7 @@
  * HDFC Securities (InvestRight Open API) on the broker contract (server/brokers/contract.mjs).
  *
  * Official docs: https://developer.hdfcsec.com/ir-docs/docs/intro (every page under /ir-docs/docs/).
- * OpenAlgo was read for facts only (endpoint paths, master columns, feed auth); where it and the docs
- * disagree we follow the docs and say so in the module that makes the call.
+ * Where observed behaviour and the docs disagree we follow the docs and say so in the module that makes the call.
  *
  * What InvestRight offers and how each capability is built:
  *  - auth: apiKeyToken. The user completes the InvestRight login (browser redirect + 2FA) once a day

@@ -12,7 +12,7 @@
  *  - modifyregularorder: PUT /oapi/v1/orders with the same fields plus oms_order_id (product cannot change).
  *  - deleteregularorder: DELETE /oapi/v1/orders/<oms_order_id>?client_id&execution_type=REGULAR.
  *  The table says "price can't be zero"; for MARKET and SL-M orders we send 0 as there is no limit price
- *  (OpenAlgo converts market orders to protected limits instead). Flagged for live verification.
+ *  (some clients convert market orders to protected limits instead). Flagged for live verification.
  */
 
 import { BrokerInputError, withOrderGate } from "./contract.mjs";

@@ -12,7 +12,7 @@
  *    swapped server-side (auth kind apiKeyToken). Tokens are cached until the next IST midnight and
  *    re-created once on a token rejection for read calls; order calls never retry.
  *
- * Note: OpenAlgo turns IndiaBulls MARKET orders into LIMIT orders priced off the touchline, which hints
+ * Note: some clients turn IndiaBulls MARKET orders into LIMIT orders priced off the touchline, which hints
  * that the broker may reject market orders through the API. Nothing in the official docs says so, so
  * orders are sent as requested; this needs a live check before trading is enabled.
  */

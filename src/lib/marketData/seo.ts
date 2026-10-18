@@ -107,7 +107,7 @@ export function softwareApplicationJsonLd(site: string): Record<string, unknown>
     operatingSystem: "Any (web browser)",
     inLanguage: "en-IN",
     isAccessibleForFree: true,
-    license: "https://polyformproject.org/licenses/noncommercial/1.0.0",
+    license: "https://github.com/MrChartist/india-s-best-option-hub/blob/main/LICENSE",
     codeRepository: "https://github.com/MrChartist/india-s-best-option-hub",
     offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
     image: ogImageUrl(site),

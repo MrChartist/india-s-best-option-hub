@@ -2,7 +2,7 @@
  * Kotak Securities (Neo Trade API v2) adapter on the broker contract (server/brokers/contract.mjs).
  *
  * Official source: Kotak's SDK and docs, https://github.com/Kotak-Neo/Kotak-neo-api-v2 (checked 2026-10), plus the
- * client migration guide on kotakneo.com. OpenAlgo (AGPL) was read for facts only.
+ * client migration guide on kotakneo.com.
  *
  *  - Auth: session login (MPIN + current TOTP code typed per session, never stored), kotakAuth.mjs.
  *  - Instruments: daily per-segment scrip-master CSVs (kotakInstruments.mjs).

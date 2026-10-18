@@ -1,0 +1,882 @@
+[
+  {
+    "file": "dashboard-dark.webp",
+    "title": "Market dashboard",
+    "page": "/",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Indices, India VIX, the daily market brief and key metrics on one customisable page."
+  },
+  {
+    "file": "dashboard-light.webp",
+    "title": "Market dashboard",
+    "page": "/",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Indices, India VIX, the daily market brief and key metrics on one customisable page."
+  },
+  {
+    "file": "watchlist-dark.webp",
+    "title": "Watchlist",
+    "page": "/watchlist",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Your symbols with price, change, day range, volume and OI, one click from their option chain."
+  },
+  {
+    "file": "watchlist-light.webp",
+    "title": "Watchlist",
+    "page": "/watchlist",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Your symbols with price, change, day range, volume and OI, one click from their option chain."
+  },
+  {
+    "file": "events-calendar-dark.webp",
+    "title": "Events Calendar",
+    "page": "/events",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Results, RBI policy, macro data, expiries and holidays in IST, linked to the chain and straddles."
+  },
+  {
+    "file": "events-calendar-light.webp",
+    "title": "Events Calendar",
+    "page": "/events",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Results, RBI policy, macro data, expiries and holidays in IST, linked to the chain and straddles."
+  },
+  {
+    "file": "option-chain-dark.webp",
+    "title": "Option Chain",
+    "page": "/option-chain",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "NSE and BSE chain with Greeks, OI build-up labels, ATM focus, volume spikes and a basket."
+  },
+  {
+    "file": "option-chain-light.webp",
+    "title": "Option Chain",
+    "page": "/option-chain",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "NSE and BSE chain with Greeks, OI build-up labels, ATM focus, volume spikes and a basket."
+  },
+  {
+    "file": "oi-analysis-dark.webp",
+    "title": "OI Analysis",
+    "page": "/oi-analysis",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Open-interest walls, intraday OI change, buildup and PCR by strike for one expiry."
+  },
+  {
+    "file": "oi-analysis-light.webp",
+    "title": "OI Analysis",
+    "page": "/oi-analysis",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Open-interest walls, intraday OI change, buildup and PCR by strike for one expiry."
+  },
+  {
+    "file": "max-pain-pcr-dark.webp",
+    "title": "Max Pain & PCR",
+    "page": "/max-pain-pcr",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Writer payout curve, max pain across expiries and the put-call ratio suite."
+  },
+  {
+    "file": "max-pain-pcr-light.webp",
+    "title": "Max Pain & PCR",
+    "page": "/max-pain-pcr",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Writer payout curve, max pain across expiries and the put-call ratio suite."
+  },
+  {
+    "file": "fno-screener-dark.webp",
+    "title": "F&O Screener",
+    "page": "/screener",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Every F&O stock and index with buildup, ATM IV, IV percentile, PCR, MWPL and ban-list flags."
+  },
+  {
+    "file": "fno-screener-light.webp",
+    "title": "F&O Screener",
+    "page": "/screener",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Every F&O stock and index with buildup, ATM IV, IV percentile, PCR, MWPL and ban-list flags."
+  },
+  {
+    "file": "expiry-day-dark.webp",
+    "title": "Expiry Day",
+    "page": "/expiry-day",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "0DTE command centre for the NIFTY and SENSEX weeklies: straddle decay, theta per minute and OI walls."
+  },
+  {
+    "file": "expiry-day-light.webp",
+    "title": "Expiry Day",
+    "page": "/expiry-day",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "0DTE command centre for the NIFTY and SENSEX weeklies: straddle decay, theta per minute and OI walls."
+  },
+  {
+    "file": "straddles-dark.webp",
+    "title": "Straddles",
+    "page": "/straddles",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Combined CE + PE premium with VWAP for any symbol and expiry, rolling ATM or fixed strike."
+  },
+  {
+    "file": "straddles-light.webp",
+    "title": "Straddles",
+    "page": "/straddles",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Combined CE + PE premium with VWAP for any symbol and expiry, rolling ATM or fixed strike."
+  },
+  {
+    "file": "contract-dark.webp",
+    "title": "Contract",
+    "page": "/contract/NIFTY/2026-10-19/24300/CE",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "One option through the session: LTP vs spot, OI, IV and volume with top-of-book depth."
+  },
+  {
+    "file": "contract-light.webp",
+    "title": "Contract",
+    "page": "/contract/NIFTY/2026-10-19/24300/CE",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "One option through the session: LTP vs spot, OI, IV and volume with top-of-book depth."
+  },
+  {
+    "file": "volatility-dark.webp",
+    "title": "Volatility",
+    "page": "/volatility",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "IV smile, term structure, surface, volatility cone, expected move and India VIX analytics."
+  },
+  {
+    "file": "volatility-light.webp",
+    "title": "Volatility",
+    "page": "/volatility",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "IV smile, term structure, surface, volatility cone, expected move and India VIX analytics."
+  },
+  {
+    "file": "gamma-exposure-dark.webp",
+    "title": "Gamma Exposure",
+    "page": "/gex",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "GEX profile with call and put walls, gamma flip and DEX / VEX / CEX by strike."
+  },
+  {
+    "file": "gamma-exposure-light.webp",
+    "title": "Gamma Exposure",
+    "page": "/gex",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "GEX profile with call and put walls, gamma flip and DEX / VEX / CEX by strike."
+  },
+  {
+    "file": "options-flow-dark.webp",
+    "title": "Options Flow",
+    "page": "/flow",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Derived flow tape, Premium Tide, unusual activity and the hottest chains from successive snapshots."
+  },
+  {
+    "file": "options-flow-light.webp",
+    "title": "Options Flow",
+    "page": "/flow",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Derived flow tape, Premium Tide, unusual activity and the hottest chains from successive snapshots."
+  },
+  {
+    "file": "fii-dii-positioning-dark.webp",
+    "title": "FII / DII Positioning",
+    "page": "/participants",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Participant-wise OI and volume for FIIs, DIIs, prop desks and clients, with the index-futures long ratio."
+  },
+  {
+    "file": "fii-dii-positioning-light.webp",
+    "title": "FII / DII Positioning",
+    "page": "/participants",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Participant-wise OI and volume for FIIs, DIIs, prop desks and clients, with the index-futures long ratio."
+  },
+  {
+    "file": "futures-rollover-dark.webp",
+    "title": "Futures & Rollover",
+    "page": "/futures",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Basis, annualised carry, rollover and roll cost across near, next and far months."
+  },
+  {
+    "file": "futures-rollover-light.webp",
+    "title": "Futures & Rollover",
+    "page": "/futures",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Basis, annualised carry, rollover and roll cost across near, next and far months."
+  },
+  {
+    "file": "strategy-builder-dark.webp",
+    "title": "Strategy Builder",
+    "page": "/strategy-builder",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Multi-leg payoff with target-date and IV sliders, POP, margin and charges."
+  },
+  {
+    "file": "strategy-builder-light.webp",
+    "title": "Strategy Builder",
+    "page": "/strategy-builder",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Multi-leg payoff with target-date and IV sliders, POP, margin and charges."
+  },
+  {
+    "file": "optimizer-dark.webp",
+    "title": "Strategy Optimizer",
+    "page": "/optimizer",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Strategies ranked by return on funds and chance of profit for your view, target and budget."
+  },
+  {
+    "file": "optimizer-light.webp",
+    "title": "Strategy Optimizer",
+    "page": "/optimizer",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Strategies ranked by return on funds and chance of profit for your view, target and budget."
+  },
+  {
+    "file": "backtester-dark.webp",
+    "title": "Backtester",
+    "page": "/backtest",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Replay a strategy over past expiries with entry, exit, stop and target rules."
+  },
+  {
+    "file": "backtester-light.webp",
+    "title": "Backtester",
+    "page": "/backtest",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Replay a strategy over past expiries with entry, exit, stop and target rules."
+  },
+  {
+    "file": "calculators-dark.webp",
+    "title": "Calculators",
+    "page": "/calculators",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "F&O charges, SPAN-style margin, position size, option price, IV and lot lookup."
+  },
+  {
+    "file": "calculators-light.webp",
+    "title": "Calculators",
+    "page": "/calculators",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "F&O charges, SPAN-style margin, position size, option price, IV and lot lookup."
+  },
+  {
+    "file": "one-cliq-dark.webp",
+    "title": "1Cliq Trade",
+    "page": "/one-cliq",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Keyboard-first one-click terminal: arming, server-side SL/target, F6 close all, F7 cancel all, trading lock. Paper fills until Live trading is on."
+  },
+  {
+    "file": "one-cliq-light.webp",
+    "title": "1Cliq Trade",
+    "page": "/one-cliq",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Keyboard-first one-click terminal: arming, server-side SL/target, F6 close all, F7 cancel all, trading lock. Paper fills until Live trading is on."
+  },
+  {
+    "file": "orders-dark.webp",
+    "title": "Orders",
+    "page": "/orders",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Today's real Dhan order book with cancel for resting orders. Empty while Live trading is off."
+  },
+  {
+    "file": "orders-light.webp",
+    "title": "Orders",
+    "page": "/orders",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Today's real Dhan order book with cancel for resting orders. Empty while Live trading is off."
+  },
+  {
+    "file": "positions-dark.webp",
+    "title": "Positions",
+    "page": "/position-tracker",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Live P&L and Greeks in rupees, NIFTY-equivalent delta, and what-if scenarios."
+  },
+  {
+    "file": "positions-light.webp",
+    "title": "Positions",
+    "page": "/position-tracker",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Live P&L and Greeks in rupees, NIFTY-equivalent delta, and what-if scenarios."
+  },
+  {
+    "file": "paper-trading-dark.webp",
+    "title": "Paper Trading",
+    "page": "/paper-trading",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Practise on live chains with a real order ticket, slippage, charges and guardrails."
+  },
+  {
+    "file": "paper-trading-light.webp",
+    "title": "Paper Trading",
+    "page": "/paper-trading",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Practise on live chains with a real order ticket, slippage, charges and guardrails."
+  },
+  {
+    "file": "trade-journal-dark.webp",
+    "title": "Trade Journal",
+    "page": "/journal",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Import a broker tradebook and see expectancy, P&L after charges and ITR-ready turnover."
+  },
+  {
+    "file": "trade-journal-light.webp",
+    "title": "Trade Journal",
+    "page": "/journal",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Import a broker tradebook and see expectancy, P&L after charges and ITR-ready turnover."
+  },
+  {
+    "file": "alerts-dark.webp",
+    "title": "Alerts",
+    "page": "/alerts",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Price, IV, PCR, OI wall, max pain and gamma-flip alerts, checked in the browser."
+  },
+  {
+    "file": "alerts-light.webp",
+    "title": "Alerts",
+    "page": "/alerts",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Price, IV, PCR, OI wall, max pain and gamma-flip alerts, checked in the browser."
+  },
+  {
+    "file": "learn-dark.webp",
+    "title": "Learn",
+    "page": "/learn",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Lessons with NISMExams.com from options basics to dealer gamma, with quizzes and simulators."
+  },
+  {
+    "file": "learn-light.webp",
+    "title": "Learn",
+    "page": "/learn",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Lessons with NISMExams.com from options basics to dealer gamma, with quizzes and simulators."
+  },
+  {
+    "file": "learn-lesson-dark.webp",
+    "title": "Learn lesson",
+    "page": "/learn/what-is-an-option",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "A lesson page: plain-English explanation, payoff builder and progress through the path."
+  },
+  {
+    "file": "learn-lesson-light.webp",
+    "title": "Learn lesson",
+    "page": "/learn/what-is-an-option",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "A lesson page: plain-English explanation, payoff builder and progress through the path."
+  },
+  {
+    "file": "ecosystem-dark.webp",
+    "title": "More from Mr. Chartist",
+    "page": "/ecosystem",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Every Mr. Chartist product, course and channel in one place."
+  },
+  {
+    "file": "ecosystem-light.webp",
+    "title": "More from Mr. Chartist",
+    "page": "/ecosystem",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Every Mr. Chartist product, course and channel in one place."
+  },
+  {
+    "file": "broker-settings-dark.webp",
+    "title": "Broker Settings",
+    "page": "/broker-settings",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Key storage, Dhan keys, data-source health and the Live trading switch."
+  },
+  {
+    "file": "broker-settings-light.webp",
+    "title": "Broker Settings",
+    "page": "/broker-settings",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Key storage, Dhan keys, data-source health and the Live trading switch."
+  },
+  {
+    "file": "mobile-dashboard-dark.webp",
+    "title": "Market dashboard (mobile)",
+    "page": "/",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Indices, India VIX, the daily market brief and key metrics on one customisable page."
+  },
+  {
+    "file": "mobile-dashboard-light.webp",
+    "title": "Market dashboard (mobile)",
+    "page": "/",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Indices, India VIX, the daily market brief and key metrics on one customisable page."
+  },
+  {
+    "file": "mobile-option-chain-dark.webp",
+    "title": "Option Chain (mobile)",
+    "page": "/option-chain",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "NSE and BSE chain with Greeks, OI build-up labels, ATM focus, volume spikes and a basket."
+  },
+  {
+    "file": "mobile-option-chain-light.webp",
+    "title": "Option Chain (mobile)",
+    "page": "/option-chain",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "NSE and BSE chain with Greeks, OI build-up labels, ATM focus, volume spikes and a basket."
+  },
+  {
+    "file": "mobile-strategy-builder-dark.webp",
+    "title": "Strategy Builder (mobile)",
+    "page": "/strategy-builder",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Multi-leg payoff with target-date and IV sliders, POP, margin and charges."
+  },
+  {
+    "file": "mobile-strategy-builder-light.webp",
+    "title": "Strategy Builder (mobile)",
+    "page": "/strategy-builder",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Multi-leg payoff with target-date and IV sliders, POP, margin and charges."
+  },
+  {
+    "file": "mobile-gamma-exposure-dark.webp",
+    "title": "Gamma Exposure (mobile)",
+    "page": "/gex",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "GEX profile with call and put walls, gamma flip and DEX / VEX / CEX by strike."
+  },
+  {
+    "file": "mobile-gamma-exposure-light.webp",
+    "title": "Gamma Exposure (mobile)",
+    "page": "/gex",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "GEX profile with call and put walls, gamma flip and DEX / VEX / CEX by strike."
+  },
+  {
+    "file": "mobile-broker-settings-dark.webp",
+    "title": "Broker Settings (mobile)",
+    "page": "/broker-settings",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Key storage, Dhan keys, data-source health and the Live trading switch."
+  },
+  {
+    "file": "mobile-broker-settings-light.webp",
+    "title": "Broker Settings (mobile)",
+    "page": "/broker-settings",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Key storage, Dhan keys, data-source health and the Live trading switch."
+  },
+  {
+    "file": "mobile-one-cliq-dark.webp",
+    "title": "1Cliq Trade (mobile)",
+    "page": "/one-cliq",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Keyboard-first one-click terminal: arming, server-side SL/target, F6 close all, F7 cancel all, trading lock. Paper fills until Live trading is on."
+  },
+  {
+    "file": "mobile-one-cliq-light.webp",
+    "title": "1Cliq Trade (mobile)",
+    "page": "/one-cliq",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Keyboard-first one-click terminal: arming, server-side SL/target, F6 close all, F7 cancel all, trading lock. Paper fills until Live trading is on."
+  },
+  {
+    "file": "mobile-learn-dark.webp",
+    "title": "Learn (mobile)",
+    "page": "/learn",
+    "theme": "dark",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Lessons with NISMExams.com from options basics to dealer gamma, with quizzes and simulators."
+  },
+  {
+    "file": "mobile-learn-light.webp",
+    "title": "Learn (mobile)",
+    "page": "/learn",
+    "theme": "light",
+    "viewport": "mobile",
+    "width": 780,
+    "height": 1688,
+    "description": "Lessons with NISMExams.com from options basics to dealer gamma, with quizzes and simulators."
+  },
+  {
+    "file": "feature-command-palette-dark.webp",
+    "title": "Command palette",
+    "page": "/",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Ctrl K opens the palette: pages, indices and F&O stocks, here searching for NIFTY."
+  },
+  {
+    "file": "feature-command-palette-light.webp",
+    "title": "Command palette",
+    "page": "/",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Ctrl K opens the palette: pages, indices and F&O stocks, here searching for NIFTY."
+  },
+  {
+    "file": "feature-keyboard-shortcuts-dark.webp",
+    "title": "Keyboard shortcuts",
+    "page": "/",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The ? overlay with every navigation and tool shortcut."
+  },
+  {
+    "file": "feature-keyboard-shortcuts-light.webp",
+    "title": "Keyboard shortcuts",
+    "page": "/",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The ? overlay with every navigation and tool shortcut."
+  },
+  {
+    "file": "feature-collapsed-sidebar-dark.webp",
+    "title": "Collapsed sidebar",
+    "page": "/",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The sidebar collapsed to an icon rail for more chart room."
+  },
+  {
+    "file": "feature-collapsed-sidebar-light.webp",
+    "title": "Collapsed sidebar",
+    "page": "/",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The sidebar collapsed to an icon rail for more chart room."
+  },
+  {
+    "file": "feature-broker-directory-dark.webp",
+    "title": "41-broker directory",
+    "page": "/broker-settings",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "All 41 brokers with search, filters and a capability matrix: chain, quotes, live feed, portfolio and orders."
+  },
+  {
+    "file": "feature-broker-directory-light.webp",
+    "title": "41-broker directory",
+    "page": "/broker-settings",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "All 41 brokers with search, filters and a capability matrix: chain, quotes, live feed, portfolio and orders."
+  },
+  {
+    "file": "feature-session-login-dark.webp",
+    "title": "Broker session login",
+    "page": "/broker-settings",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The Log in dialog for a session-login broker (Angel One): PIN and TOTP are sent once to the local proxy and never saved."
+  },
+  {
+    "file": "feature-session-login-light.webp",
+    "title": "Broker session login",
+    "page": "/broker-settings",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The Log in dialog for a session-login broker (Angel One): PIN and TOTP are sent once to the local proxy and never saved."
+  },
+  {
+    "file": "feature-strategy-template-dark.webp",
+    "title": "Strategy template applied",
+    "page": "/strategy-builder",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Strategy Builder after picking Bull Call Spread from the template library."
+  },
+  {
+    "file": "feature-strategy-template-light.webp",
+    "title": "Strategy template applied",
+    "page": "/strategy-builder",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "Strategy Builder after picking Bull Call Spread from the template library."
+  },
+  {
+    "file": "feature-option-chain-by-strike-dark.webp",
+    "title": "Option chain by strike",
+    "page": "/option-chain",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "One strike across every expiry, with the IV term structure."
+  },
+  {
+    "file": "feature-option-chain-by-strike-light.webp",
+    "title": "Option chain by strike",
+    "page": "/option-chain",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "One strike across every expiry, with the IV term structure."
+  },
+  {
+    "file": "feature-not-found-dark.webp",
+    "title": "Page not found",
+    "page": "/this-page-does-not-exist",
+    "theme": "dark",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The 404 page suggests the closest routes."
+  },
+  {
+    "file": "feature-not-found-light.webp",
+    "title": "Page not found",
+    "page": "/this-page-does-not-exist",
+    "theme": "light",
+    "viewport": "desktop",
+    "width": 1600,
+    "height": 1000,
+    "description": "The 404 page suggests the closest routes."
+  }
+]

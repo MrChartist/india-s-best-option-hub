@@ -16,8 +16,8 @@
  *  - trade-book-api: GET /orders/v1/trade-details?order_no&leg_no&segment -> {data:[{trade_no, quantity,
  *    traded_price, exch_trade_time "31-07-2019 14:55:00", ...}]}. Trades are fetched per order, so the
  *    trade book reads the order book first and asks for each order with traded_qty > 0 (max 25).
- *  display_status values are not enumerated in the docs (sample: "Pending"); OpenAlgo handles
- *  Successful, Pending, Open, Rejected and Cancelled. Unknown values map to UNKNOWN.
+ *  display_status values are not enumerated in the docs (sample: "Pending"); Successful, Pending,
+ *  Open, Rejected and Cancelled are handled (observed values, not in the official docs: needs live verification). Unknown values map to UNKNOWN.
  */
 
 import { sleep } from "../lib/batch.mjs";

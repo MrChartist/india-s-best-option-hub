@@ -1,8 +1,7 @@
 /**
  * Motilal Oswal (MOFSL) adapter on the broker contract (server/brokers/contract.mjs).
  *
- * Official docs: https://invest.motilaloswal.com/moAPI/APIDocumentation/Introduction (checked 2026-10). OpenAlgo (AGPL)
- * was read for facts only.
+ * Official docs: https://invest.motilaloswal.com/moAPI/APIDocumentation/Introduction (checked 2026-10).
  *
  *  - Auth: session login (password, 2FA value and current TOTP code typed per session; none stored), motilalAuth.mjs.
  *  - Instruments: public scrip-master and index-master CSVs (motilalInstruments.mjs).

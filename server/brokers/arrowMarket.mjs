@@ -14,7 +14,7 @@
  *  - GET https://historical-api.arrow.trade/candle/{exchange}/{token}/{interval}?from=yyyy-MM-ddTHH:mm:ss&to=...&oi=1
  *    -> a bare array of [isoTime(+0530), open*100, high*100, low*100, close*100, volume, oi?].
  *  - Limits: 10 requests/second for market data and for historical data. /info/quotes takes at most 100
- *    instruments per call (OpenAlgo notes the server rejects 101; the docs give no number).
+ *    instruments per call (the server has been observed to reject 101; the docs give no number).
  */
 
 import { BrokerError, BrokerInputError, SessionRequiredError } from "./contract.mjs";

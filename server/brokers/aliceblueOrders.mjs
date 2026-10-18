@@ -13,7 +13,7 @@
  *  - Appendix: transactionType BUY/SELL; orderType LIMIT, MARKET, SL, SLM; product INTRADAY, LONGTERM, MTF;
  *    orderComplexity REGULAR, AMO, CO, BO; validity DAY, IOC.
  * Product for F&O carry-forward: the Appendix lists only INTRADAY / LONGTERM / MTF, error EC969 says "'Product'
- * should be either 'NORMAL' or 'INTRADAY'", and OpenAlgo sends "NRML". Until a live order settles which one is
+ * should be either 'NORMAL' or 'INTRADAY'", and some clients send "NRML". Until a live order settles which one is
  * accepted, only INTRADAY (all segments) and LONGTERM (cash segment, app "CNC") are built here.
  * Every real-money call is wrapped with withOrderGate(); no route mints Alice Blue gates today.
  */

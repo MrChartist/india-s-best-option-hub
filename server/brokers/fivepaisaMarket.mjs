@@ -5,7 +5,7 @@
  *  - POST .../Service1.svc/MarketSnapshot  body { ClientCode, Data: [{ Exchange, ExchangeType, ScripCode, ScripData }] }
  *    -> body.Data[] { Exch, ExchType, Token, LastRate, High, Low, PClose, TotalQty, Chg, ChgPcnt, TickDt }.
  *    The doc's field table says Exch/ExchType for the request items but its sample sends Exchange/ExchangeType;
- *    we follow the sample (OpenAlgo does the same). OpenAlgo reads LastTradedPrice / Volume / OpenInterest from
+ *    we follow the sample. Some clients read LastTradedPrice / Volume / OpenInterest from
  *    this endpoint while the doc sample shows LastRate / TotalQty and no OI, so both spellings are accepted and a
  *    missing OI stays 0 (chain) / null (quotes). No bid/ask in a snapshot.
  *  - POST .../Service1.svc/V2/MarketDepth  body { ClientCode, Exchange, ExchangeType, ScripCode, ScripData }
@@ -13,8 +13,8 @@
  *  - GET  https://openapi.5paisa.com/V2/historical/{Exch}/{ExchType}/{ScripCode}/{interval}?from=YYYY-MM-DD&end=YYYY-MM-DD
  *    interval 1m 5m 10m 15m 30m 60m 1d -> { status: "success", data: { candles: [[ "YYYY-MM-DDTHH:MM:SS", o, h, l, c, v ]] } }
  *    (timestamps are IST without an offset).
- * Batch size: OpenAlgo observed MarketSnapshot returning empty data above ~50 instruments; 5paisa does not
- * document a cap, so we stay at 50 per call, sequential, with a short pause.
+ * Batch size: MarketSnapshot has been observed returning empty data above ~50 instruments (not in the official docs:
+ * needs live verification); 5paisa does not document a cap, so we stay at 50 per call, sequential, with a short pause.
  */
 
 import { BrokerError, BrokerInputError } from "./contract.mjs";

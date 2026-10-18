@@ -4,7 +4,7 @@
  * Official docs (https://developer.hdfcsec.com/ir-docs/docs/...):
  *  - overall_position: GET /oapi/v1/portfolio/cumulative-positions -> {status, data: {net: [...]}}.
  *    The page's curl sample uses /portfolio/overall_positions; we follow the endpoint block
- *    (cumulative-positions), which OpenAlgo also found to be the live path. Rows carry no LTP, so
+ *    (cumulative-positions), which is also the path observed live (not in the curl sample; needs live verification). Rows carry no LTP, so
  *    ltp/unrealisedPnl are null and pnl is the realised figure (realised_pl_overall_position).
  *  - holdings: GET /oapi/v1/portfolio/holdings -> {status, data: [...]}; close_price is the previous
  *    close, not a live price, so ltp/pnl are null.
@@ -15,8 +15,8 @@
  *    option_type is "Call"/"Put"; transaction_type is "Buy"/"SELL" (mixed case).
  *  Order status values are not enumerated in the docs. The order_status sample shows "Traded" and our
  *  recorded fixtures show "Pending". Other InvestRight status strings (for example trigger-pending,
- *  cancel-confirmed and after-market variants) are known to exist from OpenAlgo's adapter, which we cite
- *  only for that fact. orderStatusOf therefore classifies by the words a status contains rather than by
+ *  cancel-confirmed and after-market variants) have been observed but are not in the official docs (needs live
+ *  verification). orderStatusOf therefore classifies by the words a status contains rather than by
  *  an exact list, so spelling and case variants land in the right bucket; anything it cannot place is
  *  UNKNOWN. Where a word is ambiguous it leans towards "still open", so panic cancel never skips a live
  *  order.

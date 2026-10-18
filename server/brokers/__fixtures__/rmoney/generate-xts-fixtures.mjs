@@ -30,14 +30,14 @@ const BROKERS = {
     ia: "https://xts.rmoneyindia.co.in:3000/interactive",
     creds: { apiKey: "dummyRmMdKey01", apiSecret: "dummyRmMdSecret01", interactiveSessionToken: "dummy.rmoney.session.token" },
     iaAuth: [],
-    extraSources: ["OpenAlgo broker/rmoney (facts only): host https://xts.rmoneyindia.co.in:3000, /apibinarymarketdata, /interactive, third-party login session already carrying the token. No RMoney doc page was reachable."],
+    extraSources: [],
   },
   wisdom: {
     md: "https://trade.wisdomcapital.in/apimarketdata",
     ia: "https://trade.wisdomcapital.in/interactive",
     creds: { apiKey: "dummyWcMdKey01", apiSecret: "dummyWcMdSecret01", interactiveApiKey: "dummyWcIaKey01", interactiveApiSecret: "dummyWcIaSecret01" },
     iaAuth: [{ method: "POST", url: "https://trade.wisdomcapital.in/interactive/user/session", expectBody: { appKey: "dummyWcIaKey01", secretKey: "dummyWcIaSecret01", source: "WebAPI" } }],
-    extraSources: ["OpenAlgo broker/wisdom (facts only): host https://trade.wisdomcapital.in, /apimarketdata, /interactive, key-pair /user/session. No Wisdom doc page was reachable."],
+    extraSources: [],
   },
   iifl: {
     md: "https://ttblaze.iifl.com/apibinarymarketdata",

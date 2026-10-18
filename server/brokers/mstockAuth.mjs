@@ -16,7 +16,7 @@
  *    (mStock OMS) -> UPSTREAM_ERROR with the broker's message.
  *  - Rate limits (Introduction): orders 30/s, quotes 20/s, data APIs (historical) 1/s.
  *
- * OpenAlgo (AGPL, facts only) sends the typed TOTP in step 1 as well; the official docs say `totp: ""`,
+ * Some clients send the typed TOTP in step 1 as well; the official docs say `totp: ""`,
  * which is followed here.
  *
  * Several documented reads (quote, historical, trades) are GET requests that carry a JSON body. Node's

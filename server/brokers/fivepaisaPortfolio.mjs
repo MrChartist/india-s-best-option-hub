@@ -8,7 +8,7 @@
  *  - V4/Margin             (funds-management-system/margin)                -> body.EquityMargin[0]
  *  - V4/OrderBook          (order-tracking-system/order-book)              -> body.OrderBookDetail[]
  *  - V1/TradeBook          (order-tracking-system/trade-book)              -> body.TradeBookDetail[]
- * OpenAlgo calls V2/NetPositionNetWise and V3/OrderBook; the official pages now document V3 and V4, which we use.
+ * Older clients call V2/NetPositionNetWise and V3/OrderBook; the official pages now document V3 and V4, which we use.
  * body.Status 1 ("No orders/records found") is an empty book, not an error.
  *
  * Order statuses (order-book doc): Fully Executed, Modified, Xmitted, Rejected By 5P, AH Cancelled, AH Modified,

@@ -16,13 +16,13 @@
  *    and connectionString and POST {connectionString}/user/session {appKey, secretKey, accessToken, uniqueKey}.
  *    A used or rejected token raises SessionRequiredError; there is no automatic re-login.
  *    With no requestToken saved, the plain key-pair login (POST /interactive/user/session
- *    {appKey, secretKey, source:"WebAPI"}, the official SDK route that OpenAlgo also uses) is tried instead.
+ *    {appKey, secretKey, source:"WebAPI"}, the official SDK route) is tried instead.
  *
- * Where OpenAlgo differs from IIFL's official docs we follow the docs:
- *  - market data path: OpenAlgo uses /apimarketdata, the docs give /apibinarymarketdata;
- *  - trading login: OpenAlgo posts only {appKey, secretKey, source} to /interactive/user/session; the docs
+ * Where observed client behaviour differs from IIFL's official docs we follow the docs:
+ *  - market data path: some clients use /apimarketdata, the docs give /apibinarymarketdata;
+ *  - trading login: some clients post only {appKey, secretKey, source} to /interactive/user/session; the docs
  *    require the OAuth accessToken and the host-lookup uniqueKey (kept as the fallback described above);
- *  - masters and index list: OpenAlgo calls them without a token; the docs require the token.
+ *  - masters and index list: some clients call them without a token; the docs require the token.
  * The previous adapter matched NIFTY options on UnderlyingIndexName because it believed the Name column
  * said "INIFTY"; the official master sample shows Name "NIFTY", so Name is used with UnderlyingIndexName
  * as a fallback.

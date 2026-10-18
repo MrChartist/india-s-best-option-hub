@@ -3,14 +3,14 @@
  *
  * Official docs (checked 2026-10): https://api.pocketful.in/docs/curl/login and the official JavaScript SDK
  * (github.com/pocketful-tech/pocketfulapi-javascript, PocketfulAPI/pocketful.js):
- *  - Base URL https://algo.pocketful.in (OpenAlgo still uses trade.pocketful.in; the official base is followed).
+ *  - Base URL https://algo.pocketful.in (some clients still use trade.pocketful.in; the official base is followed).
  *  - Every call sends `x-authorization-token: <access_token>` and `x-device-type: WEB`. The historical-data guide shows
  *    `Authorization: Bearer <token>` instead, so both headers are sent.
  *  - The user generates the access token on the Pocketful API portal (Create App -> "Click here to generate", or the
  *    Refresh button with the default redirect URL). "Access tokens remain valid until 12:00 AM (midnight)".
  *  - Most account calls take `client_id` as a query parameter (the SDK sets it from the user's client code). It is a
  *    saved, non-secret field here; when it is left blank it is looked up once from GET /api/v1/user/trading_info
- *    (not in the docs; OpenAlgo's auth flow uses it) and cached per token.
+ *    (not in the official docs: needs live verification) and cached per token.
  *  - Errors: HTTP 401 "Invalid, expired, or missing access token"; bodies { status: "error", error_code, message } or
  *    { error: { code, message }, result }. 429 = rate limited (orders 10/s, data 10/s, others 20/s).
  *

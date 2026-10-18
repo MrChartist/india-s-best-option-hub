@@ -5,7 +5,7 @@
  *  - PlaceOrder { uid, actid, exch, tsym, qty, prc, trgprc (SL only), dscqty, prd (C / M / H; the sample
  *    uses I for intraday), trantype (B / S), prctyp (LMT / MKT / SL-LMT / SL-MKT), ret (DAY / EOS / IOC),
  *    remarks, mkt_protection (MKT orders on BSE / BFO / MCX) } -> { stat: "Ok", norenordno }.
- *    `ordersource` is documented as MOB / WEB / TT, so it is not sent (OpenAlgo sends "API").
+ *    `ordersource` is documented as MOB / WEB / TT, so it is not sent (some clients send "API").
  *  - ModifyOrder { uid, actid, exch, norenordno, prctyp, prc, qty (total, not pending), tsym (unchanged),
  *    ret, trgprc, mkt_protection } -> { stat: "Ok", result }. The original order is read from OrderBook.
  *  - CancelOrder { uid, norenordno } -> { stat: "Ok", result }.

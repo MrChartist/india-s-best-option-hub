@@ -17,11 +17,11 @@
  *    orders ~10/s per user; REST market data ~1 request/second per instrument.
  *
  * Conflicts noted (official docs followed):
- *  - OpenAlgo reads `access_token` from GenAcsTok; the official page documents `susertoken`. Kambala's
+ *  - Some clients read `access_token` from GenAcsTok; the official page documents `susertoken`. Kambala's
  *    Noren OAuth SDK returns both and uses access_token as the Bearer. We use access_token when present,
  *    else susertoken.
- *  - Some Shoonya endpoint pages still show the older `jData=...&jKey=` form; the API Structure page (and
- *    OpenAlgo for non-chart calls) use the Bearer header. OpenAlgo sends jKey for TPSeries/EODChartData;
+ *  - Some Shoonya endpoint pages still show the older `jData=...&jKey=` form; the API Structure page uses
+ *    the Bearer header. Some clients send jKey for TPSeries/EODChartData;
  *    the official Time/Price Series and Historical Data pages show the Bearer header, which we follow.
  */
 

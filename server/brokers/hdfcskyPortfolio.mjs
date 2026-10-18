@@ -7,15 +7,15 @@
  *    average_sell_price, realized_mtm, multiplier, product CNC|MIS|NRML, token.
  *  - portfolio/fetchdematholdings: GET /oapi/v1/holdings?client_id -> {data:{holdings:[...]}}.
  *  - funds/fetchfundsv2: GET /oapi/v2/funds/view?client_id&type=all -> {data:{values:[{"0":label,"1":value}]}}.
- *    The docs' sample is not valid JSON (no commas between rows); OpenAlgo reports that v2 answers 404
- *    in production and that v1 (/oapi/v1/funds/view, also documented) returns [label, value] pairs.
+ *    The docs' sample is not valid JSON (no commas between rows); v2 has been observed to answer 404
+ *    in production (not in the official docs) and v1 (/oapi/v1/funds/view, also documented) returns [label, value] pairs.
  *    We call v2 as documented and fall back to v1 on a 404, accepting both row shapes.
  *  - orders/order_book/fetchpendingorder + fetchcompletedorder: GET /oapi/v1/orders?type=pending|completed
  *    &client_id -> {data:{orders:[...]}}; orders/order_book/tradebook: GET /oapi/v1/trades?client_id ->
  *    {data:{trades:[...]}}. Times are epoch seconds.
  *  Order status: the docs do not enumerate order_status. Their samples show CONFIRMED (fetchpendingorder) and
  *  COMPLETE (fetchcompletedorder, orderhistory), and our fixtures use the same two. The OMS also sends longer
- *  compound strings (OpenAlgo reports, for example, CANCEL_CONFIRMED and SL_TRIGGER_CONFIRMED), so orderStatusOf
+ *  compound strings (observed, not in the docs: for example CANCEL_CONFIRMED and SL_TRIGGER_CONFIRMED), so orderStatusOf
  *  classifies a status by the words it contains rather than by a fixed list. Anything it cannot place is UNKNOWN.
  */
 

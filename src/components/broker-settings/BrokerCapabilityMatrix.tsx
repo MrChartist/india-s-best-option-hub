@@ -64,7 +64,7 @@ export function BrokerCapabilityMatrix({ brokers, onSelect }: { brokers: BrokerI
           const m = capabilityMatrix(b);
           return (
             <TableRow key={b.id}>
-              <TableHead scope="row" className="sticky left-0 z-10 bg-surface font-medium text-foreground">
+              <TableHead scope="row" className="sticky left-0 z-10 bg-surface font-medium text-foreground [tr:nth-child(even)>&]:[background-image:linear-gradient(hsl(var(--zebra)),hsl(var(--zebra)))]">
                 {onSelect ? (
                   <button
                     type="button"

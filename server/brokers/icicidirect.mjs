@@ -3,8 +3,7 @@
  *
  * Official docs: https://api.icicidirect.com/breezeapi/documents/index.html (Introduction, Regulatory Changes,
  * Checksum Computation & Login, Request Headers, Instruments, CustomerDetails, DematHoldings, Funds, Order,
- * PortfolioPositions, Quotes, Trades, OptionChain, HistoricalChartsv2), checked 2026-10. OpenAlgo has no ICICI
- * Direct adapter; nothing was taken from it.
+ * PortfolioPositions, Quotes, Trades, OptionChain, HistoricalChartsv2), checked 2026-10.
  *
  * Auth (requestTokenExchange): the user logs in on ICICI Direct's page each day and pastes the API_Session value;
  * icicidirectAuth.mjs swaps it once (CustomerDetails) for the session token and signs every call with

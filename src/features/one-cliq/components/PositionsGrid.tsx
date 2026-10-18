@@ -190,7 +190,7 @@ export function PositionsGrid({ positions, onExitPercent, riskArm, activeSymbol,
   if (positions.length === 0) {
     return (
       <div className="text-center py-10 text-body text-muted-foreground">
-        No Rows To Show
+        No positions yet
         <div className="text-body-sm mt-1">Paper positions you open here appear in this grid and in Position Tracker.</div>
       </div>
     );

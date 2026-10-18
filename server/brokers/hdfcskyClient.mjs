@@ -15,8 +15,9 @@
  *    positions, orders pages). HTTP codes per error_structure: 400, 401, 403, 404, 422, 5xx.
  *  - fetchltp: PUT /oapi/v1/fetch-ltp, body {"data":[{"exchange","token"}]}, response {"data":[{"prev_close",
  *    "ltp","exchange","token"}]}. Indices are addressed as NSE_INDEX / BSE_INDEX and derivatives as
- *    NFO / BFO (the security master's own exchange codes). OpenAlgo reports a hard cap of 10
- *    instruments per call (HTTP 400 above that), so batches stay at 10.
+ *    NFO / BFO (the security master's own exchange codes). A hard cap of 10 instruments per
+ *    call (HTTP 400 above that) has been observed but is not in the official docs (needs live verification), so
+ *    batches stay at 10.
  * Never log the token or api key; the URL carries the api key, so it never goes into an error message.
  */
 

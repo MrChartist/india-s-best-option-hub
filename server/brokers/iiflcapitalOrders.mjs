@@ -10,7 +10,7 @@
  *  - DELETE /orders/{brokerOrderId} -> result { status: "Success", brokerOrderId }.
  * EC978: price only for LIMIT / SL; EC977: slTriggerPrice only for SL / SLM; EC954: quantity a multiple of the
  * lot size; EC956: DELIVERY / BNPL only on NSEEQ / BSEEQ.
- * OpenAlgo note: OpenAlgo says the live API rejects bare SLM and converts it to SL with a protective limit; the
+ * Observed (not in the official docs): the live API may reject bare SLM orders; the
  * official docs list SLM, so SLM is passed as documented (needs live verification).
  * Every call is wrapped with withOrderGate(); no route mints IIFL Capital gates today.
  */

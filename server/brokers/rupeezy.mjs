@@ -2,8 +2,7 @@
  * Rupeezy (Vortex API, Astha Credit & Securities) on the broker contract (server/brokers/contract.mjs).
  *
  * Official docs: https://vortex.rupeezy.in/docs/latest/ (authentication, usage, instrument-list, option_chain,
- * historical, feed, regular-order, positions, holdings, trades, user), checked 2026-10. OpenAlgo (AGPL) was read
- * for facts only as a cross-check; no code was taken from it.
+ * historical, feed, regular-order, positions, holdings, trades, user), checked 2026-10.
  *
  * Auth (requestTokenExchange): the user signs in on Rupeezy's own page (https://flow.rupeezy.in?applicationId=...)
  * each day and pastes the `auth` value from the callback URL; rupeezyAuth.mjs swaps it once for an access token

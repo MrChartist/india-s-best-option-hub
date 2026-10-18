@@ -12,8 +12,8 @@
  * Where the docs disagree with themselves we follow the worked curl samples, which are real requests:
  *   - expiry_date: the table says YYYY-MM-DD, the samples send "20240425" (YYYYMMDD). We send YYYYMMDD.
  *   - option_type: the table says CALL/PUT, the samples send "CE". We send CE/PE.
- *   - transaction_type: the table says BUY or SELL, the samples send "Buy". We send BUY/SELL (the table),
- *     which OpenAlgo also sends; flagged for live verification.
+ *   - transaction_type: the table says BUY or SELL, the samples send "Buy". We send BUY/SELL (the table);
+ *     flagged for live verification.
  *   - security_id / underlying_symbol come from the security master (security_id, underline_symbol).
  * Quantity is lots x resolvedLotSize. resolvedLotSize comes from the server's own instrument lookup,
  * never from the client.

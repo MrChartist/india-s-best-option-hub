@@ -3,7 +3,7 @@
  *
  * Official docs: https://developer.gwcindia.in/api/ (introduction, login, profile, balance, positions, holdings,
  * orderBook, tradeBook, placeOrder, modifyOrder, cancelOrder, getQuote, instruments, webSocket, appendix) and the
- * official Postman collection, checked 2026-10. OpenAlgo has no Goodwill adapter; nothing was taken from it.
+ * official Postman collection, checked 2026-10.
  *
  * Goodwill wraps a Noren OMS behind its own REST API: request and response field names are Goodwill's own, but
  * the symbol masters and the WebSocket are standard Noren, so the shared Noren parsers in shoonyaNorenCore.mjs

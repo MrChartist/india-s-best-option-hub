@@ -5,7 +5,7 @@
  * neo_api_client/api/nse_fo.csv shipped with the SDK), checked 2026-10.
  *   GET <baseUrl>/script-details/1.0/masterscrip/file-paths   (Authorization: <app access token>)
  *   -> { filesPaths: ["https://lapi.kotaksecurities.com/wso2-scripmaster/v1/prod/<date>/transformed/nse_fo.csv", ...] }
- *   The doc sample has `filesPaths` at the top level; OpenAlgo reads `data.filesPaths`. Both are accepted, and
+ *   The doc sample has `filesPaths` at the top level; some clients read `data.filesPaths`. Both are accepted, and
  *   every returned URL must be https on a kotaksecurities.com host before it is fetched.
  * Columns used (headers carry stray spaces/semicolons, e.g. "dTickSize ", "dStrikePrice;"): pSymbol (token),
  * pExchSeg, pInstType (OPTIDX/OPTSTK/FUTIDX/FUTSTK), pSymbolName (underlying), pTrdSymbol, pOptionType (CE/PE/XX),

@@ -12,7 +12,7 @@
  * Not declared: feed. The Broadcast API (wss://stream.samco.in) authenticates with an x-session-token request
  * header, which Node's built-in WebSocket cannot send; the REST endpoints cover the app's needs.
  *
- * Differences from OpenAlgo's Samco plugin (official docs followed): MARKET / SL-M orders are not sent (the docs
+ * Official docs followed: MARKET / SL-M orders are not sent (the docs
  * document only L and SL for placeOrder); cancel uses `orderNumber` (Postman: `OrderNUmber`); the session expires at
  * the NEXT 08:00 IST, which is the same day for a login before 08:00.
  */

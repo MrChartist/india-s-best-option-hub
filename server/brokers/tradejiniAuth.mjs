@@ -5,8 +5,8 @@
  * /docs/authorization/updatedIndividualToken and /docs/authorization-flow/individual-apps.
  *  - POST https://api.tradejini.com/v2/api-gw/oauth/individual-token-v2, `Authorization: Bearer <api_key>`,
  *    form body { password, twoFa, twoFaTyp: "totp" } -> { access_token, token_type: "bearer", expires_in (s) }.
- *    The docs describe `password` as "your login password" (OpenAlgo calls it the CubePlus PIN; the official
- *    wording is followed in the prompt label). 401 = wrong password / 2FA, or a non-whitelisted IP. 3 req/s per IP.
+ *    The docs describe `password` as "your login password" (it is sometimes called the CubePlus PIN; the
+ *    official wording is followed in the prompt label). 401 = wrong password / 2FA, or a non-whitelisted IP. 3 req/s per IP.
  *  - Every other call: `Authorization: Bearer <api_key>:<access_token>`. GET/DELETE take query parameters,
  *    POST/PUT take application/x-www-form-urlencoded bodies. Responses are { s: "ok"|"error"|"no-data", d, msg }.
  *  - Access tokens last 24 hours; an expired token answers 401 Unauthorized.

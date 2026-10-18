@@ -6,12 +6,13 @@
  *   response {"data":{"results":[[open, high, low, close, volume, oi, "DD-MM-YYYY"], ...]},
  *             "meta":{"displayMessage":"Success","err_code":"Success"}}
  * The parameter table says chartType "MINUTES/DAY" but the docs' curl sends chartType=MINUTE; we follow
- * the curl (OpenAlgo also reports the plural is rejected). The sample rows are NOT in time order, so we
- * sort. Intraday rows carry "DD-MM-YYYY HH:MM" (IST); OpenAlgo also reports an 8th cumulative-volume
- * column on live data, which is ignored.
+ * the curl (the plural has been observed to be rejected). The sample rows are NOT in time order, so we
+ * sort. Intraday rows carry "DD-MM-YYYY HH:MM" (IST); an 8th cumulative-volume column has
+ * been observed on live data (not in the official docs), which is ignored.
  * Only 1-minute and daily resolutions exist; 3/5/15/30/60-minute candles are aggregated here from
  * 1-minute data, in buckets anchored at the 09:15 IST open. Per-request range caps are not documented;
- * OpenAlgo measured 31 days for MINUTE and 2000 for DAY, so requests are split at 30 / 1999 days.
+ * observed limits are 31 days for MINUTE and 2000 for DAY (needs live verification), so requests are split at
+ * 30 / 1999 days.
  * symbol / seriesType (not documented beyond the sample "RELIANCE" + "EQ"): cash uses the series-free
  * symbol and the series as seriesType; derivatives use the master trading_symbol and instrument_name
  * (OPTIDX, OPTSTK, IO, SO, ...); indices use the index name and the master segment (INDICES, IDX).

@@ -15,7 +15,7 @@
  * which are the same documents Symphony publishes at https://symphonyfintech.com/xts-trading-front-end-api-v2/
  * and https://symphonyfintech.com/xts-market-data-front-end-api-v2/, plus Symphony's MIT-licensed SDKs
  * (github.com/symphonyfintech/xts-pythonclient-api-sdk). RMoney and Wisdom do not publish reachable
- * docs; their hosts and login style come from OpenAlgo (read for facts only, no code taken) and must be
+ * docs; their hosts and login style are observed behaviour, not in any official docs, and must be
  * confirmed live.
  *
  *  Market data (base = host + /apibinarymarketdata or /apimarketdata):
@@ -30,7 +30,7 @@
  *        -> result.dataReponse (sic) "epoch|o|h|l|c|v|oi|,..."; the epoch is IST wall-clock written as UTC
  *           (the official daily sample 1737331200 is 20 Jan 2025 00:00 "UTC").
  *   The v2 docs say every call except login needs the token, so masters and the index list are
- *   fetched with it (OpenAlgo fetches them anonymously). The token lasts 24 hours.
+ *   fetched with it (some clients fetch them anonymously). The token lasts 24 hours.
  *   Only one session may exist per appKey/secretKey pair, so sessions are cached and logins de-duplicated.
  *
  *  Interactive (trading):
@@ -40,7 +40,7 @@
  *                   {AccessPassword:"2021HostLookUpAccess", version:"interactive_1.0.1"} -> {UniqueKey, connectionString}
  *                   and POST {connectionString}/user/session {appKey, secretKey, accessToken, uniqueKey}.
  *                   connectionString must be https on the broker's own host; anything else is refused.
- *   pastedSession   the thirdparty login already returns the session token (RMoney, per OpenAlgo); the user
+ *   pastedSession   the thirdparty login already returns the session token (RMoney; observed, not in the official docs); the user
  *                   pastes it and it is used as-is.
  *   GET /user/balance, /user/profile, /orders, /orders/trades, /portfolio/positions?dayOrNet=NetWise,
  *   /portfolio/holdings; POST /orders, PUT /orders, DELETE /orders?appOrderID=&orderUniqueIdentifier=.
