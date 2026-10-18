@@ -13,29 +13,20 @@ import {
   isVaultLocked,
   lockVault,
   onBrokerCredentialsChange,
-  removeBrokerCredentials,
-  saveBrokerCredentials,
-  setActiveBroker,
   switchToSessionMode,
   unlockVault,
   wipeAllCredentials,
-  type BrokerCredentials,
   type BrokerInfo,
   type StorageState,
 } from "@/lib/brokerConfig";
-import { testBrokerConnection, testDhanConnection } from "@/lib/marketApi";
+import { testDhanConnection } from "@/lib/marketApi";
 import { LiveTradingToggle } from "@/components/LiveTradingToggle";
 import { useProxyHealth } from "@/hooks/useMarketData";
 import { useFeedStatus } from "@/hooks/useWebSocket";
-import { formatDateIST, formatTimeIST } from "@/lib/options";
+import { formatTimeIST } from "@/lib/options";
 import {
-  ExternalLink,
   Trash2,
   CheckCircle2,
-  Eye,
-  EyeOff,
-  Info,
-  Key,
   Plug,
   Lock,
   LockOpen,
@@ -51,6 +42,8 @@ import {
   Clock3,
   LineChart,
 } from "lucide-react";
+import { BrokerKeysCard } from "@/components/broker-settings/BrokerKeysCard";
+import { BrokerDirectory } from "@/components/broker-settings/BrokerDirectory";
 import { DatabaseManager } from "@/components/DatabaseManager";
 import { ChartDataDownloader } from "@/components/ChartDataDownloader";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -272,218 +265,6 @@ function StorageCard({ state, locked }: { state: StorageState; locked: boolean }
   );
 }
 
-// ── Broker credential card (Dhan and every integrated broker in the catalogue) ──
-
-function maskedId(broker: BrokerInfo, saved?: BrokerCredentials): string {
-  const field = broker.fields.find((f) => f.type === "text") ?? broker.fields[0];
-  const v = field ? saved?.values[field.key] : undefined;
-  return `${field?.label ?? "Key"} ${v ? `••••${v.slice(-4)}` : "—"}`;
-}
-
-function BrokerKeysCard({
-  broker,
-  saved,
-  isActive,
-  disabled,
-}: {
-  broker: BrokerInfo;
-  saved?: BrokerCredentials;
-  isActive: boolean;
-  disabled: boolean;
-}) {
-  const [values, setValues] = useState<Record<string, string>>(saved?.values ?? {});
-  const [show, setShow] = useState<Record<string, boolean>>({});
-  const [editing, setEditing] = useState(!saved);
-  const [busy, setBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
-
-  useEffect(() => {
-    setValues(saved?.values ?? {});
-    setEditing(!saved);
-  }, [saved]);
-
-  const onSave = async (e: FormEvent) => {
-    e.preventDefault();
-    const missing = broker.fields.filter((f) => f.required && !values[f.key]?.trim());
-    if (missing.length > 0) return toast.error(`Please fill: ${missing.map((f) => f.label).join(", ")}`);
-    setBusy(true);
-    try {
-      await saveBrokerCredentials({ brokerId: broker.id, values, addedAt: new Date().toISOString() });
-      toast.success(`${broker.name} keys saved`);
-      setEditing(false);
-    } catch (err) {
-      toast.error(errMsg(err, "Could not save keys"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card className={isActive ? "ring-1 ring-primary/50" : ""}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wash-brand text-xs font-bold text-primary-ink"
-              aria-hidden
-            >
-              {broker.logo}
-            </span>
-            <div className="min-w-0">
-              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                {broker.name}
-                {saved && <Badge variant={isActive ? "default" : "secondary"}>{isActive ? "Active" : "Saved"}</Badge>}
-              </CardTitle>
-              <CardDescription className="mt-0.5 text-xs">{broker.description}</CardDescription>
-            </div>
-          </div>
-          <a
-            href={broker.docsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label={`${broker.name} API docs (opens in a new tab)`}
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden />
-          </a>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {broker.features.map((f) => (
-            <Badge key={f} variant="outline" className="font-normal">
-              {f}
-            </Badge>
-          ))}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {disabled ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3.5 w-3.5" aria-hidden /> Unlock the vault above to view or edit these keys.
-          </p>
-        ) : editing ? (
-          <form onSubmit={onSave} className="space-y-3">
-            {broker.fields.map((field) => (
-              <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={`f-${field.key}`} className="text-xs">
-                  {field.label}{" "}
-                  {field.required && (
-                    <span className="text-destructive" aria-hidden>
-                      *
-                    </span>
-                  )}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id={`f-${field.key}`}
-                    type={field.type === "password" && !show[field.key] ? "password" : "text"}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder={field.placeholder}
-                    value={values[field.key] || ""}
-                    onChange={(e) => setValues({ ...values, [field.key]: e.target.value })}
-                    className="pr-9 text-sm"
-                    aria-describedby={field.helpText ? `h-${field.key}` : undefined}
-                  />
-                  {field.type === "password" && (
-                    <button
-                      type="button"
-                      onClick={() => setShow({ ...show, [field.key]: !show[field.key] })}
-                      className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:shadow-ember focus-visible:outline-none"
-                      aria-label={show[field.key] ? `Hide ${field.label}` : `Show ${field.label}`}
-                    >
-                      {show[field.key] ? (
-                        <EyeOff className="h-3.5 w-3.5" aria-hidden />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5" aria-hidden />
-                      )}
-                    </button>
-                  )}
-                </div>
-                {field.helpText && (
-                  <p id={`h-${field.key}`} className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Info className="h-3 w-3 shrink-0" aria-hidden /> {field.helpText}
-                  </p>
-                )}
-              </div>
-            ))}
-            <div className="flex gap-2 pt-1">
-              <Button type="submit" size="sm" className="flex-1 gap-1.5" disabled={busy}>
-                {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Key className="h-3.5 w-3.5" aria-hidden />
-                )}{" "}
-                Save keys
-              </Button>
-              {saved && (
-                <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                  Cancel
-                </Button>
-              )}
-            </div>
-          </form>
-        ) : (
-          <div className="space-y-2">
-            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-bullish" aria-hidden />
-              {maskedId(broker, saved)}
-              <span className="text-xs">· added {saved ? formatDateIST(saved.addedAt) : "—"}</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {!isActive && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await setActiveBroker(broker.id);
-                    toast.success(`${broker.name} is now active`);
-                  }}
-                >
-                  Set active
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                Edit
-              </Button>
-              {broker.id !== "dhan" && saved && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={testing}
-                  onClick={async () => {
-                    setTesting(true);
-                    try {
-                      const r = await testBrokerConnection(broker.id, saved.values);
-                      if (r.status === "success") toast.success(`${broker.name}: ${r.message || "connected"}`);
-                      else toast.error(`${broker.name} test failed: ${r.message || "unknown error"}`);
-                    } finally {
-                      setTesting(false);
-                    }
-                  }}
-                >
-                  {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null} Test
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 text-destructive hover:text-destructive"
-                onClick={async () => {
-                  await removeBrokerCredentials(broker.id);
-                  toast.info(`${broker.name} keys removed`);
-                }}
-                aria-label={`Remove ${broker.name} keys`}
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Remove
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── Connection status ──
 
 type Status = "online" | "offline" | "unknown" | "degraded";
@@ -641,47 +422,6 @@ function ConnectionStatusPanel() {
   );
 }
 
-// ── Other brokers (server/brokers/*, data through /api/broker-proxy) ──
-
-function OtherBrokers({ saved, activeId, locked }: { saved: BrokerCredentials[]; activeId?: string; locked: boolean }) {
-  const [open, setOpen] = useState(() => saved.some((s) => s.brokerId !== "dhan"));
-  const usable = BROKERS.filter((b) => b.id !== "dhan" && b.integrated);
-  const blocked = BROKERS.filter((b) => b.id !== "dhan" && !b.integrated);
-  return (
-    <section aria-labelledby="other-brokers-title" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 id="other-brokers-title" className="text-lead text-foreground">
-            Other brokers
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Option chain and expiries from your own broker, through the local proxy. Set one active to use it for chains; the live
-            feed and 1Cliq orders stay on Dhan.
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          {open ? "Hide" : `Show ${usable.length} brokers`}
-        </Button>
-      </div>
-      {open && (
-        <>
-          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {usable.map((b) => (
-              <BrokerKeysCard key={b.id} broker={b} saved={saved.find((s) => s.brokerId === b.id)} isActive={activeId === b.id} disabled={locked} />
-            ))}
-          </div>
-          {blocked.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Not available here because their APIs need your login password, MPIN or TOTP secret, which this terminal never stores:{" "}
-              {blocked.map((b) => b.name).join(", ")}.
-            </p>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
-
 // ── Page ──
 
 export default function BrokerSettings() {
@@ -697,7 +437,7 @@ export default function BrokerSettings() {
         icon={Plug}
         eyebrow="Settings"
         title="Broker and Data Settings"
-        description="Connect Dhan for live option chains and the real-time feed. Without keys the terminal uses NSE data through the local proxy."
+        description="Connect Dhan or any of 32 other Indian brokers for live option chains. Without keys the terminal uses NSE data through the local proxy."
       />
 
       <Card className="border-warning/30 bg-wash-warning/40">
@@ -708,11 +448,16 @@ export default function BrokerSettings() {
             <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
               <li>Keys stay in this browser. Mr. Chartist has no server and never receives them.</li>
               <li>
-                When the terminal needs Dhan data, the keys go to the proxy running on your own machine (127.0.0.1),
-                which forwards them to Dhan over HTTPS.
+                When the terminal needs broker data, the keys go to the proxy running on your own machine (127.0.0.1),
+                which forwards them to that broker over HTTPS.
               </li>
               <li>
-                We never ask for your login password, MPIN or TOTP. Use a Dhan data token, not trading credentials.
+                Only Dhan is verified with a live account. The other 32 brokers are in beta, and none of them can place an
+                order from this app.
+              </li>
+              <li>
+                Your login password, PIN, MPIN and TOTP secret are never saved. Brokers that need them ask in a Log in dialog
+                each session; only the session token the broker returns is kept, like any other key.
               </li>
               <li>
                 Anyone using this browser profile, or a malicious extension, can read keys while they are unlocked. Lock
@@ -739,7 +484,7 @@ export default function BrokerSettings() {
         <LiveTradingToggle />
       </section>
 
-      <OtherBrokers saved={saved} activeId={activeId} locked={locked} />
+      <BrokerDirectory brokers={BROKERS} saved={saved} activeId={activeId} locked={locked} />
 
       <DatabaseManager />
       <ChartDataDownloader />

@@ -13,6 +13,11 @@ export interface BrokerInfo {
   docsUrl: string;
   description: string;
   features: string[];
+  /**
+   * When a broker accepts more than one way in (e.g. a pasted access token OR an API key + secret),
+   * at least one of these groups of field keys must be fully filled before the keys can be saved.
+   */
+  alternatives?: string[][];
 }
 
 export interface BrokerField {

@@ -143,6 +143,96 @@ describe("trading endpoints on /api/dhan-proxy", () => {
   it("validates broker ids and needs credentials on /api/broker-proxy", async () => {
     expect((await fetch(`${base}/api/broker-proxy?broker=nope&endpoint=option-chain`)).status).toBe(400);
     expect((await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=option-chain`)).status).toBe(401);
-    expect((await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=place-order`)).status).toBe(400);
+    expect((await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=nope`)).status).toBe(400);
   });
+
+  it("never places, modifies or cancels an order through /api/broker-proxy, on any method", async () => {
+    const creds = Buffer.from(JSON.stringify({ apiKey: "k", accessToken: "t" })).toString("base64");
+    for (const e of ["place-order", "modify-order", "cancel-order"]) {
+      const g = await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=${e}`, { headers: { "x-broker-credentials": creds } });
+      expect(g.status, e).toBe(403);
+      expect((await g.json()).code).toBe("ORDER_PATH_BLOCKED");
+      const p = await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=${e}`, { method: "POST", headers: { "Content-Type": "application/json", "x-broker-credentials": creds }, body: "{}" });
+      expect(p.status, e).toBe(405);
+    }
+  });
+
+  it("dispatches read capabilities, refusing undeclared ones and bad input before any broker call", async () => {
+    const creds = Buffer.from(JSON.stringify({ apiKey: "k", accessToken: "t" })).toString("base64");
+    const h = { "x-broker-credentials": creds };
+    // Kotak declares no historical capability; Motilal no depth.
+    const k = await fetch(`${base}/api/broker-proxy?broker=kotak&endpoint=historical`, { headers: h });
+    expect(k.status).toBe(422);
+    expect((await k.json()).code).toBe("CAPABILITY_UNSUPPORTED");
+    const bad = await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=quotes&refs=nope`, { headers: h });
+    expect(bad.status).toBe(422);
+    expect((await bad.json()).code).toBe("BROKER_INPUT_INVALID");
+    const badInterval = await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=historical&token=1&exchange=NSE&interval=2h&from=2026-10-01&to=2026-10-02`, { headers: h });
+    expect(badInterval.status).toBe(422);
+    expect((await fetch(`${base}/api/broker-proxy?broker=zerodha&endpoint=positions`)).status).toBe(401);
+  });
+
+  it("describes every adapter's capabilities without credentials", async () => {
+    const all = await (await fetch(`${base}/api/broker-capabilities`)).json();
+    expect(all.brokers).toHaveLength(33);
+    for (const b of all.brokers) {
+      expect(b.ordersEnabled).toBe(false);
+      expect(b.capabilities).toContain("optionChain");
+    }
+    const one = await (await fetch(`${base}/api/broker-capabilities?broker=upstox`)).json();
+    expect(one).toMatchObject({ id: "upstox", authKind: "oauthRedirect" });
+    expect(one.endpoints).toContain("positions");
+    expect((await fetch(`${base}/api/broker-capabilities?broker=nope`)).status).toBe(400);
+  });
+});
+
+describe("session login on /api/broker-session-login", () => {
+  const login = (broker, body, headers = {}) =>
+    fetch(`${base}/api/broker-session-login?broker=${broker}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: typeof body === "string" ? body : JSON.stringify(body ?? {}),
+    });
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64");
+
+  it("is POST + JSON only, with a small body cap and the Origin allowlist", async () => {
+    expect((await fetch(`${base}/api/broker-session-login?broker=angelone`)).status).toBe(405);
+    expect((await login("angelone", "{}", { "Content-Type": "text/plain" })).status).toBe(415);
+    expect((await login("angelone", { values: { x: "y".repeat(5000) } })).status).toBe(413);
+    expect((await login("angelone", {}, { Origin: "https://evil.example" })).status).toBe(403);
+    expect((await login("nope", {})).status).toBe(400);
+  });
+
+  it("refuses brokers without a session login and malformed codes, before any broker call", async () => {
+    expect((await (await login("dhan", {})).json()).code).toBe("SESSION_LOGIN_UNSUPPORTED");
+    const r = await login("angelone", { values: { apiKey: "k", clientId: "c" }, secrets: { password: "1234", totpCode: "12" } });
+    expect(r.status).toBe(422);
+    const body = await r.json();
+    expect(body.code).toBe("BROKER_INPUT_INVALID");
+    expect(JSON.stringify(body)).not.toContain("1234");
+    expect(r.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("rate-limits repeated attempts per caller and broker", async () => {
+    const bad = { values: { userId: "u" }, secrets: { password: "pw12", totpCode: "x" } };
+    const statuses = [];
+    for (let i = 0; i < 6; i++) statuses.push((await login("firstock", bad)).status);
+    expect(statuses.slice(0, 5)).toEqual([422, 422, 422, 422, 422]);
+    expect(statuses[5]).toBe(429);
+  });
+
+  it("drops password/PIN/TOTP keys from x-broker-credentials and answers 422 until logged in", async () => {
+    const creds = b64({ apiKey: "k", clientId: "c", password: "pw", totpSecret: "JBSWY3DPEHPK3PXP" });
+    const t = await (await fetch(`${base}/api/broker-test-connection?broker=angelone`, { headers: { "x-broker-credentials": creds } })).json();
+    expect(t.status).toBe("error");
+    expect(t.message).toMatch(/not logged in/i);
+    const r = await fetch(`${base}/api/broker-proxy?broker=angelone&endpoint=ltp`, { headers: { "x-broker-credentials": creds } });
+    expect(r.status).toBe(422);
+    expect((await r.json()).code).toBe("SESSION_LOGIN_REQUIRED");
+  });
+
+  it("decodeBrokerCreds never keeps secret-looking keys (so they cannot reach a cache key)", async () => {
+    const { decodeBrokerCreds } = await import("../proxy-server.mjs");
+    expect(decodeBrokerCreds(b64({ apiKey: "k", password: "p", mpin: "1", pin: "2", totpSecret: "s", totpCode: "123456", sessionToken: "t" }))).toEqual({ apiKey: "k", sessionToken: "t" });
+  }, 30000);
 });

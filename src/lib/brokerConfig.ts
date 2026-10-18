@@ -7,12 +7,18 @@
  *     via PBKDF2-SHA256, 310k iterations) and stored in localStorage. They are decrypted into memory
  *     only after the user unlocks the vault in this tab. The passphrase is never stored.
  *
- * Passwords, MPINs and TOTP secrets are never collected or stored. Older plaintext entries in
+ * Passwords, MPINs and TOTP secrets are never stored. Brokers whose API needs them to open a session
+ * (`sessionLogin`) ask for them in a "Log in" dialog each session: they go once to the local proxy
+ * (POST /api/broker-session-login) and only the broker's session token comes back and is stored here,
+ * under the same storage mode as every other key. Older plaintext entries in
  * localStorage ("legacy") are still read so existing users keep working, and the settings page asks
  * them to move to one of the two modes above.
  */
 
 import { BROKERS as BROKER_CATALOG, type BrokerInfo as CatalogBroker } from "./brokerCatalog";
+import { BROKER_ADAPTER_META, type BrokerAuthKind, type BrokerCapability } from "./brokerCapabilities.generated";
+
+export type { BrokerAuthKind, BrokerCapability } from "./brokerCapabilities.generated";
 
 export interface BrokerInfo {
   id: string;
@@ -27,6 +33,32 @@ export interface BrokerInfo {
   integrated: boolean;
   /** The broker's API cannot log in without a password/MPIN/TOTP secret, which this terminal never stores. */
   needsLoginSecrets?: boolean;
+  /** Present when the broker is used through a per-session login (password/PIN + current TOTP code, never stored). */
+  sessionLogin?: { prompts: SessionLoginPrompt[] };
+  /** How the user gets a session, from the server adapter (capabilities.auth.kind). */
+  authKind: BrokerAuthKind;
+  /** What the server adapter declares it can do (brokerCapabilities.generated.ts), never hand-written. */
+  capabilities: readonly BrokerCapability[];
+  /** Where option-chain Greeks come from. */
+  greeks: "broker" | "computed" | null;
+  /** True only for brokers exercised against a live account (today: Dhan). Every other broker is beta. */
+  verified: boolean;
+  /** At least one of these groups of field keys must be filled (see brokerCatalogTypes.ts). */
+  alternatives?: string[][];
+}
+
+/** One value the "Log in" dialog asks for. Never written to storage. */
+export interface SessionLoginPrompt {
+  /** Key sent to the proxy; matches the server adapter's capabilities.auth.loginFields. */
+  key: string;
+  label: string;
+  kind: "secret" | "totp";
+}
+
+/** A session-login broker's stored session, derived from its saved values. */
+export interface BrokerSessionState {
+  state: "none" | "active" | "expired";
+  expiresAt: number | null;
 }
 
 export interface BrokerField {
@@ -55,8 +87,70 @@ const MODE_KEY = "mc_broker_storage_mode";
 
 export const BROKER_CHANGE_EVENT = "mc:broker-credentials-changed";
 
-/** Field names that must never be stored (passwords, MPIN, TOTP seeds). */
-const FORBIDDEN_FIELD = /(pass(word)?|mpin|\bpin\b|totp|otp)/i;
+const SECRET_TOKENS = new Set(["pin", "tpin", "pincode", "dob", "pan"]);
+
+/**
+ * Field names that must never be stored: passwords, PINs/MPINs, TOTP/OTP values and other second factors (2FA
+ * answers, date of birth, PAN). Token-aware, so "loginPin", "trading_pin" and "userDob" are caught.
+ * Mirrors isForbiddenSecretKey in server/brokers/contract.mjs; keep the two identical.
+ */
+export function isForbiddenFieldKey(key: string): boolean {
+  const raw = String(key ?? "");
+  const lower = raw.toLowerCase();
+  if (/pass|totp|otp|mpin|2fa|twofa|factor2|answer/.test(lower)) return true;
+  const tokens = raw.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/);
+  if (tokens.some((t) => SECRET_TOKENS.has(t))) return true;
+  return /^pin|pin$|pincode$|dob$|pan$/.test(lower);
+}
+const FORBIDDEN_FIELD = { test: isForbiddenFieldKey };
+
+/**
+ * Brokers whose server adapter implements the session login (capabilities.auth.kind "sessionLogin"),
+ * read from the generated adapter table. server/brokers/sessionLogin.test.mjs checks each broker's
+ * prompts against the adapters.
+ */
+export const SESSION_LOGIN_BROKER_IDS: ReadonlySet<string> = new Set(
+  Object.entries(BROKER_ADAPTER_META)
+    .filter(([, m]) => m.authKind === "sessionLogin")
+    .map(([id]) => id),
+);
+
+/** Brokers verified end to end against a live account. Every other adapter is fixture-tested only (beta). */
+export const VERIFIED_BROKER_IDS: ReadonlySet<string> = new Set(["dhan"]);
+
+function adapterFacts(id: string): Pick<BrokerInfo, "authKind" | "capabilities" | "greeks" | "verified"> {
+  const m = BROKER_ADAPTER_META[id];
+  return {
+    authKind: m?.authKind ?? "apiKeyToken",
+    capabilities: m?.capabilities ?? [],
+    greeks: m?.greeks ?? null,
+    verified: VERIFIED_BROKER_IDS.has(id),
+  };
+}
+
+/** Keys a session login stores for this broker (from the adapter), so Log out can remove exactly them. */
+export function sessionKeysFor(brokerId: string): string[] {
+  const fields = BROKER_ADAPTER_META[brokerId]?.sessionFields ?? [];
+  return [...new Set([...fields, "sessionToken", "sessionExpiresAt", "feedToken", "refreshToken"])];
+}
+
+/** Saved values with this broker's session removed (the saved keys themselves are kept). */
+export function clearSession(brokerId: string, values: Record<string, string>): Record<string, string> {
+  const drop = new Set(sessionKeysFor(brokerId));
+  return Object.fromEntries(Object.entries(values).filter(([k]) => !drop.has(k) && !k.startsWith("session")));
+}
+
+/**
+ * The saved values a session login needs: only the adapter's credentialFields. The previous session's tokens
+ * (sessionToken, refreshToken, feedToken, sessionSid, ...) are never sent back to the proxy on re-login; they
+ * are not needed and can push the request past the proxy's 4 KB login body cap.
+ */
+export function loginValuesFor(brokerId: string, values: Record<string, string>): Record<string, string> {
+  const fields = BROKER_ADAPTER_META[brokerId]?.credentialFields;
+  if (!fields) return clearSession(brokerId, values);
+  const allowed = new Set(fields);
+  return Object.fromEntries(Object.entries(values).filter(([k, v]) => allowed.has(k) && typeof v === "string" && !FORBIDDEN_FIELD.test(k)));
+}
 
 /** Dhan, as shown in the settings page (the reference integration: data, live feed and 1Cliq orders). */
 const DHAN: BrokerInfo = {
@@ -64,12 +158,14 @@ const DHAN: BrokerInfo = {
   name: "Dhan",
   logo: "DH",
   integrated: true,
-  description: "Live option chain, Greeks, OI and the real-time index feed via Dhan API v2. Also the broker 1Cliq Trade places orders with.",
+  description:
+    "Real-time option chain with broker Greeks and OI, quotes, depth, candles and live feed via Dhan API v2. Also the broker 1Cliq Trade places orders with.",
   docsUrl: "https://dhanhq.co/docs/v2/",
-  features: ["Option chain", "Live LTP", "Greeks", "OI", "Expiry list", "Live feed", "Orders"],
+  features: ["Option chain", "Live LTP", "Greeks", "OI", "Expiry list", "Market depth", "Historical data", "Live feed", "Portfolio", "Orders"],
+  ...adapterFacts("dhan"),
   fields: [
     { key: "clientId", label: "Client ID", placeholder: "Your Dhan client ID", type: "text", required: true, helpText: "Dhan web → My Profile → Access DhanHQ APIs" },
-    { key: "accessToken", label: "Access token", placeholder: "Paste a Dhan access token", type: "password", required: true, helpText: "Generate a token in the same screen. Tokens expire; paste a fresh one when it does." },
+    { key: "accessToken", label: "Access token", placeholder: "Paste a Dhan access token", type: "password", required: true, helpText: "Generate from Dhan Web → Access DhanHQ APIs. Valid for 24 hours. Market data needs an active Data API plan." },
   ],
 };
 
@@ -82,22 +178,64 @@ function monogram(name: string): string {
 /**
  * The broker catalogue (brokerCatalog.ts, one server module per broker in server/brokers/) mapped
  * onto this page's key policy: fields that would hold a login password, MPIN, PIN or TOTP secret are
- * never offered, so a broker that cannot log in without one is listed but not `integrated`.
+ * never offered for saving. A session-login broker's Log in prompts come from its server adapter
+ * (capabilities.auth.loginFields, via brokerCapabilities.generated.ts). A catalogue entry that still
+ * lists a required secret without a session login is shown but not `integrated`.
  */
 function fromCatalog(b: CatalogBroker): BrokerInfo {
+  const facts = adapterFacts(b.id);
   const allowed = b.fields.filter((f) => !FORBIDDEN_FIELD.test(f.key));
-  const needsLoginSecrets = b.fields.some((f) => f.required && FORBIDDEN_FIELD.test(f.key));
+  const loginFields = BROKER_ADAPTER_META[b.id]?.loginFields ?? [];
+  const sessionLogin =
+    facts.authKind === "sessionLogin" && loginFields.length > 0
+      ? { prompts: loginFields.map((f) => ({ key: f.key, label: f.label, kind: f.kind })) }
+      : undefined;
+  const needsLoginSecrets = !!sessionLogin || b.fields.some((f) => f.required && FORBIDDEN_FIELD.test(f.key));
   return {
     id: b.id,
     name: b.name,
     logo: monogram(b.name),
-    integrated: !needsLoginSecrets,
+    integrated: !needsLoginSecrets || !!sessionLogin,
     needsLoginSecrets,
+    ...(sessionLogin ? { sessionLogin } : {}),
     description: b.description,
     docsUrl: b.docsUrl,
     features: b.features,
-    fields: needsLoginSecrets ? [] : allowed.map((f) => ({ ...f })),
+    ...facts,
+    ...(b.alternatives ? { alternatives: b.alternatives.map((g) => [...g]) } : {}),
+    fields: needsLoginSecrets && !sessionLogin ? [] : allowed.map((f) => ({ ...f })),
   };
+}
+
+/** The key holding a broker's live session token (its adapter's first session field). */
+function sessionTokenKey(brokerId: string | undefined): string {
+  return (brokerId && BROKER_ADAPTER_META[brokerId]?.sessionFields[0]) || "sessionToken";
+}
+
+/** Whether a saved session-login broker currently holds a live session token. */
+export function getBrokerSessionState(saved: BrokerCredentials | undefined, now: number = Date.now()): BrokerSessionState {
+  const token = saved?.values[sessionTokenKey(saved?.brokerId)] || saved?.values.sessionToken;
+  const exp = Number(saved?.values.sessionExpiresAt);
+  const expiresAt = Number.isFinite(exp) && exp > 0 ? exp : null;
+  if (!token) return { state: "none", expiresAt: null };
+  return { state: expiresAt !== null && expiresAt <= now ? "expired" : "active", expiresAt };
+}
+
+/**
+ * Session keys that are never kept in the browser. Angel One's refreshToken can extend a session, and
+ * no adapter reads it back after login, so storing it would only widen what a stolen copy can do.
+ */
+const NEVER_STORED_SESSION_KEYS: ReadonlySet<string> = new Set(["refreshToken"]);
+
+/** Merge a session returned by the proxy into a broker's saved values (keys that look like secrets are dropped). */
+export function withSession(values: Record<string, string>, session: Record<string, string>, expiresAt: number): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(values)) if (!k.startsWith("session") && k !== "feedToken" && k !== "refreshToken") next[k] = v;
+  for (const [k, v] of Object.entries(session)) {
+    if (typeof v === "string" && !FORBIDDEN_FIELD.test(k) && !NEVER_STORED_SESSION_KEYS.has(k)) next[k] = v;
+  }
+  next.sessionExpiresAt = String(expiresAt);
+  return next;
 }
 
 export const BROKERS: BrokerInfo[] = [DHAN, ...BROKER_CATALOG.filter((b) => b.id !== "dhan").map(fromCatalog)];
@@ -276,6 +414,17 @@ export function getSavedBrokers(): BrokerCredentials[] {
   return parseList(readStorage("session", SESSION_KEY));
 }
 
+/** True when a session-login broker in `list` carries a live session (trading-capable token). */
+function holdsLoginSession(list: BrokerCredentials[]): boolean {
+  return list.some(
+    (b) => SESSION_LOGIN_BROKER_IDS.has(b.brokerId) && sessionKeysFor(b.brokerId).some((k) => !!b.values?.[k]?.trim()),
+  );
+}
+
+export const LEGACY_SESSION_REFUSED =
+  "Choose how to keep your broker keys first (this browser session only, or an encrypted vault) in Broker Settings. " +
+  "A trading session token is never saved in plain browser storage.";
+
 async function persist(list: BrokerCredentials[]): Promise<void> {
   const clean = sanitizeCredentials(list);
   const state = getStorageState();
@@ -285,7 +434,9 @@ async function persist(list: BrokerCredentials[]): Promise<void> {
     writeStorage("local", VAULT_KEY, JSON.stringify(blob));
     unlocked = clean;
   } else if (state === "legacy") {
-    // Keep legacy users working until they pick a mode; but never write forbidden fields.
+    // Keep legacy users working until they pick a mode; but never write forbidden fields, and never a
+    // session-login broker's session token: legacy storage is plaintext localStorage that outlives the tab.
+    if (holdsLoginSession(clean)) throw new Error(LEGACY_SESSION_REFUSED);
     writeStorage("local", LEGACY_KEY, JSON.stringify(clean));
   } else {
     writeStorage("local", MODE_KEY, "session");

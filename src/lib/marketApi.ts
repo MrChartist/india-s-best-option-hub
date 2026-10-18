@@ -147,6 +147,45 @@ export async function testBrokerConnection(brokerId: string, values: Record<stri
   }
 }
 
+export type BrokerSessionLoginResult =
+  | { status: "success"; session: Record<string, string>; expiresAt: number }
+  | { status: "error"; message: string; code?: string };
+
+/**
+ * Open a session for a session-login broker. `secrets` (password/PIN + the current 6-digit TOTP code)
+ * are sent once in a POST body to the local proxy and never stored; only the returned session is.
+ */
+export async function loginBrokerSession(
+  brokerId: string,
+  values: Record<string, string>,
+  secrets: Record<string, string>,
+): Promise<BrokerSessionLoginResult> {
+  let res: Response;
+  try {
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(30000) : undefined;
+    res = await fetch(`${PROXY_BASE}/api/broker-session-login?${new URLSearchParams({ broker: brokerId })}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ values, secrets }),
+      cache: "no-store",
+      signal,
+    });
+  } catch {
+    markProxyOffline("offline");
+    return { status: "error", message: "Proxy not reachable. Start it with: npm run proxy" };
+  }
+  markProxyOnline();
+  try {
+    const body = (await res.json()) as { status?: string; session?: Record<string, string>; expiresAt?: number; message?: string; reason?: string; code?: string };
+    if (res.ok && body.status === "success" && body.session && typeof body.expiresAt === "number") {
+      return { status: "success", session: body.session, expiresAt: body.expiresAt };
+    }
+    return { status: "error", message: body.message || body.reason || `Login failed (HTTP ${res.status})`, code: body.code };
+  } catch {
+    return { status: "error", message: `The proxy answered with HTTP ${res.status} but no readable result.` };
+  }
+}
+
 // ── Parse Dhan Option Chain ──
 
 const EMPTY_LEG: OptionLegDataExt = { ltp: 0, oi: 0, oiChange: 0, volume: 0, iv: 0, delta: 0, gamma: 0, theta: 0, vega: 0, bidPrice: 0, askPrice: 0 };
