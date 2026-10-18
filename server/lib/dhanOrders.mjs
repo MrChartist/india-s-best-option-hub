@@ -44,7 +44,8 @@ export function buildOrderBody(clientId, order, resolvedLotSize) {
   if (!VALID_ORDER_TYPES.has(orderType)) throw new Error(`Invalid orderType: ${orderType}`);
   if (!VALID_VALIDITY.has(validity)) throw new Error(`Invalid validity: ${validity}`);
   if (!securityId) throw new Error("Missing securityId");
-  if (!Number.isFinite(lots) || lots <= 0) throw new Error("Invalid lots");
+  // Whole lots only: a fractional value would send a quantity that is not a lot multiple (or be silently rounded).
+  if (!Number.isInteger(lots) || lots <= 0) throw new Error("Invalid lots: must be a positive whole number");
   if (!Number.isFinite(resolvedLotSize) || resolvedLotSize <= 0) {
     throw new Error(
       "Missing resolved lot size — it must come from the exchange instrument master, not from the client",
@@ -52,7 +53,11 @@ export function buildOrderBody(clientId, order, resolvedLotSize) {
   }
   const lotSize = resolvedLotSize;
   const needsTrigger = orderType === "STOP_LOSS" || orderType === "STOP_LOSS_MARKET";
-  if (needsTrigger && !Number.isFinite(triggerPrice)) throw new Error(`triggerPrice required for ${orderType}`);
+  // Market-priced types send price 0; limit-priced types need a real positive price, so an order with a missing
+  // price is refused here instead of reaching Dhan with the field silently dropped from the JSON.
+  const marketPriced = orderType === "MARKET" || orderType === "STOP_LOSS_MARKET";
+  if (!marketPriced && !(Number.isFinite(price) && price > 0)) throw new Error(`price must be a positive number for ${orderType}`);
+  if (needsTrigger && !(Number.isFinite(triggerPrice) && triggerPrice > 0)) throw new Error(`triggerPrice must be a positive number for ${orderType}`);
 
   const body = {
     dhanClientId: clientId,
@@ -63,7 +68,7 @@ export function buildOrderBody(clientId, order, resolvedLotSize) {
     validity,
     securityId: String(securityId),
     quantity: Math.round(lots * lotSize),
-    price: orderType === "MARKET" ? 0 : price,
+    price: marketPriced ? 0 : price,
   };
   if (needsTrigger) body.triggerPrice = triggerPrice;
   if (correlationId) body.correlationId = correlationId;

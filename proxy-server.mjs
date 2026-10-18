@@ -10,7 +10,10 @@
  *      to the in-process tickBus (server-side risk engine) before the browser fan-out.
  *   4. 1Cliq trading endpoints on /api/dhan-proxy?endpoint=… (orders, portfolio, risk engine, panic
  *      layer, basket resolve; see SECTION 2b) and the generic multi-broker data proxy
- *      (/api/broker-proxy, /api/broker-test-connection; server/brokers/registry.mjs).
+ *      (/api/broker-proxy for every read capability an adapter declares, /api/broker-capabilities,
+ *      /api/broker-test-connection; server/brokers/registry.mjs + brokerProxyRoutes.mjs), plus
+ *      POST /api/broker-session-login for brokers that need a password/PIN + current TOTP code per
+ *      session (server/brokers/sessionLogin.mjs; only the returned session token leaves the proxy).
  *
  * Security defaults: binds 127.0.0.1 (PROXY_HOST to change), CORS and WebSocket Origin allowlist
  * (localhost:8080/5173/4001 plus PROXY_ALLOWED_ORIGINS), Host-header allowlist against DNS
@@ -18,6 +21,7 @@
  * or loopback callers, per-IP token bucket, strict input whitelists, upstream timeouts and
  * truncated error bodies. Trading endpoints additionally require POST + JSON for anything that
  * changes state, accept Origin-less (non-browser) callers only from loopback, and are never cached.
+ * Session login has the same POST/JSON/loopback rules, a 4 KB body cap and its own 5-per-minute limiter.
  *
  * Usage:  npm run proxy   |   npm run dev:live
  * Env:    PROXY_PORT (4002), PROXY_HOST (127.0.0.1), PROXY_ALLOWED_ORIGINS (comma list),
@@ -35,6 +39,12 @@ import { resolve, dirname, join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { WebSocketServer, WebSocket } from "ws";
 import { createBrokerRegistry } from "./server/brokers/registry.mjs";
+import { BrokerError, FORBIDDEN_SECRET_KEY } from "./server/brokers/contract.mjs";
+import {
+  BROKER_PROXY_ENDPOINTS, MARKET_TTL_MS, argsKey, capabilityMethod, describeAdapter, filterInstruments, hasBrokerData,
+  parseBrokerArgs, parseInstrumentFilter, resolveBrokerEndpoint,
+} from "./server/brokers/brokerProxyRoutes.mjs";
+import { SESSION_LOGIN_BODY_LIMIT, createLoginRateLimiter, handleSessionLogin } from "./server/brokers/sessionLogin.mjs";
 import { placeOrder as dhanPlaceOrder, getOrders as dhanGetOrders, getOrderStatus as dhanGetOrderStatus, cancelOrder as dhanCancelOrder } from "./server/lib/dhanOrders.mjs";
 import { getPositions as dhanGetPositions, getHoldings as dhanGetHoldings, getFunds as dhanGetFunds, getTrades as dhanGetTrades, modifyOrder as dhanModifyOrder } from "./server/lib/dhanPortfolio.mjs";
 import { validateOrder, recordOrder } from "./server/lib/orderGuard.mjs";
@@ -1170,13 +1180,20 @@ export async function handleTradeEndpoint(endpoint, params, creds, body) {
 // ══════════════════════════════════════════════
 // ── SECTION 2c: Generic multi-broker proxy (server/brokers/registry.mjs) ──
 // ══════════════════════════════════════════════
-// option-chain / expiry-list / ltp for whichever broker the user connected. Cache and last-good keys
-// carry a hash of the credentials (like credTag), so a caller never receives data fetched with
-// someone else's session. Dhan keeps its richer /api/dhan-proxy path.
+// Every read capability an adapter declares, for whichever broker the user connected
+// (endpoint table and input rules: server/brokers/brokerProxyRoutes.mjs):
+//   market data  — option-chain, expiry-list, ltp, quotes, depth, historical, instruments.
+//                  Cache and last-good keys carry a hash of the credentials (like credTag), so a caller
+//                  never receives data fetched with someone else's session.
+//   portfolio    — positions, holdings, funds, order-book, trade-book. Never cached, never served stale,
+//                  Origin-less callers only from loopback.
+//   orders       — place-order / modify-order / cancel-order are refused with 403 ORDER_PATH_BLOCKED on
+//                  every method: the browser order path for these brokers is blocked pending owner review
+//                  and no route mints an order gate (adapters also refuse without one, see orderGate.mjs).
+// Dhan keeps its richer /api/dhan-proxy path, which is also where 1Cliq orders go.
 
 const brokerRegistry = createBrokerRegistry();
 const BROKER_ID_RE = /^[a-z0-9]{2,20}$/;
-const BROKER_ENDPOINTS = new Set(["option-chain", "expiry-list", "ltp"]);
 
 /** Decode the base64-JSON x-broker-credentials header into a flat string map, or null. */
 export function decodeBrokerCreds(header) {
@@ -1186,7 +1203,9 @@ export function decodeBrokerCreds(header) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const out = {};
     for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === "string" && /^[A-Za-z0-9_]{1,40}$/.test(k)) out[k] = v.slice(0, 4096);
+      // Passwords, PINs and TOTP values never ride in this header (they would end up in cache keys):
+      // session-login brokers send them once, in the body of POST /api/broker-session-login.
+      if (typeof v === "string" && /^[A-Za-z0-9_]{1,40}$/.test(k) && !FORBIDDEN_SECRET_KEY.test(k)) out[k] = v.slice(0, 4096);
     }
     return Object.keys(out).length > 0 ? out : null;
   } catch {
@@ -1206,53 +1225,124 @@ function vBrokerId(v) {
   return id;
 }
 
-async function handleBrokerProxy(brokerId, params, creds) {
+/** Map an adapter failure onto the proxy's answer: 422 refusals pass through with their code. */
+function brokerFailure(brokerId, e) {
+  if (e instanceof BrokerError && e.statusCode === 422) {
+    return { status: 422, body: { status: "error", code: e.code, reason: truncate(e.message, 240) } };
+  }
+  return null;
+}
+
+async function callBrokerCapability(mod, method, capability, creds, params, symbol, expiry) {
+  switch (capability) {
+    case "expiries":
+      return mod[method](creds, symbol);
+    case "ltp":
+      return mod[method](creds, symbol);
+    case "optionChain": {
+      let exp = expiry;
+      if (!exp) {
+        try {
+          const list = await mod.fetchExpiryList(creds, symbol);
+          exp = list?.data?.[0];
+        } catch { /* some brokers default to the nearest expiry */ }
+      }
+      return mod[method](creds, symbol, exp);
+    }
+    case "instruments":
+      return filterInstruments(await mod[method](creds), parseInstrumentFilter(params));
+    default:
+      return mod[method](creds, ...parseBrokerArgs(capability, params));
+  }
+}
+
+async function handleBrokerProxy(brokerId, params, creds, { originless = false, loopback = true } = {}) {
   const endpoint = params.get("endpoint");
-  if (!BROKER_ENDPOINTS.has(endpoint)) throw new InputError("Unknown endpoint. Use: option-chain, expiry-list, ltp");
-  if (!creds) return { status: 401, body: { status: "error", reason: `No ${brokerId} credentials sent` } };
+  const route = resolveBrokerEndpoint(endpoint);
+  if (!route) throw new InputError(`Unknown endpoint. Use: ${BROKER_PROXY_ENDPOINTS.join(", ")}`);
+  if (route.kind === "order") {
+    return {
+      status: 403,
+      body: {
+        status: "error",
+        code: "ORDER_PATH_BLOCKED",
+        reason: `Orders for ${brokerId} are not available through the browser yet: this path is blocked pending review. No order was sent.`,
+      },
+    };
+  }
+  if (route.kind === "portfolio" && originless && !loopback) {
+    return { status: 403, body: { status: "error", code: "FORBIDDEN", reason: "Portfolio endpoints accept non-browser clients only from loopback" } };
+  }
   const mod = brokerRegistry.get(brokerId);
+  const method = capabilityMethod(mod, route.capability);
+  if (!method) {
+    return { status: 422, body: { status: "error", code: "CAPABILITY_UNSUPPORTED", reason: `${brokerId} does not offer ${endpoint} through its API (or it is not wired yet).` } };
+  }
+  if (!creds) return { status: 401, body: { status: "error", reason: `No ${brokerId} credentials sent` } };
+
   const symbol = vSymbol(params.get("symbol"), "NIFTY");
   const expiry = vExpiry(params.get("expiry"));
+
+  if (route.kind === "portfolio") {
+    // The user's own book: always fresh, never cached, never served stale.
+    try {
+      const result = await mod[method](creds);
+      return { status: 200, body: result ?? { status: "success", data: null } };
+    } catch (e) {
+      const refused = brokerFailure(brokerId, e);
+      if (refused) return refused;
+      return { status: 502, body: { status: "error", reason: truncate(e?.message || `${brokerId} request failed`, 240) } };
+    }
+  }
+
+  let extra;
+  try {
+    extra = argsKey(route.capability, params);
+  } catch (e) {
+    const refused = brokerFailure(brokerId, e);
+    if (refused) return refused;
+    throw e;
+  }
   const tag = brokerCredTag(creds);
-  const key = `broker:${brokerId}:${tag}:${endpoint}:${symbol}:${expiry || ""}`;
+  const key = `broker:${brokerId}:${tag}:${endpoint}:${symbol}:${expiry || ""}:${extra}`;
   const lgKey = `lastgood:${key}`;
   const hit = cache.get(key);
   if (hit) return { status: 200, body: hit };
+  const lgEligible = route.capability === "optionChain" || route.capability === "expiries" || route.capability === "ltp";
   try {
-    const result = await coalesce(key, async () => {
-      switch (endpoint) {
-        case "expiry-list":
-          return mod.fetchExpiryList(creds, symbol);
-        case "option-chain": {
-          let exp = expiry;
-          if (!exp) {
-            try {
-              const list = await mod.fetchExpiryList(creds, symbol);
-              exp = list?.data?.[0];
-            } catch { /* some brokers default to the nearest expiry */ }
-          }
-          return mod.fetchOptionChain(creds, symbol, exp);
-        }
-        default:
-          return mod.fetchLTP(creds, symbol);
-      }
-    });
-    const hasData = endpoint === "option-chain" ? !!(result?.data?.oc && Object.keys(result.data.oc).length > 0) : !!result;
-    if (hasData) {
-      cache.set(key, result, endpoint === "expiry-list" ? 300000 : 3000);
-      setLastGood(lgKey, result, brokerId);
+    const result = await coalesce(key, () => callBrokerCapability(mod, method, route.capability, creds, params, symbol, expiry));
+    // Every adapter returns the contract shapes (server/brokers/contract.mjs).
+    if (hasBrokerData(route.capability, result)) {
+      cache.set(key, result, MARKET_TTL_MS[endpoint] ?? 3000);
+      if (lgEligible) setLastGood(lgKey, result, brokerId);
       return { status: 200, body: result };
     }
-    const lg = getLastGood(lgKey);
+    const lg = lgEligible ? getLastGood(lgKey) : null;
     if (lg) return { status: 200, body: { ...lg.data, stale: true, afterHours: true, cachedAt: lg.timestamp } };
+    if (route.capability === "instruments" || route.capability === "historical" || route.capability === "quotes") {
+      return { status: 200, body: result ?? { status: "success", data: [] } };
+    }
     return { status: 502, body: { status: "error", reason: `${brokerId} returned no data` } };
   } catch (e) {
     if (e instanceof InputError) throw e;
-    const lg = getLastGood(lgKey);
+    // A refusal from the adapter (not logged in / session expired / bad input) is not an outage:
+    // answer 422 with its code so the UI can ask the user to log in, instead of serving stale data.
+    const refused = brokerFailure(brokerId, e);
+    if (refused) return refused;
+    const lg = lgEligible ? getLastGood(lgKey) : null;
     if (lg) return { status: 200, body: { ...lg.data, stale: true, afterHours: true, cachedAt: lg.timestamp, reason: truncate(e.message, 160) } };
     return { status: 502, body: { status: "error", reason: truncate(e?.message || `${brokerId} request failed`, 240) } };
   }
 }
+
+// ── Session login (/api/broker-session-login, server/brokers/sessionLogin.mjs) ──
+// POST + JSON only, 4 KB body cap, Host/Origin allowlists like every route, Origin-less callers only from
+// loopback, and its own strict per-IP+broker limiter on top of the global bucket. The body carries the
+// user's password/PIN and current TOTP code: it is never logged, never cached, never part of a cache key,
+// and only the broker's session token goes back to the browser.
+const sessionLoginLimiter = createLoginRateLimiter({ max: 5, windowMs: 60_000 });
+// Per caller across every session-login broker: stops one IP multiplying its attempts by switching broker.
+const sessionLoginIpLimiter = createLoginRateLimiter({ max: 10, windowMs: 60_000 });
 
 async function dhanHistorical({ secId, exchSeg, instrument, interval, fromDate, toDate }, creds) {
   const isDaily = interval === "D";
@@ -3121,7 +3211,9 @@ const server = http.createServer(async (req, res) => {
   const tradeEndpoint = path === "/api/dhan-proxy" ? params.get("endpoint") : null;
   const isTradePost = !!tradeEndpoint && TRADE_POST_ENDPOINTS.has(tradeEndpoint);
   const isTradeGet = !!tradeEndpoint && TRADE_GET_ENDPOINTS.has(tradeEndpoint);
-  if (req.method === "POST" && !isTradePost) return send(res, 405, { error: "Method not allowed" });
+  const isSessionLogin = path === "/api/broker-session-login";
+  if (isSessionLogin && req.method !== "POST") return send(res, 405, { error: "Method not allowed", reason: "Use POST with a JSON body" }, { Allow: "POST" });
+  if (req.method === "POST" && !isTradePost && !isSessionLogin) return send(res, 405, { error: "Method not allowed" });
   if (req.method === "GET" && isTradePost) return send(res, 405, { error: "Method not allowed", reason: "Use POST with a JSON body" }, { Allow: "POST" });
 
   try {
@@ -3143,19 +3235,40 @@ const server = http.createServer(async (req, res) => {
       const { status, body: out } = await handleTradeEndpoint(tradeEndpoint, params, creds(), body);
       return send(res, status, out);
     }
+    if (isSessionLogin) {
+      if (!origin && !isLoopbackAddress(clientIp(req))) return send(res, 403, { error: "Forbidden", reason: "Session login accepts non-browser clients only from loopback" });
+      const brokerId = vBrokerId(params.get("broker"));
+      const body = await readJsonBody(req, SESSION_LOGIN_BODY_LIMIT);
+      const out = await handleSessionLogin({ registry: brokerRegistry, brokerId, body, rateKey: clientIp(req), limiter: sessionLoginLimiter, ipLimiter: sessionLoginIpLimiter });
+      return send(res, out.status, out.body);
+    }
     if (path === "/api/dhan-proxy") {
       const { status, body } = await handleDhanProxy(params, creds());
       return send(res, status, body);
     }
+    if (path === "/api/broker-capabilities") {
+      // Static, credential-free description of what each adapter offers (no secrets, nothing per-user).
+      const one = params.get("broker");
+      if (one) return send(res, 200, describeAdapter(brokerRegistry.get(vBrokerId(one))));
+      return send(res, 200, { brokers: brokerRegistry.list().map((id) => describeAdapter(brokerRegistry.get(id))) });
+    }
     if (path === "/api/broker-proxy" || path === "/api/broker-test-connection") {
       const brokerId = vBrokerId(params.get("broker"));
       let bc = decodeBrokerCreds(req.headers["x-broker-credentials"]);
-      // Dhan through the generic path follows the same credential policy as /api/dhan-proxy.
+      // Dhan through the generic path follows the same credential policy as /api/dhan-proxy, with one
+      // tightening: the owner's portfolio (positions/holdings/funds/books) is read with the .env keys
+      // only for a browser on an allowlisted Origin (checked above), never for an Origin-less caller
+      // such as another local process or a no-cors request. Header credentials are unaffected.
       if (brokerId === "dhan") {
-        bc = bc?.clientId && bc?.accessToken ? resolveDhanCreds(bc.clientId, bc.accessToken) : creds();
+        if (bc?.clientId && bc?.accessToken) {
+          bc = resolveDhanCreds(bc.clientId, bc.accessToken);
+        } else {
+          const isPortfolio = path === "/api/broker-proxy" && resolveBrokerEndpoint(params.get("endpoint"))?.kind === "portfolio";
+          bc = isPortfolio && !origin ? null : creds();
+        }
       }
       if (path === "/api/broker-proxy") {
-        const { status, body } = await handleBrokerProxy(brokerId, params, bc);
+        const { status, body } = await handleBrokerProxy(brokerId, params, bc, { originless: !origin, loopback: isLoopbackAddress(clientIp(req)) });
         return send(res, status, body);
       }
       if (!bc) return send(res, 200, { status: "error", message: "No credentials sent" });
@@ -3206,7 +3319,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (path === "/health") return send(res, 200, healthPayload());
-    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/broker-proxy", "/api/broker-test-connection", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
+    return send(res, 404, { error: "Not found", routes: ["/api/dhan-proxy", "/api/broker-proxy", "/api/broker-test-connection", "/api/broker-capabilities", "/api/broker-session-login", "/api/nse-proxy", "/api/tv-scan", "/api/yahoo-chart", "/api/x/*", "/api/x/snapshots.csv", "/api/test-connection", "/health", "/ws"] });
   } catch (err) {
     if (err instanceof TradeError) {
       // A guard rejection (422) or a credential/body problem: machine-readable code, never a 500, so

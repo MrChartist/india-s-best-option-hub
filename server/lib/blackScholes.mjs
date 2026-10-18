@@ -8,7 +8,7 @@
  */
 
 const DAYS_PER_YEAR = 365;
-const DEFAULT_RATE = 0.065; // ~India 91-day T-bill, used as a stable risk-free proxy
+export const DEFAULT_RATE = 0.065; // ~India 91-day T-bill, used as a stable risk-free proxy
 
 function normCDF(x) {
   const sign = x < 0 ? -1 : 1;

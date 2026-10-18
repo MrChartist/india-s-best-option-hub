@@ -71,6 +71,24 @@ describe("buildOrderBody — payload shape", () => {
     expect(body.price).toBe(0);
   });
 
+  it("sends price 0 for STOP_LOSS_MARKET, whatever price was supplied", () => {
+    const body = buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS_MARKET", price: 999, triggerPrice: 95 }, LOT_SIZE);
+    expect(body.price).toBe(0);
+    expect(body.triggerPrice).toBe(95);
+    expect(buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS_MARKET", price: undefined, triggerPrice: 95 }, LOT_SIZE).price).toBe(0);
+  });
+
+  it("refuses LIMIT and STOP_LOSS without a finite positive price, and stop orders without a positive trigger", () => {
+    for (const price of [undefined, 0, -1, NaN, Infinity, "100"]) {
+      expect(() => buildOrderBody("client1", { ...baseOrder, orderType: "LIMIT", price }, LOT_SIZE), String(price)).toThrow(/price/);
+      expect(() => buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS", price, triggerPrice: 95 }, LOT_SIZE), String(price)).toThrow(/price/);
+    }
+    for (const triggerPrice of [0, -5, NaN]) {
+      expect(() => buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS", triggerPrice }, LOT_SIZE)).toThrow(/triggerPrice/);
+      expect(() => buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS_MARKET", triggerPrice }, LOT_SIZE)).toThrow(/triggerPrice/);
+    }
+  });
+
   it("includes triggerPrice for STOP_LOSS orders", () => {
     const body = buildOrderBody("client1", { ...baseOrder, orderType: "STOP_LOSS", triggerPrice: 95 }, LOT_SIZE);
     expect(body.triggerPrice).toBe(95);
@@ -87,6 +105,11 @@ describe("buildOrderBody — payload shape", () => {
   it("rejects zero or negative lots", () => {
     expect(() => buildOrderBody("client1", { ...baseOrder, lots: 0 }, LOT_SIZE)).toThrow(/lots/);
     expect(() => buildOrderBody("client1", { ...baseOrder, lots: -1 }, LOT_SIZE)).toThrow(/lots/);
+  });
+
+  it("rejects fractional lots instead of rounding them", () => {
+    expect(() => buildOrderBody("client1", { ...baseOrder, lots: 0.5 }, LOT_SIZE)).toThrow(/whole number/);
+    expect(() => buildOrderBody("client1", { ...baseOrder, lots: 1.004 }, LOT_SIZE)).toThrow(/whole number/);
   });
 
   it("rejects a missing securityId", () => {
