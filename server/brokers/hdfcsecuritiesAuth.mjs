@@ -17,10 +17,11 @@
  * fetch-ltp (docs/fetchltp): PUT /oapi/v1/fetch-ltp?api_key, body {"data":[{"exchange","token"}]},
  * response {"data":[{"prev_close","ltp","exchange","token"}], "meta":{...}}. The docs' sample only shows
  * NSE/BSE cash tokens. Derivatives and indices are addressed with the segment codes of the docs'
- * WebSocket prefix table (NFO, BFO, NSE_INDEX, BSE_INDEX); OpenAlgo reports that a derivative sent
- * under its parent exchange (NSE) is silently dropped from the answer, which is the bug the previous
- * version of this adapter had for every option leg. OpenAlgo also reports a 10-instrument cap per
- * call and BFO rows coming back with an empty "exchange"; both are handled here and need live checks.
+ * WebSocket prefix table (NFO, BFO, NSE_INDEX, BSE_INDEX); a derivative sent under its parent
+ * exchange (NSE) has been observed to be silently dropped from the answer, which is the bug the previous
+ * version of this adapter had for every option leg. A 10-instrument cap per call and BFO rows coming back
+ * with an empty "exchange" have also been observed (not in the official docs); both are handled here and
+ * need live checks.
  *
  * Never log the api key or token. The request URL carries the api key, so it is never put in an error.
  */

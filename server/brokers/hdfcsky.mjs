@@ -2,8 +2,7 @@
  * HDFC Sky Open API on the broker contract (server/brokers/contract.mjs).
  *
  * Official docs: https://developer.hdfcsky.com/sky-docs/docs/intro (every page under /sky-docs/docs/).
- * OpenAlgo was read for facts only; disagreements with the docs are noted in the module that makes
- * the call (hdfcskyClient, hdfcskyPortfolio, hdfcskyOrders, hdfcskyHistory).
+ * Where observed behaviour disagrees with the docs, it is noted in the module that makes the call (hdfcskyClient, hdfcskyPortfolio, hdfcskyOrders, hdfcskyHistory).
  *
  *  - auth: apiKeyToken (paste today's access token; the OTP step rules out a one-shot login).
  *  - instruments / expiries: the public Security Master ZIP (hdfcskyInstruments.mjs).

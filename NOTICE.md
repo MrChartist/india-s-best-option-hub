@@ -22,10 +22,6 @@ The Docker setup (`Dockerfile`, `.dockerignore` and the Docker section of the RE
 
 Option Hub depends on open-source packages (React, Vite, Tailwind CSS, Radix UI, Recharts, Lightweight Charts, TanStack Query, Workbox and others). Each keeps its own licence, which ships with the package in `node_modules`. Run `npx license-checker --summary` to list them.
 
-## References
-
-Broker API details were cross-checked against each broker's official API documentation and, as a factual reference only, the OpenAlgo project (AGPL-3.0, <https://github.com/marketcalls/openalgo>). No OpenAlgo code is included in Option Hub.
-
 ## Brand
 
 "Mr. Chartist", "Option Hub", the Mr. Chartist logo and the names of other Mr. Chartist products are brand names of Rohit Singh (Mr. Chartist). They are not licensed for use in other products.

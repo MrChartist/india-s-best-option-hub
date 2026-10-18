@@ -7,7 +7,7 @@
  *    disclosed_quantity 0, validity DAY|IOC, product CNC|MIS|NRML, order_side BUY|SELL, device "WEB", user_order_id,
  *    trigger_price, execution_type "REGULAR" } -> data.oms_order_id.
  *  - "Only LIMIT and SL (Stop Loss) orders are allowed for API trading. MARKET and SL-M orders are restricted / not
- *    allowed." (Annexure). OpenAlgo converts MARKET to a protected LIMIT; this adapter refuses MARKET instead.
+ *    allowed." (Annexure). This adapter refuses MARKET rather than converting it to a protected LIMIT.
  *  - PUT /api/v1/orders with the same fields plus oms_order_id. The order's exchange, token, side and product are read
  *    from the pending order book, never taken from the client.
  *  - DELETE /api/v1/orders/<oms_order_id> with body { oms_order_id, client_id, execution_type: "REGULAR" }.

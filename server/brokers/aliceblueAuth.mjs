@@ -13,7 +13,7 @@
  * authCode: SessionRequiredError. The legacy SHA-256 userId+apiKey handshake on ant.aliceblueonline.com/rest/
  * AliceBlueAPIService and its socket-session endpoints are not used any more.
  *
- * Header: the docs do not name the header; OpenAlgo (factual reference) and the V2 SDK send
+ * Header: the docs do not name the header; the V2 SDK sends
  * `Authorization: Bearer <userSession>`, which is what this client does (flagged for live verification).
  * Rate limits: Order API 10/s; Data API 20/s; Quote API 5/s; non-trading APIs 30/s.
  */

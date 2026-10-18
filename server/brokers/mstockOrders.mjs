@@ -5,8 +5,8 @@
  *  - Place:  /orders/regular { variety, tradingsymbol, symboltoken, exchange, transactiontype, ordertype,
  *            quantity, producttype, price, triggerprice, squareoff, stoploss, trailingStopLoss,
  *            disclosedquantity, duration, ordertag } -> data { script, orderid, uniqueorderid }.
- *            The endpoint table says GET but every cURL sample sends the body as a POST (curl --data), and
- *            OpenAlgo also POSTs; POST is used (a GET with an order body is not something to guess at).
+ *            The endpoint table says GET but every cURL sample sends the body as a POST (curl --data), so
+ *            POST is used (a GET with an order body is not something to guess at).
  *  - Modify: PUT /orders/regular/{orderid} { variety, tradingsymbol, symboltoken, exchange, transactiontype,
  *            orderid, ordertype, quantity, producttype, duration, price, triggerprice, disclosedquantity,
  *            modqty_remng }. The original order's fields are read from GET /orders first.

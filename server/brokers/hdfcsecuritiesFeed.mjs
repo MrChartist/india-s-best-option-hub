@@ -14,8 +14,8 @@
  *   scripId      <PREFIX>_<TOKEN>; prefixes NSE, NFO, NCD, NSE_INDEX, BSE, BFO, BSE_INDEX, MCX
  *   limits       InvestRight: 1500 instruments per connection; HDFC Sky: 300; both: 3 connections per key.
  * The docs do not say how the socket authenticates. The access token and api key travel on the query
- * string as `token` and `api_key` (the browser WebSocket API cannot set headers); this is the one fact
- * taken from OpenAlgo that the official docs leave out, so it needs live verification.
+ * string as `token` and `api_key` (the browser WebSocket API cannot set headers); this is observed
+ * behaviour that the official docs leave out, so it needs live verification.
  *
  * Two entry points:
  *  - createSnapshotPool(): a per-credential persistent socket used by REST-shaped calls (option chain,

@@ -3,7 +3,7 @@
  *
  * Official docs: https://groww.in/trade-api/docs/curl (introduction, auth, errors, rate limits) and its
  * pages /instruments, /orders, /portfolio, /margin, /live-data, /backtesting, /user, /annexures
- * (checked 2026-10). OpenAlgo (AGPL) was read for facts only; no code was taken from it.
+ * (checked 2026-10).
  *
  * Auth (apiKeyToken): either the daily Access Token pasted by the user, or the API key + secret pair that
  * growwAuth.mjs swaps for a token server-side (SHA-256 checksum, daily approval in Groww). Tokens expire at
@@ -18,8 +18,8 @@
  * stock options are supported; the session cache key is a SHA-256 tag, not the raw key and secret;
  * a pasted Access Token (Groww's first documented auth path) is accepted.
  *
- * OpenAlgo differences: OpenAlgo builds chains from per-symbol quotes and uses the deprecated
- * /historical/candle/range for daily bars; we follow the current official docs (option-chain endpoint,
+ * Chains use the option-chain endpoint rather than per-symbol quotes, and daily bars avoid the deprecated
+ * /historical/candle/range; we follow the current official docs (option-chain endpoint,
  * /historical/candles).
  *
  * Not declared: feed. Groww's live feed is NATS with nkey auth and protobuf payloads, which needs its own

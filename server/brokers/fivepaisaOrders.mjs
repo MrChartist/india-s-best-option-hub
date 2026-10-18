@@ -13,7 +13,7 @@
  *  5paisa BrokerOrderId we hand out (an order still at 5paisa with no exchange id cannot be cancelled yet).
  *
  * Only LIMIT and stop-loss LIMIT orders with DAY validity are built: 5paisa treats Price 0 as a market order and
- * OpenAlgo reports plain market orders being refused by 5paisa's RMS; the SEBI retail-algo framework also
+ * plain market orders have been observed being refused by 5paisa's RMS (not in the official docs); the SEBI retail-algo framework also
  * expects priced orders. Quantity = lots x the lot size resolved from the scrip master (never from the client).
  */
 

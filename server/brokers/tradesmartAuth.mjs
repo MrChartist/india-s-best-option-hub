@@ -5,8 +5,8 @@
  * every automated fetch while this was written (HTTP 403), so the facts below could NOT be re-read from
  * the official page. They come from (a) the previous version of this module, whose author cited the v2
  * docs' Quick Start; (b) Kambala's Noren OAuth SDK (NorenRestApiOAuth on PyPI — Kambala builds the OMS
- * TradeSmart runs), which documents the same GenAcsTok/Bearer contract; and (c) OpenAlgo's TradeSmart
- * adapter, as a factual cross-check only. Every point is flagged for live verification.
+ * TradeSmart runs), which documents the same GenAcsTok/Bearer contract. None of this is in the official TradeSmart
+ * docs; every point is flagged for live verification.
  *  - Login page: https://v2api.tradesmartonline.in/OAuthlogin/authorize/oauth?client_id=<app key>,
  *    redirecting with a single-use `code`.
  *  - POST https://v2api.tradesmartonline.in/NorenWClientAPIv2/GenAcsTok, text/plain body

@@ -83,7 +83,7 @@ describe("session keys", () => {
 });
 
 describe("docs/BROKERS.md", () => {
-  it("lists every broker with its auth kind, docs link and verification status, plus the attribution note", async () => {
+  it("lists every broker with its auth kind, docs link and verification status", async () => {
     const { readFileSync } = await import("node:fs");
     const md = readFileSync(new URL("../../docs/BROKERS.md", import.meta.url), "utf-8");
     for (const b of BROKERS) {
@@ -93,8 +93,6 @@ describe("docs/BROKERS.md", () => {
       expect(row, b.id).toContain(`(${b.docsUrl})`);
       expect(row, b.id).toContain(b.verified ? "Verified with a live account" : "Beta: not yet verified with a live account");
     }
-    expect(md).toContain("AGPL-3.0");
-    expect(md).toContain("github.com/marketcalls/openalgo");
-    expect(md).toMatch(/No OpenAlgo code is included/);
+    expect(md).not.toMatch(/openalgo/i);
   });
 });

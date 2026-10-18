@@ -11,8 +11,8 @@
  *    newquantityinlot, newdisclosedquantity, newgoodtilldate, lastmodifiedtime "dd-MMM-yyyy HH:mm:ss", qtytradedtoday }
  *    (lastmodifiedtime and qtytradedtoday come from the current order-book row, so it is read first)
  *  - POST /rest/trans/v2/cancelorder { uniqueorderid }
- * Products: MARGIN -> NORMAL (carry-forward), INTRADAY -> VALUEPLUS, CNC -> DELIVERY. OpenAlgo reports derivatives
- * orders being placed as NORMAL only, and the doc gives no per-segment product table, so F&O orders accept MARGIN only.
+ * Products: MARGIN -> NORMAL (carry-forward), INTRADAY -> VALUEPLUS, CNC -> DELIVERY. Derivatives orders have been
+ * observed to be placed as NORMAL only (not in the official docs), and the doc gives no per-segment product table, so F&O orders accept MARGIN only.
  * Only priced orders (LIMIT, STOPLOSS with a limit price) with DAY validity are built.
  */
 

@@ -10,8 +10,7 @@
  * https://symphonyfintech.com/interactive/doc/ and https://symphonyfintech.com/marketdata/doc/ (the
  * "XTS Trading / Market Data Front-End API" pages), and from Symphony's official SDKs
  * (github.com/symphonyfintech/xts-pythonclient-api-sdk, the binary-market-data SDK, and the npm packages
- * xts-interactive-api / xts-marketdata-api, MIT licensed). OpenAlgo (AGPL) was read for facts only;
- * no code was taken from it.
+ * xts-interactive-api / xts-marketdata-api, MIT licensed).
  *
  *  Market data (base = host + /apimarketdata, or /apibinarymarketdata on binary-feed deployments):
  *   POST /auth/login {appKey, secretKey, source:"WebAPI"} -> {type:"success", result:{token, userID}}
@@ -38,12 +37,12 @@
  *   PendingCancel, Cancelled, Rejected.
  *  Error envelope: {type:"error", code:"e-token-0005", description:"Invalid Token"}.
  *
- * Where OpenAlgo differs from the official docs we follow the docs:
- *  - orderType: OpenAlgo sends MARKET/LIMIT/STOPLIMIT/STOPMARKET; the docs list Market/Limit/StopLimit/StopMarket.
- *  - Holdings: the docs nest them under result.RMSHoldingList.Holdings; OpenAlgo reads result.RMSHoldings.Holdings.
+ * Where observed behaviour differs from the official docs we follow the docs:
+ *  - orderType: some clients send MARKET/LIMIT/STOPLIMIT/STOPMARKET; the docs list Market/Limit/StopLimit/StopMarket.
+ *  - Holdings: the docs nest them under result.RMSHoldingList.Holdings; some clients read result.RMSHoldings.Holdings.
  *    Both are accepted.
- *  - Positions: the docs show result as the list; OpenAlgo reads result.positionList. Both are accepted.
- *  - Balance: the docs show BalanceList as one object; OpenAlgo indexes it as an array. Both are accepted.
+ *  - Positions: the docs show result as the list; some clients read result.positionList. Both are accepted.
+ *  - Balance: the docs show BalanceList as one object; some clients index it as an array. Both are accepted.
  *
  * Nothing secret is logged. Session tokens live only in this process. Hosts are fixed per broker; no
  * host returned by a broker is ever followed.

@@ -3,7 +3,7 @@
  *
  * Official docs (checked October 2026): https://kite.trade/docs/connect/v3/ — user/ (login flow,
  * /session/token, /user/profile, /user/margins), market-quotes/, historical/, portfolio/, orders/,
- * websocket/, exceptions/. OpenAlgo was read for facts only; no code was taken from it.
+ * websocket/, exceptions/.
  *
  * Auth: oauthRedirect. The user logs in on kite.zerodha.com/connect/login?v=3&api_key=..., Kite
  * redirects back with a short-lived request_token, and POST /session/token (api_key, request_token,

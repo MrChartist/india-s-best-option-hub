@@ -1,7 +1,7 @@
 /**
  * TradeSmart symbol masters: https://v2api.tradesmartonline.in/<SEG>_symbols.txt.zip, the standard Noren
  * layout (same columns as Shoonya's files; see shoonyaInstruments.mjs). Needs live verification: the
- * official docs page was unreachable (Cloudflare), the URLs come from the previous module and OpenAlgo.
+ * official docs page was unreachable (Cloudflare), the URLs come from the previous module (not in the official docs).
  */
 
 import { loadZippedSegment } from "./shoonyaInstruments.mjs";

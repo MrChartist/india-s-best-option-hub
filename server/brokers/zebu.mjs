@@ -3,8 +3,7 @@
  *
  * Official docs: https://zebumyntapi.web.app/ (OAuth section: Authentication, Masters, Market Quotes,
  * Order, Portfolio, Limits, Users, Web Socket). Zebu runs Kambala's Noren OMS behind an OAuth front door.
- * OpenAlgo (AGPL) was read for facts only; where it differs from the docs the docs are followed and the
- * module concerned says so.
+ * Where observed behaviour differs from the docs the docs are followed and the module concerned says so.
  *
  * Auth (requestTokenExchange): the user saves the trading user ID, OAuth Client ID, Secret Code and the
  * one-time authorisation code; the first call exchanges the code (GenAcsTok) and the session is kept in

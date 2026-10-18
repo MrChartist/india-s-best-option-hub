@@ -11,7 +11,7 @@
  *    and no previous close.
  *  - GET https://data.definedgesecurities.com/sds/history/{exchange}/{token}/{minute|day|tick}/{DDMMYYYYHHMM}/{DDMMYYYYHHMM}
  *    -> text/csv rows "DDMMYYYYHHMM,open,high,low,close,volume[,oi]" (IST wall clock).
- *  - Rate limits are not published. Calls are paced at 10 a second per host (OpenAlgo paces the same way),
+ *  - Rate limits are not published. Calls are paced at 10 a second per host,
  *    with 429 backoff in definedgeFetch.
  * OI for the chain comes from the last 1-minute candle's OI column; IV and Greeks from this app's
  * Black-Scholes (Definedge publishes no Greeks over REST).

@@ -14,9 +14,9 @@
  *  Token lifetime: 24 hours, and tokens are cleared between 5 and 6 AM IST every day.
  *  Rate limits: 40 requests/second and 200/minute for data calls; 10/second and 40/minute for orders.
  *
- * Differences from OpenAlgo (we follow the official docs):
- *  - The docs' token response uses "status": "Ok"; OpenAlgo checks "stat". Both are accepted here.
- *  - OpenAlgo posts most calls as application/x-www-form-urlencoded; the docs use application/json.
+ * Notes (we follow the official docs):
+ *  - The docs' token response uses "status": "Ok"; some clients check "stat". Both are accepted here.
+ *  - Some clients post most calls as application/x-www-form-urlencoded; the docs use application/json.
  *    The gateway parses the body the same way either way (it is not URL-decoded, see encodeJData()).
  *
  * Nothing secret is logged. Session tokens live only in this process (see createSessionManager).

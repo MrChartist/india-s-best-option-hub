@@ -10,7 +10,7 @@
  *    re-create the session once after a token rejection; order calls never retry.
  *
  * Wisdom does not publish reachable API docs (its doc pages did not answer during this audit). The host,
- * paths and key-pair login come from OpenAlgo (facts only) and match the generic XTS docs; the routes,
+ * paths and key-pair login are not in any official Wisdom docs (observed behaviour; needs live verification) and match the generic XTS docs; the routes,
  * payloads and enums follow the official XTS documents listed in rmoneyXtsFamily.mjs. Confirm on a live
  * account before trading is enabled. Unlike the previous adapter, masters and the index list are fetched
  * with the token (the official docs require it) instead of anonymously first.

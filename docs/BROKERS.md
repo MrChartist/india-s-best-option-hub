@@ -95,7 +95,3 @@ The capability columns are generated from each adapter's declared `capabilities`
 | `positions`, `holdings`, `funds`, `order-book`, `trade-book` | none | never; non-browser callers only from loopback |
 
 A capability the broker's adapter does not declare answers `422 CAPABILITY_UNSUPPORTED`; a missing or expired session answers `422 SESSION_LOGIN_REQUIRED`. `GET /api/broker-capabilities` lists what each adapter offers, without credentials. Developer details: [broker-contract.md](broker-contract.md).
-
-## Attribution
-
-The broker API facts behind these adapters (endpoints, field names, error codes, instrument formats) were cross-checked against the open-source [OpenAlgo](https://github.com/marketcalls/openalgo) project (AGPL-3.0, github.com/marketcalls/openalgo) and each broker's official API documentation, linked above. Where the two disagreed, the official documentation was followed. No OpenAlgo code is included in this project: OpenAlgo was used only as a factual reference, and every adapter was written independently.

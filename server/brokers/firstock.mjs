@@ -4,7 +4,7 @@
  * Official docs: https://firstock.in/api/docs/ (login, downloaders, request-responses, exception-errors,
  * index-list, get-expiry, option-chain-with-greeks, get-multi-quote, time-price-regular-interval,
  * time-price-day-interval, place-order, modify-order, cancel-order, order-book, trade-book, position-book,
- * holding-details, limits). OpenAlgo (AGPL) was read for facts only.
+ * holding-details, limits).
  *
  * Auth (sessionLogin): password (sent as SHA-256) + current TOTP code -> susertoken, used as jKey
  * (firstockAuth.mjs). Market data (firstockMarket.mjs): the chain comes from /optionChainGreeks (broker

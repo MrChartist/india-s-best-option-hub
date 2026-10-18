@@ -3,8 +3,7 @@
  *
  * Official docs: https://developers.iiflcapital.com/apidocs/ (introduction, user, ordermanagement, portfolio,
  * marketdataapis, marketdatastream, annexure) and the official Postman collection
- * (github.com/IIFLCapital/IIFL-Markets-Open-API-Postman-Collection-Official-), checked 2026-10. OpenAlgo (AGPL)
- * was read for facts only; no code was taken from it.
+ * (github.com/IIFLCapital/IIFL-Markets-Open-API-Postman-Collection-Official-), checked 2026-10.
  *
  * Auth (requestTokenExchange): the user logs in on IIFL's page each day and pastes the returned authCode;
  * iiflcapitalAuth.mjs swaps it (SHA-256 checksum with the app secret) for a userSession JWT valid until midnight.

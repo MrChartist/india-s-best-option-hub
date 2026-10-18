@@ -3,7 +3,7 @@
  *
  * Official docs: https://api-docs.indstocks.com/getting-started/ and the official Postman collection it links,
  * https://documenter.getpostman.com/view/56363899/2sBY4LShyj (User & Account, Market Data, Orders, Trades &
- * Executions, Portfolio, Streaming, Error Codes), checked 2026-10. OpenAlgo (AGPL) was read for facts only.
+ * Executions, Portfolio, Streaming, Error Codes), checked 2026-10.
  *
  * Auth (sessionLogin): the user types the MPIN and the current 6-digit TOTP code; login() calls
  * POST /generate/token with the Client ID as x-api-key and keeps only { accessToken } (24 hours). A token
@@ -19,7 +19,7 @@
  * re-validated against /user/profile every 30 minutes; the MPIN + TOTP-secret auto-login (dead since the
  * proxy strips those fields) is replaced by the platform session login, so no TOTP secret is stored.
  *
- * OpenAlgo differences: OpenAlgo reads TICK_SIZE as rupees; the documented sample (5 for a Rs 0.05 option
+ * TICK_SIZE: some clients read it as rupees; the documented sample (5 for a Rs 0.05 option
  * tick) shows paise, which we follow.
  */
 

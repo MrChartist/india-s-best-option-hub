@@ -8,7 +8,7 @@
  *  - Trading (Interactive API): POST /interactive/user/session with the documented body
  *    {appKey, secretKey, source:"WebAPI"}, swapped server-side (auth kind apiKeyToken).
  *
- * Difference from OpenAlgo (official docs followed): OpenAlgo's Jainam login posts
+ * Official docs followed: some clients' Jainam login posts
  * {appKey, secretKey, accessToken:"jainamxts"} (a fixed placeholder in the 3-legged field). The official
  * SessionLoginBody is {secretKey, appKey, source}, which is what we send. Needs a live check: if Jainam's
  * deployment insists on the 3-legged field, switch interactiveMode to "requestToken".

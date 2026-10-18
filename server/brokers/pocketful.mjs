@@ -11,8 +11,8 @@
  * Portfolio (pocketfulPortfolio.mjs) and gated LIMIT/SL orders (pocketfulOrders.mjs).
  * Not declared: depth (the snapquote feed mode is not wired in v1).
  *
- * Differences from OpenAlgo (official sources followed): base URL algo.pocketful.in (OpenAlgo: trade.pocketful.in);
- * `x-authorization-token` header (OpenAlgo: Authorization: Bearer; both are sent); MARKET/SL-M are refused rather than
+ * Official sources followed: base URL algo.pocketful.in (some clients use trade.pocketful.in);
+ * `x-authorization-token` header (the historical-data guide shows Authorization: Bearer; both are sent); MARKET/SL-M are refused rather than
  * converted (the annexure forbids them over the API).
  */
 

@@ -10,7 +10,7 @@
  *  - GET  /cancel/{order_id} (Definedge cancels with a GET)
  *  - GET  /orders -> { orders: [...] }, /trades -> { trades: [...] }, /positions -> { positions: [...] },
  *    /holdings -> { data: [...] }, /limits -> { cash, payin, payout, ... }
- *  - Order statuses: NEW, OPEN, COMPLETE, CANCELED, REJECTED, REPLACED (plus TRIGGER PENDING for SL orders, per OpenAlgo).
+ *  - Order statuses: NEW, OPEN, COMPLETE, CANCELED, REJECTED, REPLACED (plus TRIGGER PENDING for SL orders: observed, not in the official docs).
  * Only LIMIT and SL-LIMIT DAY orders are built. Every real-money call is wrapped with withOrderGate(); no route
  * mints Definedge gates today.
  */

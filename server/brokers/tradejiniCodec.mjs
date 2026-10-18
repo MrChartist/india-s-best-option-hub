@@ -16,7 +16,7 @@
  * the packet type an unsigned byte (SDK decodePKT).
  *
  * One fact here is NOT from the SDK: field 45 (id 45, type i32, key "OIChngPer", divisor 100). The SDK's table leaves
- * it out, and its id, type, key name and divisor were taken from OpenAlgo (AGPL, used for facts only). It is kept so
+ * it out, and its id, type, key name and divisor are observed behaviour, not in the official docs. It is kept so
  * a packet that carries it still decodes past it, and it NEEDS LIVE VERIFICATION against a real Tradejini stream.
  */
 
@@ -74,7 +74,7 @@ const L1_SPEC = {
   42: { key: "ucl", type: "i32", scaled: true },
   43: { key: "lcl", type: "i32", scaled: true },
   44: { key: "OI", type: "u32" },
-  45: { key: "OIChngPer", type: "i32", scaled: true, fixedDivisor: 100 }, // from OpenAlgo, not the SDK: verify live
+  45: { key: "OIChngPer", type: "i32", scaled: true, fixedDivisor: 100 }, // not in the SDK or official docs: verify live
   46: { key: "ltt", type: "i32" },
   49: { key: "bidPrice", type: "i32", scaled: true },
   50: { key: "bidQty", type: "u32" },

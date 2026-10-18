@@ -7,10 +7,10 @@
  *    product C|I|M (B bracket, V cover), security_id, quantity, validity DAY|IOC|GTC|GTD, order_type,
  *    price, trigger_price, off_mkt_flag, source, order_ltp} -> {status, message, data:[{order_no}]}.
  *    order_type: "MKT - Market order ... Market orders are not supported as an explicit order type.
- *    Use LIMIT orders (LMT)." plus SL and SLM. We therefore refuse MARKET (OpenAlgo still sends MKT;
- *    we follow the docs). order_ltp "should be populated with the last traded price" for market
+ *    Use LIMIT orders (LMT)." plus SL and SLM. We therefore refuse MARKET (some clients still send
+ *    MKT; we follow the docs). order_ltp "should be populated with the last traded price" for market
  *    protection; we send the caller's ltp when given, else the limit price.
- *    source: one of W, M, N, I, R, O; "M" is used (the value OpenAlgo sends; flagged for live check).
+ *    source: one of W, M, N, I, R, O; "M" is used (the docs do not say which applies; flagged for live check).
  *  - modify-regular-order / cancel-regular-order: POST /orders/v1/modify/regular and /cancel/regular,
  *    which need order_no, serial_no, group_id and the order's ext_info "passed back unchanged" from the
  *    order book, so both read the order book first (authoritative state, never client input).

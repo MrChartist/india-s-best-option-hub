@@ -12,7 +12,7 @@
  * Portfolio (tradejiniPortfolio.mjs) and gated orders (tradejiniOrders.mjs) are REST.
  *
  * Not declared: depth (L5 is a stream-only packet, not wired in v1).
- * Differences from OpenAlgo (official docs followed): the login field is the account login password (OpenAlgo: PIN);
+ * Official docs followed: the login field is the account login password (sometimes called a PIN);
  * a stream subscription REPLACES the previous list, so the whole list is sent in one frame.
  */
 

@@ -13,8 +13,8 @@
  *    ask: [...], ltp, ltq, volume } } (paise; no OHLC or OI).
  *  - market-data/historical-market-data.html: POST /charts/timeseries { query: [{ exchange, type: STOCK|INDEX|OPT|FUT,
  *    values: [symbol], fields, startDate, endDate (ISO UTC), interval: 1m|3m|5m|15m|30m|1h|1d|..., intraDay, realTime }] }
- *    -> result[].values[].{symbol}.{field}: [{ ts (ns), v }]. Intraday history covers 3 months. OpenAlgo notes
- *    that INDEX rejects tick_volume, so index candles carry volume 0.
+ *    -> result[].values[].{symbol}.{field}: [{ ts (ns), v }]. Intraday history covers 3 months. INDEX has been
+ *    observed to reject tick_volume (not in the official docs: needs live verification), so index candles carry volume 0.
  *  - RateLimits.html: historical/REST market data 60 requests a minute.
  */
 

@@ -7,7 +7,7 @@
  *   0 Exchange(segment) 1 Token 2 Symbol 3 TradingSymbol 4 InstrumentType 5 Expiry(DDMMYYYY) 6 TickSize
  *   7 LotSize 8 OptionType 9 Strike 10 PricePrecision 11 Multiplier 12 ISIN 13 PriceMult 14 Company
  * Strike in rupees = Strike / (Multiplier * 10^PricePrecision) (pyintegrate). TickSize is in paise
- * (OpenAlgo divides by 100; pyintegrate leaves it raw), converted here as TickSize / 10^PricePrecision.
+ * (some clients divide by 100; pyintegrate leaves it raw), converted here as TickSize / 10^PricePrecision.
  * Segment codes: NSE, BSE, NFO, BFO, CDS, MCX. Instrument types: OPTIDX, OPTSTK, FUTIDX, FUTSTK, EQ, ...
  *
  * Index spot tokens are the exchanges' own index tokens (Nifty 50 26000, Nifty Bank 26009, Nifty Fin Service

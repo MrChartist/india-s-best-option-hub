@@ -18,7 +18,7 @@
  *
  * Order status: mapped from the "Order Status Types" table at https://api-docs.indstocks.com/normal_orders/ (15
  * values, kept in the page's order). Also accepted: PARTIALLY_EXECUTED (order-update feed docs), CREATED (glossary)
- * and REJECTED, the one value not in the official docs (source: OpenAlgo's observed statuses). Unknown values map to
+ * and REJECTED, the one value not in the official docs (observed status; needs live verification). Unknown values map to
  * UNKNOWN, never to a guess.
  */
 
@@ -68,7 +68,7 @@ const STATUS_MAP = new Map([
   ["PARTIALLY FILLED", "PARTIALLY_FILLED"],
   ["PARTIALLY FILLED - CANCELLED", "CANCELLED"],
   ["PARTIALLY FILLED - EXPIRED", "EXPIRED"],
-  // Outside that table: the order-update feed's spelling, the glossary's CREATED, and REJECTED (OpenAlgo only).
+  // Outside that table: the order-update feed's spelling, the glossary's CREATED, and REJECTED (observed, not in the official docs).
   ["PARTIALLY_EXECUTED", "PARTIALLY_FILLED"],
   ["CREATED", "OPEN"],
   ["REJECTED", "REJECTED"],

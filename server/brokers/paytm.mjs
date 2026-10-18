@@ -1,8 +1,8 @@
 /**
  * Paytm Money Open API on the broker contract (server/brokers/contract.mjs).
  *
- * Official docs: https://developer.paytmmoney.com/docs/api/ (slugs cited in each module). OpenAlgo was
- * read for facts only; where it disagrees with the docs we follow the docs (see paytmOrders.mjs).
+ * Official docs: https://developer.paytmmoney.com/docs/api/ (slugs cited in each module). Where
+ * observed behaviour disagrees with the docs we follow the docs (see paytmOrders.mjs).
  *
  *  - auth: apiKeyToken. The user runs the merchant-login redirect, exchanges the request_token at
  *    /accounts/v2/gettoken and pastes the access_token (valid until midnight). apiKey/apiSecret are kept
