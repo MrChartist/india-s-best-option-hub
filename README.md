@@ -18,7 +18,7 @@ Option chain, OI, max pain, GEX, volatility, flow, strategy builder, optimizer, 
 [![Made for India](https://img.shields.io/badge/Made_for-NSE_%26_BSE-e8642c.svg)](#built-for-indian-markets)
 [![Stars](https://img.shields.io/github/stars/MrChartist/india-s-best-option-hub?style=flat&color=111111)](https://github.com/MrChartist/india-s-best-option-hub/stargazers)
 
-[**Quick start**](#quick-start) · [**Feature tour**](#feature-tour) · [**Screenshots**](#screenshots) · [**Data sources**](#data-sources) · [**Licence**](#licence) · [**More from Mr. Chartist**](#more-from-mr-chartist)
+[**Quick start**](#quick-start) · [**Feature tour**](#feature-tour) · [**Screenshots**](#screenshots) · [**Full gallery**](docs/screenshots/README.md) · [**41 brokers**](docs/BROKERS.md) · [**Data sources**](#data-sources) · [**Licence**](#licence) · [**More from Mr. Chartist**](#more-from-mr-chartist)
 
 <br>
 
@@ -79,77 +79,201 @@ Broker Settings lists **41 Indian brokers** (Dhan, Zerodha, Upstox, Angel One, F
 
 ## Screenshots
 
-All screenshots were taken in **sample-data mode** (no data feed connected), which is exactly what you see on first run. Live numbers replace them once the local proxy is running.
+All screenshots were taken in **sample-data mode** (no data feed connected), which is exactly what you see on first run. Live numbers replace them once the local proxy is running. Every page is shown in dark mode below; open the sections underneath for light mode, phone views and the [**full screenshot gallery**](docs/screenshots/README.md) (88 images with sizes, plus a [`manifest.json`](docs/screenshots/manifest.json)).
+
+### Markets
+
+| Dashboard | Watchlist |
+|---|---|
+| <img src="docs/screenshots/dashboard-dark.webp" alt="Dashboard, dark mode"> | <img src="docs/screenshots/watchlist-dark.webp" alt="Watchlist, dark mode"> |
+| **Events Calendar** | |
+| <img src="docs/screenshots/events-calendar-dark.webp" alt="Events Calendar, dark mode"> | |
 
 ### Chain & OI
 
 | Option Chain | OI Analysis |
 |---|---|
-| <img src="docs/screenshots/option-chain-dark.webp" alt="Option chain with Greeks and OI build-up"> | <img src="docs/screenshots/oi-analysis-dark.webp" alt="OI analysis"> |
+| <img src="docs/screenshots/option-chain-dark.webp" alt="Option Chain, dark mode"> | <img src="docs/screenshots/oi-analysis-dark.webp" alt="OI Analysis, dark mode"> |
 | **Max Pain & PCR** | **F&O Screener** |
-| <img src="docs/screenshots/max-pain-pcr-dark.webp" alt="Max pain curve and PCR"> | <img src="docs/screenshots/fno-screener-dark.webp" alt="F&O screener"> |
+| <img src="docs/screenshots/max-pain-pcr-dark.webp" alt="Max Pain & PCR, dark mode"> | <img src="docs/screenshots/fno-screener-dark.webp" alt="F&O Screener, dark mode"> |
 | **Expiry Day (0DTE)** | **Straddles** |
-| <img src="docs/screenshots/expiry-day-dark.webp" alt="Expiry day command centre"> | <img src="docs/screenshots/straddles-dark.webp" alt="Straddle premium charts"> |
+| <img src="docs/screenshots/expiry-day-dark.webp" alt="Expiry Day (0DTE), dark mode"> | <img src="docs/screenshots/straddles-dark.webp" alt="Straddles, dark mode"> |
+| **Contract page** | **Option chain by strike** |
+| <img src="docs/screenshots/contract-dark.webp" alt="Contract page, dark mode"> | <img src="docs/screenshots/feature-option-chain-by-strike-dark.webp" alt="Option chain by strike, dark mode"> |
 
 ### Volatility and positioning
 
 | Volatility | Gamma Exposure |
 |---|---|
-| <img src="docs/screenshots/volatility-dark.webp" alt="IV smile and volatility analytics"> | <img src="docs/screenshots/gamma-exposure-dark.webp" alt="GEX profile with walls and flip"> |
+| <img src="docs/screenshots/volatility-dark.webp" alt="Volatility, dark mode"> | <img src="docs/screenshots/gamma-exposure-dark.webp" alt="Gamma Exposure, dark mode"> |
 | **Options Flow** | **FII / DII Positioning** |
-| <img src="docs/screenshots/options-flow-dark.webp" alt="Derived options flow tape"> | <img src="docs/screenshots/fii-dii-positioning-dark.webp" alt="Participant-wise OI"> |
-| **Futures & Rollover** | **Events Calendar** |
-| <img src="docs/screenshots/futures-rollover-dark.webp" alt="Futures basis and rollover"> | <img src="docs/screenshots/events-calendar-dark.webp" alt="Events calendar"> |
+| <img src="docs/screenshots/options-flow-dark.webp" alt="Options Flow, dark mode"> | <img src="docs/screenshots/fii-dii-positioning-dark.webp" alt="FII / DII Positioning, dark mode"> |
+| **Futures & Rollover** | |
+| <img src="docs/screenshots/futures-rollover-dark.webp" alt="Futures & Rollover, dark mode"> | |
 
 ### Strategy
 
-| Strategy Builder | Optimizer |
+| Strategy Builder | Template applied (Bull Call Spread) |
 |---|---|
-| <img src="docs/screenshots/strategy-builder-dark.webp" alt="Strategy builder payoff chart"> | <img src="docs/screenshots/optimizer-dark.webp" alt="Strategy optimizer"> |
-| **Backtester** | **Calculators** |
-| <img src="docs/screenshots/backtester-dark.webp" alt="Backtester"> | <img src="docs/screenshots/calculators-dark.webp" alt="Charges and margin calculators"> |
+| <img src="docs/screenshots/strategy-builder-dark.webp" alt="Strategy Builder, dark mode"> | <img src="docs/screenshots/feature-strategy-template-dark.webp" alt="Template applied (Bull Call Spread), dark mode"> |
+| **Optimizer** | **Backtester** |
+| <img src="docs/screenshots/optimizer-dark.webp" alt="Optimizer, dark mode"> | <img src="docs/screenshots/backtester-dark.webp" alt="Backtester, dark mode"> |
+| **Calculators** | |
+| <img src="docs/screenshots/calculators-dark.webp" alt="Calculators, dark mode"> | |
 
-### Portfolio and learning
+### Trade (beta)
+
+| 1Cliq Trade | Orders |
+|---|---|
+| <img src="docs/screenshots/one-cliq-dark.webp" alt="1Cliq Trade, dark mode"> | <img src="docs/screenshots/orders-dark.webp" alt="Orders, dark mode"> |
+
+### Portfolio
 
 | Positions | Paper Trading |
 |---|---|
-| <img src="docs/screenshots/positions-dark.webp" alt="Position tracker"> | <img src="docs/screenshots/paper-trading-dark.webp" alt="Paper trading"> |
+| <img src="docs/screenshots/positions-dark.webp" alt="Positions, dark mode"> | <img src="docs/screenshots/paper-trading-dark.webp" alt="Paper Trading, dark mode"> |
 | **Trade Journal** | **Alerts** |
-| <img src="docs/screenshots/trade-journal-dark.webp" alt="Trade journal"> | <img src="docs/screenshots/alerts-dark.webp" alt="Alerts centre"> |
-| **Learn (with NISMExams.com)** | **Watchlist** |
-| <img src="docs/screenshots/learn-dark.webp" alt="Learn hub"> | <img src="docs/screenshots/watchlist-dark.webp" alt="Watchlist"> |
+| <img src="docs/screenshots/trade-journal-dark.webp" alt="Trade Journal, dark mode"> | <img src="docs/screenshots/alerts-dark.webp" alt="Alerts, dark mode"> |
+
+### Learn and ecosystem
+
+| Learn (with NISMExams.com) | A lesson |
+|---|---|
+| <img src="docs/screenshots/learn-dark.webp" alt="Learn (with NISMExams.com), dark mode"> | <img src="docs/screenshots/learn-lesson-dark.webp" alt="A lesson, dark mode"> |
+| **More from Mr. Chartist** | |
+| <img src="docs/screenshots/ecosystem-dark.webp" alt="More from Mr. Chartist, dark mode"> | |
+
+### Settings and 41 brokers
+
+| Broker Settings | 41-broker capability matrix |
+|---|---|
+| <img src="docs/screenshots/broker-settings-dark.webp" alt="Broker Settings, dark mode"> | <img src="docs/screenshots/feature-broker-directory-dark.webp" alt="41-broker capability matrix, dark mode"> |
+| **Session login (PIN + TOTP, never saved)** | |
+| <img src="docs/screenshots/feature-session-login-dark.webp" alt="Session login (PIN + TOTP, never saved), dark mode"> | |
+
+### Everyday features
+
+| Command palette (Ctrl K) | Keyboard shortcuts (?) |
+|---|---|
+| <img src="docs/screenshots/feature-command-palette-dark.webp" alt="Command palette (Ctrl K), dark mode"> | <img src="docs/screenshots/feature-keyboard-shortcuts-dark.webp" alt="Keyboard shortcuts (?), dark mode"> |
+| **Collapsed sidebar** | **Page not found** |
+| <img src="docs/screenshots/feature-collapsed-sidebar-dark.webp" alt="Collapsed sidebar, dark mode"> | <img src="docs/screenshots/feature-not-found-dark.webp" alt="Page not found, dark mode"> |
 
 <details>
-<summary><strong>Light mode</strong> (click to open)</summary>
+<summary><strong>Light mode, every page</strong> (click to open)</summary>
 
 <br>
 
-| Dashboard | Option Chain |
-|---|---|
-| <img src="docs/screenshots/dashboard-light.webp" alt="Dashboard, light mode"> | <img src="docs/screenshots/option-chain-light.webp" alt="Option chain, light mode"> |
-| **Strategy Builder** | **Gamma Exposure** |
-| <img src="docs/screenshots/strategy-builder-light.webp" alt="Strategy builder, light mode"> | <img src="docs/screenshots/gamma-exposure-light.webp" alt="Gamma exposure, light mode"> |
-| **Volatility** | **Max Pain & PCR** |
-| <img src="docs/screenshots/volatility-light.webp" alt="Volatility, light mode"> | <img src="docs/screenshots/max-pain-pcr-light.webp" alt="Max pain, light mode"> |
-| **F&O Screener** | **Calculators** |
-| <img src="docs/screenshots/fno-screener-light.webp" alt="Screener, light mode"> | <img src="docs/screenshots/calculators-light.webp" alt="Calculators, light mode"> |
-| **Learn** | **Mr. Chartist ecosystem** |
-| <img src="docs/screenshots/learn-light.webp" alt="Learn hub, light mode"> | <img src="docs/screenshots/ecosystem-light.webp" alt="Ecosystem page, light mode"> |
+#### Markets
 
-Every page has a light version in [`docs/screenshots/`](docs/screenshots).
+| Dashboard | Watchlist |
+|---|---|
+| <img src="docs/screenshots/dashboard-light.webp" alt="Dashboard, light mode"> | <img src="docs/screenshots/watchlist-light.webp" alt="Watchlist, light mode"> |
+| **Events Calendar** | |
+| <img src="docs/screenshots/events-calendar-light.webp" alt="Events Calendar, light mode"> | |
+
+#### Chain & OI
+
+| Option Chain | OI Analysis |
+|---|---|
+| <img src="docs/screenshots/option-chain-light.webp" alt="Option Chain, light mode"> | <img src="docs/screenshots/oi-analysis-light.webp" alt="OI Analysis, light mode"> |
+| **Max Pain & PCR** | **F&O Screener** |
+| <img src="docs/screenshots/max-pain-pcr-light.webp" alt="Max Pain & PCR, light mode"> | <img src="docs/screenshots/fno-screener-light.webp" alt="F&O Screener, light mode"> |
+| **Expiry Day (0DTE)** | **Straddles** |
+| <img src="docs/screenshots/expiry-day-light.webp" alt="Expiry Day (0DTE), light mode"> | <img src="docs/screenshots/straddles-light.webp" alt="Straddles, light mode"> |
+| **Contract page** | **Option chain by strike** |
+| <img src="docs/screenshots/contract-light.webp" alt="Contract page, light mode"> | <img src="docs/screenshots/feature-option-chain-by-strike-light.webp" alt="Option chain by strike, light mode"> |
+
+#### Volatility and positioning
+
+| Volatility | Gamma Exposure |
+|---|---|
+| <img src="docs/screenshots/volatility-light.webp" alt="Volatility, light mode"> | <img src="docs/screenshots/gamma-exposure-light.webp" alt="Gamma Exposure, light mode"> |
+| **Options Flow** | **FII / DII Positioning** |
+| <img src="docs/screenshots/options-flow-light.webp" alt="Options Flow, light mode"> | <img src="docs/screenshots/fii-dii-positioning-light.webp" alt="FII / DII Positioning, light mode"> |
+| **Futures & Rollover** | |
+| <img src="docs/screenshots/futures-rollover-light.webp" alt="Futures & Rollover, light mode"> | |
+
+#### Strategy
+
+| Strategy Builder | Template applied (Bull Call Spread) |
+|---|---|
+| <img src="docs/screenshots/strategy-builder-light.webp" alt="Strategy Builder, light mode"> | <img src="docs/screenshots/feature-strategy-template-light.webp" alt="Template applied (Bull Call Spread), light mode"> |
+| **Optimizer** | **Backtester** |
+| <img src="docs/screenshots/optimizer-light.webp" alt="Optimizer, light mode"> | <img src="docs/screenshots/backtester-light.webp" alt="Backtester, light mode"> |
+| **Calculators** | |
+| <img src="docs/screenshots/calculators-light.webp" alt="Calculators, light mode"> | |
+
+#### Trade (beta)
+
+| 1Cliq Trade | Orders |
+|---|---|
+| <img src="docs/screenshots/one-cliq-light.webp" alt="1Cliq Trade, light mode"> | <img src="docs/screenshots/orders-light.webp" alt="Orders, light mode"> |
+
+#### Portfolio
+
+| Positions | Paper Trading |
+|---|---|
+| <img src="docs/screenshots/positions-light.webp" alt="Positions, light mode"> | <img src="docs/screenshots/paper-trading-light.webp" alt="Paper Trading, light mode"> |
+| **Trade Journal** | **Alerts** |
+| <img src="docs/screenshots/trade-journal-light.webp" alt="Trade Journal, light mode"> | <img src="docs/screenshots/alerts-light.webp" alt="Alerts, light mode"> |
+
+#### Learn and ecosystem
+
+| Learn (with NISMExams.com) | A lesson |
+|---|---|
+| <img src="docs/screenshots/learn-light.webp" alt="Learn (with NISMExams.com), light mode"> | <img src="docs/screenshots/learn-lesson-light.webp" alt="A lesson, light mode"> |
+| **More from Mr. Chartist** | |
+| <img src="docs/screenshots/ecosystem-light.webp" alt="More from Mr. Chartist, light mode"> | |
+
+#### Settings and 41 brokers
+
+| Broker Settings | 41-broker capability matrix |
+|---|---|
+| <img src="docs/screenshots/broker-settings-light.webp" alt="Broker Settings, light mode"> | <img src="docs/screenshots/feature-broker-directory-light.webp" alt="41-broker capability matrix, light mode"> |
+| **Session login (PIN + TOTP, never saved)** | |
+| <img src="docs/screenshots/feature-session-login-light.webp" alt="Session login (PIN + TOTP, never saved), light mode"> | |
+
+#### Everyday features
+
+| Command palette (Ctrl K) | Keyboard shortcuts (?) |
+|---|---|
+| <img src="docs/screenshots/feature-command-palette-light.webp" alt="Command palette (Ctrl K), light mode"> | <img src="docs/screenshots/feature-keyboard-shortcuts-light.webp" alt="Keyboard shortcuts (?), light mode"> |
+| **Collapsed sidebar** | **Page not found** |
+| <img src="docs/screenshots/feature-collapsed-sidebar-light.webp" alt="Collapsed sidebar, light mode"> | <img src="docs/screenshots/feature-not-found-light.webp" alt="Page not found, light mode"> |
 
 </details>
 
 <details>
-<summary><strong>Mobile</strong> (click to open)</summary>
+<summary><strong>Phone, dark mode</strong> (click to open)</summary>
 
 <br>
 
 <p align="center">
-  <img src="docs/screenshots/mobile-dashboard-dark.webp" alt="Dashboard on a phone" width="24%">
-  <img src="docs/screenshots/mobile-option-chain-light.webp" alt="Option chain on a phone" width="24%">
-  <img src="docs/screenshots/mobile-strategy-builder-dark.webp" alt="Strategy builder on a phone" width="24%">
-  <img src="docs/screenshots/mobile-gamma-exposure-light.webp" alt="Gamma exposure on a phone" width="24%">
+  <img src="docs/screenshots/mobile-dashboard-dark.webp" alt="Dashboard on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-option-chain-dark.webp" alt="Option Chain on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-strategy-builder-dark.webp" alt="Strategy Builder on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-gamma-exposure-dark.webp" alt="Gamma Exposure on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-broker-settings-dark.webp" alt="Broker Settings on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-one-cliq-dark.webp" alt="1Cliq Trade on a phone, dark mode" width="24%">
+  <img src="docs/screenshots/mobile-learn-dark.webp" alt="Learn on a phone, dark mode" width="24%">
+</p>
+
+</details>
+
+<details>
+<summary><strong>Phone, light mode</strong> (click to open)</summary>
+
+<br>
+
+<p align="center">
+  <img src="docs/screenshots/mobile-dashboard-light.webp" alt="Dashboard on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-option-chain-light.webp" alt="Option Chain on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-strategy-builder-light.webp" alt="Strategy Builder on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-gamma-exposure-light.webp" alt="Gamma Exposure on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-broker-settings-light.webp" alt="Broker Settings on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-one-cliq-light.webp" alt="1Cliq Trade on a phone, light mode" width="24%">
+  <img src="docs/screenshots/mobile-learn-light.webp" alt="Learn on a phone, light mode" width="24%">
 </p>
 
 </details>
