@@ -21,7 +21,7 @@ export default defineConfig({
   resolve: { alias },
   test: {
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/test/setup.ts", "./src/test/pinDate.ts"],
     projects: [
       {
         extends: true,
