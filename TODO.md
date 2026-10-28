@@ -18,6 +18,7 @@ Work on branch `claude/ipo-decode-redesign`, then merge into `main` with a pull 
 ## 1 · Foundation (finish before any page work)
 
 ### Design system
+
 - [ ] Port IPO Decode's "Liquid Glass" tokens: iOS system colours, materials, shadows, radii (cards 28 px, tiles
       16 px, controls fully round), warm paper (light) / warm charcoal (dark) canvas with the faint brand-symbol
       backdrop.
@@ -28,6 +29,7 @@ Work on branch `claude/ipo-decode-redesign`, then merge into `main` with a pull 
 - [ ] Keep the colour-blind palette working on the new tokens.
 
 ### Shell
+
 - [ ] Desktop (≥ 1024 px): floating glass sidebar with grouped pages, ⌘K search, appearance switch.
 - [ ] Phones and tablets (< 1024 px): floating glass bottom tab bar (Dashboard, Option Chain, Futures, Strategy, More)
       and a More sheet listing every other page by group.
@@ -38,6 +40,7 @@ Work on branch `claude/ipo-decode-redesign`, then merge into `main` with a pull 
 - [ ] 44 px touch targets, safe-area insets, scroll-edge veil.
 
 ### Shared components (`src/components/ios/`)
+
 - [ ] Layout: Card, CardHeader (tinted icon tile), List/Row, PageHeader (eyebrow, large title, subtitle, actions;
       one h1), numbered SectionEyebrow, Metric.
 - [ ] Pills and badges: StatusPill; DeltaPill (▲/▼ plus colour, `--` when missing); SourceBadge (Live / Delayed /
@@ -50,11 +53,13 @@ Work on branch `claude/ipo-decode-redesign`, then merge into `main` with a pull 
 - [ ] Write `docs/DESIGN.md` explaining how to use all of it.
 
 ### Numbers
+
 - [ ] One formatter following IPO Decode's rule: no grouping commas (24250.00), fixed decimals per column, `--` for
       missing values, tabular figures.
 - [ ] Keep lakh/crore compaction (1.31L, 2.4Cr) for large OI and volume counts.
 
 ### Remove clutter everywhere
+
 - [ ] "New" and "Beta" badges in navigation (keep one quiet "Beta" only on 1Cliq live trading).
 - [ ] Developer text in banners (for example `VITE_DATA_MODE=sample`); the sample notice becomes one calm line.
 - [ ] Repeated "Sample" tags on every tile.
@@ -75,6 +80,7 @@ Work on branch `claude/ipo-decode-redesign`, then merge into `main` with a pull 
 Four areas, each owning its own folders; they can run in parallel once the foundation is done.
 
 ### A · Option chain (the flagship)
+
 - [ ] Option Chain: essential columns by default, column picker for Greeks, OI change, IV and build-up; clear ATM /
       spot / max-pain markers; strike inspector as a sheet; on phones a compact readable calls-and-puts layout instead
       of a squeezed table; basket hand-off to Strategy Builder and Paper Trading kept.
@@ -83,6 +89,7 @@ Four areas, each owning its own folders; they can run in parallel once the found
 - [ ] Straddles
 
 ### B · Analytics
+
 - [ ] OI Analysis
 - [ ] Max Pain & PCR
 - [ ] F&O Screener
@@ -92,6 +99,7 @@ Four areas, each owning its own folders; they can run in parallel once the found
 - [ ] Volatility
 
 ### C · Futures and markets
+
 - [ ] Dashboard
 - [ ] Watchlist
 - [ ] Events
@@ -105,6 +113,7 @@ Four areas, each owning its own folders; they can run in parallel once the found
   - Every new figure comes from the existing data layer or sample data, labelled honestly.
 
 ### D · Strategy, trading and the rest
+
 - [ ] Strategy Builder
 - [ ] Optimizer
 - [ ] Backtester
@@ -120,6 +129,7 @@ Four areas, each owning its own folders; they can run in parallel once the found
 - [ ] Ecosystem
 
 ### For every area
+
 - [ ] Compare with leading Indian tools (Sensibull, Opstra, Quantsapp) and add missing option and futures features
       where the app's data supports them.
 - [ ] Never present made-up numbers as live data; keep the Live / Delayed / Sample honesty.
